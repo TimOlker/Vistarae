@@ -12,71 +12,71 @@
 
 ## 1. Spatial Index Expressions & PostGIS Casting Quality
 
-- [ ] CHK001 Are the composite functional GiST index expressions on `(user_id, (geom::geometry))` explicitly documented to prevent un-indexed table scans during 2D bounding box queries? [Completeness, Spec §REQ-GEO-003, Constitution §Operational.2]
-- [ ] CHK002 Is the distinction between planar operations (`geom::geometry && ST_MakeEnvelope`) and geodesic operations (`ST_DWithin` on `geography`) unambiguously separated in query specifications? [Clarity, Spec §Clarifications, §REQ-POI-009, §REQ-GEO-002]
-- [ ] CHK003 Are the SRID requirements for point geometry and geography construction explicitly mandated as EPSG 4326? [Consistency, Spec §REQ-GEO-001, §REQ-POI-001]
-- [ ] CHK004 Does the specification define whether the composite GiST indexes (`idx_pois_user_geom`, `idx_pois_user_geom_geometry`) require the `btree_gist` PostgreSQL extension for multi-column indexing with `user_id`? [Completeness, Spec §Assumptions, §REQ-GEO-002]
-- [ ] CHK005 Is the units specification for `ST_DWithin` clearly quantified in meters, including the conversion factor (`miles * 1609.344`) when user input is given in miles? [Clarity, Spec §REQ-POI-017, §REQ-POI-018, Constitution §Operational.2]
-- [ ] CHK006 Are index requirements for regional boundary polygons (`region_geom MultiPolygon`) documented, or is the omission of a dedicated spatial index on `region_geom` explicitly justified? [Gap, Spec §REQ-POI-001, §REQ-GEO-001]
+- [x] CHK001 Are the composite functional GiST index expressions on `(user_id, (geom::geometry))` explicitly documented to prevent un-indexed table scans during 2D bounding box queries? [Completeness, Spec §REQ-GEO-003, Constitution §Operational.2]
+- [x] CHK002 Is the distinction between planar operations (`geom::geometry && ST_MakeEnvelope`) and geodesic operations (`ST_DWithin` on `geography`) unambiguously separated in query specifications? [Clarity, Spec §Clarifications, §REQ-POI-009, §REQ-GEO-002]
+- [x] CHK003 Are the SRID requirements for point geometry and geography construction explicitly mandated as EPSG 4326? [Consistency, Spec §REQ-GEO-001, §REQ-POI-001]
+- [x] CHK004 Does the specification define whether the composite GiST indexes (`idx_pois_user_geom`, `idx_pois_user_geom_geometry`) require the `btree_gist` PostgreSQL extension for multi-column indexing with `user_id`? [Completeness, Spec §Assumptions, §REQ-GEO-002]
+- [x] CHK005 Is the units specification for `ST_DWithin` clearly quantified in meters, including the conversion factor (`miles * 1609.344`) when user input is given in miles? [Clarity, Spec §REQ-POI-017, §REQ-POI-018, Constitution §Operational.2]
+- [x] CHK006 Are index requirements for regional boundary polygons (`region_geom MultiPolygon`) documented, or is the omission of a dedicated spatial index on `region_geom` explicitly justified? [Gap, Spec §REQ-POI-001, §REQ-GEO-001]
 
 ---
 
 ## 2. Coordinate Integrity & WGS-84 Canonical Storage
 
-- [ ] CHK007 Does the specification explicitly mandate that all stored point coordinates remain unshifted in canonical WGS-84 coordinate space within PostgreSQL? [Completeness, Spec §REQ-GEO-015, Constitution §Operational.2]
-- [ ] CHK008 Are the geographic bounding coordinates defining the China territory (`73.66°E <= lon <= 135.05°E`, `18.16°N <= lat <= 53.55°N`) quantitatively specified with exact decimal precision? [Clarity, Spec §REQ-GEO-015, §Edge Cases]
-- [ ] CHK009 Is the separation of concerns between backend canonical storage and frontend client-side coordinate transformation (GCJ-02/BD-09) strictly bounded? [Consistency, Spec §REQ-GEO-015, Constitution §Operational.2]
-- [ ] CHK010 Are antimeridian crossing requirements (where `minLng > maxLng` across +/-180° longitude) explicitly specified with a dual-polygon or `ST_Collect` splitting algorithm? [Edge Cases, Spec §Edge Cases, §REQ-POI-008]
-- [ ] CHK011 Are coordinate validation boundaries for latitude `[-90.0, 90.0]` and longitude `[-180.0, 180.0]` defined with specific RFC 7807 422 error response behavior? [Completeness, Spec §Edge Cases]
+- [x] CHK007 Does the specification explicitly mandate that all stored point coordinates remain unshifted in canonical WGS-84 coordinate space within PostgreSQL? [Completeness, Spec §REQ-GEO-015, Constitution §Operational.2]
+- [x] CHK008 Are the geographic bounding coordinates defining the China territory (`73.66°E <= lon <= 135.05°E`, `18.16°N <= lat <= 53.55°N`) quantitatively specified with exact decimal precision? [Clarity, Spec §REQ-GEO-015, §Edge Cases]
+- [x] CHK009 Is the separation of concerns between backend canonical storage and frontend client-side coordinate transformation (GCJ-02/BD-09) strictly bounded? [Consistency, Spec §REQ-GEO-015, Constitution §Operational.2]
+- [x] CHK010 Are antimeridian crossing requirements (where `minLng > maxLng` across +/-180° longitude) explicitly specified with a dual-polygon or `ST_Collect` splitting algorithm? [Edge Cases, Spec §Edge Cases, §REQ-POI-008]
+- [x] CHK011 Are coordinate validation boundaries for latitude `[-90.0, 90.0]` and longitude `[-180.0, 180.0]` defined with specific RFC 7807 422 error response behavior? [Completeness, Spec §Edge Cases]
 
 ---
 
 ## 3. Deduplication & Interactive Merge Requirements Quality
 
-- [ ] CHK012 Is the trigram name similarity threshold quantified with a specific cut-off score (`>= 0.60`) backed by `pg_trgm`? [Clarity, Spec §REQ-POI-017, Success Criteria §SC-003]
-- [ ] CHK013 Are the geodesic proximity search radii explicitly quantified for distinct site classifications (80,467m / 50mi for macro sites vs 805m / 0.5mi for urban sites)? [Completeness, Spec §REQ-POI-018]
-- [ ] CHK014 Are the attribute resolution mechanics of `POST /api/pois/merge` unambiguously defined regarding which record is deleted and which record is retained? [Clarity, Spec §REQ-POI-019, User Story 2]
-- [ ] CHK015 Does the specification define atomic list and tag re-association rules during a merge (unioning without duplicate keys or exceeding 30-tag limit)? [Consistency, Spec §REQ-POI-013, §REQ-POI-019]
-- [ ] CHK016 Are cascade re-parenting requirements for subordinate child POIs (`parent_poi_id`) explicitly detailed when the parent POI is merged? [Completeness, Spec §Clarifications, §REQ-POI-019]
-- [ ] CHK017 Is the cycle prevention rule for hierarchical re-parenting during merges accompanied by a specific HTTP status code (RFC 7807 400 Bad Request)? [Edge Cases, Spec §Clarifications, §REQ-POI-012, §REQ-POI-019]
-- [ ] CHK018 Can the success criterion for duplicate detection precision and merge atomicity be objectively and deterministically measured? [Measurability, Spec §SC-003, §SC-004]
+- [x] CHK012 Is the trigram name similarity threshold quantified with a specific cut-off score (`>= 0.60`) backed by `pg_trgm`? [Clarity, Spec §REQ-POI-017, Success Criteria §SC-003]
+- [x] CHK013 Are the geodesic proximity search radii explicitly quantified for distinct site classifications (80,467m / 50mi for macro sites vs 805m / 0.5mi for urban sites)? [Completeness, Spec §REQ-POI-018]
+- [x] CHK014 Are the attribute resolution mechanics of `POST /api/pois/merge` unambiguously defined regarding which record is deleted and which record is retained? [Clarity, Spec §REQ-POI-019, User Story 2]
+- [x] CHK015 Does the specification define atomic list and tag re-association rules during a merge (unioning without duplicate keys or exceeding 30-tag limit)? [Consistency, Spec §REQ-POI-013, §REQ-POI-019]
+- [x] CHK016 Are cascade re-parenting requirements for subordinate child POIs (`parent_poi_id`) explicitly detailed when the parent POI is merged? [Completeness, Spec §Clarifications, §REQ-POI-019]
+- [x] CHK017 Is the cycle prevention rule for hierarchical re-parenting during merges accompanied by a specific HTTP status code (RFC 7807 400 Bad Request)? [Edge Cases, Spec §Clarifications, §REQ-POI-012, §REQ-POI-019]
+- [x] CHK018 Can the success criterion for duplicate detection precision and merge atomicity be objectively and deterministically measured? [Measurability, Spec §SC-003, §SC-004]
 
 ---
 
 ## 4. Geocoding Cache, Rate Limiting & Resilience
 
-- [ ] CHK019 Are normalized query string sanitization and coordinate rounding rules (`round(lat, 5),round(lon, 5)`) explicitly specified prior to SHA-256 digest computation? [Clarity, Spec §REQ-GEO-006, §REQ-GEO-007]
-- [ ] CHK020 Is the cache expiration period quantified as exactly 90 days (`NOW() + INTERVAL '90 days'`) with index `idx_geocoding_cache_expires_at`? [Completeness, Spec §REQ-GEO-004, §REQ-GEO-005, §REQ-GEO-008]
-- [ ] CHK021 Is opportunistic eviction of expired cache entries (`expires_at <= NOW()`) documented as part of the insertion lifecycle? [Consistency, Spec §REQ-GEO-012, §Edge Cases]
-- [ ] CHK022 Are external rate-limiting parameters (1 request per second token bucket) and outbound timeout ceilings (3.0 seconds) explicitly quantified for `GeocodingPort`? [Clarity, Spec §REQ-GEO-010, §REQ-GEO-011]
-- [ ] CHK023 Is graceful degradation specified for geocoding failures and timeouts, mandating fallback to user coordinates and setting `enrichment_status = 'PARTIAL'` without returning HTTP 500? [Coverage, Exception Flow, Spec §REQ-GEO-011, §REQ-POI-005]
+- [x] CHK019 Are normalized query string sanitization and coordinate rounding rules (`round(lat, 5),round(lon, 5)`) explicitly specified prior to SHA-256 digest computation? [Clarity, Spec §REQ-GEO-006, §REQ-GEO-007]
+- [x] CHK020 Is the cache expiration period quantified as exactly 90 days (`NOW() + INTERVAL '90 days'`) with index `idx_geocoding_cache_expires_at`? [Completeness, Spec §REQ-GEO-004, §REQ-GEO-005, §REQ-GEO-008]
+- [x] CHK021 Is opportunistic eviction of expired cache entries (`expires_at <= NOW()`) documented as part of the insertion lifecycle? [Consistency, Spec §REQ-GEO-012, §Edge Cases]
+- [x] CHK022 Are external rate-limiting parameters (1 request per second token bucket) and outbound timeout ceilings (3.0 seconds) explicitly quantified for `GeocodingPort`? [Clarity, Spec §REQ-GEO-010, §REQ-GEO-011]
+- [x] CHK023 Is graceful degradation specified for geocoding failures and timeouts, mandating fallback to user coordinates and setting `enrichment_status = 'PARTIAL'` without returning HTTP 500? [Coverage, Exception Flow, Spec §REQ-GEO-011, §REQ-POI-005]
 
 ---
 
 ## 5. Multi-Tenant Isolation & Vector Indexing Quality
 
-- [ ] CHK024 Does the specification enforce that all spatial indexes, deduplication probes, and bounding-box queries include `user_id = current_user_id` tenant scoping? [Consistency, Spec §Assumptions, Constitution §Principle 3]
-- [ ] CHK025 Are the HNSW vector index expression parameters (`vector_cosine_ops`) and dimensionality (768) explicitly specified for `pois.embedding`? [Completeness, Spec §REQ-EMBED-001, §REQ-EMBED-003]
-- [ ] CHK026 Is the composite text payload formatting for `embedding_md5` calculation rigorously specified with null handling, whitespace normalization, and sorted tag concatenation? [Clarity, Spec §Clarifications, §REQ-EMBED-004, §REQ-EMBED-005]
-- [ ] CHK027 Is the short-circuiting logic that bypasses external vector generation when `embedding_md5` matches existing records explicitly defined? [Completeness, Spec §REQ-EMBED-006, Success Criteria §SC-005]
-- [ ] CHK028 Are multi-state and multi-country requirements explicitly specified using JSONB array storage (`states`, `countries`) backed by GIN indexes to support destinations spanning multiple administrative territories or sovereign borders? [Completeness, Spec §REQ-POI-001, §REQ-GEO-004]
+- [x] CHK024 Does the specification enforce that all spatial indexes, deduplication probes, and bounding-box queries include `user_id = current_user_id` tenant scoping? [Consistency, Spec §Assumptions, Constitution §Principle 3]
+- [x] CHK025 Are the HNSW vector index expression parameters (`vector_cosine_ops`) and dimensionality (768) explicitly specified for `pois.embedding`? [Completeness, Spec §REQ-EMBED-001, §REQ-EMBED-003]
+- [x] CHK026 Is the composite text payload formatting for `embedding_md5` calculation rigorously specified with null handling, whitespace normalization, and sorted tag concatenation? [Clarity, Spec §Clarifications, §REQ-EMBED-004, §REQ-EMBED-005]
+- [x] CHK027 Is the short-circuiting logic that bypasses external vector generation when `embedding_md5` matches existing records explicitly defined? [Completeness, Spec §REQ-EMBED-006, Success Criteria §SC-005]
+- [x] CHK028 Are multi-state and multi-country requirements explicitly specified using JSONB array storage (`states`, `countries`) backed by GIN indexes to support destinations spanning multiple administrative territories or sovereign borders? [Completeness, Spec §REQ-POI-001, §REQ-GEO-004]
 
 ---
 
 ## 6. Advanced Spatial Indexing, Boundary Edge Cases & Merge Idempotency
 
-- [ ] CHK029 Are index column ordering rules explicitly defined for composite indexes (`user_id` as the leading column before `geom` or `(geom::geometry)`) to enable tenant partition pruning prior to spatial evaluation? [Consistency, Spec §REQ-GEO-002, §REQ-GEO-003, Constitution §Principle 3]
-- [ ] CHK030 Does the specification define expected planner behavior and spatial index operator classes (`gist_geometry_ops_2d`) for `(geom::geometry)`? [Clarity, Spec §REQ-GEO-003, Research §Decision 1]
-- [ ] CHK031 Are spatial index fallback requirements specified in case `ST_MakeEnvelope` receives coordinates spanning the antimeridian? [Coverage, Spec §Edge Cases, §REQ-POI-009]
-- [ ] CHK032 Are geographic precision limits specified for canonical coordinate storage (e.g., double precision floating-point storage yielding sub-millimeter precision)? [Clarity, Spec §REQ-POI-001, §REQ-GEO-005]
-- [ ] CHK033 Does the specification clearly define whether GeoJSON serialized outputs from API endpoints adhere to RFC 7946 coordinate ordering `[longitude, latitude]` in WGS-84? [Consistency, Spec §REQ-GEO-001, Contracts §poi-api.yaml]
-- [ ] CHK034 Are requirements specified for handling coordinates that lie exactly on the boundary of the China bounding box (`73.66°E`, `135.05°E`, `18.16°N`, `53.55°N`)? [Edge Cases, Spec §REQ-GEO-016]
-- [ ] CHK035 Does the specification define deterministic tie-breaking rules when multiple duplicate candidates exhibit identical trigram similarity and geodesic distance scores? [Clarity, Spec §REQ-POI-017, §REQ-POI-018]
-- [ ] CHK036 Are tag truncation or conflict resolution requirements defined if an interactive merge of `source_poi_id` and `target_poi_id` results in more than 30 distinct tags? [Consistency, Spec §REQ-POI-013, §REQ-POI-019]
-- [ ] CHK037 Does the specification detail the exact depth limit or recursive query mechanism used to detect circular hierarchies during POI parent assignment and merge re-parenting? [Clarity, Spec §Clarifications, §REQ-POI-012, §REQ-POI-019]
-- [ ] CHK038 Are idempotency requirements specified for the `POST /api/pois/merge` endpoint to prevent duplicate deletions or state corruption if a client retries the merge request? [Coverage, Gap, Constitution §Principle 6]
-- [ ] CHK039 Are case-folding and normalization rules defined for `states` and `countries` JSONB arrays to prevent case-sensitive mismatches during containment queries? [Clarity, Spec §REQ-POI-001, §REQ-POI-008]
-- [ ] CHK040 Does the specification define behavior when filtering by both `state` and `country` simultaneously (intersection semantics vs union)? [Consistency, Spec §REQ-POI-008]
+- [x] CHK029 Are index column ordering rules explicitly defined for composite indexes (`user_id` as the leading column before `geom` or `(geom::geometry)`) to enable tenant partition pruning prior to spatial evaluation? [Consistency, Spec §REQ-GEO-002, §REQ-GEO-003, Constitution §Principle 3]
+- [x] CHK030 Does the specification define expected planner behavior and spatial index operator classes (`gist_geometry_ops_2d`) for `(geom::geometry)`? [Clarity, Spec §REQ-GEO-003, Research §Decision 1]
+- [x] CHK031 Are spatial index fallback requirements specified in case `ST_MakeEnvelope` receives coordinates spanning the antimeridian? [Coverage, Spec §Edge Cases, §REQ-POI-009]
+- [x] CHK032 Are geographic precision limits specified for canonical coordinate storage (e.g., double precision floating-point storage yielding sub-millimeter precision)? [Clarity, Spec §REQ-POI-001, §REQ-GEO-005]
+- [x] CHK033 Does the specification clearly define whether GeoJSON serialized outputs from API endpoints adhere to RFC 7946 coordinate ordering `[longitude, latitude]` in WGS-84? [Consistency, Spec §REQ-GEO-001, Contracts §poi-api.yaml]
+- [x] CHK034 Are requirements specified for handling coordinates that lie exactly on the boundary of the China bounding box (`73.66°E`, `135.05°E`, `18.16°N`, `53.55°N`)? [Edge Cases, Spec §REQ-GEO-016]
+- [x] CHK035 Does the specification define deterministic tie-breaking rules when multiple duplicate candidates exhibit identical trigram similarity and geodesic distance scores? [Clarity, Spec §REQ-POI-017, §REQ-POI-018]
+- [x] CHK036 Are tag truncation or conflict resolution requirements defined if an interactive merge of `source_poi_id` and `target_poi_id` results in more than 30 distinct tags? [Consistency, Spec §REQ-POI-013, §REQ-POI-019]
+- [x] CHK037 Does the specification detail the exact depth limit or recursive query mechanism used to detect circular hierarchies during POI parent assignment and merge re-parenting? [Clarity, Spec §Clarifications, §REQ-POI-012, §REQ-POI-019]
+- [x] CHK038 Are idempotency requirements specified for the `POST /api/pois/merge` endpoint to prevent duplicate deletions or state corruption if a client retries the merge request? [Coverage, Gap, Constitution §Principle 6]
+- [x] CHK039 Are case-folding and normalization rules defined for `states` and `countries` JSONB arrays to prevent case-sensitive mismatches during containment queries? [Clarity, Spec §REQ-POI-001, §REQ-POI-008]
+- [x] CHK040 Does the specification define behavior when filtering by both `state` and `country` simultaneously (intersection semantics vs union)? [Consistency, Spec §REQ-POI-008]
 
 ---
 

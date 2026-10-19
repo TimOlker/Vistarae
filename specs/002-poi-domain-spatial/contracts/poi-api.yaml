@@ -575,11 +575,21 @@ components:
           minimum: 0
           maximum: 5
           nullable: true
+        estimated_cost:
+          type: number
+          nullable: true
+        pricing_unit:
+          type: string
+          maxLength: 16
+          nullable: true
         recommended_duration_hours:
           type: number
           minimum: 0.25
           maximum: 12.00
           nullable: true
+        recommended_visit_days:
+          type: integer
+          default: 1
 
     POIUpdateRequest:
       type: object
@@ -641,11 +651,17 @@ components:
         estimated_cost:
           type: number
           nullable: true
+        pricing_unit:
+          type: string
+          maxLength: 16
+          nullable: true
         recommended_duration_hours:
           type: number
           minimum: 0.25
           maximum: 12.00
           nullable: true
+        recommended_visit_days:
+          type: integer
 
     POIMergeRequest:
       type: object

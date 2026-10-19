@@ -83,7 +83,7 @@
 - [ ] T-021 [P] [US3] Implement asynchronous `TokenBucketRateLimiter` (1 request per second sustained) in `packages/core/vistarae_core/adapters/geocoding/rate_limiter.py` [REQ-GEO-011]
 - [ ] T-022 [P] [US3] Implement `GeocodingCacheRepository` in `packages/core/vistarae_core/adapters/repositories/geocache_repo.py` with 90-day TTL index, SHA-256 query/coordinate hashing, and opportunistic expired row cleanup (`DELETE FROM geocoding_cache WHERE expires_at <= NOW()`) [REQ-GEO-005, REQ-GEO-006, REQ-GEO-007, REQ-GEO-008, REQ-GEO-009, REQ-GEO-010, REQ-GEO-013]
 - [ ] T-023 [US3] Implement `MapboxGeocodingAdapter` in `packages/core/vistarae_core/adapters/geocoding/mapbox.py` with 3.0s timeout fallback to user coordinates and `enrichment_status = 'PARTIAL'`, along with `MockGeocodingAdapter` in `mock.py` [REQ-GEO-012, REQ-GEO-014, REQ-GEO-015]
-- [ ] T-024 [US3] Wire geocoding resolution pipeline into `services/poi/dependencies.py` and POI creation workflow in `services/poi/routes/pois.py` [REQ-GEO-005, REQ-GEO-012]
+- [ ] T-024 [US3] Wire geocoding resolution pipeline into `services/poi/dependencies.py` and POI creation workflow in `services/poi/routes/pois.py` [REQ-GEO-005, REQ-GEO-012, REQ-GEO-014, REQ-GEO-015]
 
 **Checkpoint**: User Stories 1, 2, and 3 are fully operational with geocoding caching active.
 
@@ -102,7 +102,7 @@
 - [ ] T-026 [P] [US4] Implement text payload normalizer and MD5 hasher in `packages/core/vistarae_core/services/embedding_sanitizer.py` (null coalescing, whitespace collapsing, alphabetical sorted tag formatting) [REQ-EMBED-004, REQ-EMBED-005]
 - [ ] T-027 [US4] Implement `GeminiEmbeddingAdapter` in `packages/core/vistarae_core/adapters/embedding/gemini.py` utilizing `google-genai` SDK (768 dimensions) with `tenacity` retry loop, and `MockEmbeddingAdapter` in `mock.py` [REQ-EMBED-002, REQ-EMBED-003, REQ-EMBED-007, REQ-EMBED-008]
 - [ ] T-028 [US4] Implement semantic search in `packages/core/vistarae_core/adapters/repositories/poi_repo.py` executing `pois.embedding.cosine_distance(query_vector)` backed by HNSW index `idx_pois_embedding` with normalized `similarity_score = 1.0 - cosine_distance` [REQ-EMBED-001, REQ-EMBED-009, REQ-EMBED-010]
-- [ ] T-029 [US4] Integrate `semantic_q` query parameter into `GET /api/pois` route in `services/poi/routes/pois.py` [REQ-EMBED-009, REQ-EMBED-010]
+- [ ] T-029 [US4] Integrate `semantic_q` query parameter into `GET /api/pois` route in `services/poi/routes/pois.py` [REQ-POI-008, REQ-EMBED-009, REQ-EMBED-010]
 
 **Checkpoint**: Conceptual vector discovery is live alongside planar spatial search.
 
