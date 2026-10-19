@@ -59,9 +59,7 @@ def client(admin_user: User, mock_session: AsyncMock) -> TestClient:
 class TestAdminUsersRoutes:
     """Tests for /api/admin/users/* endpoints."""
 
-    def test_get_user_detail_found(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_get_user_detail_found(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts user detail returned when tenant exists."""
         target_id = uuid.uuid4()
         now = datetime.now(UTC)
@@ -98,9 +96,7 @@ class TestAdminUsersRoutes:
         assert data["quotas"]["monthly_token_quota"] == 60000
         assert data["metrics"]["poi_count"] == 8
 
-    def test_get_user_detail_not_found(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_get_user_detail_not_found(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts 404 when target tenant does not exist."""
         target_id = uuid.uuid4()
         mock_session.scalar.return_value = None
@@ -108,9 +104,7 @@ class TestAdminUsersRoutes:
         resp = client.get(f"/api/admin/users/{target_id}")
         assert resp.status_code == 404
 
-    def test_update_user_quota_success(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_update_user_quota_success(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts PATCH updates quota and invalidates cache."""
         target_id = uuid.uuid4()
         now = datetime.now(UTC)
@@ -136,9 +130,7 @@ class TestAdminUsersRoutes:
             mock_session.execute.assert_called_once()
             mock_inv.assert_called_once_with(target_id)
 
-    def test_disable_user_success(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_disable_user_success(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts POST disable sets is_disabled=True and invalidates cache."""
         target_id = uuid.uuid4()
         with patch("services.admin.routes.users.invalidate_cache") as mock_inv:
@@ -147,9 +139,7 @@ class TestAdminUsersRoutes:
             mock_session.execute.assert_called_once()
             mock_inv.assert_called_once_with(target_id)
 
-    def test_enable_user_success(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_enable_user_success(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts POST enable sets is_disabled=False and invalidates cache."""
         target_id = uuid.uuid4()
         with patch("services.admin.routes.users.invalidate_cache") as mock_inv:

@@ -25,6 +25,12 @@ from vistarae_core.middleware.telemetry import TelemetryMiddleware
 from vistarae_core.schemas.errors import ProblemDetails
 
 from services.admin.main import app as admin_app
+from services.poi.main import app as poi_app
+from services.poi.routes.bulk import router as bulk_router
+from services.poi.routes.dedup import router as dedup_router
+from services.poi.routes.lists import router as lists_router
+from services.poi.routes.pois import router as pois_router
+from services.poi.routes.tags import router as tags_router
 from services.user.main import app as user_app
 from services.user.routes.auth import router as auth_router
 
@@ -105,6 +111,12 @@ async def health_ready(
 gateway.mount("/api/users", user_app)
 gateway.mount("/api/admin", admin_app)
 gateway.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+gateway.include_router(dedup_router, prefix="/api", tags=["dedup"])
+gateway.include_router(bulk_router, prefix="/api", tags=["bulk"])
+gateway.include_router(lists_router, prefix="/api", tags=["lists"])
+gateway.include_router(tags_router, prefix="/api", tags=["tags"])
+gateway.include_router(pois_router, prefix="/api", tags=["pois"])
+gateway.mount("/api/poi-service", poi_app)
 
 # 4. Middleware registration:
 # Under Starlette's LIFO execution model:

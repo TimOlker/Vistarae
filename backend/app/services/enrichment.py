@@ -1,10 +1,9 @@
 """Service for resolving photo dates and enriching place details (category tags, website, phone, etc.)."""
 
-from datetime import date
-import datetime
 import logging
-from pathlib import Path
 import re
+from datetime import date
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -122,7 +121,11 @@ async def lookup_and_enrich_place(
     raw_geo: dict[str, Any] = {}
     if db:
         try:
-            if resolved_lat is not None and resolved_lng is not None and (resolved_lat != 0.0 or resolved_lng != 0.0):
+            if (
+                resolved_lat is not None
+                and resolved_lng is not None
+                and (resolved_lat != 0.0 or resolved_lng != 0.0)
+            ):
                 _, raw_geo = await reverse_geocode(resolved_lat, resolved_lng, db)
             else:
                 query_parts = [place_name]

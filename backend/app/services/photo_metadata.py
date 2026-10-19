@@ -7,7 +7,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from PIL import ExifTags, Image, IptcImagePlugin
+from PIL import Image, IptcImagePlugin
 
 logger = logging.getLogger("vistarae.photo_metadata")
 
@@ -127,6 +127,7 @@ def extract_tags_from_image(img: Image.Image) -> list[str]:
     try:
         xmp = img.getxmp()
         if xmp and isinstance(xmp, dict):
+
             def search_subjects(d: Any):
                 if isinstance(d, dict):
                     for k, v in d.items():
@@ -224,7 +225,11 @@ def extract_metadata_from_pil(img: Image.Image) -> ExtractedPhotoMetadata:
                     if lon_ref and str(lon_ref).upper().startswith("W"):
                         lon = -lon
 
-                    if -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0 and not (lat == 0.0 and lon == 0.0):
+                    if (
+                        -90.0 <= lat <= 90.0
+                        and -180.0 <= lon <= 180.0
+                        and not (lat == 0.0 and lon == 0.0)
+                    ):
                         meta.latitude = round(lat, 7)
                         meta.longitude = round(lon, 7)
 
@@ -234,7 +239,9 @@ def extract_metadata_from_pil(img: Image.Image) -> ExtractedPhotoMetadata:
     return meta
 
 
-def extract_photo_metadata_from_bytes(file_bytes: bytes, filename: str | None = None) -> ExtractedPhotoMetadata:
+def extract_photo_metadata_from_bytes(
+    file_bytes: bytes, filename: str | None = None
+) -> ExtractedPhotoMetadata:
     """Extracts photo metadata from an in-memory byte stream."""
     try:
         with Image.open(io.BytesIO(file_bytes)) as img:

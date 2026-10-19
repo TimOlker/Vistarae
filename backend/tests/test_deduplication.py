@@ -109,6 +109,7 @@ async def test_collision_unique_location():
 @pytest.mark.asyncio
 async def test_check_duplicate_poi_endpoint():
     from httpx import ASGITransport, AsyncClient
+
     from app.db import get_db
     from app.main import app
     from app.models import User
@@ -166,4 +167,3 @@ async def test_check_duplicate_poi_endpoint():
     assert data["matched_poi"]["name"] == "Glacier Point Overlook"
 
     app.dependency_overrides.clear()
-

@@ -62,6 +62,84 @@ def _get_url() -> str:
     return _normalize_url(raw)
 
 
+POSTGIS_EXTENSION_TABLES = {
+    "spatial_ref_sys",
+    "geometry_columns",
+    "geography_columns",
+    "raster_columns",
+    "raster_overviews",
+    "topology",
+    "layer",
+    "addr",
+    "addrfeat",
+    "bg",
+    "county",
+    "county_lookup",
+    "countysub_lookup",
+    "cousub",
+    "direction_lookup",
+    "edges",
+    "faces",
+    "featnames",
+    "geocode_settings",
+    "geocode_settings_default",
+    "loader_lookuptables",
+    "loader_platform",
+    "loader_variables",
+    "pagc_gaz",
+    "pagc_lex",
+    "pagc_rules",
+    "place",
+    "place_lookup",
+    "secondary_unit_lookup",
+    "state",
+    "state_lookup",
+    "street_type_lookup",
+    "tabblock",
+    "tabblock20",
+    "tract",
+    "zcta5",
+    "zip_lookup",
+    "zip_lookup_all",
+    "zip_lookup_base",
+    "zip_state",
+    "zip_state_loc",
+}
+
+
+def include_object(
+    object_: object,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: object | None,
+) -> bool:
+    """Filters out PostGIS/Tiger/Topology extension tables from migration diffs."""
+    if type_ == "table":
+        if name in POSTGIS_EXTENSION_TABLES:
+            return False
+        if name and (
+            name.startswith("tiger")
+            or name.startswith("topology")
+            or name.startswith("pagc")
+            or name.endswith("_lookup")
+            or "lookup" in name
+        ):
+            return False
+    elif type_ == "index":
+        table_name = getattr(getattr(object_, "table", None), "name", None)
+        if table_name and (
+            table_name in POSTGIS_EXTENSION_TABLES
+            or table_name.startswith("tiger")
+            or table_name.startswith("topology")
+            or table_name.startswith("pagc")
+            or table_name.endswith("_lookup")
+            or "lookup" in table_name
+        ):
+            return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Generates SQL migration scripts without a live database connection.
 
@@ -74,6 +152,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -90,6 +169,7 @@ def do_run_migrations(connection: object) -> None:
         connection=connection,  # type: ignore[arg-type]
         target_metadata=target_metadata,
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():

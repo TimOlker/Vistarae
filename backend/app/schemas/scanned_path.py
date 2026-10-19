@@ -1,7 +1,8 @@
 """Pydantic schemas for scanned photo file paths and batch operations."""
 
-from datetime import date, datetime
 import uuid
+from datetime import date, datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -84,7 +85,6 @@ class InspectPhotoResponse(BaseModel):
     tags: list[str] = []
     conflicting_pois: list[ConflictingPOIInfo] = []
     already_linked: bool = False
-
 
 
 class ScannedPathListResponse(BaseModel):

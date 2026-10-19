@@ -92,9 +92,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         Returns:
             Response with injected correlation headers.
         """
-        trace_id, parent_span_id = _parse_traceparent(
-            request.headers.get("traceparent")
-        )
+        trace_id, parent_span_id = _parse_traceparent(request.headers.get("traceparent"))
         span_id = _new_span_id()
 
         source = request.headers.get("X-Source", "client")

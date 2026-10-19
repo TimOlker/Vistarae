@@ -58,9 +58,7 @@ class TestUserRepositoryQueries:
     """Tests for get_by_id and get_by_cognito_sub."""
 
     @pytest.mark.asyncio
-    async def test_get_by_id_found(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_get_by_id_found(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts User entity correctly mapped when row exists."""
         now = datetime.now(UTC)
         fake_row = UserTable(
@@ -205,9 +203,7 @@ class TestUserRepositoryMutations:
         mock_session.flush.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_update_profile(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_update_profile(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts update_profile executes update statement."""
         repo = SqlAlchemyUserRepository(mock_session)
         await repo.update_profile(test_user_id, "Updated Name")
@@ -281,7 +277,9 @@ class TestUserSubRecords:
         self, mock_session: AsyncMock, test_user_id: uuid.UUID
     ) -> None:
         repo = SqlAlchemyUserRepository(mock_session)
-        await repo.update_preferences(test_user_id, {"theme": ThemeMode.LIGHT, "preferred_currency": "GBP"})
+        await repo.update_preferences(
+            test_user_id, {"theme": ThemeMode.LIGHT, "preferred_currency": "GBP"}
+        )
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -319,9 +317,7 @@ class TestUserSubRecords:
         assert metrics is None
 
     @pytest.mark.asyncio
-    async def test_get_quota_found(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_get_quota_found(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         now = datetime.now(UTC)
         fake_quota = UserQuotasTable(
             user_id=test_user_id,

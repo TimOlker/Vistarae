@@ -16,7 +16,7 @@ def test_detect_format():
     assert detect_format("name\tlat\tlng\nGrand Canyon\t36.0\t-112.0") == "tsv"
     assert detect_format('[{"name": "Zion"}]') == "json"
     assert detect_format('{"type": "FeatureCollection", "features": []}') == "geojson"
-    assert detect_format('<kml><Placemark><name>Arches</name></Placemark></kml>') == "kml"
+    assert detect_format("<kml><Placemark><name>Arches</name></Placemark></kml>") == "kml"
     assert detect_format('<gpx><wpt lat="38.5" lon="-109.5"><name>Moab</name></wpt></gpx>') == "gpx"
 
 
@@ -42,7 +42,11 @@ Zion National Park,37.30,-113.05,Springdale,Utah,NPS;canyons,Red rock wonderland
     assert len(raw_records) == 2
 
     candidates, mappings = standardize_poi_candidates(
-        raw_records, headers, default_tags=["national park"], filename="parks.csv", detected_format=fmt
+        raw_records,
+        headers,
+        default_tags=["national park"],
+        filename="parks.csv",
+        detected_format=fmt,
     )
     assert len(candidates) == 2
 
@@ -212,4 +216,3 @@ def test_parse_csv_with_country_and_multinational_unesco():
     assert eiffel.name == "Eiffel Tower"
     assert eiffel.iptc_country_code == "FR"
     assert eiffel.iptc_country_code != "US"
-

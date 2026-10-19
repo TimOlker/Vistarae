@@ -145,4 +145,3 @@ class IIdentityProvider(Protocol):
             RuntimeError: If revocation call fails.
         """
         ...
-

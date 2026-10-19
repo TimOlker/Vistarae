@@ -50,9 +50,7 @@ def client(admin_user: User, mock_session: AsyncMock) -> TestClient:
 class TestAdminMetricsRoute:
     """Tests for GET /api/admin/metrics."""
 
-    def test_get_metrics_success(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_get_metrics_success(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts metrics aggregation produces expected values."""
         # Scalars: total_users=10, active_users=8, disabled_users=2, total_pois=120, total_tokens=45000
         mock_session.scalar.side_effect = [10, 8, 2, 120, 45000]
@@ -94,4 +92,3 @@ class TestAdminMetricsRoute:
                 mock_init.assert_called_once()
                 mock_engine.dispose.assert_not_called()
             mock_engine.dispose.assert_called_once()
-

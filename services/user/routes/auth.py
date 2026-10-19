@@ -152,7 +152,9 @@ async def register(
         )
     except ValueError as exc:
         msg = str(exc)
-        status_code = status.HTTP_409_CONFLICT if "already exists" in msg else status.HTTP_400_BAD_REQUEST
+        status_code = (
+            status.HTTP_409_CONFLICT if "already exists" in msg else status.HTTP_400_BAD_REQUEST
+        )
         raise HTTPException(status_code=status_code, detail=msg) from exc
     except Exception as exc:
         logger.error("Registration error: %s", exc)

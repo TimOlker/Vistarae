@@ -78,7 +78,9 @@ class TestAuthLifecycleIntegration:
         )
         fake_prefs = UserPreferencesTable(user_id=test_id, created_at=now, updated_at=now)
         fake_metrics = UserMetricsTable(user_id=test_id, updated_at=now)
-        fake_quota = UserQuotasTable(user_id=test_id, tier="low", window_start_at=now, updated_at=now)
+        fake_quota = UserQuotasTable(
+            user_id=test_id, tier="low", window_start_at=now, updated_at=now
+        )
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = fake_user
@@ -124,7 +126,9 @@ class TestAuthLifecycleIntegration:
         mock_session.execute.return_value = mock_result
         mock_session.scalar.return_value = fake_user
 
-        with patch("services.user.routes.me._cognito.delete_user", new_callable=AsyncMock) as mock_cog:
+        with patch(
+            "services.user.routes.me._cognito.delete_user", new_callable=AsyncMock
+        ) as mock_cog:
             del_resp = client.delete("/api/users/me", headers={"X-Mock-User-Id": str(test_id)})
             assert del_resp.status_code == 204
             mock_cog.assert_called_once_with(str(test_id))

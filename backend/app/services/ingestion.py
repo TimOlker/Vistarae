@@ -1,9 +1,9 @@
-from collections import defaultdict
 import difflib
 import logging
 import math
 import re
 import uuid
+from collections import defaultdict
 from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
@@ -11,17 +11,6 @@ from unittest.mock import MagicMock
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-
-
-def _normalize_uuid(val: Any) -> uuid.UUID | None:
-    if val is None:
-        return None
-    if isinstance(val, uuid.UUID):
-        return val
-    try:
-        return uuid.UUID(str(val).strip())
-    except Exception:
-        return None
 
 from app.models import POI, Geocache, ListModel, POIListMembership
 from app.schemas.ingestion import (
@@ -41,6 +30,18 @@ from app.services.geocoding import (
 )
 
 logger = logging.getLogger("vistarae.ingestion")
+
+
+def _normalize_uuid(val: Any) -> uuid.UUID | None:
+    if val is None:
+        return None
+    if isinstance(val, uuid.UUID):
+        return val
+    try:
+        return uuid.UUID(str(val).strip())
+    except Exception:
+        return None
+
 
 FEET_TO_METERS = 0.3048
 
@@ -77,7 +78,11 @@ async def enrich_and_geocode_candidates(
     external_lookups_done = 0
 
     for cand in candidates:
-        has_coords = cand.latitude is not None and cand.longitude is not None and not (cand.latitude == 0.0 and cand.longitude == 0.0)
+        has_coords = (
+            cand.latitude is not None
+            and cand.longitude is not None
+            and not (cand.latitude == 0.0 and cand.longitude == 0.0)
+        )
         has_addr = bool(cand.iptc_city or cand.iptc_province_state or cand.iptc_sublocation)
 
         # 1. Reverse geocoding: coordinates present, address missing
@@ -86,7 +91,9 @@ async def enrich_and_geocode_candidates(
             rev_hash = compute_query_hash(rev_query)
             is_cached = False
             try:
-                cached_entry = await db.scalar(select(Geocache).where(Geocache.query_hash == rev_hash))
+                cached_entry = await db.scalar(
+                    select(Geocache).where(Geocache.query_hash == rev_hash)
+                )
                 is_cached = cached_entry is not None
             except Exception:
                 is_cached = False
@@ -102,7 +109,9 @@ async def enrich_and_geocode_candidates(
                 if rev_geo:
                     enrich_candidate_from_address(cand, rev_geo)
                     cand.quality.geocoded_address = True
-                    cand.quality.has_address = bool(cand.iptc_city or cand.iptc_province_state or cand.iptc_sublocation)
+                    cand.quality.has_address = bool(
+                        cand.iptc_city or cand.iptc_province_state or cand.iptc_sublocation
+                    )
                     if "missing_address" in cand.quality.flags and cand.quality.has_address:
                         cand.quality.flags.remove("missing_address")
                     if "geocoded_address" not in cand.quality.flags:
@@ -123,7 +132,11 @@ async def enrich_and_geocode_candidates(
             if cand.iptc_province_state:
                 query_parts.append(cand.iptc_province_state)
 
-            allowed_countries = cand.raw_data.get("_allowed_country_codes", []) if isinstance(cand.raw_data, dict) else []
+            allowed_countries = (
+                cand.raw_data.get("_allowed_country_codes", [])
+                if isinstance(cand.raw_data, dict)
+                else []
+            )
             # Only append country if not a multinational/transnational candidate
             if cand.iptc_country_code and len(allowed_countries) <= 1:
                 query_parts.append(cand.iptc_country_code)
@@ -134,7 +147,9 @@ async def enrich_and_geocode_candidates(
                 query_hash = compute_query_hash(query_str.strip())
                 is_cached = False
                 try:
-                    cached_entry = await db.scalar(select(Geocache).where(Geocache.query_hash == query_hash))
+                    cached_entry = await db.scalar(
+                        select(Geocache).where(Geocache.query_hash == query_hash)
+                    )
                     is_cached = cached_entry is not None
                 except Exception:
                     is_cached = False
@@ -151,10 +166,16 @@ async def enrich_and_geocode_candidates(
                     if f_lat != 0.0 or f_lng != 0.0:
                         comps = extract_address_components(f_raw) if f_raw else {}
                         res_country = (comps.get("country_code") or "").upper()
-                        expected_countries = allowed_countries or ([cand.iptc_country_code] if cand.iptc_country_code else [])
+                        expected_countries = allowed_countries or (
+                            [cand.iptc_country_code] if cand.iptc_country_code else []
+                        )
 
                         # Country mismatch protection: reject geocoding match if country does not match expected countries
-                        if expected_countries and res_country and res_country not in expected_countries:
+                        if (
+                            expected_countries
+                            and res_country
+                            and res_country not in expected_countries
+                        ):
                             logger.warning(
                                 f"Country mismatch for '{cand.name}': geocoded to {res_country}, expected {expected_countries}. Rejecting match."
                             )
@@ -170,20 +191,28 @@ async def enrich_and_geocode_candidates(
                             cand.quality.flags.append("geocoded_coordinates")
                         if f_raw:
                             enrich_candidate_from_address(cand, f_raw)
-                            cand.quality.has_address = bool(cand.iptc_city or cand.iptc_province_state or cand.iptc_sublocation)
+                            cand.quality.has_address = bool(
+                                cand.iptc_city or cand.iptc_province_state or cand.iptc_sublocation
+                            )
                 except Exception as exc:
                     logger.warning(f"Forward geocode failed for '{cand.name}' ({query_str}): {exc}")
 
     return candidates
 
 
-def _calculate_missing_tags(cand_tags: list[str] | None, existing_tags: list[str] | None) -> list[str]:
+def _calculate_missing_tags(
+    cand_tags: list[str] | None, existing_tags: list[str] | None
+) -> list[str]:
     existing_lower = {t.strip().lower() for t in (existing_tags or []) if t and t.strip()}
     seen_missing_lower: set[str] = set()
     missing: list[str] = []
-    for t in (cand_tags or []):
+    for t in cand_tags or []:
         t_clean = t.strip() if t else ""
-        if t_clean and t_clean.lower() not in existing_lower and t_clean.lower() not in seen_missing_lower:
+        if (
+            t_clean
+            and t_clean.lower() not in existing_lower
+            and t_clean.lower() not in seen_missing_lower
+        ):
             seen_missing_lower.add(t_clean.lower())
             missing.append(t_clean)
     return missing
@@ -217,7 +246,10 @@ async def detect_conflicts_for_candidates(
         user_pois = []
 
     # Check if check_spatial_collision was explicitly mocked in unit tests
-    is_spatial_mocked = hasattr(check_spatial_collision, "assert_called") or "Mock" in type(check_spatial_collision).__name__
+    is_spatial_mocked = (
+        hasattr(check_spatial_collision, "assert_called")
+        or "Mock" in type(check_spatial_collision).__name__
+    )
 
     # If the user has no existing POIs in the database and not in a unit test mock, no collisions can exist
     if not user_pois and not is_spatial_mocked:
@@ -232,7 +264,7 @@ async def detect_conflicts_for_candidates(
                 name_to_poi[p_name] = p
                 for tok in set(re.findall(r"\w{3,}", p_name)):
                     token_to_pois[tok].append(p)
-            for alias in (p.get("name_aliases") or []):
+            for alias in p.get("name_aliases") or []:
                 if alias:
                     al = str(alias).strip().lower()
                     name_to_poi[al] = p
@@ -242,7 +274,11 @@ async def detect_conflicts_for_candidates(
     radius_meters = 1500 * FEET_TO_METERS
 
     for cand in candidates:
-        has_coords = cand.latitude is not None and cand.longitude is not None and not (cand.latitude == 0.0 and cand.longitude == 0.0)
+        has_coords = (
+            cand.latitude is not None
+            and cand.longitude is not None
+            and not (cand.latitude == 0.0 and cand.longitude == 0.0)
+        )
 
         # 1. Spatial collision check
         if has_coords:
@@ -263,8 +299,10 @@ async def detect_conflicts_for_candidates(
 
                 # Fast bounding box filter: ~0.005 deg lat (~550m), ~0.01 deg lng
                 nearby_pois = [
-                    p for p in user_pois
-                    if p.get("lat") is not None and p.get("lng") is not None
+                    p
+                    for p in user_pois
+                    if p.get("lat") is not None
+                    and p.get("lng") is not None
                     and abs(float(p["lat"]) - cand.latitude) <= 0.006  # type: ignore[arg-type]
                     and abs(float(p["lng"]) - cand.longitude) <= 0.01  # type: ignore[arg-type]
                 ]
@@ -273,10 +311,14 @@ async def detect_conflicts_for_candidates(
                 nearby_parent: POICollisionMatch | None = None
 
                 for p in nearby_pois:
-                    dist = haversine_distance_meters(cand.latitude, cand.longitude, float(p["lat"]), float(p["lng"]))  # type: ignore[arg-type]
+                    dist = haversine_distance_meters(
+                        cand.latitude, cand.longitude, float(p["lat"]), float(p["lng"])
+                    )  # type: ignore[arg-type]
                     if dist <= radius_meters:
                         p_name = str(p.get("name") or "")
-                        sim = difflib.SequenceMatcher(None, cand.name.lower(), p_name.lower()).ratio()
+                        sim = difflib.SequenceMatcher(
+                            None, cand.name.lower(), p_name.lower()
+                        ).ratio()
                         aliases = p.get("name_aliases") or []
                         for alias in aliases:
                             if alias:
@@ -284,7 +326,12 @@ async def detect_conflicts_for_candidates(
                                 if cand.name.lower() in al or al in cand.name.lower():
                                     sim = max(sim, 0.85)
                                 else:
-                                    sim = max(sim, difflib.SequenceMatcher(None, cand.name.lower(), al).ratio())
+                                    sim = max(
+                                        sim,
+                                        difflib.SequenceMatcher(
+                                            None, cand.name.lower(), al
+                                        ).ratio(),
+                                    )
 
                         match_item = POICollisionMatch(
                             id=p["id"],
@@ -308,9 +355,26 @@ async def detect_conflicts_for_candidates(
                         is_macro = (
                             geofence_ft >= 2000
                             or (p.get("poi_type") in ("site to see", "experience"))
-                            or any(k in p_name.lower() for k in ["park", "forest", "reserve", "campus", "district", "valley", "canyon", "island"])
+                            or any(
+                                k in p_name.lower()
+                                for k in [
+                                    "park",
+                                    "forest",
+                                    "reserve",
+                                    "campus",
+                                    "district",
+                                    "valley",
+                                    "canyon",
+                                    "island",
+                                ]
+                            )
                         )
-                        if sim < 0.60 and is_macro and nearby_parent is None and p.get("parent_poi_id") is None:
+                        if (
+                            sim < 0.60
+                            and is_macro
+                            and nearby_parent is None
+                            and p.get("parent_poi_id") is None
+                        ):
                             nearby_parent = match_item
 
                 if potential_duplicate:
@@ -330,7 +394,11 @@ async def detect_conflicts_for_candidates(
                 existing_tags = matched.category_tags if matched else []
                 missing = _calculate_missing_tags(cand.category_tags, existing_tags)
                 cand.missing_tags = missing
-                has_tags_col = bool(cand.raw_data.get("_has_tags_col")) if isinstance(cand.raw_data, dict) else False
+                has_tags_col = (
+                    bool(cand.raw_data.get("_has_tags_col"))
+                    if isinstance(cand.raw_data, dict)
+                    else False
+                )
                 if has_tags_col and missing:
                     cand.action = ConflictAction.ADD_TAGS
                 else:
@@ -386,7 +454,11 @@ async def detect_conflicts_for_candidates(
                 )
                 missing = _calculate_missing_tags(cand.category_tags, existing_tags)
                 cand.missing_tags = missing
-                has_tags_col = bool(cand.raw_data.get("_has_tags_col")) if isinstance(cand.raw_data, dict) else False
+                has_tags_col = (
+                    bool(cand.raw_data.get("_has_tags_col"))
+                    if isinstance(cand.raw_data, dict)
+                    else False
+                )
                 if has_tags_col and missing:
                     cand.action = ConflictAction.ADD_TAGS
                 else:
@@ -443,7 +515,7 @@ async def execute_ingest_commit(
         if existing_list:
             assigned_list_title = existing_list.title
 
-    include_existing_matches = (list_membership_scope != "new_only")
+    include_existing_matches = list_membership_scope != "new_only"
     assigned_membership_pairs: set[tuple[uuid.UUID, uuid.UUID]] = set()
     enrolled_count = 0
 
@@ -484,7 +556,9 @@ async def execute_ingest_commit(
                 and poi_data.longitude is not None
                 and not (poi_data.latitude == 0.0 and poi_data.longitude == 0.0)
             )
-            point_wkt = f"SRID=4326;POINT({poi_data.longitude} {poi_data.latitude})" if has_coords else None
+            point_wkt = (
+                f"SRID=4326;POINT({poi_data.longitude} {poi_data.latitude})" if has_coords else None
+            )
 
             new_poi = POI(
                 id=uuid.uuid4(),
@@ -528,7 +602,9 @@ async def execute_ingest_commit(
 
         # 2. Action: MERGE into existing POI
         elif action == ConflictAction.MERGE:
-            target_id = item.matched_poi_id or (poi_data.matched_poi.id if poi_data.matched_poi else None)
+            target_id = item.matched_poi_id or (
+                poi_data.matched_poi.id if poi_data.matched_poi else None
+            )
             if not target_id and poi_data.name and poi_data.name.strip():
                 existing_by_name = await db.scalar(
                     select(POI).where(
@@ -577,16 +653,18 @@ async def execute_ingest_commit(
         # 3. Action: LINK as child to existing POI
         elif action == ConflictAction.LINK:
             parent_id = item.matched_poi_id or (
-                poi_data.nearby_parent.id if poi_data.nearby_parent else (
-                    poi_data.matched_poi.id if poi_data.matched_poi else None
-                )
+                poi_data.nearby_parent.id
+                if poi_data.nearby_parent
+                else (poi_data.matched_poi.id if poi_data.matched_poi else None)
             )
             has_coords = (
                 poi_data.latitude is not None
                 and poi_data.longitude is not None
                 and not (poi_data.latitude == 0.0 and poi_data.longitude == 0.0)
             )
-            point_wkt = f"SRID=4326;POINT({poi_data.longitude} {poi_data.latitude})" if has_coords else None
+            point_wkt = (
+                f"SRID=4326;POINT({poi_data.longitude} {poi_data.latitude})" if has_coords else None
+            )
 
             new_poi = POI(
                 id=uuid.uuid4(),
@@ -630,7 +708,9 @@ async def execute_ingest_commit(
 
         # 4. Action: ADD_TAGS to existing POI (only updates category_tags, keeps existing DB fields unchanged)
         elif action == ConflictAction.ADD_TAGS:
-            target_id = item.matched_poi_id or (poi_data.matched_poi.id if poi_data.matched_poi else None)
+            target_id = item.matched_poi_id or (
+                poi_data.matched_poi.id if poi_data.matched_poi else None
+            )
             if not target_id and poi_data.name and poi_data.name.strip():
                 existing_by_name = await db.scalar(
                     select(POI).where(
@@ -651,7 +731,9 @@ async def execute_ingest_commit(
 
             current_tags = list(existing_poi.category_tags or [])
             current_tags_lower = {t.strip().lower() for t in current_tags if t and t.strip()}
-            tags_to_add = [t for t in item_tags if t and t.strip().lower() not in current_tags_lower]
+            tags_to_add = [
+                t for t in item_tags if t and t.strip().lower() not in current_tags_lower
+            ]
             for t in tags_to_add:
                 current_tags.append(t.strip())
                 current_tags_lower.add(t.strip().lower())
@@ -668,8 +750,7 @@ async def execute_ingest_commit(
 
     if assigned_membership_pairs:
         is_mock_session = (
-            isinstance(getattr(db, "add", None), MagicMock)
-            or "Mock" in type(db).__name__
+            isinstance(getattr(db, "add", None), MagicMock) or "Mock" in type(db).__name__
         )
         if is_mock_session:
             for p_uuid, l_uuid in assigned_membership_pairs:
@@ -677,7 +758,9 @@ async def execute_ingest_commit(
         else:
             insert_stmt = (
                 pg_insert(POIListMembership)
-                .values([{"poi_id": p_id, "list_id": l_id} for p_id, l_id in assigned_membership_pairs])
+                .values(
+                    [{"poi_id": p_id, "list_id": l_id} for p_id, l_id in assigned_membership_pairs]
+                )
                 .on_conflict_do_nothing(index_elements=["poi_id", "list_id"])
             )
             await db.execute(insert_stmt)

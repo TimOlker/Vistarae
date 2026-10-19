@@ -83,7 +83,10 @@ class POIAccessPointCreate(BaseModel):
 class POICreate(BaseModel):
     name: str
     name_aliases: list[str] = Field(default_factory=list)
-    poi_type: str = Field(default="site to see", description="photo location, site to see, experience, food/drink, lodging, transit")
+    poi_type: str = Field(
+        default="site to see",
+        description="photo location, site to see, experience, food/drink, lodging, transit",
+    )
     personal_rating: int | None = Field(default=3, ge=1, le=5)
     description: str | None = None
     category_tags: list[str] = Field(default_factory=list)
@@ -261,4 +264,3 @@ class CheckDuplicateResponse(BaseModel):
     collision_status: CollisionStatus
     matched_poi: POICollisionMatch | None = None
     nearby_parent: POICollisionMatch | None = None
-

@@ -138,7 +138,9 @@ class TestMeRoutes:
         self, client: TestClient, test_user: User, mock_session: AsyncMock
     ) -> None:
         """Asserts DELETE /api/users/me triggers Cognito deletion and DB delete."""
-        with patch("services.user.routes.me._cognito.delete_user", new_callable=AsyncMock) as mock_cog:
+        with patch(
+            "services.user.routes.me._cognito.delete_user", new_callable=AsyncMock
+        ) as mock_cog:
             resp = client.delete("/api/users/me")
             assert resp.status_code == 204
             mock_cog.assert_called_once_with(test_user.cognito_sub)
@@ -159,4 +161,3 @@ class TestMeRoutes:
                 mock_init.assert_called_once()
                 mock_engine.dispose.assert_not_called()
             mock_engine.dispose.assert_called_once()
-

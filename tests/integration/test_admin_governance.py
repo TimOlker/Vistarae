@@ -72,8 +72,15 @@ class TestAdminGovernanceIntegration:
         )
 
         with (
-            patch("services.admin.dependencies.get_current_user", new_callable=AsyncMock, return_value=fake_user),
-            patch("vistarae_core.middleware.rate_limit.get_cached_tier", return_value=(UserTier.LOW, False)),
+            patch(
+                "services.admin.dependencies.get_current_user",
+                new_callable=AsyncMock,
+                return_value=fake_user,
+            ),
+            patch(
+                "vistarae_core.middleware.rate_limit.get_cached_tier",
+                return_value=(UserTier.LOW, False),
+            ),
         ):
             resp = client.get(
                 "/api/admin/metrics",
@@ -104,7 +111,10 @@ class TestAdminGovernanceIntegration:
         # 1. Admin disables target
         admin_app.dependency_overrides[require_admin] = lambda: fake_admin
         try:
-            with patch("vistarae_core.middleware.rate_limit.get_cached_tier", return_value=(UserTier.ADMIN, False)):
+            with patch(
+                "vistarae_core.middleware.rate_limit.get_cached_tier",
+                return_value=(UserTier.ADMIN, False),
+            ):
                 disable_resp = client.post(
                     f"/api/admin/users/{target_id}/disable",
                     headers={"X-Mock-User-Id": str(admin_id)},

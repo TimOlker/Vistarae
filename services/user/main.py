@@ -61,9 +61,7 @@ from services.user.routes import me as me_routes  # noqa: E402
 from services.user.routes import preferences as preferences_routes  # noqa: E402
 
 app.include_router(me_routes.router, prefix="/api/users", tags=["user-profile"])
-app.include_router(
-    preferences_routes.router, prefix="/api/users", tags=["user-preferences"]
-)
+app.include_router(preferences_routes.router, prefix="/api/users", tags=["user-preferences"])
 app.include_router(me_routes.router, tags=["user-profile"])
 app.include_router(preferences_routes.router, tags=["user-preferences"])
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])

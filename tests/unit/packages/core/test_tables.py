@@ -70,7 +70,8 @@ class TestUserPreferencesTableSchema:
     def test_user_preferences_foreign_key(self) -> None:
         """Asserts user_preferences references users(id) with CASCADE."""
         fk_constraints = [
-            c for c in UserPreferencesTable.__table__.constraints
+            c
+            for c in UserPreferencesTable.__table__.constraints
             if isinstance(c, ForeignKeyConstraint)
         ]
         assert len(fk_constraints) >= 1
@@ -81,7 +82,8 @@ class TestUserPreferencesTableSchema:
     def test_user_preferences_check_constraints(self) -> None:
         """Asserts check constraints for theme, pacing, transit, etc."""
         ck_names = {
-            c.name for c in UserPreferencesTable.__table__.constraints
+            c.name
+            for c in UserPreferencesTable.__table__.constraints
             if isinstance(c, CheckConstraint)
         }
         assert "ck_user_prefs_theme" in ck_names
@@ -98,8 +100,7 @@ class TestUserMetricsAndQuotasTableSchema:
     def test_metrics_foreign_key(self) -> None:
         """Asserts user_metrics references users(id) with CASCADE."""
         fk_constraints = [
-            c for c in UserMetricsTable.__table__.constraints
-            if isinstance(c, ForeignKeyConstraint)
+            c for c in UserMetricsTable.__table__.constraints if isinstance(c, ForeignKeyConstraint)
         ]
         assert len(fk_constraints) >= 1
         assert fk_constraints[0].ondelete == "CASCADE"
@@ -134,6 +135,7 @@ class TestTimestampMixin:
 
     def test_timestamp_mixin_fields(self) -> None:
         """Asserts created_at and updated_at on a test class inheriting TimestampMixin."""
+
         class MockTimestamped(TimestampMixin):
             pass
 

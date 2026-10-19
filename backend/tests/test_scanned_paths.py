@@ -2,7 +2,7 @@
 
 import io
 import uuid
-from datetime import datetime, date
+from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -296,18 +296,12 @@ async def test_scanned_path_hidden_status_and_patch():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Patch status to hidden
-        resp = await client.patch(
-            f"/api/v1/scanned-paths/{path_id}",
-            json={"status": "hidden"}
-        )
+        resp = await client.patch(f"/api/v1/scanned-paths/{path_id}", json={"status": "hidden"})
         assert resp.status_code == 200
         assert mock_path.status == "hidden"
 
         # Patch status back to skipped
-        resp = await client.patch(
-            f"/api/v1/scanned-paths/{path_id}",
-            json={"status": "skipped"}
-        )
+        resp = await client.patch(f"/api/v1/scanned-paths/{path_id}", json={"status": "skipped"})
         assert resp.status_code == 200
         assert mock_path.status == "skipped"
 
@@ -471,8 +465,16 @@ async def test_add_photo_folder_conflict_detection():
 
     poi1_id = uuid.uuid4()
     poi2_id = uuid.uuid4()
-    poi1 = POI(id=poi1_id, user_id=TEST_USER.id, name="POI One", source_url="", poi_type="site to see")
-    poi2 = POI(id=poi2_id, user_id=TEST_USER.id, name="POI Two", source_url="D:/Photos/SharedTrip", poi_type="site to see")
+    poi1 = POI(
+        id=poi1_id, user_id=TEST_USER.id, name="POI One", source_url="", poi_type="site to see"
+    )
+    poi2 = POI(
+        id=poi2_id,
+        user_id=TEST_USER.id,
+        name="POI Two",
+        source_url="D:/Photos/SharedTrip",
+        poi_type="site to see",
+    )
 
     # Scanned path exists and is linked to POI Two
     sp = ScannedPath(
@@ -508,7 +510,7 @@ async def test_add_photo_folder_conflict_detection():
         # Check action (default)
         resp = await client.post(
             f"/api/v1/pois/{poi1_id}/photo-folder",
-            json={"folder_path": "D:/Photos/SharedTrip", "action": "check"}
+            json={"folder_path": "D:/Photos/SharedTrip", "action": "check"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -520,7 +522,7 @@ async def test_add_photo_folder_conflict_detection():
         # 2. Test share_and_flag action
         resp_flag = await client.post(
             f"/api/v1/pois/{poi1_id}/photo-folder",
-            json={"folder_path": "D:/Photos/SharedTrip", "action": "share_and_flag"}
+            json={"folder_path": "D:/Photos/SharedTrip", "action": "share_and_flag"},
         )
         assert resp_flag.status_code == 200
         data_flag = resp_flag.json()
@@ -532,7 +534,7 @@ async def test_add_photo_folder_conflict_detection():
         # 3. Test reassign action
         resp_reassign = await client.post(
             f"/api/v1/pois/{poi1_id}/photo-folder",
-            json={"folder_path": "D:/Photos/SharedTrip", "action": "reassign"}
+            json={"folder_path": "D:/Photos/SharedTrip", "action": "reassign"},
         )
         assert resp_reassign.status_code == 200
         data_reassign = resp_reassign.json()
@@ -570,8 +572,7 @@ async def test_disassociate_scanned_path():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Disassociate from primary POI 1 -> should promote POI 2 and resolve conflict
         resp = await client.post(
-            f"/api/v1/scanned-paths/{path_id}/disassociate",
-            json={"poi_id": str(poi1_id)}
+            f"/api/v1/scanned-paths/{path_id}/disassociate", json={"poi_id": str(poi1_id)}
         )
         assert resp.status_code == 200
         assert sp.poi_id == poi2_id
@@ -625,7 +626,7 @@ async def test_inspect_photo_path_duplicate_aborted():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
             f"/api/v1/pois/{poi1_id}/inspect-photo-path",
-            json={"file_path": "D:/Photos/ExistingTrip/photo1.jpg"}
+            json={"file_path": "D:/Photos/ExistingTrip/photo1.jpg"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -641,7 +642,8 @@ async def test_inspect_photo_path_duplicate_aborted():
 @pytest.mark.asyncio
 async def test_inspect_photo_upload_with_exif():
     import io
-    from PIL import Image, ExifTags
+
+    from PIL import ExifTags, Image
 
     mock_db = AsyncMock()
     app.dependency_overrides[get_db] = lambda: mock_db
@@ -730,7 +732,7 @@ async def test_inspect_photo_upload_auto_locates_folder(tmp_path):
     test_folder = tmp_path / "Trip2024"
     test_folder.mkdir()
     photo_file = test_folder / "test_photo.jpg"
-    photo_file.write_bytes(b"\xFF\xD8\xFF\xE0" + b"\x00" * 20)
+    photo_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 20)
 
     poi_id = uuid.uuid4()
     sp = ScannedPath(
@@ -761,7 +763,13 @@ async def test_inspect_photo_upload_auto_locates_folder(tmp_path):
         # Upload photo without folder_path; system should discover it
         resp = await client.post(
             f"/api/v1/pois/{poi_id}/inspect-photo-upload",
-            files={"file": ("test_photo.jpg", io.BytesIO(b"\xFF\xD8\xFF\xE0" + b"\x00" * 20), "image/jpeg")},
+            files={
+                "file": (
+                    "test_photo.jpg",
+                    io.BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 20),
+                    "image/jpeg",
+                )
+            },
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -775,6 +783,7 @@ async def test_inspect_photo_upload_auto_locates_folder(tmp_path):
 @pytest.mark.asyncio
 async def test_inspect_photo_upload_resolves_nested_directory_and_already_linked(tmp_path):
     import io
+
     mock_db = AsyncMock()
     app.dependency_overrides[get_db] = lambda: mock_db
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
@@ -784,7 +793,7 @@ async def test_inspect_photo_upload_resolves_nested_directory_and_already_linked
     nested_subfolder = root_folder / "SubPlace"
     nested_subfolder.mkdir(parents=True)
     photo_file = nested_subfolder / "nested_photo.jpg"
-    photo_file.write_bytes(b"\xFF\xD8\xFF\xE0" + b"\x00" * 20)
+    photo_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 20)
 
     poi_id = uuid.uuid4()
     sp = ScannedPath(
@@ -814,7 +823,13 @@ async def test_inspect_photo_upload_resolves_nested_directory_and_already_linked
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
             f"/api/v1/pois/{poi_id}/inspect-photo-upload",
-            files={"file": ("nested_photo.jpg", io.BytesIO(b"\xFF\xD8\xFF\xE0" + b"\x00" * 20), "image/jpeg")},
+            files={
+                "file": (
+                    "nested_photo.jpg",
+                    io.BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 20),
+                    "image/jpeg",
+                )
+            },
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -823,6 +838,3 @@ async def test_inspect_photo_upload_resolves_nested_directory_and_already_linked
         assert data["already_linked"] is True
 
     app.dependency_overrides.clear()
-
-
-

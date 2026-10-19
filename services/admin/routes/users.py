@@ -47,7 +47,9 @@ async def _get_user_or_404(session: AsyncSession, user_id: UUID) -> tuple:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User {user_id} not found.",
         )
-    quota_row = await session.scalar(select(UserQuotasTable).where(UserQuotasTable.user_id == user_id))
+    quota_row = await session.scalar(
+        select(UserQuotasTable).where(UserQuotasTable.user_id == user_id)
+    )
     metrics_row = await session.scalar(
         select(UserMetricsTable).where(UserMetricsTable.user_id == user_id)
     )
@@ -124,9 +126,13 @@ async def update_user_quota(
         )
         invalidate_cache(user_id)
 
-    quota_row = await session.scalar(select(UserQuotasTable).where(UserQuotasTable.user_id == user_id))
+    quota_row = await session.scalar(
+        select(UserQuotasTable).where(UserQuotasTable.user_id == user_id)
+    )
     if quota_row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found."
+        )
     return UserQuotaResponse(
         monthly_token_quota=quota_row.monthly_token_quota,
         current_token_usage=quota_row.current_token_usage,

@@ -4,7 +4,12 @@
 """Core domain models, value objects, and domain exceptions."""
 
 from vistarae_core.domain.entities import (
+    POI,
+    GeocodingCacheEntry,
     IdempotencyRecord,
+    ListEntity,
+    PotentialDuplicateMatch,
+    TagEntity,
     User,
     UserMetric,
     UserPreferences,
@@ -12,27 +17,52 @@ from vistarae_core.domain.entities import (
 )
 from vistarae_core.domain.exceptions import (
     AccountDisabledError,
+    CyclicHierarchyError,
     DomainError,
+    GeocodingTimeoutError,
     IdempotencyConflictError,
+    InvalidCoordinateError,
+    POINotFoundError,
     QuotaExceededError,
+    TagLimitExceededError,
     TenantNotFoundError,
 )
 from vistarae_core.domain.value_objects import (
+    BoundingBox,
+    DeduplicationPreset,
+    EnrichmentStatus,
     IdempotencyStatus,
+    MergeResolutionRule,
     PacingMode,
     ThemeMode,
     TransitSpeedMode,
     UserTier,
+    VisitState,
+    WGS84Point,
 )
 
 __all__ = [
     "AccountDisabledError",
+    "BoundingBox",
+    "CyclicHierarchyError",
+    "DeduplicationPreset",
     "DomainError",
+    "EnrichmentStatus",
+    "GeocodingCacheEntry",
+    "GeocodingTimeoutError",
     "IdempotencyConflictError",
     "IdempotencyRecord",
     "IdempotencyStatus",
+    "InvalidCoordinateError",
+    "ListEntity",
+    "MergeResolutionRule",
+    "POI",
+    "POINotFoundError",
     "PacingMode",
+    "PotentialDuplicateMatch",
     "QuotaExceededError",
+    "TagEntity",
+    "TagLimitExceededError",
     "TenantNotFoundError",
     "ThemeMode",
     "TransitSpeedMode",
@@ -41,4 +71,6 @@ __all__ = [
     "UserPreferences",
     "UserQuota",
     "UserTier",
+    "VisitState",
+    "WGS84Point",
 ]

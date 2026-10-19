@@ -85,6 +85,7 @@ app.include_router(poi_ingestion_router)
 # System / Health Routes
 # ==========================================
 
+
 @app.get("/health", tags=["System"])
 async def health_check(db: AsyncSession = Depends(get_db)):
     """Healthcheck confirming database connectivity."""
@@ -106,6 +107,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 # ==========================================
 # Authentication & User Management Routes
 # ==========================================
+
 
 @app.post(
     "/api/v1/auth/register",
@@ -230,9 +232,7 @@ STANDARD_TAGS = [
 
 async def get_user_all_tags(user_id: uuid.UUID, db: AsyncSession) -> list[str]:
     """Retrieves standard common tags merged with user's custom tags and tags in existing POIs."""
-    user_tags_res = await db.scalars(
-        select(UserTag.name).where(UserTag.user_id == user_id)
-    )
+    user_tags_res = await db.scalars(select(UserTag.name).where(UserTag.user_id == user_id))
     user_custom = set(user_tags_res.all())
 
     poi_tags_res = await db.scalars(
@@ -267,7 +267,10 @@ async def extract_and_check(
         candidate.name = payload.place_name
     if payload.city:
         if payload.state and payload.city.strip().lower() == payload.state.strip().lower():
-            if payload.place_name and payload.place_name.strip().lower() != payload.state.strip().lower():
+            if (
+                payload.place_name
+                and payload.place_name.strip().lower() != payload.state.strip().lower()
+            ):
                 candidate.iptc_city = payload.place_name
             else:
                 candidate.iptc_city = None
@@ -299,7 +302,7 @@ async def extract_and_check(
 
     # 2b. Reverse geocoding lookup:
     # If address fields are not found but coordinates are present, resolve address using lat/long lookup
-    has_valid_coords = (lat != 0.0 or lng != 0.0)
+    has_valid_coords = lat != 0.0 or lng != 0.0
     address_missing = (
         not candidate.iptc_city
         or candidate.iptc_city.lower() in ("unknown", "unknown city")
@@ -308,7 +311,9 @@ async def extract_and_check(
         or not candidate.iptc_country_code
     )
     if has_valid_coords and address_missing:
-        logger.info(f"Address fields incomplete for '{candidate.name}'. Attempting reverse geocoding lookup for ({lat}, {lng}).")
+        logger.info(
+            f"Address fields incomplete for '{candidate.name}'. Attempting reverse geocoding lookup for ({lat}, {lng})."
+        )
         rev_display_name, rev_geo = await reverse_geocode(lat, lng, db)
         if rev_geo:
             enrich_candidate_from_address(candidate, rev_geo)
@@ -339,8 +344,7 @@ async def extract_and_check(
         select(POI).where(POI.user_id == current_user.id).order_by(POI.name)
     )
     available_parents = [
-        ParentPOISummary(id=p.id, name=p.name, poi_type=p.poi_type)
-        for p in parents_result.all()
+        ParentPOISummary(id=p.id, name=p.name, poi_type=p.poi_type) for p in parents_result.all()
     ]
 
     # 6. Fetch available tags for current user
@@ -359,13 +363,18 @@ async def extract_and_check(
         available_tags=available_tags,
         source_url=payload.page_url,
         og_image_url=payload.og_image_url,
-        location_detected=(lat is not None and lng is not None and (lat != 0.0 or lng != 0.0)) and bool(candidate.name and candidate.name.lower() not in ("scenic point of interest", "unknown", "untitled")),
+        location_detected=(lat is not None and lng is not None and (lat != 0.0 or lng != 0.0))
+        and bool(
+            candidate.name
+            and candidate.name.lower() not in ("scenic point of interest", "unknown", "untitled")
+        ),
     )
 
 
 # ==========================================
 # Geocoding Routes
 # ==========================================
+
 
 @app.get(
     "/api/v1/reverse-geocode",
@@ -421,7 +430,9 @@ async def api_geocode(
     """Forward geocodes a place name or address to coordinates and address details."""
     search_term = (query or q or "").strip()
     if not search_term:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="query parameter is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="query parameter is required"
+        )
     lat, lng, display_name, raw_json = await geocode_query(search_term, db)
     comps = extract_address_components(raw_json)
     return GeocodeQueryResponse(
@@ -441,6 +452,7 @@ async def api_geocode(
 # ==========================================
 # POI CRUD Routes
 # ==========================================
+
 
 @app.post(
     "/api/v1/pois/check-duplicate",
@@ -513,7 +525,9 @@ async def create_poi(
         category_tags=payload.category_tags,
         visited=payload.visited,
         visit_date=payload.visit_date,
-        visit_dates=payload.visit_dates if payload.visit_dates else ([payload.visit_date] if payload.visit_date else []),
+        visit_dates=payload.visit_dates
+        if payload.visit_dates
+        else ([payload.visit_date] if payload.visit_date else []),
         visit_again=payload.visit_again,
         location=point_wkt,
         geofence_radius_ft=payload.geofence_radius_ft,
@@ -578,7 +592,9 @@ async def create_poi(
         category_tags=new_poi.category_tags or [],
         visited=new_poi.visited,
         visit_date=new_poi.visit_date,
-        visit_dates=new_poi.visit_dates if new_poi.visit_dates else ([new_poi.visit_date] if new_poi.visit_date else []),
+        visit_dates=new_poi.visit_dates
+        if new_poi.visit_dates
+        else ([new_poi.visit_date] if new_poi.visit_date else []),
         visit_again=new_poi.visit_again if new_poi.visit_again is not None else False,
         latitude=payload.latitude if has_coords else None,
         longitude=payload.longitude if has_coords else None,
@@ -645,25 +661,37 @@ async def list_pois(
     if visited_status:
         v_status = visited_status.strip().lower().replace(" ", "_")
         if v_status == "visited":
-            conditions.append("(p.visit_date IS NOT NULL OR (p.visit_dates IS NOT NULL AND cardinality(p.visit_dates) > 0))")
+            conditions.append(
+                "(p.visit_date IS NOT NULL OR (p.visit_dates IS NOT NULL AND cardinality(p.visit_dates) > 0))"
+            )
         elif v_status in ("not_visited", "unvisited"):
-            conditions.append("(p.visit_date IS NULL AND (p.visit_dates IS NULL OR cardinality(p.visit_dates) = 0))")
+            conditions.append(
+                "(p.visit_date IS NULL AND (p.visit_dates IS NULL OR cardinality(p.visit_dates) = 0))"
+            )
         elif v_status in ("to_see", "tosee"):
-            conditions.append("((p.visit_date IS NULL AND (p.visit_dates IS NULL OR cardinality(p.visit_dates) = 0)) OR p.visit_again IS TRUE)")
+            conditions.append(
+                "((p.visit_date IS NULL AND (p.visit_dates IS NULL OR cardinality(p.visit_dates) = 0)) OR p.visit_again IS TRUE)"
+            )
 
     if search and search.strip():
-        conditions.append("(p.name ILIKE :search_like OR p.description ILIKE :search_like OR p.iptc_city ILIKE :search_like)")
+        conditions.append(
+            "(p.name ILIKE :search_like OR p.description ILIKE :search_like OR p.iptc_city ILIKE :search_like)"
+        )
         params["search_like"] = f"%{search.strip()}%"
 
     if country and country.strip():
         c_val = country.strip()
         mapped_code = map_country_to_code(c_val)
         if mapped_code:
-            conditions.append("(p.iptc_country_code = :country_exact OR p.iptc_country_code ILIKE :country_val)")
+            conditions.append(
+                "(p.iptc_country_code = :country_exact OR p.iptc_country_code ILIKE :country_val)"
+            )
             params["country_exact"] = mapped_code
             params["country_val"] = f"%{mapped_code}%"
         else:
-            conditions.append("(p.iptc_country_code ILIKE :country_val OR p.iptc_country_code = :country_exact)")
+            conditions.append(
+                "(p.iptc_country_code ILIKE :country_val OR p.iptc_country_code = :country_exact)"
+            )
             params["country_val"] = f"%{c_val}%"
             params["country_exact"] = c_val.upper()
 
@@ -677,29 +705,41 @@ async def list_pois(
 
     if lat is not None and lng is not None:
         radius_meters = (radius_miles or 25.0) * 1609.34
-        conditions.append("ST_DWithin(p.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius_meters)")
+        conditions.append(
+            "ST_DWithin(p.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius_meters)"
+        )
         params["lat"] = lat
         params["lng"] = lng
         params["radius_meters"] = radius_meters
 
     if min_lat is not None and max_lat is not None and min_lng is not None and max_lng is not None:
         if min_lng <= max_lng:
-            conditions.append("ST_Intersects(p.location::geometry, ST_MakeEnvelope(:min_lng, :min_lat, :max_lng, :max_lat, 4326))")
-            params.update({"min_lng": min_lng, "min_lat": min_lat, "max_lng": max_lng, "max_lat": max_lat})
+            conditions.append(
+                "ST_Intersects(p.location::geometry, ST_MakeEnvelope(:min_lng, :min_lat, :max_lng, :max_lat, 4326))"
+            )
+            params.update(
+                {"min_lng": min_lng, "min_lat": min_lat, "max_lng": max_lng, "max_lat": max_lat}
+            )
         else:
             conditions.append(
                 "(ST_Intersects(p.location::geometry, ST_MakeEnvelope(:min_lng, :min_lat, 180.0, :max_lat, 4326)) OR "
                 "ST_Intersects(p.location::geometry, ST_MakeEnvelope(-180.0, :min_lat, :max_lng, :max_lat, 4326)))"
             )
-            params.update({"min_lng": min_lng, "min_lat": min_lat, "max_lng": max_lng, "max_lat": max_lat})
+            params.update(
+                {"min_lng": min_lng, "min_lat": min_lat, "max_lng": max_lng, "max_lat": max_lat}
+            )
 
     if list_id is not None:
-        conditions.append("EXISTS (SELECT 1 FROM poi_list_memberships plm WHERE plm.poi_id = p.id AND plm.list_id = :filter_list_id)")
+        conditions.append(
+            "EXISTS (SELECT 1 FROM poi_list_memberships plm WHERE plm.poi_id = p.id AND plm.list_id = :filter_list_id)"
+        )
         params["filter_list_id"] = list_id
 
     if tag and tag.strip():
         t_clean = tag.strip().lower()
-        conditions.append("(:tag_exact = ANY(p.category_tags) OR p.category_tags::text ILIKE :tag_like)")
+        conditions.append(
+            "(:tag_exact = ANY(p.category_tags) OR p.category_tags::text ILIKE :tag_like)"
+        )
         params["tag_exact"] = t_clean
         params["tag_like"] = f"%{t_clean}%"
 
@@ -851,9 +891,7 @@ async def update_poi(
     db: AsyncSession = Depends(get_db),
 ):
     """Updates an existing POI record belonging to the authenticated user."""
-    poi = await db.scalar(
-        select(POI).where(POI.id == poi_id, POI.user_id == current_user.id)
-    )
+    poi = await db.scalar(select(POI).where(POI.id == poi_id, POI.user_id == current_user.id))
     if not poi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="POI not found")
 
@@ -888,7 +926,9 @@ async def update_poi(
         poi.geofence_radius_ft = payload.geofence_radius_ft
     if "parent_poi_id" in payload.model_fields_set:
         if payload.parent_poi_id and payload.parent_poi_id == poi.id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A place cannot be its own parent")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="A place cannot be its own parent"
+            )
         poi.parent_poi_id = payload.parent_poi_id
     if payload.physical_effort is not None:
         poi.physical_effort = payload.physical_effort
@@ -945,9 +985,7 @@ async def delete_poi(
     db: AsyncSession = Depends(get_db),
 ):
     """Deletes a POI record belonging strictly to the authenticated user."""
-    poi = await db.scalar(
-        select(POI).where(POI.id == poi_id, POI.user_id == current_user.id)
-    )
+    poi = await db.scalar(select(POI).where(POI.id == poi_id, POI.user_id == current_user.id))
     if not poi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="POI not found")
 
@@ -980,10 +1018,7 @@ async def bulk_delete_pois(
 ):
     """Bulk deletes selected POIs belonging strictly to the authenticated user."""
     pois_res = await db.scalars(
-        select(POI).where(
-            POI.id.in_(payload.poi_ids),
-            POI.user_id == current_user.id
-        )
+        select(POI).where(POI.id.in_(payload.poi_ids), POI.user_id == current_user.id)
     )
     pois = pois_res.all() if hasattr(pois_res, "all") else []
     if inspect.isawaitable(pois):
@@ -1022,12 +1057,11 @@ async def bulk_update_pois(
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk updates tags and/or location for selected POIs belonging to the authenticated user."""
-    pois = (await db.scalars(
-        select(POI).where(
-            POI.id.in_(payload.poi_ids),
-            POI.user_id == current_user.id
+    pois = (
+        await db.scalars(
+            select(POI).where(POI.id.in_(payload.poi_ids), POI.user_id == current_user.id)
         )
-    )).all()
+    ).all()
 
     clean_add_tags = [t.strip() for t in payload.add_tags if t.strip()]
     clean_remove_tags = [t.strip().lower() for t in payload.remove_tags if t.strip()]
@@ -1064,10 +1098,10 @@ async def bulk_update_pois(
     return POIBulkActionResponse(success=True, affected_count=len(pois))
 
 
-
 # ==========================================
 # List Management Routes
 # ==========================================
+
 
 @app.get("/api/v1/lists", response_model=list[ListSummary], tags=["Lists"])
 async def list_user_lists(
@@ -1084,7 +1118,9 @@ async def list_user_lists(
     ]
 
 
-@app.post("/api/v1/lists", response_model=ListSummary, status_code=status.HTTP_201_CREATED, tags=["Lists"])
+@app.post(
+    "/api/v1/lists", response_model=ListSummary, status_code=status.HTTP_201_CREATED, tags=["Lists"]
+)
 async def create_user_list(
     payload: ListCreate,
     current_user: User = Depends(get_current_user),
@@ -1130,6 +1166,7 @@ async def delete_user_list(
 # Category Tag Management Routes
 # ==========================================
 
+
 @app.get("/api/v1/tags", response_model=list[str], tags=["Tags"])
 async def list_tags(
     current_user: User = Depends(get_current_user),
@@ -1139,7 +1176,9 @@ async def list_tags(
     return await get_user_all_tags(current_user.id, db)
 
 
-@app.post("/api/v1/tags", response_model=TagResponse, status_code=status.HTTP_201_CREATED, tags=["Tags"])
+@app.post(
+    "/api/v1/tags", response_model=TagResponse, status_code=status.HTTP_201_CREATED, tags=["Tags"]
+)
 async def create_custom_tag(
     payload: TagCreate,
     current_user: User = Depends(get_current_user),
@@ -1148,10 +1187,14 @@ async def create_custom_tag(
     """Creates a new custom tag for the authenticated user."""
     tag_clean = payload.name.strip()
     if not tag_clean:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Tag cannot be empty")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Tag cannot be empty"
+        )
 
     existing = await db.scalar(
-        select(UserTag).where(UserTag.user_id == current_user.id, func.lower(UserTag.name) == tag_clean.lower())
+        select(UserTag).where(
+            UserTag.user_id == current_user.id, func.lower(UserTag.name) == tag_clean.lower()
+        )
     )
     if not existing:
         new_tag = UserTag(user_id=current_user.id, name=tag_clean)
@@ -1170,10 +1213,11 @@ async def delete_custom_tag(
     """Removes a custom tag for the authenticated user."""
     tag_clean = tag_name.strip()
     target = await db.scalar(
-        select(UserTag).where(UserTag.user_id == current_user.id, func.lower(UserTag.name) == tag_clean.lower())
+        select(UserTag).where(
+            UserTag.user_id == current_user.id, func.lower(UserTag.name) == tag_clean.lower()
+        )
     )
     if target:
         await db.delete(target)
         await db.commit()
     return None
-

@@ -39,8 +39,7 @@ def redrive_dlq(
     """
     if env != "local" and not dry_run:
         prompt = input(
-            f"WARNING: You are about to redrive DLQ messages in '{env}'.\n"
-            "Type 'yes' to confirm: "
+            f"WARNING: You are about to redrive DLQ messages in '{env}'.\nType 'yes' to confirm: "
         )
         if prompt.strip().lower() != "yes":
             raise RuntimeError("Operation aborted by user.")
@@ -94,7 +93,9 @@ def redrive_dlq(
             )
             redriven_count += 1
 
-    print(f"Redrive complete: {redriven_count} messages moved from {dlq_name} to {main_queue_name}.")
+    print(
+        f"Redrive complete: {redriven_count} messages moved from {dlq_name} to {main_queue_name}."
+    )
     return redriven_count
 
 

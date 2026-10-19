@@ -1,0 +1,91 @@
+# Copyright (c) 2026 Vistarae. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""POI Deduplication Probing & Interactive Merge endpoints (T-019).
+
+Implements:
+- GET /pois/dedup-check: Probes for collision candidates using ST_DWithin + trigram similarity
+- POST /pois/merge: Atomically merges two duplicate POIs with hierarchy preservation
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Query
+from vistarae_core.domain.entities import User
+from vistarae_core.domain.value_objects import (
+    DeduplicationPreset,
+    MergeResolutionRule,
+    WGS84Point,
+)
+from vistarae_core.ports.repositories import IPOIRepository, ITagRepository
+from vistarae_core.schemas.poi import (
+    DedupCheckResponse,
+    POIMergeRequest,
+    POIResponse,
+    PotentialDuplicateItem,
+)
+
+from services.poi.dependencies import get_current_user, get_poi_repo, get_tag_repo
+from services.poi.routes.pois import _poi_to_response
+
+router = APIRouter(tags=["dedup"])
+
+
+@router.get("/pois/dedup-check", response_model=DedupCheckResponse)
+async def check_duplicates(
+    name: str = Query(..., min_length=1, description="Candidate POI name"),
+    lon: float = Query(..., ge=-180.0, le=180.0, description="Longitude in degrees"),
+    lat: float = Query(..., ge=-90.0, le=90.0, description="Latitude in degrees"),
+    preset: DeduplicationPreset = Query(
+        default=DeduplicationPreset.URBAN,
+        description="Proximity radius preset: urban (805m) or macro (80,467m)",
+    ),
+    current_user: User = Depends(get_current_user),
+    poi_repo: IPOIRepository = Depends(get_poi_repo),
+    tag_repo: ITagRepository = Depends(get_tag_repo),
+) -> DedupCheckResponse:
+    """Probes existing tenant POIs for duplicates within spatial radius exceeding 0.60 similarity."""
+    radius_meters = 805.0 if preset == DeduplicationPreset.URBAN else 80467.0
+    point = WGS84Point(lon=lon, lat=lat)
+
+    matches = await poi_repo.find_potential_duplicates(
+        user_id=current_user.id,
+        name=name,
+        point=point,
+        radius_meters=radius_meters,
+        similarity_threshold=0.60,
+    )
+
+    tags_map = await tag_repo.get_tags_for_pois([m.existing_poi.id for m in matches])
+
+    items = [
+        PotentialDuplicateItem(
+            existing_poi=_poi_to_response(m.existing_poi, tags_map.get(m.existing_poi.id, [])),
+            distance_meters=m.distance_meters,
+            name_similarity=m.name_similarity,
+            match_confidence=m.match_confidence,
+        )
+        for m in matches
+    ]
+
+    return DedupCheckResponse(matches=items)
+
+
+@router.post("/pois/merge", response_model=POIResponse)
+async def merge_pois(
+    req: POIMergeRequest,
+    current_user: User = Depends(get_current_user),
+    poi_repo: IPOIRepository = Depends(get_poi_repo),
+    tag_repo: ITagRepository = Depends(get_tag_repo),
+) -> POIResponse:
+    """Atomically merges source POI into target POI and purges source record."""
+    rule = MergeResolutionRule(
+        target_poi_id=req.target_poi_id,
+        source_poi_id=req.source_poi_id,
+        use_source_for=req.use_source_for,
+        merge_tags=req.merge_tags,
+    )
+
+    merged = await poi_repo.merge_pois(user_id=current_user.id, rule=rule)
+    tags = await tag_repo.get_tags_for_poi(merged.id)
+    return _poi_to_response(merged, tags)

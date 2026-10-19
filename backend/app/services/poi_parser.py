@@ -4,9 +4,9 @@ import csv
 import io
 import json
 import logging
-from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
@@ -19,80 +19,190 @@ logger = logging.getLogger("vistarae.poi_parser")
 # Standard synonyms mapped to canonical fields
 FIELD_SYNONYMS: dict[str, list[str]] = {
     "name": [
-        "name", "title", "sitename", "site_name", "place", "placename", "place_name",
-        "poi", "poi_name", "label", "unitname", "unit_name", "parkname", "park_name",
-        "namefull", "name_full", "featurename", "feature_name", "wptname", "wpt_name",
-        "placemarkname", "placemark_name", "location_name", "destination"
+        "name",
+        "title",
+        "sitename",
+        "site_name",
+        "place",
+        "placename",
+        "place_name",
+        "poi",
+        "poi_name",
+        "label",
+        "unitname",
+        "unit_name",
+        "parkname",
+        "park_name",
+        "namefull",
+        "name_full",
+        "featurename",
+        "feature_name",
+        "wptname",
+        "wpt_name",
+        "placemarkname",
+        "placemark_name",
+        "location_name",
+        "destination",
     ],
     "latitude": [
-        "latitude", "lat", "y", "latdeg", "lat_deg", "latitudedeg", "latitude_deg",
-        "coordlat", "coord_lat", "coordinateslat", "coordinates_lat", "ycoord", "y_coord",
-        "pointlatitude", "point_latitude", "latitude_degrees"
+        "latitude",
+        "lat",
+        "y",
+        "latdeg",
+        "lat_deg",
+        "latitudedeg",
+        "latitude_deg",
+        "coordlat",
+        "coord_lat",
+        "coordinateslat",
+        "coordinates_lat",
+        "ycoord",
+        "y_coord",
+        "pointlatitude",
+        "point_latitude",
+        "latitude_degrees",
     ],
     "longitude": [
-        "longitude", "long", "lng", "lon", "x", "londeg", "lon_deg", "longitudedeg",
-        "longitude_deg", "coordlon", "coord_lon", "coordinateslon", "coordinates_lon",
-        "xcoord", "x_coord", "pointlongitude", "point_longitude", "longitude_degrees"
+        "longitude",
+        "long",
+        "lng",
+        "lon",
+        "x",
+        "londeg",
+        "lon_deg",
+        "longitudedeg",
+        "longitude_deg",
+        "coordlon",
+        "coord_lon",
+        "coordinateslon",
+        "coordinates_lon",
+        "xcoord",
+        "x_coord",
+        "pointlongitude",
+        "point_longitude",
+        "longitude_degrees",
     ],
     "coordinates": [
-        "coordinates", "coords", "coord", "latlng", "lat_lng", "latlon", "lat_lon",
-        "position", "point", "geolocation"
+        "coordinates",
+        "coords",
+        "coord",
+        "latlng",
+        "lat_lng",
+        "latlon",
+        "lat_lon",
+        "position",
+        "point",
+        "geolocation",
     ],
     "sublocation": [
-        "sublocation", "street", "streetaddress", "street_address", "address",
-        "addressline", "address_line", "addr", "locationaddress", "location_address"
+        "sublocation",
+        "street",
+        "streetaddress",
+        "street_address",
+        "address",
+        "addressline",
+        "address_line",
+        "addr",
+        "locationaddress",
+        "location_address",
     ],
-    "city": [
-        "city", "town", "municipality", "locality", "cityname", "city_name"
-    ],
+    "city": ["city", "town", "municipality", "locality", "cityname", "city_name"],
     "state": [
-        "state", "province", "region", "stateprovince", "state_province",
-        "adminarea", "admin_area", "statecode", "state_code", "prefecture", "canton"
+        "state",
+        "province",
+        "region",
+        "stateprovince",
+        "state_province",
+        "adminarea",
+        "admin_area",
+        "statecode",
+        "state_code",
+        "prefecture",
+        "canton",
     ],
     "country_code": [
-        "countrycode", "country_code", "isocountry", "iso_country", "cc",
-        "countryalpha2", "country_alpha2", "iso2", "iso_3166"
+        "countrycode",
+        "country_code",
+        "isocountry",
+        "iso_country",
+        "cc",
+        "countryalpha2",
+        "country_alpha2",
+        "iso2",
+        "iso_3166",
     ],
-    "country": [
-        "country", "countryname", "country_name", "nation"
-    ],
-    "zip_code": [
-        "zip", "zipcode", "zip_code", "postalcode", "postal_code", "postcode"
-    ],
+    "country": ["country", "countryname", "country_name", "nation"],
+    "zip_code": ["zip", "zipcode", "zip_code", "postalcode", "postal_code", "postcode"],
     "category_tags": [
-        "tags", "tag", "category", "categories", "categorytags", "category_tags",
-        "keywords", "designation", "type", "types", "labels", "topics"
+        "tags",
+        "tag",
+        "category",
+        "categories",
+        "categorytags",
+        "category_tags",
+        "keywords",
+        "designation",
+        "type",
+        "types",
+        "labels",
+        "topics",
     ],
-    "poi_type": [
-        "poitype", "poi_type", "typeofplace", "type_of_place", "placetype", "place_type"
-    ],
+    "poi_type": ["poitype", "poi_type", "typeofplace", "type_of_place", "placetype", "place_type"],
     "description": [
-        "description", "desc", "summary", "notes", "highlights", "details",
-        "abstract", "comment", "overview", "info", "body"
+        "description",
+        "desc",
+        "summary",
+        "notes",
+        "highlights",
+        "details",
+        "abstract",
+        "comment",
+        "overview",
+        "info",
+        "body",
     ],
     "website_official": [
-        "website", "url", "officialwebsite", "official_website", "link", "web",
-        "homepage", "siteurl", "site_url", "websiteofficial", "website_official", "uri"
+        "website",
+        "url",
+        "officialwebsite",
+        "official_website",
+        "link",
+        "web",
+        "homepage",
+        "siteurl",
+        "site_url",
+        "websiteofficial",
+        "website_official",
+        "uri",
     ],
     "phone_number": [
-        "phone", "telephone", "contact", "phonenumber", "phone_number", "tel", "mobile"
+        "phone",
+        "telephone",
+        "contact",
+        "phonenumber",
+        "phone_number",
+        "tel",
+        "mobile",
     ],
     "personal_rating": [
-        "rating", "stars", "personalrating", "personal_rating", "score", "user_rating"
+        "rating",
+        "stars",
+        "personalrating",
+        "personal_rating",
+        "score",
+        "user_rating",
     ],
-    "visited": [
-        "visited", "hasvisited", "has_visited", "isvisited", "is_visited", "statusvisited"
-    ],
-    "visit_date": [
-        "visitdate", "visit_date", "datevisited", "date_visited", "visiteddate"
-    ],
+    "visited": ["visited", "hasvisited", "has_visited", "isvisited", "is_visited", "statusvisited"],
+    "visit_date": ["visitdate", "visit_date", "datevisited", "date_visited", "visiteddate"],
     "visit_again": [
-        "visitagain", "visit_again", "wanttovisitagain", "want_to_visit_again",
-        "revisit", "would_return"
+        "visitagain",
+        "visit_again",
+        "wanttovisitagain",
+        "want_to_visit_again",
+        "revisit",
+        "would_return",
     ],
-    "source_url": [
-        "sourceurl", "source_url", "source_file", "sourcefile", "source", "source_name"
-    ],
+    "source_url": ["sourceurl", "source_url", "source_file", "sourcefile", "source", "source_name"],
 }
 
 
@@ -149,7 +259,12 @@ def detect_format(content: str, filename: str | None = None, hint: str | None = 
         return "kml"
     if "<gpx" in sample or "<wpt" in sample:
         return "gpx"
-    if sample.startswith("<?xml") or ("<" in sample and ">" in sample and not sample.startswith("{") and not sample.startswith("[")):
+    if sample.startswith("<?xml") or (
+        "<" in sample
+        and ">" in sample
+        and not sample.startswith("{")
+        and not sample.startswith("[")
+    ):
         return "xml"
 
     if sample.startswith("{") or sample.startswith("["):
@@ -234,7 +349,9 @@ def _clean_tags(val: Any) -> list[str]:
     return [item.strip() for item in items if item.strip()]
 
 
-def parse_csv_tsv_records(content: str, delimiter: str = ",") -> tuple[list[dict[str, Any]], list[str]]:
+def parse_csv_tsv_records(
+    content: str, delimiter: str = ","
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Parses tabular CSV or TSV content into list of row dictionaries."""
     # Strip UTF-8 BOM if present
     if content.startswith("\ufeff"):
@@ -285,7 +402,16 @@ def parse_json_records(content: str) -> tuple[list[dict[str, Any]], list[str]]:
             rows.append(props)
     # Case 2: Dict containing list in known wrapper keys
     elif isinstance(data, dict):
-        wrapper_keys = ("pois", "places", "items", "records", "results", "data", "features", "sites")
+        wrapper_keys = (
+            "pois",
+            "places",
+            "items",
+            "records",
+            "results",
+            "data",
+            "features",
+            "sites",
+        )
         found_list = None
         for key in wrapper_keys:
             if key in data and isinstance(data[key], list):
@@ -432,7 +558,9 @@ def parse_generic_xml_records(content: str) -> tuple[list[dict[str, Any]], list[
     return rows, sorted(headers_set)
 
 
-def extract_raw_records(content: str, filename: str | None = None, format_hint: str | None = None) -> tuple[list[dict[str, Any]], list[str], str]:
+def extract_raw_records(
+    content: str, filename: str | None = None, format_hint: str | None = None
+) -> tuple[list[dict[str, Any]], list[str], str]:
     """Detects format and parses content into raw dict records, headers, and detected format."""
     fmt = detect_format(content, filename, format_hint)
     rows: list[dict[str, Any]] = []
@@ -480,7 +608,9 @@ def standardize_poi_candidates(
         )
 
     field_mapping = build_header_mapping(headers)
-    is_csv = (detected_format == "csv") or (bool(filename and filename.strip().lower().endswith(".csv")))
+    is_csv = (detected_format == "csv") or (
+        bool(filename and filename.strip().lower().endswith(".csv"))
+    )
     clean_filename = Path(filename.strip()).name if filename and filename.strip() else None
 
     # Check if a mapping exists for the required 'name' field
@@ -527,14 +657,17 @@ def standardize_poi_candidates(
         sublocation_val = _clean_str(mapped_dict.get("sublocation"))
         city_val = _clean_str(mapped_dict.get("city"))
         state_val = _clean_str(mapped_dict.get("state"))
-        country_raw = _clean_str(mapped_dict.get("country")) or _clean_str(mapped_dict.get("country_code"))
+        country_raw = _clean_str(mapped_dict.get("country")) or _clean_str(
+            mapped_dict.get("country_code")
+        )
         country_code_val, allowed_country_codes = parse_country_input(country_raw)
         zip_code_val = _clean_str(mapped_dict.get("zip_code"))
 
         # Check if row has an explicit tags column
         has_tags_col = any(
             normalize_header(k) in ("tags", "tag", "categorytags", "category_tags")
-            for k, v in row.items() if v is not None and str(v).strip()
+            for k, v in row.items()
+            if v is not None and str(v).strip()
         )
 
         # Category tags: prioritize explicit tags column over generic category if both exist
@@ -568,7 +701,9 @@ def standardize_poi_candidates(
 
         # Evaluate Data Quality & Missing Field Flags
         has_name = bool(name_val and name_val.strip())
-        has_coords = bool(lat_val is not None and lng_val is not None and not (lat_val == 0.0 and lng_val == 0.0))
+        has_coords = bool(
+            lat_val is not None and lng_val is not None and not (lat_val == 0.0 and lng_val == 0.0)
+        )
         has_addr = bool(city_val or state_val or sublocation_val or country_code_val or country_raw)
 
         quality_flags: list[str] = []

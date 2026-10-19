@@ -27,9 +27,7 @@ from app.db import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -38,30 +36,30 @@ class User(Base):
         DateTime(timezone=True), default=datetime.now, server_default=func.clock_timestamp()
     )
 
-    pois: Mapped[list["POI"]] = relationship("POI", back_populates="user", cascade="all, delete-orphan")
-    lists: Mapped[list["ListModel"]] = relationship("ListModel", back_populates="user", cascade="all, delete-orphan")
-    tags: Mapped[list["UserTag"]] = relationship("UserTag", back_populates="user", cascade="all, delete-orphan")
+    pois: Mapped[list["POI"]] = relationship(
+        "POI", back_populates="user", cascade="all, delete-orphan"
+    )
+    lists: Mapped[list["ListModel"]] = relationship(
+        "ListModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    tags: Mapped[list["UserTag"]] = relationship(
+        "UserTag", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class POI(Base):
     __tablename__ = "pois"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    name_aliases: Mapped[list[str] | None] = mapped_column(
-        ARRAY(Text), default=list
-    )
+    name_aliases: Mapped[list[str] | None] = mapped_column(ARRAY(Text), default=list)
     poi_type: Mapped[str] = mapped_column(String(50), nullable=False)
     personal_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    category_tags: Mapped[list[str] | None] = mapped_column(
-        ARRAY(Text), default=list
-    )
+    category_tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), default=list)
     visited: Mapped[bool] = mapped_column(Boolean, default=False)
     visit_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     visit_dates: Mapped[list[date] | None] = mapped_column(ARRAY(Date), default=list)
@@ -87,9 +85,7 @@ class POI(Base):
     phone_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     google_place_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     primary_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    alternate_image_urls: Mapped[list[str] | None] = mapped_column(
-        ARRAY(Text), default=list
-    )
+    alternate_image_urls: Mapped[list[str] | None] = mapped_column(ARRAY(Text), default=list)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     source_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     raw_selected_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -125,9 +121,7 @@ class POI(Base):
 class POIAccessPoint(Base):
     __tablename__ = "poi_access_points"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     poi_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pois.id", ondelete="CASCADE"), nullable=False
     )
@@ -147,9 +141,7 @@ class POIAccessPoint(Base):
 class ListModel(Base):
     __tablename__ = "lists"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -196,9 +188,7 @@ class Geocache(Base):
 class UserTag(Base):
     __tablename__ = "user_tags"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -213,9 +203,7 @@ class UserTag(Base):
 class ScannedPath(Base):
     __tablename__ = "scanned_paths"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -257,10 +245,10 @@ class ScannedPath(Base):
         DateTime(timezone=True), server_default=func.clock_timestamp()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.clock_timestamp(), onupdate=func.clock_timestamp()
+        DateTime(timezone=True),
+        server_default=func.clock_timestamp(),
+        onupdate=func.clock_timestamp(),
     )
 
     poi: Mapped[Optional["POI"]] = relationship("POI", back_populates="scanned_paths")
     user: Mapped["User"] = relationship("User")
-
-

@@ -113,7 +113,19 @@ async def check_spatial_collision(
         is_macro = (
             geofence_ft >= 2000
             or row["poi_type"] in ("site to see", "experience")
-            or any(k in row["name"].lower() for k in ["park", "forest", "reserve", "campus", "district", "valley", "canyon", "island"])
+            or any(
+                k in row["name"].lower()
+                for k in [
+                    "park",
+                    "forest",
+                    "reserve",
+                    "campus",
+                    "district",
+                    "valley",
+                    "canyon",
+                    "island",
+                ]
+            )
         )
 
         if sim < 0.60 and is_macro and nearby_parent is None and row["parent_poi_id"] is None:

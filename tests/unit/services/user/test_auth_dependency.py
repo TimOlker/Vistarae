@@ -160,7 +160,10 @@ class TestCognitoCloudAuthentication:
         """Token validation failure returns 401."""
         monkeypatch.setenv("STAGE", "production")
 
-        with patch("services.user.dependencies._cognito_provider.verify_token", side_effect=ValueError("Token expired")):
+        with patch(
+            "services.user.dependencies._cognito_provider.verify_token",
+            side_effect=ValueError("Token expired"),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await get_current_user(
                     authorization="Bearer bad-token",
@@ -179,7 +182,10 @@ class TestCognitoCloudAuthentication:
         mock_result.scalar_one_or_none.return_value = None
         mock_session.execute.return_value = mock_result
 
-        with patch("services.user.dependencies._cognito_provider.verify_token", return_value={"sub": "sub-unknown"}):
+        with patch(
+            "services.user.dependencies._cognito_provider.verify_token",
+            return_value={"sub": "sub-unknown"},
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await get_current_user(
                     authorization="Bearer valid-token",
@@ -209,7 +215,10 @@ class TestCognitoCloudAuthentication:
         mock_result.scalar_one_or_none.return_value = fake_row
         mock_session.execute.return_value = mock_result
 
-        with patch("services.user.dependencies._cognito_provider.verify_token", return_value={"sub": "sub-disabled"}):
+        with patch(
+            "services.user.dependencies._cognito_provider.verify_token",
+            return_value={"sub": "sub-disabled"},
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await get_current_user(
                     authorization="Bearer valid-token",
@@ -239,7 +248,10 @@ class TestCognitoCloudAuthentication:
         mock_result.scalar_one_or_none.return_value = fake_row
         mock_session.execute.return_value = mock_result
 
-        with patch("services.user.dependencies._cognito_provider.verify_token", return_value={"sub": "sub-alice"}):
+        with patch(
+            "services.user.dependencies._cognito_provider.verify_token",
+            return_value={"sub": "sub-alice"},
+        ):
             user = await get_current_user(
                 authorization="Bearer valid-token",
                 session=mock_session,
