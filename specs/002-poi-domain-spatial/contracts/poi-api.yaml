@@ -37,6 +37,18 @@ paths:
           description: Comma-separated tag UUIDs
           schema:
             type: string
+        - name: state
+          in: query
+          required: false
+          description: Filter POIs by state/province name via JSONB containment
+          schema:
+            type: string
+        - name: country
+          in: query
+          required: false
+          description: Filter POIs by country name via JSONB containment
+          schema:
+            type: string
         - name: visit_state
           in: query
           required: false
@@ -414,12 +426,16 @@ components:
         city:
           type: string
           nullable: true
-        state:
-          type: string
-          nullable: true
-        country:
-          type: string
-          nullable: true
+        states:
+          type: array
+          items:
+            type: string
+          description: Administrative subdivisions, states, or provinces spanned by the POI (e.g. ["California", "Nevada"] or ["Wyoming", "Montana", "Idaho"])
+        countries:
+          type: array
+          items:
+            type: string
+          description: Sovereign countries spanned by the POI (e.g. ["United States", "Canada"])
         official_url:
           type: string
           nullable: true
@@ -515,6 +531,26 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+        states:
+          type: array
+          items:
+            type: string
+          description: Array of states or provinces spanned by the POI
+        countries:
+          type: array
+          items:
+            type: string
+          description: Array of countries spanned by the POI
+        state:
+          type: string
+          description: Optional convenience alias for single-state POIs
+        country:
+          type: string
+          description: Optional convenience alias for single-country POIs
         official_url:
           type: string
           nullable: true
@@ -562,6 +598,24 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+        states:
+          type: array
+          items:
+            type: string
+        countries:
+          type: array
+          items:
+            type: string
+        state:
+          type: string
+          description: Optional convenience alias for single-state updates
+        country:
+          type: string
+          description: Optional convenience alias for single-country updates
         official_url:
           type: string
           nullable: true

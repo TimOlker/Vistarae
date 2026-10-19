@@ -58,13 +58,15 @@ curl -X POST "http://localhost:8030/api/pois" \
     "description": "Dramatic granite overlook towering 3,214 feet above Yosemite Valley with sweeping vistas of Half Dome.",
     "lon": -119.5742,
     "lat": 37.7304,
+    "states": ["California"],
+    "countries": ["United States"],
     "visit_state": "not_visited",
     "rating": 5,
     "recommended_duration_hours": 2.5,
     "tag_names": ["viewpoint", "yosemite", "scenic"]
   }'
 ```
-*Expected Outcome*: HTTP 201 Created with populated `id`, canonical `lon`/`lat`, `enrichment_status = 'SUCCESS'`, and tags assigned.
+*Expected Outcome*: HTTP 201 Created with populated `id`, canonical `lon`/`lat`, `states: ["California"]`, `countries: ["United States"]`, `enrichment_status = 'SUCCESS'`, and tags assigned. (Multi-state destinations such as Yellowstone National Park support `states: ["Wyoming", "Montana", "Idaho"]`, and cross-border destinations such as Niagara Falls support `countries: ["United States", "Canada"]`).
 
 ---
 

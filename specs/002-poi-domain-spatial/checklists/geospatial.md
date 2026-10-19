@@ -59,6 +59,7 @@
 - [ ] CHK025 Are the HNSW vector index expression parameters (`vector_cosine_ops`) and dimensionality (768) explicitly specified for `pois.embedding`? [Completeness, Spec §REQ-EMBED-001, §REQ-EMBED-003]
 - [ ] CHK026 Is the composite text payload formatting for `embedding_md5` calculation rigorously specified with null handling, whitespace normalization, and sorted tag concatenation? [Clarity, Spec §Clarifications, §REQ-EMBED-004, §REQ-EMBED-005]
 - [ ] CHK027 Is the short-circuiting logic that bypasses external vector generation when `embedding_md5` matches existing records explicitly defined? [Completeness, Spec §REQ-EMBED-006, Success Criteria §SC-005]
+- [ ] CHK028 Are multi-state and multi-country requirements explicitly specified using JSONB array storage (`states`, `countries`) backed by GIN indexes to support destinations spanning multiple administrative territories or sovereign borders? [Completeness, Spec §REQ-POI-001, §REQ-GEO-004]
 
 ---
 

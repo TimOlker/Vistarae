@@ -9,10 +9,11 @@
 ## Summary
 
 Phase 2 (`002-poi-domain-spatial`) implements the Point of Interest (POI) domain, geospatial engine, and semantic search layer. The architectural design establishes:
-1. Pure domain aggregates and value objects in `packages/core/vistarae_core/domain/` (`POI`, `ListEntity`, `TagEntity`, `GeocodingCacheEntry`, `WGS84Point`, `BoundingBox`, `DeduplicationPreset`, `MergeResolutionRule`).
+1. Pure domain aggregates and value objects in `packages/core/vistarae_core/domain/` (`POI`, `ListEntity`, `TagEntity`, `GeocodingCacheEntry`, `WGS84Point`, `BoundingBox`, `DeduplicationPreset`, `MergeResolutionRule`), supporting cross-border and multi-jurisdiction destinations spanning multiple states and/or sovereign countries via JSONB string arrays (`states`, `countries`).
 2. Dual-indexed PostGIS persistence in `packages/core/vistarae_core/adapters/db/tables.py` and `adapters/repositories/poi_repo.py`:
    - Planar viewport exploration using `(geom::geometry) && ST_MakeEnvelope(...)` backed by composite functional GiST index `idx_pois_user_geom_geometry`.
    - Geodesic proximity and distance sorting using `ST_DWithin` and `ST_Distance` on `geography(Point, 4326)` backed by composite GiST index `idx_pois_user_geom`.
+   - JSONB containment filtering (`@>`) backed by GIN indexes `idx_pois_states_gin` and `idx_pois_countries_gin`.
 3. Deterministic deduplication engine (`GET /api/pois/dedup-check`) combining `pg_trgm` name similarity ($\ge 0.60$) and geodesic proximity presets (805m urban vs 80,467m macro).
 4. Atomic interactive record merging (`POST /api/pois/merge`) with attribute resolution rules, tag/list unioning within the 30-tag ceiling, subordinate child POI cascade re-parenting, and recursive loop cycle detection (RFC 7807 400).
 5. Token-bucket geocoding via `GeocodingPort` (`MapboxGeocodingAdapter`) with 1 rps rate limiting, 90-day SHA-256 query caching in `geocoding_cache`, opportunistic expired row eviction, and 3.0s timeout fallback to `enrichment_status = 'PARTIAL'`.

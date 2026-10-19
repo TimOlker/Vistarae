@@ -149,3 +149,16 @@ This document records the architectural investigations, technology evaluations, 
      - Fully reversible; no-op downgrade is strictly forbidden per Constitution Principle 4.
 - **Rationale**:
   - Guarantees strict Alembic reversibility and ensures `alembic check` passes in CI.
+
+---
+
+### Decision 9: Multi-State and Multi-Country Modeling via JSONB Arrays & GIN Indexing
+- **Decision**: Store states/provinces and sovereign countries as JSONB string arrays in columns `pois.states` (`JSONB NOT NULL DEFAULT '[]'::jsonb`) and `pois.countries` (`JSONB NOT NULL DEFAULT '[]'::jsonb`). Create dedicated GIN indexes `idx_pois_states_gin` and `idx_pois_countries_gin`. Implement Pydantic request normalization to accept both scalar strings (`state: "California"`) and array lists (`states: ["California", "Nevada"]`), normalizing all inputs to canonical lists of trimmed strings. Query filtering in `GET /api/pois?state=...&country=...` uses PostgreSQL JSONB containment (`states @> :state_json` and `countries @> :country_json`).
+- **Rationale**:
+  - Many natural travel destinations, national parks, mountain ranges, and scenic corridors physically cross administrative state lines (e.g., Yellowstone spanning Wyoming, Montana, and Idaho; Lake Tahoe spanning California and Nevada; Great Smoky Mountains spanning North Carolina and Tennessee; Four Corners Monument spanning Arizona, New Mexico, Utah, and Colorado) or international sovereign borders (e.g., Niagara Falls spanning the United States and Canada; Mont Blanc spanning France and Italy; Iguazu Falls spanning Argentina and Brazil).
+  - Storing scalar `VARCHAR(100)` forces arbitrary truncation or lossy single-jurisdiction picking.
+  - JSONB arrays align with existing schema patterns for `image_urls`, `directory_paths`, and `visited_dates`.
+  - GIN indexes on JSONB arrays allow PostgreSQL to evaluate `@>` containment queries using index scans with sub-millisecond execution times.
+- **Alternatives Considered**:
+  - *Many-to-many junction tables (`poi_states`, `poi_countries`)*: Rejected because administrative subdivisions and country names are small, bounded sets of strings where junction tables add excessive join overhead and complexity without performance advantage.
+  - *Delimited text string (e.g. "WY,MT,ID")*: Rejected because string matching with `LIKE '%MT%'` requires full table scans and leads to false positives (e.g., "MI" matching "Mississippi").

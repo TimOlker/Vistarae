@@ -84,8 +84,8 @@ class POI:
     description: str | None = None
     address: str | None = None
     city: str | None = None
-    state: str | None = None
-    country: str | None = None
+    states: list[str] = field(default_factory=list)
+    countries: list[str] = field(default_factory=list)
     official_url: str | None = None
     wiki_url: str | None = None
     image_urls: list[str] = field(default_factory=list)
@@ -156,8 +156,8 @@ class PotentialDuplicateMatch:
 - `description`: `TEXT`, NULL.
 - `address`: `VARCHAR(500)`, NULL.
 - `city`: `VARCHAR(100)`, NULL.
-- `state`: `VARCHAR(100)`, NULL.
-- `country`: `VARCHAR(100)`, NULL.
+- `states`: `JSONB`, NOT NULL, default `'[]'::jsonb`.
+- `countries`: `JSONB`, NOT NULL, default `'[]'::jsonb`.
 - `official_url`: `TEXT`, NULL.
 - `wiki_url`: `TEXT`, NULL.
 - `image_urls`: `JSONB`, NOT NULL, default `'[]'::jsonb`.
@@ -187,6 +187,8 @@ class PotentialDuplicateMatch:
 #### Indexes
 - `idx_pois_user_geom`: `USING gist (user_id, geom)` (Geodesic proximity, `ST_DWithin`, `ST_Distance`).
 - `idx_pois_user_geom_geometry`: `USING gist (user_id, (geom::geometry))` (Planar viewport bounding boxes, `ST_MakeEnvelope`).
+- `idx_pois_states_gin`: `USING gin (states)` (JSONB containment `@>` for state searches).
+- `idx_pois_countries_gin`: `USING gin (countries)` (JSONB containment `@>` for country searches).
 - `idx_pois_embedding`: `USING hnsw (embedding vector_cosine_ops)` (Approximate nearest-neighbor vector similarity).
 - `idx_pois_name_trgm`: `USING gin (name gin_trgm_ops)` (Trigram fuzzy name matching).
 - `idx_pois_parent_poi_id`: `(parent_poi_id)` (Hierarchical child traversal).
@@ -250,6 +252,8 @@ class IPOIRepository(Protocol):
         bbox: BoundingBox | None = None,
         list_id: UUID | None = None,
         tag_ids: list[UUID] | None = None,
+        state: str | None = None,
+        country: str | None = None,
         visit_state: VisitState | None = None,
         visited_from: date | None = None,
         visited_to: date | None = None,
@@ -290,8 +294,8 @@ class GeocodingResult:
     lon: float
     formatted_address: str
     city: str | None = None
-    state: str | None = None
-    country: str | None = None
+    states: list[str] = field(default_factory=list)
+    countries: list[str] = field(default_factory=list)
     status: EnrichmentStatus = EnrichmentStatus.SUCCESS
 
 class IGeocodingPort(Protocol):
