@@ -63,6 +63,23 @@
 
 ---
 
+## 6. Advanced Spatial Indexing, Boundary Edge Cases & Merge Idempotency
+
+- [ ] CHK029 Are index column ordering rules explicitly defined for composite indexes (`user_id` as the leading column before `geom` or `(geom::geometry)`) to enable tenant partition pruning prior to spatial evaluation? [Consistency, Spec §REQ-GEO-002, §REQ-GEO-003, Constitution §Principle 3]
+- [ ] CHK030 Does the specification define expected planner behavior and spatial index operator classes (`gist_geometry_ops_2d`) for `(geom::geometry)`? [Clarity, Spec §REQ-GEO-003, Research §Decision 1]
+- [ ] CHK031 Are spatial index fallback requirements specified in case `ST_MakeEnvelope` receives coordinates spanning the antimeridian? [Coverage, Spec §Edge Cases, §REQ-POI-009]
+- [ ] CHK032 Are geographic precision limits specified for canonical coordinate storage (e.g., double precision floating-point storage yielding sub-millimeter precision)? [Clarity, Spec §REQ-POI-001, §REQ-GEO-005]
+- [ ] CHK033 Does the specification clearly define whether GeoJSON serialized outputs from API endpoints adhere to RFC 7946 coordinate ordering `[longitude, latitude]` in WGS-84? [Consistency, Spec §REQ-GEO-001, Contracts §poi-api.yaml]
+- [ ] CHK034 Are requirements specified for handling coordinates that lie exactly on the boundary of the China bounding box (`73.66°E`, `135.05°E`, `18.16°N`, `53.55°N`)? [Edge Cases, Spec §REQ-GEO-016]
+- [ ] CHK035 Does the specification define deterministic tie-breaking rules when multiple duplicate candidates exhibit identical trigram similarity and geodesic distance scores? [Clarity, Spec §REQ-POI-017, §REQ-POI-018]
+- [ ] CHK036 Are tag truncation or conflict resolution requirements defined if an interactive merge of `source_poi_id` and `target_poi_id` results in more than 30 distinct tags? [Consistency, Spec §REQ-POI-013, §REQ-POI-019]
+- [ ] CHK037 Does the specification detail the exact depth limit or recursive query mechanism used to detect circular hierarchies during POI parent assignment and merge re-parenting? [Clarity, Spec §Clarifications, §REQ-POI-012, §REQ-POI-019]
+- [ ] CHK038 Are idempotency requirements specified for the `POST /api/pois/merge` endpoint to prevent duplicate deletions or state corruption if a client retries the merge request? [Coverage, Gap, Constitution §Principle 6]
+- [ ] CHK039 Are case-folding and normalization rules defined for `states` and `countries` JSONB arrays to prevent case-sensitive mismatches during containment queries? [Clarity, Spec §REQ-POI-001, §REQ-POI-008]
+- [ ] CHK040 Does the specification define behavior when filtering by both `state` and `country` simultaneously (intersection semantics vs union)? [Consistency, Spec §REQ-POI-008]
+
+---
+
 ## Notes
 
 - Mark items `[x]` only after review confirms the requirement-quality criterion is satisfied
