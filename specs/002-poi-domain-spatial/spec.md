@@ -14,6 +14,16 @@ Phase 2 (`002-poi-domain-spatial`) establishes the core Point of Interest (POI) 
 
 ---
 
+## Clarifications
+
+### Session 2026-10-19
+
+- Q: How should the system handle subordinate child POIs when their parent record (`source_poi_id`) is merged into another POI (`target_poi_id`)? → A: Atomically re-parent all child POIs of `source_poi_id` to point to `target_poi_id` within the merge transaction, rejecting the transaction with RFC 7807 400 Bad Request if it would introduce a circular hierarchy.
+- Q: How should PostGIS data types, indexes, and queries distinguish between planar viewport lookups and geodesic proximity calculations? → A: Strict Dual-Indexed Separation: Viewport queries strictly cast `(geom::geometry)` and use `ST_MakeEnvelope` in degrees backed by functional GiST index `idx_pois_user_geom_geometry`; proximity, radius filters, and distance sorting strictly use `geography` in meters with `ST_DWithin` and `ST_Distance` backed by `idx_pois_user_geom`, explicitly casting input query coordinates to `ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography`.
+- Q: How should the system normalize text attributes and null values before computing the `embedding_md5` hash and dispatching vector generation requests to Google Gemini? → A: Canonical Sanitization: Coalesce null descriptions to `""`, collapse multi-whitespace runs in name and description (`re.sub(r'\s+', ' ', text.strip())`), deduplicate and lower-case tags in alphabetical order, and compute MD5 on the resulting UTF-8 composite payload `f"{norm_name}\n{norm_desc}\nTags: {', '.join(norm_sorted_tags)}"`.
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Planar Viewport POI Exploration & Combinable Filtering (Priority: P1)
@@ -95,6 +105,7 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 - **Poles & Latitude Limits**: Latitude inputs are constrained to `[-90.0, 90.0]` and longitude to `[-180.0, 180.0]`; out-of-bounds envelopes reject immediately with RFC 7807 422.
 - **Tag-Bloat Defense**: A single POI cannot have more than 30 tags attached, and tag names are restricted to 64 characters, lower-cased and stripped of leading/trailing whitespace.
 - **Hierarchical Cycle Prevention**: Setting `parent_poi_id` on POI A to POI B must verify that B is not already a descendant of A; recursive loop attempts return RFC 7807 400 Bad Request.
+- **Child POI Merge Re-Parenting**: When merging `source_poi_id` into `target_poi_id`, all child POIs referencing `source_poi_id` are atomically updated to reference `target_poi_id`. If `target_poi_id` is a descendant of `source_poi_id`, the merge is rejected to prevent a circular hierarchy.
 - **Chinese Shifted Coordinate Handling**: Coordinates within the China bounding box (`73.66°E to 135.05°E, 18.16°N to 53.55°N`) remain canonical WGS-84 in database storage; client-side transforms are applied strictly at the browser presentation layer.
 - **Opportunistic Cache Eviction**: Expired geocaching rows (`expires_at <= NOW()`) are opportunistically pruned during cache insertions to prevent unbounded disk growth.
 
@@ -114,7 +125,7 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 - **REQ-POI-006 (Ubiquitous):** The database schema shall persist user-defined curated lists in table `lists` (`id UUID PK`, `user_id UUID REFERENCES users(id) ON DELETE CASCADE`, `title VARCHAR(200) NOT NULL`, `description TEXT NULL`, `is_public BOOLEAN NOT NULL DEFAULT FALSE`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`) and association table `poi_lists` (`poi_id UUID REFERENCES pois(id) ON DELETE CASCADE`, `list_id UUID REFERENCES lists(id) ON DELETE CASCADE`, `added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `PRIMARY KEY (poi_id, list_id)`).
 - **REQ-POI-007 (Ubiquitous):** The database schema shall persist user tags in table `tags` (`id UUID PK`, `user_id UUID REFERENCES users(id) ON DELETE CASCADE`, `name VARCHAR(64) NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `UNIQUE (user_id, name)`) and association table `poi_tags` (`poi_id UUID REFERENCES pois(id) ON DELETE CASCADE`, `tag_id UUID REFERENCES tags(id) ON DELETE CASCADE`, `PRIMARY KEY (poi_id, tag_id)`).
 - **REQ-POI-008 (Event-Driven):** When a client requests `GET /api/pois`, the system shall accept combinable query parameters: `bbox` (minLng,minLat,maxLng,maxLat), `list_id`, `tag_ids` (comma-separated), `visit_state`, `visited_from`, `visited_to`, `hierarchy` (`all`, `root_only`, `children_only`), `parent_id`, `q` (text search), `semantic_q` (vector search), `limit` (default 50, max 200), and `offset` (default 0).
-- **REQ-POI-009 (Event-Driven):** When evaluating `bbox` queries, the repository query builder shall construct the planar bounding-box filter using `(geom::geometry) && ST_MakeEnvelope(minLng, minLat, maxLng, maxLat, 4326)`.
+- **REQ-POI-009 (Event-Driven):** When evaluating `bbox` queries, the repository query builder shall construct the planar bounding-box filter using `(geom::geometry) && ST_MakeEnvelope(minLng, minLat, maxLng, maxLat, 4326)` to utilize functional GiST index `idx_pois_user_geom_geometry`.
 - **REQ-POI-010 (Event-Driven):** When `hierarchy=root_only` is specified, the repository shall append `WHERE parent_poi_id IS NULL` to the query.
 - **REQ-POI-011 (Event-Driven):** When `hierarchy=children_only` is specified, the repository shall append `WHERE parent_poi_id IS NOT NULL` to the query.
 - **REQ-POI-012 (Unwanted Behaviour):** If a client attempts to set `parent_poi_id` to the POI's own ID or creates a cyclic hierarchy, then the service shall reject the mutation with an RFC 7807 400 Bad Request error.
@@ -122,9 +133,9 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 - **REQ-POI-014 (Event-Driven):** When a client executes `POST /api/pois/bulk-delete`, the system shall delete all specified POIs owned by `current_user_id` in a single transaction, cascading deletions to `poi_lists`, `poi_tags`, and child POIs (`parent_poi_id` set to null).
 - **REQ-POI-015 (Event-Driven):** When a client executes `POST /api/pois/bulk-tags`, the system shall add or remove specified tag IDs across an array of POI IDs owned by `current_user_id` in a single transaction.
 - **REQ-POI-016 (Event-Driven):** When a client executes `POST /api/pois/bulk-lists`, the system shall assign or remove specified list IDs across an array of POI IDs owned by `current_user_id` in a single transaction.
-- **REQ-POI-017 (Event-Driven):** When a client requests `GET /api/pois/dedup-check`, the system shall scan the user's POIs for potential duplicates matching both trigram name similarity (`similarity(name, :candidate_name) >= 0.60`) and geographic proximity (`ST_DWithin(geom, :candidate_geom, :radius_meters)`).
+- **REQ-POI-017 (Event-Driven):** When a client requests `GET /api/pois/dedup-check`, the system shall scan the user's POIs for potential duplicates matching both trigram name similarity (`similarity(name, :candidate_name) >= 0.60`) and geodesic proximity (`ST_DWithin(geom, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, :radius_meters)`) utilizing GiST index `idx_pois_user_geom`.
 - **REQ-POI-018 (State-Driven):** While performing deduplication checks, the system shall apply configurable proximity presets: 80,467 meters (50 miles) for macro sites (national parks, mountain ranges) and 805 meters (0.5 miles) for urban sites (museums, cafes, viewpoints).
-- **REQ-POI-019 (Event-Driven):** When a client calls `POST /api/pois/merge`, the system shall accept `target_poi_id` (kept), `source_poi_id` (deleted), and attribute resolution rules (`use_source_for: list[str]` and `merge_tags: bool`), atomically copying chosen attributes from source to target, unioning tags and lists, deleting the source record, and returning the updated target POI.
+- **REQ-POI-019 (Event-Driven):** When a client calls `POST /api/pois/merge`, the system shall accept `target_poi_id` (kept), `source_poi_id` (deleted), and attribute resolution rules (`use_source_for: list[str]` and `merge_tags: bool`), atomically copying chosen attributes from source to target, unioning tags and lists, re-parenting any child POIs referencing `source_poi_id` to `target_poi_id` (rejecting with RFC 7807 400 Bad Request if creating a cycle), deleting the source record, and returning the updated target POI.
 - **REQ-POI-020 (Event-Driven):** When a list has `is_public = TRUE` and a user accesses `GET /api/lists/{id}/shared`, the system shall return the list metadata and member POIs without requiring list ownership.
 
 ---
@@ -132,8 +143,8 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 #### Geospatial Storage, Indexes & Geocoding (`REQ-GEO-xxx`)
 
 - **REQ-GEO-001 (Ubiquitous):** The database schema shall store point coordinates in column `pois.geom` using `geography(Point, 4326)` and regional boundary polygons in `pois.region_geom` using `geometry(MultiPolygon, 4326)`.
-- **REQ-GEO-002 (Ubiquitous):** The database schema shall create composite GiST index `idx_pois_user_geom` on `pois USING gist (user_id, geom)`.
-- **REQ-GEO-003 (Ubiquitous):** The database schema shall create functional composite GiST index `idx_pois_user_geom_geometry` on `pois USING gist (user_id, (geom::geometry))` to optimize planar bounding-box queries.
+- **REQ-GEO-002 (Ubiquitous):** The database schema shall create composite GiST index `idx_pois_user_geom` on `pois USING gist (user_id, geom)` to optimize geodesic proximity filters (`ST_DWithin`) and geodesic distance calculations (`ST_Distance`).
+- **REQ-GEO-003 (Ubiquitous):** The database schema shall create functional composite GiST index `idx_pois_user_geom_geometry` on `pois USING gist (user_id, (geom::geometry))` strictly to optimize planar 2D bounding-box queries (`ST_MakeEnvelope`).
 - **REQ-GEO-004 (Ubiquitous):** The database schema shall persist geocoding responses in table `geocoding_cache` containing `query_hash VARCHAR(64) PRIMARY KEY`, `lat DOUBLE PRECISION NOT NULL`, `lon DOUBLE PRECISION NOT NULL`, `formatted_address TEXT NOT NULL`, `status VARCHAR(16) NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, and `expires_at TIMESTAMPTZ NOT NULL`.
 - **REQ-GEO-005 (Ubiquitous):** The database schema shall create index `idx_geocoding_cache_expires_at` on `geocoding_cache(expires_at)`.
 - **REQ-GEO-006 (Event-Driven):** When hashing an address search query for geocaching, the geocoder shall compute the SHA-256 digest of normalized string `re.sub(r'\s+', ' ', query.strip().lower())`.
@@ -154,8 +165,8 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 - **REQ-EMBED-001 (Ubiquitous):** The database schema shall create an HNSW index `idx_pois_embedding` on `pois USING hnsw (embedding vector_cosine_ops)` to accelerate approximate nearest-neighbor vector similarity lookups.
 - **REQ-EMBED-002 (Ubiquitous):** The core package shall define `EmbeddingPort` as a Python `typing.Protocol` with async method `generate_embedding(text: str) -> list[float]`.
 - **REQ-EMBED-003 (Ubiquitous):** The system shall provide a concrete `GeminiEmbeddingAdapter` implementing `EmbeddingPort` using the `google-genai` SDK with configurable model name (defaulting to `gemini-embedding-001` or `text-embedding-004`) and `EmbedContentConfig(output_dimensionality=768)`.
-- **REQ-EMBED-004 (Event-Driven):** When constructing the text payload for POI embedding, the adapter shall concatenate normalized name, description, and alphabetical comma-separated tags: `f"{name.strip()}\n{description.strip()}\nTags: {', '.join(sorted(tags))}"`.
-- **REQ-EMBED-005 (Event-Driven):** When persisting or updating a POI, the system shall compute `embedding_md5` as the MD5 hex digest of the normalized embedding text payload.
+- **REQ-EMBED-004 (Event-Driven):** When constructing the text payload for POI embedding, the adapter shall perform canonical sanitization: coalescing null or missing `description` to empty string `""`, collapsing multi-whitespace runs in name and description (`re.sub(r'\s+', ' ', text.strip())`), and lower-casing, whitespace-trimming, deduplicating, and sorting all tags alphabetically into composite template `f"{norm_name}\n{norm_desc}\nTags: {', '.join(norm_sorted_tags)}"`.
+- **REQ-EMBED-005 (Event-Driven):** When persisting or updating a POI, the system shall compute `embedding_md5` as the MD5 hex digest of the UTF-8 encoded canonical composite text payload.
 - **REQ-EMBED-006 (State-Driven):** While executing a POI update mutation, if the newly calculated `embedding_md5` matches the existing record's `embedding_md5`, then the system shall bypass the `EmbeddingPort` external call and preserve the existing vector.
 - **REQ-EMBED-007 (Event-Driven):** When calling the Gemini Embedding API, the adapter shall wrap the outbound request in a `tenacity` retry loop executing 3 attempts with exponential backoff and randomized jitter (initial 500ms, max 3000ms).
 - **REQ-EMBED-008 (Unwanted Behaviour):** If all 3 embedding retry attempts fail, then the service shall set `embedding = NULL`, log the failure with OpenTelemetry trace context, and return an RFC 7807 503 Service Unavailable or fallback to partial enrichment depending on whether embedding generation was synchronous or deferred.
