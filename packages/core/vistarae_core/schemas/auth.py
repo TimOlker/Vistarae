@@ -35,8 +35,12 @@ class ConfirmSignUpRequest(StrictBaseModel):
     """Payload for confirming user signup via verification code."""
 
     email: EmailStr = Field(..., description="User's email address")
-    confirmation_code: str = Field(..., min_length=1, max_length=32, description="Verification code")
-    full_name: str | None = Field(default=None, max_length=200, description="Optional full name override")
+    confirmation_code: str = Field(
+        ..., min_length=1, max_length=32, description="Verification code"
+    )
+    full_name: str | None = Field(
+        default=None, max_length=200, description="Optional full name override"
+    )
 
 
 class ConfirmSignUpResponse(StrictBaseModel):

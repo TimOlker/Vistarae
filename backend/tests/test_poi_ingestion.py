@@ -26,9 +26,7 @@ TEST_USER = User(
 async def test_list_presets_endpoint():
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/pois/ingest/presets")
         assert resp.status_code == 200
         data = resp.json()
@@ -47,9 +45,7 @@ async def test_list_presets_endpoint():
 async def test_get_preset_content_endpoint():
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/pois/ingest/presets/nps_national_parks")
         assert resp.status_code == 200
         data = resp.json()
@@ -73,9 +69,7 @@ Arches National Park,38.68,-109.57,Moab,Utah,https://nps.gov/arch,false
         "app.services.ingestion.check_spatial_collision",
         return_value=(CollisionStatus.UNIQUE_LOCATION, None, None),
     ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/pois/ingest/parse-and-preview",
                 json={
@@ -109,9 +103,7 @@ async def test_parse_and_preview_missing_required_name():
     invalid_csv = """latitude,longitude,city,state
 44.35,-68.21,Bar Harbor,Maine
 """
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/parse-and-preview",
             json={
@@ -147,9 +139,7 @@ Acadia National Park,44.35,-68.21
         "app.services.ingestion.check_spatial_collision",
         return_value=(CollisionStatus.POTENTIAL_DUPLICATE, matched, None),
     ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/pois/ingest/parse-and-preview",
                 json={
@@ -207,9 +197,7 @@ async def test_commit_ingested_pois():
         default_tags=["imported"],
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/commit",
             json=payload.model_dump(mode="json"),
@@ -244,9 +232,7 @@ async def test_parse_and_preview_duplicate_with_missing_tags():
         "app.services.ingestion.check_spatial_collision",
         return_value=(CollisionStatus.POTENTIAL_DUPLICATE, matched, None),
     ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post(
                 "/api/v1/pois/ingest/parse-and-preview",
                 json={
@@ -301,9 +287,7 @@ async def test_commit_ingested_pois_add_tags():
         default_tags=[],
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/commit",
             json=payload.model_dump(mode="json"),
@@ -375,9 +359,7 @@ async def test_commit_ingested_pois_with_new_list_and_scope_new_only():
         list_membership_scope="new_only",
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/commit",
             json=payload.model_dump(mode="json"),
@@ -456,9 +438,7 @@ async def test_commit_ingested_pois_with_scope_both():
         list_membership_scope="both",
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/commit",
             json=payload.model_dump(mode="json"),
@@ -522,9 +502,7 @@ async def test_commit_ingested_pois_with_scope_both_and_skipped_duplicates():
         list_membership_scope="both",
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/commit",
             json=payload.model_dump(mode="json"),
@@ -609,9 +587,7 @@ async def test_commit_ingested_pois_deduplicates_same_poi_in_batch():
         list_membership_scope="both",
     )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             "/api/v1/pois/ingest/commit",
             json=payload.model_dump(mode="json"),
@@ -625,4 +601,3 @@ async def test_commit_ingested_pois_deduplicates_same_poi_in_batch():
         created_memberships = [obj for obj in added_objects if isinstance(obj, POIListMembership)]
         assert len(created_memberships) == 1
         assert created_memberships[0].poi_id == existing_id
-

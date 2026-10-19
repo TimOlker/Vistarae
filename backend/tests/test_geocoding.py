@@ -61,6 +61,7 @@ async def test_geocode_geocache_miss_and_store():
 
     with patch("httpx.AsyncClient.get") as mock_get:
         from unittest.mock import MagicMock
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = fake_osm_response
@@ -87,11 +88,14 @@ async def test_reverse_geocode_hit_and_miss():
         latitude=37.7304,
         longitude=-119.5736,
         display_name="Glacier Point Road, Yosemite, CA",
-        raw_json={"address": {"village": "Yosemite Village", "state": "California", "country_code": "us"}},
+        raw_json={
+            "address": {"village": "Yosemite Village", "state": "California", "country_code": "us"}
+        },
     )
     mock_db.scalar.return_value = cached_entry
 
     from app.services.geocoding import enrich_candidate_from_address, reverse_geocode
+
     display_name, raw = await reverse_geocode(37.7304, -119.5736, mock_db)
     assert display_name == "Glacier Point Road, Yosemite, CA"
     assert raw["address"]["village"] == "Yosemite Village"
@@ -113,6 +117,7 @@ async def test_reverse_geocode_hit_and_miss():
 
     with patch("httpx.AsyncClient.get") as mock_get:
         from unittest.mock import MagicMock
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = fake_reverse_response
@@ -124,6 +129,7 @@ async def test_reverse_geocode_hit_and_miss():
 
     # 3. Test enrich_candidate_from_address
     from app.schemas.extraction import POIExtractionCandidate
+
     candidate = POIExtractionCandidate(
         name="Wilderness Viewpoint",
         poi_type="photo location",
@@ -176,5 +182,3 @@ def test_enrich_multinational_candidate_country_code():
     assert cand.iptc_city == "Juncal"
     assert cand.iptc_province_state == "Cañar"
     assert cand.iptc_world_region == "Ecuador"
-
-

@@ -144,9 +144,7 @@ class SqlAlchemyIdempotencyRepository:
             Count of purged records.
         """
         threshold = datetime.now(UTC) - timedelta(hours=hours)
-        stmt = delete(IdempotencyKeysTable).where(
-            IdempotencyKeysTable.created_at < threshold
-        )
+        stmt = delete(IdempotencyKeysTable).where(IdempotencyKeysTable.created_at < threshold)
         result = await self._session.execute(stmt)
         return int(result.rowcount) if result.rowcount is not None else 0
 

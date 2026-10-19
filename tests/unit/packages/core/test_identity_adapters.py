@@ -98,8 +98,13 @@ class TestCognitoIdentityProvider:
             headers={"kid": "unknown-kid"},
         )
 
-        with patch("boto3.client"), patch.object(
-            CognitoIdentityProvider, "_get_jwks", return_value={"keys": [{"kid": "different-kid"}]}
+        with (
+            patch("boto3.client"),
+            patch.object(
+                CognitoIdentityProvider,
+                "_get_jwks",
+                return_value={"keys": [{"kid": "different-kid"}]},
+            ),
         ):
             provider = CognitoIdentityProvider(user_pool_id="pool-1", client_id="client-1")
             with pytest.raises(ValueError, match="JWT signing key not found"):
@@ -124,8 +129,9 @@ class TestCognitoIdentityProvider:
             headers={"kid": "test-kid-123"},
         )
 
-        with patch("boto3.client"), patch.object(
-            CognitoIdentityProvider, "_get_jwks", return_value={"keys": [jwk_dict]}
+        with (
+            patch("boto3.client"),
+            patch.object(CognitoIdentityProvider, "_get_jwks", return_value={"keys": [jwk_dict]}),
         ):
             provider = CognitoIdentityProvider(user_pool_id="pool-1", client_id="client-1")
             claims = await provider.verify_token(token)
@@ -150,8 +156,9 @@ class TestCognitoIdentityProvider:
             headers={"kid": "test-kid-123"},
         )
 
-        with patch("boto3.client"), patch.object(
-            CognitoIdentityProvider, "_get_jwks", return_value={"keys": [jwk_dict]}
+        with (
+            patch("boto3.client"),
+            patch.object(CognitoIdentityProvider, "_get_jwks", return_value={"keys": [jwk_dict]}),
         ):
             provider = CognitoIdentityProvider(user_pool_id="pool-1", client_id="client-1")
             with pytest.raises(ValueError, match="JWT has expired"):
@@ -175,8 +182,9 @@ class TestCognitoIdentityProvider:
             headers={"kid": "test-kid-123"},
         )
 
-        with patch("boto3.client"), patch.object(
-            CognitoIdentityProvider, "_get_jwks", return_value={"keys": [jwk_dict]}
+        with (
+            patch("boto3.client"),
+            patch.object(CognitoIdentityProvider, "_get_jwks", return_value={"keys": [jwk_dict]}),
         ):
             provider = CognitoIdentityProvider(user_pool_id="pool-1", client_id="client-1")
             with pytest.raises(ValueError, match="Invalid JWT"):
@@ -219,7 +227,9 @@ class TestCognitoIdentityProvider:
                 "ExpiresIn": 3600,
             }
         }
-        mock_boto.forgot_password.return_value = {"CodeDeliveryDetails": {"DeliveryMedium": "EMAIL"}}
+        mock_boto.forgot_password.return_value = {
+            "CodeDeliveryDetails": {"DeliveryMedium": "EMAIL"}
+        }
         mock_boto.confirm_forgot_password.return_value = {}
         mock_boto.global_sign_out.return_value = {}
 
@@ -245,7 +255,9 @@ class TestCognitoIdentityProvider:
             assert forgot_res["DeliveryMedium"] == "EMAIL"
 
             # Confirm Forgot Password
-            reset_res = await provider.confirm_forgot_password("user@example.com", "123456", "NewPassword123!")
+            reset_res = await provider.confirm_forgot_password(
+                "user@example.com", "123456", "NewPassword123!"
+            )
             assert reset_res is True
 
             # Global Sign Out
@@ -298,5 +310,7 @@ class TestMockIdentityProvider:
         forgot_res = await provider.forgot_password("mock@example.com")
         assert forgot_res["Destination"] == "mock@example.com"
 
-        assert await provider.confirm_forgot_password("mock@example.com", "123456", "New123!") is True
+        assert (
+            await provider.confirm_forgot_password("mock@example.com", "123456", "New123!") is True
+        )
         assert await provider.global_sign_out("any-token") is True

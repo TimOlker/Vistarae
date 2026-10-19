@@ -41,9 +41,7 @@ def create_access_token(
     expires_delta: timedelta | None = None,
 ) -> str:
     """Creates a cryptographically signed JWT access token."""
-    expire = datetime.now(UTC) + (
-        expires_delta or timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
-    )
+    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.JWT_EXPIRE_MINUTES))
     payload = {
         "sub": str(user_id),
         "email": email,

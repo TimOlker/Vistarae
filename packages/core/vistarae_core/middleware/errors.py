@@ -19,8 +19,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from vistarae_core.domain.exceptions import (
     AccountDisabledError,
+    CyclicHierarchyError,
+    GeocodingTimeoutError,
     IdempotencyConflictError,
+    InvalidCoordinateError,
+    POINotFoundError,
     QuotaExceededError,
+    TagLimitExceededError,
     TenantNotFoundError,
 )
 from vistarae_core.schemas.errors import InvalidParam, ProblemDetails
@@ -85,9 +90,7 @@ def add_problem_details_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(
-        request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         """Converts HTTPException → ProblemDetails with appropriate status.
 
         Args:
@@ -108,9 +111,7 @@ def add_problem_details_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(AccountDisabledError)
-    async def account_disabled_handler(
-        request: Request, exc: AccountDisabledError
-    ) -> JSONResponse:
+    async def account_disabled_handler(request: Request, exc: AccountDisabledError) -> JSONResponse:
         """Converts AccountDisabledError → 403 Forbidden ProblemDetails.
 
         Args:
@@ -131,9 +132,7 @@ def add_problem_details_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(TenantNotFoundError)
-    async def tenant_not_found_handler(
-        request: Request, exc: TenantNotFoundError
-    ) -> JSONResponse:
+    async def tenant_not_found_handler(request: Request, exc: TenantNotFoundError) -> JSONResponse:
         """Converts TenantNotFoundError → 401 Unauthorized ProblemDetails.
 
         Args:
@@ -154,9 +153,7 @@ def add_problem_details_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(QuotaExceededError)
-    async def quota_exceeded_handler(
-        request: Request, exc: QuotaExceededError
-    ) -> JSONResponse:
+    async def quota_exceeded_handler(request: Request, exc: QuotaExceededError) -> JSONResponse:
         """Converts QuotaExceededError → 429 Too Many Requests ProblemDetails.
 
         Args:
@@ -201,10 +198,79 @@ def add_problem_details_handlers(app: FastAPI) -> None:
             )
         )
 
-    @app.exception_handler(Exception)
-    async def generic_exception_handler(
-        request: Request, exc: Exception
+    @app.exception_handler(POINotFoundError)
+    async def poi_not_found_handler(request: Request, exc: POINotFoundError) -> JSONResponse:
+        """Converts POINotFoundError → 404 Not Found ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/poi-not-found",
+                title="POI Not Found",
+                status=status.HTTP_404_NOT_FOUND,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(CyclicHierarchyError)
+    async def cyclic_hierarchy_handler(request: Request, exc: CyclicHierarchyError) -> JSONResponse:
+        """Converts CyclicHierarchyError → 400 Bad Request ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/cyclic-hierarchy",
+                title="Cyclic Hierarchy Detected",
+                status=status.HTTP_400_BAD_REQUEST,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(TagLimitExceededError)
+    async def tag_limit_exceeded_handler(
+        request: Request, exc: TagLimitExceededError
     ) -> JSONResponse:
+        """Converts TagLimitExceededError → 422 Unprocessable Entity ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/tag-limit-exceeded",
+                title="Tag Limit Exceeded",
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(InvalidCoordinateError)
+    async def invalid_coordinate_handler(
+        request: Request, exc: InvalidCoordinateError
+    ) -> JSONResponse:
+        """Converts InvalidCoordinateError → 422 Unprocessable Entity ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/invalid-coordinates",
+                title="Invalid Coordinates",
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(GeocodingTimeoutError)
+    async def geocoding_timeout_handler(
+        request: Request, exc: GeocodingTimeoutError
+    ) -> JSONResponse:
+        """Converts GeocodingTimeoutError → 504 Gateway Timeout ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/geocoding-timeout",
+                title="Geocoding Timeout",
+                status=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Catches unhandled exceptions and returns a 500 ProblemDetails response.
 
         Args:

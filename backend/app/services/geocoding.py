@@ -26,9 +26,7 @@ COORD_PATTERN = re.compile(
     r"^\s*\(?\s*(-?\d{1,2}(?:\.\d+)?)\s*[, \t/]+\s*(-?\d{1,3}(?:\.\d+)?)\s*\)?\s*$"
 )
 
-GMAPS_URL_PATTERN = re.compile(
-    r"(?:@|[?&](?:q|ll)=)(-?\d{1,2}\.\d+)[, ]+(-?\d{1,3}\.\d+)"
-)
+GMAPS_URL_PATTERN = re.compile(r"(?:@|[?&](?:q|ll)=)(-?\d{1,2}\.\d+)[, ]+(-?\d{1,3}\.\d+)")
 
 PLUS_CODE_PATTERN = re.compile(
     r"\b([23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3})\b",
@@ -155,11 +153,20 @@ async def geocode_query(
     # 1. Check local geocache table
     cached = await db.scalar(select(Geocache).where(Geocache.query_hash == query_hash))
     if cached:
-        logger.info(f"Geocache HIT for '{cleaned_query}' -> ({cached.latitude}, {cached.longitude})")
-        return (float(cached.latitude), float(cached.longitude), cached.display_name, cached.raw_json or {})
+        logger.info(
+            f"Geocache HIT for '{cleaned_query}' -> ({cached.latitude}, {cached.longitude})"
+        )
+        return (
+            float(cached.latitude),
+            float(cached.longitude),
+            cached.display_name,
+            cached.raw_json or {},
+        )
 
     # Helper to cache and return
-    async def _cache_and_return(f_lat: float, f_lng: float, f_display: str | None, f_json: dict[str, Any]):
+    async def _cache_and_return(
+        f_lat: float, f_lng: float, f_display: str | None, f_json: dict[str, Any]
+    ):
         if f_lat != 0.0 or f_lng != 0.0:
             new_entry = Geocache(
                 query_hash=query_hash,
@@ -205,7 +212,12 @@ async def geocode_query(
     plus_match = PLUS_CODE_PATTERN.search(cleaned_query)
     if plus_match:
         code = plus_match.group(1).upper()
-        locality = (cleaned_query[:plus_match.start()] + " " + cleaned_query[plus_match.end():]).strip().strip(",").strip()
+        locality = (
+            (cleaned_query[: plus_match.start()] + " " + cleaned_query[plus_match.end() :])
+            .strip()
+            .strip(",")
+            .strip()
+        )
 
         # Case 4A: Full Plus Code (e.g. 7GQJ8H92+5M4)
         if olc.isFull(code):
@@ -232,7 +244,9 @@ async def geocode_query(
                     disp = disp or cleaned_query
                     return await _cache_and_return(p_lat, p_lng, disp, r_json)
                 except Exception as exc:
-                    logger.warning(f"Failed to recover short Plus Code '{code}' with ref ({ref_lat}, {ref_lng}): {exc}")
+                    logger.warning(
+                        f"Failed to recover short Plus Code '{code}' with ref ({ref_lat}, {ref_lng}): {exc}"
+                    )
 
     # 5. Standard Nominatim search
     lat, lng, display_name, raw_json = await _raw_nominatim_search(cleaned_query)
@@ -301,7 +315,9 @@ async def reverse_geocode(
                         display_name = data.get("display_name")
                         raw_json = data
                     else:
-                        logger.warning(f"Nominatim reverse returned no address for ({lat}, {lng}): {data}")
+                        logger.warning(
+                            f"Nominatim reverse returned no address for ({lat}, {lng}): {data}"
+                        )
                 else:
                     logger.error(f"Nominatim reverse error HTTP {resp.status_code}: {resp.text}")
         except Exception as exc:
@@ -433,24 +449,42 @@ def enrich_candidate_from_address(candidate: Any, raw_geo: dict[str, Any]) -> No
         city_needs_resolution = (
             not candidate.iptc_city
             or candidate.iptc_city.lower() in ("unknown", "unknown city")
-            or (candidate.iptc_province_state and candidate.iptc_city.strip().lower() == candidate.iptc_province_state.strip().lower())
+            or (
+                candidate.iptc_province_state
+                and candidate.iptc_city.strip().lower()
+                == candidate.iptc_province_state.strip().lower()
+            )
         )
         if city_needs_resolution and city_val:
             candidate.iptc_city = city_val
 
-        if (not candidate.iptc_province_state or candidate.iptc_province_state.lower() in ("unknown", "unknown state")) and state_val:
+        if (
+            not candidate.iptc_province_state
+            or candidate.iptc_province_state.lower() in ("unknown", "unknown state")
+        ) and state_val:
             candidate.iptc_province_state = state_val
         if country_code_val:
-            raw_allowed = getattr(candidate, "raw_data", {}).get("_allowed_country_codes") if hasattr(candidate, "raw_data") and isinstance(candidate.raw_data, dict) else None
-            if not candidate.iptc_country_code or candidate.iptc_country_code.lower() in ("unknown", "unknown country"):
-                candidate.iptc_country_code = country_code_val
-            elif raw_allowed and country_code_val in raw_allowed:
+            raw_allowed = (
+                getattr(candidate, "raw_data", {}).get("_allowed_country_codes")
+                if hasattr(candidate, "raw_data") and isinstance(candidate.raw_data, dict)
+                else None
+            )
+            if (
+                not candidate.iptc_country_code
+                or candidate.iptc_country_code.lower() in ("unknown", "unknown country")
+                or raw_allowed
+                and country_code_val in raw_allowed
+            ):
                 candidate.iptc_country_code = country_code_val
         if not candidate.iptc_zip_code and postcode_val:
             candidate.iptc_zip_code = postcode_val
         if not candidate.iptc_sublocation and sublocation_val:
             candidate.iptc_sublocation = sublocation_val
-        if hasattr(candidate, "iptc_world_region") and not candidate.iptc_world_region and country_name_val:
+        if (
+            hasattr(candidate, "iptc_world_region")
+            and not candidate.iptc_world_region
+            and country_name_val
+        ):
             candidate.iptc_world_region = country_name_val
 
     meta = extract_poi_meta_from_geo(raw_geo)
@@ -464,5 +498,3 @@ def enrich_candidate_from_address(candidate: Any, raw_geo: dict[str, Any]) -> No
             if t not in existing_tags:
                 existing_tags.append(t)
         candidate.category_tags = existing_tags
-
-

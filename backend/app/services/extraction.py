@@ -113,8 +113,6 @@ def sanitize_image_url(url: str | None) -> str | None:
     return url.strip()
 
 
-
-
 EXTRACTION_SYSTEM_PROMPT = """You are Vistarae's Travel Entity Extractor.
 Extract structured Point of Interest (POI) data from the user-selected text, page title, URL, and category.
 Focus on identifying scenic overlooks, trails, iconic viewpoints, museums, historic vessels, military sites, natural landmarks, or notable sites.
@@ -148,7 +146,17 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
             types = data.get("@type", [])
             if isinstance(types, str):
                 types = [types]
-            if any(t in ("Place", "TouristAttraction", "Restaurant", "LandmarksOrHistoricalBuildings", "CivicStructure") for t in types):
+            if any(
+                t
+                in (
+                    "Place",
+                    "TouristAttraction",
+                    "Restaurant",
+                    "LandmarksOrHistoricalBuildings",
+                    "CivicStructure",
+                )
+                for t in types
+            ):
                 place_json = data
                 break
         except Exception:
@@ -179,7 +187,11 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
 
     # Website
     same_as = place_json.get("sameAs") or []
-    official_website = same_as[0] if (isinstance(same_as, list) and same_as) else (same_as if isinstance(same_as, str) else None)
+    official_website = (
+        same_as[0]
+        if (isinstance(same_as, list) and same_as)
+        else (same_as if isinstance(same_as, str) else None)
+    )
 
     # Image
     image_url = place_json.get("image")
@@ -197,7 +209,12 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
 
     # Coordinates fallback from DOM
     if lat is None or lng is None:
-        coord_div = soup.find(lambda el: el.name in ["div", "span", "p"] and re.search(r"^\s*(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$", el.get_text()))
+        coord_div = soup.find(
+            lambda el: (
+                el.name in ["div", "span", "p"]
+                and re.search(r"^\s*(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$", el.get_text())
+            )
+        )
         if coord_div:
             m = re.search(r"(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", coord_div.get_text())
             if m:
@@ -205,22 +222,30 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
                 lng = float(m.group(2))
 
     if lat is None or lng is None:
-        map_link = soup.find("a", href=lambda h: h and ("maps.google" in h or "google.com/maps" in h))
+        map_link = soup.find(
+            "a", href=lambda h: h and ("maps.google" in h or "google.com/maps" in h)
+        )
         if map_link:
-            m = re.search(r"(?:q|query)=(-?\d+(?:\.\d+)?)(?:%2C|,)(-?\d+(?:\.\d+)?)", map_link.get("href"))
+            m = re.search(
+                r"(?:q|query)=(-?\d+(?:\.\d+)?)(?:%2C|,)(-?\d+(?:\.\d+)?)", map_link.get("href")
+            )
             if m:
                 lat = float(m.group(1))
                 lng = float(m.group(2))
 
     # Extract tags
     tags = []
-    for tag_el in soup.select("a[href*='/categories/'], a[href*='/tags/'], .item-tags a, div.flex.flex-wrap.gap-4 a"):
+    for tag_el in soup.select(
+        "a[href*='/categories/'], a[href*='/tags/'], .item-tags a, div.flex.flex-wrap.gap-4 a"
+    ):
         t_text = tag_el.get_text(strip=True)
         if t_text and t_text not in tags and len(t_text) < 40:
             tags.append(t_text)
 
     if not tags:
-        rel_tags_h = soup.find(lambda el: el.name in ["h2", "h3", "h4"] and "Related Tags" in el.get_text())
+        rel_tags_h = soup.find(
+            lambda el: el.name in ["h2", "h3", "h4"] and "Related Tags" in el.get_text()
+        )
         if rel_tags_h:
             container = rel_tags_h.find_next_sibling()
             if container:
@@ -231,7 +256,9 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
 
     # Extract Know Before You Go
     kbyg_text = ""
-    kbyg_h = soup.find(lambda el: el.name in ["h2", "h3", "h4"] and "Know Before You Go" in el.get_text())
+    kbyg_h = soup.find(
+        lambda el: el.name in ["h2", "h3", "h4"] and "Know Before You Go" in el.get_text()
+    )
     if kbyg_h:
         sib = kbyg_h.find_next_sibling()
         if sib:
@@ -243,7 +270,10 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
 
     # POI Type & Visit details inferencing
     all_context = (f"{name} {' '.join(tags)} {description} {body_text[:500]}").lower()
-    is_food = any(w in all_context for w in ["restaurant", "food", "bar", "wine", "cafe", "bakery", "dining", "creole"])
+    is_food = any(
+        w in all_context
+        for w in ["restaurant", "food", "bar", "wine", "cafe", "bakery", "dining", "creole"]
+    )
     poi_type = "food/drink" if is_food else "site to see"
 
     best_time = None
@@ -253,7 +283,9 @@ def parse_atlas_obscura_html(html: str, url: str) -> dict:
     effort = "paved walk" if is_food else None
 
     if kbyg_text:
-        hours_m = re.search(r"((?:Lunch|Dinner|Open|Hours)[^.\n]+(?:\.|\n|$))", kbyg_text, re.IGNORECASE)
+        hours_m = re.search(
+            r"((?:Lunch|Dinner|Open|Hours)[^.\n]+(?:\.|\n|$))", kbyg_text, re.IGNORECASE
+        )
         if hours_m:
             best_time = hours_m.group(1).strip()
         if "reservation" in kbyg_text.lower():
@@ -296,21 +328,28 @@ async def fetch_atlas_obscura_page(url: str) -> dict | None:
         if not curl_bin:
             logger.warning("curl binary not found. Falling back to httpx.")
             import httpx
+
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             }
-            async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+            async with httpx.AsyncClient(
+                headers=headers, follow_redirects=True, timeout=10.0
+            ) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     return parse_atlas_obscura_html(resp.text, url)
                 return None
 
         cmd = [
-            curl_bin, "-s", "-L",
-            "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-            "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            url
+            curl_bin,
+            "-s",
+            "-L",
+            "-A",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "-H",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            url,
         ]
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -327,7 +366,9 @@ async def fetch_atlas_obscura_page(url: str) -> dict | None:
         return None
 
 
-def _apply_payload_enrichment(cand: POIExtractionCandidate, payload: ExtractAndCheckRequest) -> None:
+def _apply_payload_enrichment(
+    cand: POIExtractionCandidate, payload: ExtractAndCheckRequest
+) -> None:
     """Applies direct attributes from ExtractAndCheckRequest onto POIExtractionCandidate."""
     if payload.place_name:
         cand.name = payload.place_name
@@ -351,13 +392,25 @@ def _apply_payload_enrichment(cand: POIExtractionCandidate, payload: ExtractAndC
             clean_t = t.lower().strip()
             if clean_t and clean_t not in cand.category_tags:
                 cand.category_tags.append(clean_t)
-    if payload.category in ["photo location", "site to see", "experience", "food/drink", "lodging", "transit"]:
+    if payload.category in [
+        "photo location",
+        "site to see",
+        "experience",
+        "food/drink",
+        "lodging",
+        "transit",
+    ]:
         cand.poi_type = payload.category
-    elif payload.category == "food/drink" or any(w in cand.name.lower() for w in ["restaurant", "cafe", "bistro", "bakery"]):
+    elif payload.category == "food/drink" or any(
+        w in cand.name.lower() for w in ["restaurant", "cafe", "bistro", "bakery"]
+    ):
         cand.poi_type = "food/drink"
         if "food" not in cand.category_tags:
             cand.category_tags.append("food")
-    elif payload.source_type in ["LocationScout", "ShotHotspot"] or "photo location" in cand.category_tags:
+    elif (
+        payload.source_type in ["LocationScout", "ShotHotspot"]
+        or "photo location" in cand.category_tags
+    ):
         cand.poi_type = "photo location"
 
     if payload.physical_effort:
@@ -374,13 +427,15 @@ def _apply_payload_enrichment(cand: POIExtractionCandidate, payload: ExtractAndC
         cand.best_time_to_visit = payload.best_time_to_visit
 
 
-
 async def extract_candidate_from_text(
     payload: ExtractAndCheckRequest,
 ) -> POIExtractionCandidate:
     """Extracts a structured POI candidate using Google Gemini Flash-Lite with zero thinking budget."""
     # Check if Atlas Obscura URL is detected in page_url or selected_text and needs fetching
-    ao_url_match = re.search(r"https?://(?:www\.)?atlasobscura\.com/places/([a-zA-Z0-9_-]+)", f"{payload.page_url} {payload.selected_text}")
+    ao_url_match = re.search(
+        r"https?://(?:www\.)?atlasobscura\.com/places/([a-zA-Z0-9_-]+)",
+        f"{payload.page_url} {payload.selected_text}",
+    )
     if ao_url_match and (payload.latitude is None or not payload.place_name):
         ao_data = await fetch_atlas_obscura_page(ao_url_match.group(0))
         if ao_data:
@@ -418,7 +473,9 @@ async def extract_candidate_from_text(
 
     # Check TripAdvisor URL
     if "tripadvisor." in payload.page_url and not payload.place_name:
-        ta_m = re.search(r"Reviews-([^_]+(?:_[^_]+)*?)-([^_]+(?:_[^_]+)*?)\.html", payload.page_url, re.I)
+        ta_m = re.search(
+            r"Reviews-([^_]+(?:_[^_]+)*?)-([^_]+(?:_[^_]+)*?)\.html", payload.page_url, re.I
+        )
         if ta_m:
             payload.place_name = ta_m.group(1).replace("_", " ").strip()
             loc_parts = ta_m.group(2).replace("_", " ").strip().split(" ")
@@ -485,17 +542,21 @@ async def extract_candidate_from_text(
     if payload.category:
         extra_context += f"Category / Classification: {payload.category}\n"
     if payload.city or payload.state:
-        extra_context += f"Location: {payload.city or ''}, {payload.state or ''}, {payload.country or ''}\n"
+        extra_context += (
+            f"Location: {payload.city or ''}, {payload.state or ''}, {payload.country or ''}\n"
+        )
 
     prompt = (
         f"{EXTRACTION_SYSTEM_PROMPT}\n\n"
         f"Web Page Title: {payload.page_title}\n"
         f"Web Page URL: {payload.page_url}\n"
         f"{extra_context}"
-        f"Highlighted Content / Context:\n\"\"\"{payload.selected_text or (payload.place_name or 'Atlas Obscura Place')}\"\"\"\n"
+        f'Highlighted Content / Context:\n"""{payload.selected_text or (payload.place_name or "Atlas Obscura Place")}"""\n'
     )
 
-    async with egress_span("Google Gemini Flash-Lite", "https://generativelanguage.googleapis.com", "generate_content"):
+    async with egress_span(
+        "Google Gemini Flash-Lite", "https://generativelanguage.googleapis.com", "generate_content"
+    ):
         try:
             from google import genai
             from google.genai import types
@@ -510,7 +571,10 @@ async def extract_candidate_from_text(
                 "temperature": 0.1,
                 "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),
             }
-            if "thinking" in settings.GEMINI_MODEL.lower() or "flash-lite" not in settings.GEMINI_MODEL.lower():
+            if (
+                "thinking" in settings.GEMINI_MODEL.lower()
+                or "flash-lite" not in settings.GEMINI_MODEL.lower()
+            ):
                 config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
 
             config = types.GenerateContentConfig(**config_kwargs)
@@ -573,30 +637,90 @@ NPS_KEYWORDS = (
 
 TAG_RULES: dict[str, list[str]] = {
     "ship": [
-        "uss ", "hms ", "ship", "warship", "battleship", "aircraft carrier",
-        "vessel", "submarine", "boat", "ferry", "naval ship", "fleet"
+        "uss ",
+        "hms ",
+        "ship",
+        "warship",
+        "battleship",
+        "aircraft carrier",
+        "vessel",
+        "submarine",
+        "boat",
+        "ferry",
+        "naval ship",
+        "fleet",
     ],
     "military": [
-        "military", "war", "warship", "battlefield", "battle", "fort", "fortress",
-        "citadel", "bunker", "uss ", "veteran", "naval", "navy", "army", "marines",
-        "air force", "armory", "garrison"
+        "military",
+        "war",
+        "warship",
+        "battlefield",
+        "battle",
+        "fort",
+        "fortress",
+        "citadel",
+        "bunker",
+        "uss ",
+        "veteran",
+        "naval",
+        "navy",
+        "army",
+        "marines",
+        "air force",
+        "armory",
+        "garrison",
     ],
     "airplane": [
-        "airplane", "aircraft", "aviation", "air and space", "flight", "aerospace",
-        "hangar", "aerodrome", "bomber", "fighter jet"
+        "airplane",
+        "aircraft",
+        "aviation",
+        "air and space",
+        "flight",
+        "aerospace",
+        "hangar",
+        "aerodrome",
+        "bomber",
+        "fighter jet",
     ],
     "aviation": [
-        "aviation", "airplane", "aircraft", "air and space", "flight", "aerospace",
-        "pilot", "hangar", "aerodrome"
+        "aviation",
+        "airplane",
+        "aircraft",
+        "air and space",
+        "flight",
+        "aerospace",
+        "pilot",
+        "hangar",
+        "aerodrome",
     ],
     "space": [
-        "space", "aerospace", "nasa", "rocket", "astronaut", "satellite",
-        "spacecraft", "observatory", "planetarium", "sea, air and space"
+        "space",
+        "aerospace",
+        "nasa",
+        "rocket",
+        "astronaut",
+        "satellite",
+        "spacecraft",
+        "observatory",
+        "planetarium",
+        "sea, air and space",
     ],
     "historic": [
-        "historic", "history", "historical", "heritage", "ancient", "museum",
-        "uss ", "century", "monument", "memorial", "ruins", "castle", "mission",
-        "presidio", "landmark"
+        "historic",
+        "history",
+        "historical",
+        "heritage",
+        "ancient",
+        "museum",
+        "uss ",
+        "century",
+        "monument",
+        "memorial",
+        "ruins",
+        "castle",
+        "mission",
+        "presidio",
+        "landmark",
     ],
     "museum": ["museum", "gallery", "exhibit", "collection"],
     "viewpoint": ["viewpoint", "lookout", "overlook", "vista", "panorama", "scenic view"],
@@ -613,8 +737,20 @@ TAG_RULES: dict[str, list[str]] = {
     "wildlife": ["wildlife", "safari", "animals", "birds", "sanctuary", "refuge"],
     "monument": ["monument", "memorial", "statue"],
     "food": [
-        "restaurant", "food", "dining", "bar", "wine", "cafe", "bakery",
-        "cocktail", "culinary", "oysters", "bistro", "eatery", "creole", "gastro"
+        "restaurant",
+        "food",
+        "dining",
+        "bar",
+        "wine",
+        "cafe",
+        "bakery",
+        "cocktail",
+        "culinary",
+        "oysters",
+        "bistro",
+        "eatery",
+        "creole",
+        "gastro",
     ],
 }
 
@@ -642,7 +778,9 @@ def ensure_nps_tag(candidate: POIExtractionCandidate, payload: ExtractAndCheckRe
         f"{payload.page_title} {payload.page_url} {payload.selected_text} {payload.place_name or ''}"
     ).lower()
 
-    if ("nps.gov" in combined_text or any(kw in combined_text for kw in NPS_KEYWORDS)) and "NPS" not in candidate.category_tags:
+    if (
+        "nps.gov" in combined_text or any(kw in combined_text for kw in NPS_KEYWORDS)
+    ) and "NPS" not in candidate.category_tags:
         candidate.category_tags.append("NPS")
 
 
@@ -657,10 +795,18 @@ def _fallback_heuristic_extraction(payload: ExtractAndCheckRequest) -> POIExtrac
         line_str = line.strip()
         lower_line = line_str.lower()
         if lower_line.startswith("description:"):
-            clean_desc_lines.append(line_str[len("description:"):].strip())
-        elif any(lower_line.startswith(prefix) for prefix in [
-            "point of interest:", "category:", "address:", "coordinates:", "official website:", "phone:"
-        ]):
+            clean_desc_lines.append(line_str[len("description:") :].strip())
+        elif any(
+            lower_line.startswith(prefix)
+            for prefix in [
+                "point of interest:",
+                "category:",
+                "address:",
+                "coordinates:",
+                "official website:",
+                "phone:",
+            ]
+        ):
             continue
         else:
             clean_desc_lines.append(line_str)
@@ -669,7 +815,9 @@ def _fallback_heuristic_extraction(payload: ExtractAndCheckRequest) -> POIExtrac
     # Derive name candidate from explicit place_name, first line, or page title
     if payload.place_name:
         name_candidate = payload.place_name.strip()
-    elif first_line and not any(first_line.lower().startswith(p) for p in ["point of interest:", "description:"]):
+    elif first_line and not any(
+        first_line.lower().startswith(p) for p in ["point of interest:", "description:"]
+    ):
         name_candidate = first_line[:60]
     else:
         name_candidate = payload.page_title.split("|")[0].split("-")[0].strip()
@@ -688,7 +836,20 @@ def _fallback_heuristic_extraction(payload: ExtractAndCheckRequest) -> POIExtrac
     initial_tags = ["travel", "scenic"]
     if payload.category:
         cat_lower = payload.category.lower()
-        for kw in ["historic", "museum", "viewpoint", "waterfall", "hiking", "beach", "trail", "nature", "wildlife", "overlook", "food", "lodging"]:
+        for kw in [
+            "historic",
+            "museum",
+            "viewpoint",
+            "waterfall",
+            "hiking",
+            "beach",
+            "trail",
+            "nature",
+            "wildlife",
+            "overlook",
+            "food",
+            "lodging",
+        ]:
             if kw in cat_lower and kw not in initial_tags:
                 initial_tags.append(kw)
 
@@ -698,13 +859,29 @@ def _fallback_heuristic_extraction(payload: ExtractAndCheckRequest) -> POIExtrac
     env = None
     if any(w in combined_lower for w in ["indoor", "museum", "gallery", "aquarium", "theater"]):
         env = "Indoor"
-    elif any(w in combined_lower for w in ["outdoor", "park", "trail", "hike", "beach", "overlook", "viewpoint", "waterfall", "canyon", "mountain"]):
+    elif any(
+        w in combined_lower
+        for w in [
+            "outdoor",
+            "park",
+            "trail",
+            "hike",
+            "beach",
+            "overlook",
+            "viewpoint",
+            "waterfall",
+            "canyon",
+            "mountain",
+        ]
+    ):
         env = "Outdoor"
     elif any(w in combined_lower for w in ["ship", "aircraft carrier", "castle", "ruins", "zoo"]):
         env = "Mixed"
 
     effort = None
-    if any(w in combined_lower for w in ["strenuous", "hard hike", "difficult hike", "steep climb"]):
+    if any(
+        w in combined_lower for w in ["strenuous", "hard hike", "difficult hike", "steep climb"]
+    ):
         effort = "strenuous"
     elif any(w in combined_lower for w in ["moderate hike", "hike", "trail"]):
         effort = "moderate hike"
@@ -718,7 +895,9 @@ def _fallback_heuristic_extraction(payload: ExtractAndCheckRequest) -> POIExtrac
         duration = "full day"
     elif any(w in combined_lower for w in ["half day", "3-4 hours", "few hours"]):
         duration = "half day"
-    elif any(w in combined_lower for w in ["1-2 hours", "1 to 2 hours", "couple hours", "museum", "tour"]):
+    elif any(
+        w in combined_lower for w in ["1-2 hours", "1 to 2 hours", "couple hours", "museum", "tour"]
+    ):
         duration = "1-2 hours"
     elif any(w in combined_lower for w in ["quick stop", "30 mins"]):
         duration = "30 mins"
@@ -752,7 +931,9 @@ def _fallback_heuristic_extraction(payload: ExtractAndCheckRequest) -> POIExtrac
         lead_time = "permit lottery"
     elif any(w in combined_lower for w in ["months ahead", "reserve months"]):
         lead_time = "months ahead"
-    elif any(w in combined_lower for w in ["reservation required", "book in advance", "book ahead"]):
+    elif any(
+        w in combined_lower for w in ["reservation required", "book in advance", "book ahead"]
+    ):
         lead_time = "1-3 days ahead"
     elif any(w in combined_lower for w in ["walk-in", "no reservation", "open daily"]):
         lead_time = "walk-in ok"

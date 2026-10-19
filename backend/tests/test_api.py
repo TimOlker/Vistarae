@@ -75,10 +75,16 @@ async def test_extract_and_check_endpoint():
         iptc_country_code="US",
     )
 
-    with patch("app.main.extract_candidate_from_text", return_value=mock_candidate), \
-         patch("app.main.geocode_query", return_value=(36.8791, -111.5104, "Horseshoe Bend, AZ", {})), \
-         patch("app.main.check_spatial_collision", return_value=(CollisionStatus.UNIQUE_LOCATION, None, None)):
-
+    with (
+        patch("app.main.extract_candidate_from_text", return_value=mock_candidate),
+        patch(
+            "app.main.geocode_query", return_value=(36.8791, -111.5104, "Horseshoe Bend, AZ", {})
+        ),
+        patch(
+            "app.main.check_spatial_collision",
+            return_value=(CollisionStatus.UNIQUE_LOCATION, None, None),
+        ),
+    ):
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = []
         mock_db.scalars.return_value = mock_scalars
@@ -133,9 +139,13 @@ async def test_extract_and_check_with_google_maps_direct_coordinates():
         iptc_country_code="US",
     )
 
-    with patch("app.main.extract_candidate_from_text", return_value=mock_candidate), \
-         patch("app.main.check_spatial_collision", return_value=(CollisionStatus.UNIQUE_LOCATION, None, None)):
-
+    with (
+        patch("app.main.extract_candidate_from_text", return_value=mock_candidate),
+        patch(
+            "app.main.check_spatial_collision",
+            return_value=(CollisionStatus.UNIQUE_LOCATION, None, None),
+        ),
+    ):
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = []
         mock_db.scalars.return_value = mock_scalars
@@ -195,10 +205,16 @@ async def test_extract_and_check_reverse_geocode_fallback_when_address_missing()
         }
     }
 
-    with patch("app.main.extract_candidate_from_text", return_value=mock_candidate), \
-         patch("app.main.reverse_geocode", return_value=("Horseshoe Bend, Page, AZ", fake_reverse_json)), \
-         patch("app.main.check_spatial_collision", return_value=(CollisionStatus.UNIQUE_LOCATION, None, None)):
-
+    with (
+        patch("app.main.extract_candidate_from_text", return_value=mock_candidate),
+        patch(
+            "app.main.reverse_geocode", return_value=("Horseshoe Bend, Page, AZ", fake_reverse_json)
+        ),
+        patch(
+            "app.main.check_spatial_collision",
+            return_value=(CollisionStatus.UNIQUE_LOCATION, None, None),
+        ),
+    ):
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = []
         mock_db.scalars.return_value = mock_scalars
@@ -383,7 +399,10 @@ async def test_extract_and_check_atlas_obscura_payload():
     mock_scalars.all.return_value = []
     mock_db.scalars.return_value = mock_scalars
 
-    with patch("app.main.check_spatial_collision", return_value=(CollisionStatus.UNIQUE_LOCATION, None, None)):
+    with patch(
+        "app.main.check_spatial_collision",
+        return_value=(CollisionStatus.UNIQUE_LOCATION, None, None),
+    ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
@@ -454,12 +473,14 @@ async def test_extract_and_check_location_not_detected():
     mock_scalars.all.return_value = []
     mock_db.scalars.return_value = mock_scalars
 
-    with patch("app.main.extract_candidate_from_text", return_value=mock_candidate), \
-         patch("app.main.geocode_query", return_value=(0.0, 0.0, "Unknown", {})), \
-         patch("app.main.check_spatial_collision", return_value=(CollisionStatus.UNIQUE_LOCATION, None, None)):
-
-
-
+    with (
+        patch("app.main.extract_candidate_from_text", return_value=mock_candidate),
+        patch("app.main.geocode_query", return_value=(0.0, 0.0, "Unknown", {})),
+        patch(
+            "app.main.check_spatial_collision",
+            return_value=(CollisionStatus.UNIQUE_LOCATION, None, None),
+        ),
+    ):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
@@ -1200,7 +1221,10 @@ async def test_api_reverse_geocode():
             assert data["country_name"] == "United States"
             assert data["postcode"] == "95389"
             assert data["sublocation"] == "Glacier Point Road"
-            assert data["display_name"] == "Glacier Point Road, Curry Village, Mariposa County, California, 95389, USA"
+            assert (
+                data["display_name"]
+                == "Glacier Point Road, Curry Village, Mariposa County, California, 95389, USA"
+            )
 
     app.dependency_overrides.clear()
 
@@ -1328,10 +1352,3 @@ async def test_poi_visit_again_create_and_update():
         assert update_res.json()["visit_again"] is False
 
     app.dependency_overrides.clear()
-
-
-
-
-
-
-

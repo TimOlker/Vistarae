@@ -23,12 +23,16 @@ if not isinstance(trace.get_tracer_provider(), TracerProvider):
     provider = TracerProvider()
     if os.getenv("APP_ENV") == "testing":
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
         provider.add_span_processor(BatchSpanProcessor(InMemorySpanExporter()))
     else:
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
             otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)))
+            provider.add_span_processor(
+                BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True))
+            )
         except Exception:
             # Fallback to console span processor
             provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
@@ -81,7 +85,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 trace_id = match.group(1)
                 parent_span_id = match.group(2)
 
-        parent_id_tag = ''
+        parent_id_tag = ""
         if not trace_id:
             trace_id = generate_trace_id()
             parent_span_id = "0000000000000000"
@@ -157,7 +161,7 @@ async def egress_span(destination_name: str, url: str, action: str = "request"):
     child_span_id = generate_span_id()
     log_msg(
         TAG_OUTBOUND_MSG,
-        f"EGRESS | Target={destination_name} | Action={action} | Destination={url} | SpanID={child_span_id}"
+        f"EGRESS | Target={destination_name} | Action={action} | Destination={url} | SpanID={child_span_id}",
     )
 
     with tracer.start_as_current_span(
@@ -173,13 +177,13 @@ async def egress_span(destination_name: str, url: str, action: str = "request"):
             yield span
             log_msg(
                 TAG_OUTBOUND_RESP,
-                f"EGRESS COMPLETE | Target={destination_name} | Destination={url} | SpanID={child_span_id}"
+                f"EGRESS COMPLETE | Target={destination_name} | Destination={url} | SpanID={child_span_id}",
             )
         except Exception as exc:
             span.set_status(Status(StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
             log_msg(
                 TAG_OUTBOUND_RESP,
-                f"EGRESS ERROR | Target={destination_name} | Destination={url} | Error={exc!s}"
+                f"EGRESS ERROR | Target={destination_name} | Destination={url} | Error={exc!s}",
             )
             raise

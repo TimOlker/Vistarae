@@ -188,9 +188,7 @@ async def _resolve_cognito_user(token: str, session: AsyncSession) -> User:
         ) from exc
 
     cognito_sub = claims["sub"]
-    result = await session.execute(
-        select(UserTable).where(UserTable.cognito_sub == cognito_sub)
-    )
+    result = await session.execute(select(UserTable).where(UserTable.cognito_sub == cognito_sub))
     row = result.scalar_one_or_none()
 
     if row is None:

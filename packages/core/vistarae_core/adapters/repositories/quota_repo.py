@@ -86,11 +86,7 @@ class SqlAlchemyQuotaRepository:
         now = datetime.now(UTC)
         limit = _TIER_LIMITS.get(tier, 60)
 
-        stmt = (
-            select(UserQuotasTable)
-            .where(UserQuotasTable.user_id == user_id)
-            .with_for_update()
-        )
+        stmt = select(UserQuotasTable).where(UserQuotasTable.user_id == user_id).with_for_update()
         result = await self._session.execute(stmt)
         row = result.scalar_one_or_none()
 

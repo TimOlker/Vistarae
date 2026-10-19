@@ -4,8 +4,6 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Any
-
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -17,7 +15,6 @@ from app.models import POI, POIAccessPoint, POIListMembership, ScannedPath, User
 from app.schemas.scanned_path import (
     AddPhotoFolderRequest,
     AddPhotoFolderResponse,
-    BatchGeocodeConfirmItem,
     BatchGeocodeConfirmRequest,
     BatchGeocodeConfirmResponse,
     BatchGeocodePreviewResponse,
@@ -27,10 +24,10 @@ from app.schemas.scanned_path import (
     GeocodeCandidateItem,
     InspectLocalPhotoRequest,
     InspectPhotoResponse,
-    POIMergeRequest,
-    POIMergeResponse,
     POIDetailsLookupRequest,
     POIDetailsLookupResponse,
+    POIMergeRequest,
+    POIMergeResponse,
     ScannedPathBatchGeocodeRequest,
     ScannedPathBatchUpdate,
     ScannedPathEnrichmentResponse,
@@ -79,12 +76,16 @@ async def list_scanned_paths(
         query = query.where(func.lower(ScannedPath.status) != "hidden")
 
     if poi_id:
-        poi_record = await db.scalar(select(POI).where(POI.id == poi_id, POI.user_id == current_user.id))
+        poi_record = await db.scalar(
+            select(POI).where(POI.id == poi_id, POI.user_id == current_user.id)
+        )
         source_url_conditions = []
         if poi_record and poi_record.source_url:
             norm_source = poi_record.source_url.strip().rstrip("\\/")
             if norm_source:
-                source_url_conditions.append(func.lower(ScannedPath.folder_path) == norm_source.lower())
+                source_url_conditions.append(
+                    func.lower(ScannedPath.folder_path) == norm_source.lower()
+                )
 
         query = query.where(
             or_(
@@ -144,9 +145,9 @@ async def list_scanned_paths(
 
     poi_names_map = {}
     if all_conflict_ids:
-        name_rows = (await db.execute(
-            select(POI.id, POI.name).where(POI.id.in_(all_conflict_ids))
-        )).all()
+        name_rows = (
+            await db.execute(select(POI.id, POI.name).where(POI.id.in_(all_conflict_ids)))
+        ).all()
         poi_names_map = {row[0]: row[1] for row in name_rows}
 
     items = []
@@ -157,9 +158,14 @@ async def list_scanned_paths(
                 if cid in poi_names_map:
                     conflict_names.append(poi_names_map[cid])
         # If this folder is queried for a specific poi_id and sp.poi_id != poi_id, include the primary poi name as conflict
-        if poi_id and sp.poi_id and sp.poi_id != poi_id and sp.poi_id in poi_names_map:
-            if poi_names_map[sp.poi_id] not in conflict_names:
-                conflict_names.append(poi_names_map[sp.poi_id])
+        if (
+            poi_id
+            and sp.poi_id
+            and sp.poi_id != poi_id
+            and sp.poi_id in poi_names_map
+            and poi_names_map[sp.poi_id] not in conflict_names
+        ):
+            conflict_names.append(poi_names_map[sp.poi_id])
 
         resp = ScannedPathResponse(
             id=sp.id,
@@ -259,7 +265,9 @@ async def update_scanned_path(
         sp.poi_id = new_poi.id
         sp.status = "identified"
     elif has_coords and sp.poi_id:
-        linked_poi = await db.scalar(select(POI).where(POI.id == sp.poi_id, POI.user_id == current_user.id))
+        linked_poi = await db.scalar(
+            select(POI).where(POI.id == sp.poi_id, POI.user_id == current_user.id)
+        )
         if linked_poi and not linked_poi.location:
             linked_poi.location = f"SRID=4326;POINT({sp.longitude} {sp.latitude})"
 
@@ -354,10 +362,12 @@ async def preview_batch_geocode(
         query_str = ", ".join([p.strip() for p in parts if p and p.strip()])
 
         lat, lon, display_name, raw_json = await geocode_query(query_str, db)
-        found = (lat != 0.0 or lon != 0.0)
+        found = lat != 0.0 or lon != 0.0
 
         _, city_ext, state_ext, country_ext, country_code_ext, _ = (
-            extract_address_components(raw_json) if raw_json else (None, None, None, None, None, None)
+            extract_address_components(raw_json)
+            if raw_json
+            else (None, None, None, None, None, None)
         )
 
         matched_poi_id = None
@@ -376,7 +386,9 @@ async def preview_batch_geocode(
                 ORDER BY dist ASC
                 LIMIT 1;
             """)
-            match_row = (await db.execute(collision_query, {"lng": lon, "lat": lat, "uid": current_user.id})).first()
+            match_row = (
+                await db.execute(collision_query, {"lng": lon, "lat": lat, "uid": current_user.id})
+            ).first()
             if match_row:
                 matched_poi_id = match_row[0]
                 matched_poi_name = match_row[1]
@@ -423,7 +435,9 @@ async def confirm_batch_geocode(
             continue
 
         sp = await db.scalar(
-            select(ScannedPath).where(ScannedPath.id == item.path_id, ScannedPath.user_id == current_user.id)
+            select(ScannedPath).where(
+                ScannedPath.id == item.path_id, ScannedPath.user_id == current_user.id
+            )
         )
         if not sp:
             continue
@@ -443,7 +457,9 @@ async def confirm_batch_geocode(
                 visited=True,
                 visit_date=sp.earliest_date,
                 visit_dates=[sp.earliest_date] if sp.earliest_date else [],
-                location=f"SRID=4326;POINT({item.longitude} {item.latitude})" if has_coords else None,
+                location=f"SRID=4326;POINT({item.longitude} {item.latitude})"
+                if has_coords
+                else None,
                 source_url=sp.folder_path,
                 source_type="photo",
                 iptc_city=item.city or sp.city,
@@ -485,7 +501,9 @@ async def confirm_batch_geocode(
     )
 
 
-@router.post("/scanned-paths/{path_id}/disassociate-and-split", response_model=DisassociateAndSplitResponse)
+@router.post(
+    "/scanned-paths/{path_id}/disassociate-and-split", response_model=DisassociateAndSplitResponse
+)
 async def disassociate_and_split(
     path_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -558,7 +576,9 @@ async def merge_pois(
         )
 
     if source_id == target_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot merge a POI into itself")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot merge a POI into itself"
+        )
 
     source_poi = await db.scalar(
         select(POI).where(POI.id == source_id, POI.user_id == current_user.id)
@@ -568,7 +588,9 @@ async def merge_pois(
     )
 
     if not source_poi or not target_poi:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source or target POI not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Source or target POI not found"
+        )
 
     # 1. Update single-value fields on target POI if specified in payload
     if payload.name is not None:
@@ -663,9 +685,7 @@ async def merge_pois(
 
     # 4. Multi-value: List memberships
     if payload.list_ids is not None:
-        await db.execute(
-            delete(POIListMembership).where(POIListMembership.poi_id == target_poi.id)
-        )
+        await db.execute(delete(POIListMembership).where(POIListMembership.poi_id == target_poi.id))
         for lid in set(payload.list_ids):
             db.add(POIListMembership(poi_id=target_poi.id, list_id=lid))
 
@@ -702,9 +722,7 @@ async def merge_pois(
 
     # 6. Re-parent any child POIs of source_poi to target_poi
     await db.execute(
-        update(POI)
-        .where(POI.parent_poi_id == source_poi.id)
-        .values(parent_poi_id=target_poi.id)
+        update(POI).where(POI.parent_poi_id == source_poi.id).values(parent_poi_id=target_poi.id)
     )
 
     # 7. Reassign any access points from source_poi to target_poi
@@ -791,7 +809,9 @@ async def lookup_scanned_path_details(
         country=enriched.get("country") or sp.country,
         country_code=enriched.get("country_code") or sp.country_code,
         latitude=enriched.get("latitude") if enriched.get("latitude") is not None else sp.latitude,
-        longitude=enriched.get("longitude") if enriched.get("longitude") is not None else sp.longitude,
+        longitude=enriched.get("longitude")
+        if enriched.get("longitude") is not None
+        else sp.longitude,
     )
 
 
@@ -829,8 +849,12 @@ async def lookup_generic_poi_details(
         state=enriched.get("state") or payload.state,
         country=enriched.get("country") or payload.country,
         country_code=enriched.get("country_code"),
-        latitude=enriched.get("latitude") if enriched.get("latitude") is not None else payload.latitude,
-        longitude=enriched.get("longitude") if enriched.get("longitude") is not None else payload.longitude,
+        latitude=enriched.get("latitude")
+        if enriched.get("latitude") is not None
+        else payload.latitude,
+        longitude=enriched.get("longitude")
+        if enriched.get("longitude") is not None
+        else payload.longitude,
     )
 
 
@@ -846,15 +870,15 @@ async def add_photo_folder_to_poi(
     If the same folder is already in use with another POI, flags the issue
     so the POIs can be properly refactored manually.
     """
-    poi = await db.scalar(
-        select(POI).where(POI.id == poi_id, POI.user_id == current_user.id)
-    )
+    poi = await db.scalar(select(POI).where(POI.id == poi_id, POI.user_id == current_user.id))
     if not poi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="POI not found")
 
     raw_path = payload.folder_path.strip()
     if not raw_path:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Folder path cannot be empty")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Folder path cannot be empty"
+        )
 
     norm_path = raw_path.rstrip("\\/")
     if not norm_path:
@@ -886,22 +910,36 @@ async def add_photo_folder_to_poi(
                     conflicting_poi_ids.add(cid)
 
     # Also check if another POI has source_url equal to this folder path
-    other_pois_with_url = (await db.execute(
-        select(POI).where(
-            POI.user_id == current_user.id,
-            POI.id != poi_id,
-            func.lower(POI.source_url) == norm_path.lower(),
+    other_pois_with_url = (
+        (
+            await db.execute(
+                select(POI).where(
+                    POI.user_id == current_user.id,
+                    POI.id != poi_id,
+                    func.lower(POI.source_url) == norm_path.lower(),
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     for op in other_pois_with_url:
         conflicting_poi_ids.add(op.id)
 
     # Load details of conflicting POIs
     conflicting_pois_info = []
     if conflicting_poi_ids:
-        c_pois = (await db.execute(
-            select(POI).where(POI.id.in_(conflicting_poi_ids), POI.user_id == current_user.id)
-        )).scalars().all()
+        c_pois = (
+            (
+                await db.execute(
+                    select(POI).where(
+                        POI.id.in_(conflicting_poi_ids), POI.user_id == current_user.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         for cp in c_pois:
             conflicting_pois_info.append(
                 ConflictingPOIInfo(
@@ -1105,7 +1143,9 @@ async def inspect_photo_path(
     """
     raw_path_str = (payload.file_path or "").strip()
     if not raw_path_str:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File path must not be empty")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File path must not be empty"
+        )
 
     norm_path = raw_path_str.rstrip("\\/")
     if not norm_path:
@@ -1138,12 +1178,18 @@ async def inspect_photo_path(
     conflicting_poi_ids = set()
 
     # Check scanned_paths
-    existing_sps = (await db.execute(
-        select(ScannedPath).where(
-            ScannedPath.user_id == current_user.id,
-            func.lower(ScannedPath.folder_path) == folder_path_str.lower(),
+    existing_sps = (
+        (
+            await db.execute(
+                select(ScannedPath).where(
+                    ScannedPath.user_id == current_user.id,
+                    func.lower(ScannedPath.folder_path) == folder_path_str.lower(),
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     already_linked = False
     for sp in existing_sps:
@@ -1159,20 +1205,30 @@ async def inspect_photo_path(
                     conflicting_poi_ids.add(cid)
 
     # Check pois.source_url
-    other_pois_source = (await db.execute(
-        select(POI).where(
-            POI.user_id == current_user.id,
-            POI.id != poi_id,
-            func.lower(POI.source_url) == folder_path_str.lower(),
+    other_pois_source = (
+        (
+            await db.execute(
+                select(POI).where(
+                    POI.user_id == current_user.id,
+                    POI.id != poi_id,
+                    func.lower(POI.source_url) == folder_path_str.lower(),
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for op in other_pois_source:
         conflicting_poi_ids.add(op.id)
 
     try:
         curr_poi = await db.get(POI, poi_id)
-        if curr_poi and curr_poi.source_url and curr_poi.source_url.strip().rstrip("\\/").lower() == folder_path_str.lower():
+        if (
+            curr_poi
+            and curr_poi.source_url
+            and curr_poi.source_url.strip().rstrip("\\/").lower() == folder_path_str.lower()
+        ):
             already_linked = True
     except Exception:
         pass
@@ -1180,9 +1236,17 @@ async def inspect_photo_path(
     # If folder is in use by another POI: ABORT!
     if conflicting_poi_ids:
         conflicting_pois = []
-        c_pois = (await db.execute(
-            select(POI).where(POI.id.in_(conflicting_poi_ids), POI.user_id == current_user.id)
-        )).scalars().all()
+        c_pois = (
+            (
+                await db.execute(
+                    select(POI).where(
+                        POI.id.in_(conflicting_poi_ids), POI.user_id == current_user.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
         for cp in c_pois:
             conflicting_pois.append(
                 ConflictingPOIInfo(
@@ -1214,7 +1278,9 @@ async def inspect_photo_path(
         return InspectPhotoResponse(
             success=True,
             status="metadata_found" if has_meta else "no_metadata",
-            message=f"Metadata inspected successfully from '{target_file.name}'." if has_meta else f"No EXIF GPS/date metadata found in '{target_file.name}'.",
+            message=f"Metadata inspected successfully from '{target_file.name}'."
+            if has_meta
+            else f"No EXIF GPS/date metadata found in '{target_file.name}'.",
             folder_path=folder_path_str,
             file_name=target_file.name,
             date_taken=meta.date_taken,
@@ -1274,7 +1340,9 @@ async def inspect_photo_upload(
             if hasattr(res_poi_sps, "scalars"):
                 poi_paths.extend(res_poi_sps.scalars().all())
             elif hasattr(res_poi_sps, "all"):
-                poi_paths.extend([r[0] if isinstance(r, (list, tuple)) else r for r in res_poi_sps.all()])
+                poi_paths.extend(
+                    [r[0] if isinstance(r, (list, tuple)) else r for r in res_poi_sps.all()]
+                )
         except Exception:
             pass
 
@@ -1300,7 +1368,11 @@ async def inspect_photo_upload(
         if not norm_folder:
             year_str = None
             if meta.date_taken:
-                year_str = str(meta.date_taken.year) if hasattr(meta.date_taken, "year") else str(meta.date_taken)[:4]
+                year_str = (
+                    str(meta.date_taken.year)
+                    if hasattr(meta.date_taken, "year")
+                    else str(meta.date_taken)[:4]
+                )
             if year_str:
                 try:
                     res_year = await db.execute(
@@ -1312,7 +1384,9 @@ async def inspect_photo_upload(
                     if hasattr(res_year, "scalars"):
                         candidate_paths = list(res_year.scalars().all())
                     elif hasattr(res_year, "all"):
-                        candidate_paths = [r[0] if isinstance(r, (list, tuple)) else r for r in res_year.all()]
+                        candidate_paths = [
+                            r[0] if isinstance(r, (list, tuple)) else r for r in res_year.all()
+                        ]
                 except Exception:
                     candidate_paths = []
 
@@ -1344,14 +1418,21 @@ async def inspect_photo_upload(
         if not norm_folder:
             try:
                 res_all = await db.execute(
-                    select(ScannedPath.folder_path).where(
-                        ScannedPath.user_id == current_user.id
-                    )
+                    select(ScannedPath.folder_path).where(ScannedPath.user_id == current_user.id)
                 )
                 if hasattr(res_all, "scalars"):
-                    all_paths = [p for p in res_all.scalars().all() if p not in candidate_paths and p not in poi_paths]
+                    all_paths = [
+                        p
+                        for p in res_all.scalars().all()
+                        if p not in candidate_paths and p not in poi_paths
+                    ]
                 elif hasattr(res_all, "all"):
-                    all_paths = [r[0] if isinstance(r, (list, tuple)) else r for r in res_all.all() if (r[0] if isinstance(r, (list, tuple)) else r) not in candidate_paths and (r[0] if isinstance(r, (list, tuple)) else r) not in poi_paths]
+                    all_paths = [
+                        r[0] if isinstance(r, (list, tuple)) else r
+                        for r in res_all.all()
+                        if (r[0] if isinstance(r, (list, tuple)) else r) not in candidate_paths
+                        and (r[0] if isinstance(r, (list, tuple)) else r) not in poi_paths
+                    ]
                 else:
                     all_paths = []
             except Exception:
@@ -1381,12 +1462,18 @@ async def inspect_photo_upload(
 
     already_linked = False
     if norm_folder:
-        existing_sps = (await db.execute(
-            select(ScannedPath).where(
-                ScannedPath.user_id == current_user.id,
-                func.lower(ScannedPath.folder_path) == norm_folder.lower(),
+        existing_sps = (
+            (
+                await db.execute(
+                    select(ScannedPath).where(
+                        ScannedPath.user_id == current_user.id,
+                        func.lower(ScannedPath.folder_path) == norm_folder.lower(),
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for sp in existing_sps:
             if not hasattr(sp, "poi_id"):
@@ -1402,28 +1489,46 @@ async def inspect_photo_upload(
                     else:
                         conflicting_poi_ids.add(cid)
 
-        other_pois_source = (await db.execute(
-            select(POI).where(
-                POI.user_id == current_user.id,
-                POI.id != poi_id,
-                func.lower(POI.source_url) == norm_folder.lower(),
+        other_pois_source = (
+            (
+                await db.execute(
+                    select(POI).where(
+                        POI.user_id == current_user.id,
+                        POI.id != poi_id,
+                        func.lower(POI.source_url) == norm_folder.lower(),
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
         for op in other_pois_source:
             conflicting_poi_ids.add(op.id)
 
         try:
             curr_poi = await db.get(POI, poi_id)
-            if curr_poi and curr_poi.source_url and curr_poi.source_url.strip().rstrip("\\/").lower() == norm_folder.lower():
+            if (
+                curr_poi
+                and curr_poi.source_url
+                and curr_poi.source_url.strip().rstrip("\\/").lower() == norm_folder.lower()
+            ):
                 already_linked = True
         except Exception:
             pass
 
         if conflicting_poi_ids:
             conflicting_pois = []
-            c_pois = (await db.execute(
-                select(POI).where(POI.id.in_(conflicting_poi_ids), POI.user_id == current_user.id)
-            )).scalars().all()
+            c_pois = (
+                (
+                    await db.execute(
+                        select(POI).where(
+                            POI.id.in_(conflicting_poi_ids), POI.user_id == current_user.id
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
             for cp in c_pois:
                 conflicting_pois.append(
                     ConflictingPOIInfo(
@@ -1452,7 +1557,9 @@ async def inspect_photo_upload(
     return InspectPhotoResponse(
         success=True,
         status="metadata_found" if has_meta else "no_metadata",
-        message=f"Metadata inspected successfully from '{file.filename}'." if has_meta else f"No EXIF GPS/date metadata found in '{file.filename}'.",
+        message=f"Metadata inspected successfully from '{file.filename}'."
+        if has_meta
+        else f"No EXIF GPS/date metadata found in '{file.filename}'.",
         folder_path=norm_folder,
         file_name=file.filename,
         date_taken=meta.date_taken,
@@ -1462,5 +1569,3 @@ async def inspect_photo_upload(
         conflicting_pois=[],
         already_linked=already_linked,
     )
-
-

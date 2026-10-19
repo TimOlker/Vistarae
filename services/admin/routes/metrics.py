@@ -34,20 +34,17 @@ async def get_metrics(
         total_pois, total_tokens_consumed, and tier_distribution.
     """
     total_users = await session.scalar(select(func.count()).select_from(UserTable))
-    active_users = await session.scalar(
-        select(func.count()).where(UserTable.is_active.is_(True))
-    )
+    active_users = await session.scalar(select(func.count()).where(UserTable.is_active.is_(True)))
     disabled_users = await session.scalar(
-        select(func.count()).where(UserQuotasTable.is_disabled.is_(True)).select_from(UserQuotasTable)
+        select(func.count())
+        .where(UserQuotasTable.is_disabled.is_(True))
+        .select_from(UserQuotasTable)
     )
     total_pois = await session.scalar(select(func.sum(UserMetricsTable.poi_count)))
-    total_tokens = await session.scalar(
-        select(func.sum(UserMetricsTable.total_tokens_consumed))
-    )
+    total_tokens = await session.scalar(select(func.sum(UserMetricsTable.total_tokens_consumed)))
 
     tier_rows = await session.execute(
-        select(UserQuotasTable.tier, func.count().label("count"))
-        .group_by(UserQuotasTable.tier)
+        select(UserQuotasTable.tier, func.count().label("count")).group_by(UserQuotasTable.tier)
     )
     tier_distribution = {row.tier: row.count for row in tier_rows}
 

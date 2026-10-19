@@ -87,7 +87,9 @@ class TestAuthRoutes:
         self, client: TestClient, mock_identity: AsyncMock
     ) -> None:
         """Asserts POST /api/auth/register returns 409 when user already exists."""
-        mock_identity.sign_up.side_effect = ValueError("User with email 'traveler@example.com' already exists.")
+        mock_identity.sign_up.side_effect = ValueError(
+            "User with email 'traveler@example.com' already exists."
+        )
         payload = {
             "email": "traveler@example.com",
             "password": "StrongPassword123!",
@@ -95,9 +97,7 @@ class TestAuthRoutes:
         resp = client.post("/api/auth/register", json=payload)
         assert resp.status_code == 409
 
-    def test_confirm_signup_success(
-        self, client: TestClient, mock_identity: AsyncMock
-    ) -> None:
+    def test_confirm_signup_success(self, client: TestClient, mock_identity: AsyncMock) -> None:
         """Asserts POST /api/auth/confirm-signup confirms user and creates tenant."""
         payload = {
             "email": "traveler@example.com",
@@ -115,7 +115,9 @@ class TestAuthRoutes:
         self, client: TestClient, mock_identity: AsyncMock
     ) -> None:
         """Asserts POST /api/auth/confirm-signup returns 400 on invalid code."""
-        mock_identity.confirm_sign_up.side_effect = ValueError("Invalid or expired verification code.")
+        mock_identity.confirm_sign_up.side_effect = ValueError(
+            "Invalid or expired verification code."
+        )
         payload = {
             "email": "traveler@example.com",
             "confirmation_code": "bad-code",
@@ -136,9 +138,7 @@ class TestAuthRoutes:
         assert data["id_token"] == "mock-id-token"
         assert data["token_type"] == "Bearer"
 
-    def test_login_invalid_credentials(
-        self, client: TestClient, mock_identity: AsyncMock
-    ) -> None:
+    def test_login_invalid_credentials(self, client: TestClient, mock_identity: AsyncMock) -> None:
         """Asserts POST /api/auth/login returns 401 on bad credentials."""
         mock_identity.initiate_auth.side_effect = ValueError("Invalid email or password.")
         payload = {
@@ -148,9 +148,7 @@ class TestAuthRoutes:
         resp = client.post("/api/auth/login", json=payload)
         assert resp.status_code == 401
 
-    def test_forgot_password_success(
-        self, client: TestClient, mock_identity: AsyncMock
-    ) -> None:
+    def test_forgot_password_success(self, client: TestClient, mock_identity: AsyncMock) -> None:
         """Asserts POST /api/auth/forgot-password dispatches reset code."""
         payload = {"email": "traveler@example.com"}
         resp = client.post("/api/auth/forgot-password", json=payload)
@@ -166,9 +164,7 @@ class TestAuthRoutes:
         resp = client.post("/api/auth/forgot-password", json=payload)
         assert resp.status_code == 404
 
-    def test_reset_password_success(
-        self, client: TestClient, mock_identity: AsyncMock
-    ) -> None:
+    def test_reset_password_success(self, client: TestClient, mock_identity: AsyncMock) -> None:
         """Asserts POST /api/auth/reset-password resets password successfully."""
         payload = {
             "email": "traveler@example.com",
@@ -191,9 +187,7 @@ class TestAuthRoutes:
         resp = client.post("/api/auth/reset-password", json=payload)
         assert resp.status_code == 400
 
-    def test_logout_with_header(
-        self, client: TestClient, mock_identity: AsyncMock
-    ) -> None:
+    def test_logout_with_header(self, client: TestClient, mock_identity: AsyncMock) -> None:
         """Asserts POST /api/auth/logout with Bearer token invalidates session."""
         resp = client.post(
             "/api/auth/logout",

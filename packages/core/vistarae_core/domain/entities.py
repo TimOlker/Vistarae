@@ -9,16 +9,20 @@ Encapsulates state and business rules decoupled from external ORM frameworks.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
 from vistarae_core.domain.value_objects import (
+    EnrichmentStatus,
     IdempotencyStatus,
     PacingMode,
     ThemeMode,
     TransitSpeedMode,
     UserTier,
+    VisitState,
+    WGS84Point,
 )
 
 
@@ -113,3 +117,83 @@ class IdempotencyRecord:
     response_code: int | None = None
     response_payload: dict[str, Any] | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class POI:
+    """Point of Interest root aggregate."""
+
+    id: UUID
+    user_id: UUID
+    name: str
+    geom: WGS84Point
+    parent_poi_id: UUID | None = None
+    description: str | None = None
+    address: str | None = None
+    city: str | None = None
+    states: list[str] = field(default_factory=list)
+    countries: list[str] = field(default_factory=list)
+    official_url: str | None = None
+    wiki_url: str | None = None
+    image_urls: list[str] = field(default_factory=list)
+    directory_paths: list[str] = field(default_factory=list)
+    creation_metadata: dict[str, Any] = field(default_factory=dict)
+    visit_state: VisitState = VisitState.NOT_VISITED
+    visited_dates: list[str] = field(default_factory=list)
+    rating: int | None = None
+    estimated_cost: Decimal | None = None
+    pricing_unit: str | None = None
+    recommended_duration_hours: Decimal | None = None
+    recommended_visit_days: int = 1
+    enrichment_status: EnrichmentStatus = EnrichmentStatus.SUCCESS
+    region_geom: str | None = None
+    embedding: list[float] | None = None
+    embedding_md5: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class ListEntity:
+    """Curated collection of POIs."""
+
+    id: UUID
+    user_id: UUID
+    title: str
+    description: str | None = None
+    is_public: bool = False
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class TagEntity:
+    """User-scoped taxonomy marker."""
+
+    id: UUID
+    user_id: UUID
+    name: str
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class GeocodingCacheEntry:
+    """Cached geocoding result keyed by SHA-256 query hash."""
+
+    query_hash: str
+    lat: float
+    lon: float
+    formatted_address: str
+    status: str
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=90))
+
+
+@dataclass
+class PotentialDuplicateMatch:
+    """Represents a flagged collision during deduplication checks."""
+
+    existing_poi: POI
+    distance_meters: float
+    name_similarity: float
+    match_confidence: float

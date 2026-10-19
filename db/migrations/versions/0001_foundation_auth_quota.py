@@ -85,13 +85,22 @@ def upgrade() -> None:
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("theme", sa.String(16), nullable=False, server_default="system"),
         sa.Column(
-            "email_notifications_enabled", sa.Boolean(), nullable=False, server_default=sa.text("TRUE")
+            "email_notifications_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("TRUE"),
         ),
         sa.Column(
-            "push_notifications_enabled", sa.Boolean(), nullable=False, server_default=sa.text("TRUE")
+            "push_notifications_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("TRUE"),
         ),
         sa.Column(
-            "marketing_emails_enabled", sa.Boolean(), nullable=False, server_default=sa.text("FALSE")
+            "marketing_emails_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("FALSE"),
         ),
         sa.Column(
             "clustering_enabled", sa.Boolean(), nullable=False, server_default=sa.text("TRUE")
@@ -131,9 +140,7 @@ def upgrade() -> None:
             ["user_id"], ["users.id"], name="fk_user_prefs_user_id", ondelete="CASCADE"
         ),
         sa.PrimaryKeyConstraint("user_id"),
-        sa.CheckConstraint(
-            "theme IN ('light', 'dark', 'system')", name="ck_user_prefs_theme"
-        ),
+        sa.CheckConstraint("theme IN ('light', 'dark', 'system')", name="ck_user_prefs_theme"),
         sa.CheckConstraint(
             "pacing IN ('relaxed', 'moderate', 'fast_paced')", name="ck_user_prefs_pacing"
         ),
@@ -187,9 +194,7 @@ def upgrade() -> None:
             server_default=sa.text("NOW()"),
             nullable=False,
         ),
-        sa.Column(
-            "is_disabled", sa.Boolean(), nullable=False, server_default=sa.text("FALSE")
-        ),
+        sa.Column("is_disabled", sa.Boolean(), nullable=False, server_default=sa.text("FALSE")),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
@@ -217,9 +222,7 @@ def upgrade() -> None:
         sa.Column("idempotency_key", sa.Text(), nullable=False),
         sa.Column("status", sa.String(16), nullable=False, server_default="PENDING"),
         sa.Column("response_code", sa.Integer(), nullable=True),
-        sa.Column(
-            "response_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
+        sa.Column("response_payload", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

@@ -1,6 +1,9 @@
 services:
   db:
-    image: postgis/postgis:16-3.4
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.db
+    image: vistarae-db:16-3.4
     container_name: vistarae-db
     restart: unless-stopped
     environment:

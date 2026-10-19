@@ -237,7 +237,9 @@ class CognitoIdentityProvider:
         ) as exc:
             raise ValueError("Invalid email or password.") from exc
         except getattr(self._client.exceptions, "UserNotConfirmedException", Exception) as exc:
-            raise ValueError("User account is not yet confirmed. Please verify your email.") from exc
+            raise ValueError(
+                "User account is not yet confirmed. Please verify your email."
+            ) from exc
         except Exception as exc:
             raise RuntimeError(f"Cognito InitiateAuth failed: {exc}") from exc
 
@@ -326,4 +328,3 @@ class CognitoIdentityProvider:
             raise ValueError(f"Invalid or expired access token: {exc}") from exc
         except Exception as exc:
             raise RuntimeError(f"Cognito GlobalSignOut failed: {exc}") from exc
-

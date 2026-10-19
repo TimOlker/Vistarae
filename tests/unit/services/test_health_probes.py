@@ -42,9 +42,7 @@ class TestHealthProbes:
         assert resp.status_code == 200
         assert resp.json() == {"status": "alive"}
 
-    def test_health_ready_probe_success(
-        self, client: TestClient, mock_session: AsyncMock
-    ) -> None:
+    def test_health_ready_probe_success(self, client: TestClient, mock_session: AsyncMock) -> None:
         """Asserts /health/ready executes SELECT 1 and returns 200 ready."""
         resp = client.get("/health/ready")
         assert resp.status_code == 200

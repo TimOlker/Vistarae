@@ -130,9 +130,7 @@ def get_engine(database_url: str | None = None) -> AsyncEngine:
     if _engine is None:
         url = database_url or os.getenv("DATABASE_URL")
         if not url:
-            raise ValueError(
-                "DATABASE_URL environment variable is required but not set."
-            )
+            raise ValueError("DATABASE_URL environment variable is required but not set.")
         _engine = _build_engine(url)
 
     return _engine
@@ -175,8 +173,7 @@ async def init_engine(database_url: str | None = None) -> AsyncEngine:
                 ) from exc
 
             logger.warning(
-                "MSG ->| [session.py -> database] Attempt %d failed (%s). "
-                "Retrying in %.1fs…",
+                "MSG ->| [session.py -> database] Attempt %d failed (%s). Retrying in %.1fs…",
                 attempt,
                 exc,
                 delay,
@@ -184,7 +181,9 @@ async def init_engine(database_url: str | None = None) -> AsyncEngine:
             await asyncio.sleep(delay)
 
     # Unreachable: the loop above always raises on the final iteration.
-    raise RuntimeError("Unreachable: retry loop exited without return or raise.")  # pragma: no cover
+    raise RuntimeError(
+        "Unreachable: retry loop exited without return or raise."
+    )  # pragma: no cover
 
 
 def reset_engine() -> None:

@@ -148,7 +148,9 @@ class SqlAlchemyUserRepository:
         )
         pref_row = UserPreferencesTable(
             user_id=user.id,
-            theme=preferences.theme.value if hasattr(preferences.theme, "value") else str(preferences.theme),
+            theme=preferences.theme.value
+            if hasattr(preferences.theme, "value")
+            else str(preferences.theme),
             email_notifications_enabled=preferences.email_notifications_enabled,
             push_notifications_enabled=preferences.push_notifications_enabled,
             marketing_emails_enabled=preferences.marketing_emails_enabled,
@@ -157,10 +159,14 @@ class SqlAlchemyUserRepository:
             default_map_layer=preferences.default_map_layer,
             geoproximity_scope_km=preferences.geoproximity_scope_km,
             pin_color_presets=preferences.pin_color_presets,
-            pacing=preferences.pacing.value if hasattr(preferences.pacing, "value") else str(preferences.pacing),
+            pacing=preferences.pacing.value
+            if hasattr(preferences.pacing, "value")
+            else str(preferences.pacing),
             meal_intervals_hours=preferences.meal_intervals_hours,
             lunch_packing_enabled=preferences.lunch_packing_enabled,
-            transit_speed_mode=preferences.transit_speed_mode.value if hasattr(preferences.transit_speed_mode, "value") else str(preferences.transit_speed_mode),
+            transit_speed_mode=preferences.transit_speed_mode.value
+            if hasattr(preferences.transit_speed_mode, "value")
+            else str(preferences.transit_speed_mode),
             daily_activity_hour_cap=preferences.daily_activity_hour_cap,
             preferred_currency=preferences.preferred_currency,
             created_at=preferences.created_at,

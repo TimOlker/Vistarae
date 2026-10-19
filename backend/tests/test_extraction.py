@@ -83,8 +83,10 @@ async def test_extract_candidate_with_mocked_gemini():
     mock_response.text = fake_candidate_json
     mock_client.models.generate_content.return_value = mock_response
 
-    with patch("app.config.settings.GEMINI_API_KEY", "test_gemini_key"), \
-         patch("google.genai.Client", return_value=mock_client):
+    with (
+        patch("app.config.settings.GEMINI_API_KEY", "test_gemini_key"),
+        patch("google.genai.Client", return_value=mock_client),
+    ):
         result = await extract_candidate_from_text(request)
 
         assert result.name == "Taft Point"
@@ -185,7 +187,9 @@ def test_parse_atlas_obscura_html():
     </body>
     </html>
     """
-    res = parse_atlas_obscura_html(sample_ao_html, "https://www.atlasobscura.com/places/antoines-restaurant")
+    res = parse_atlas_obscura_html(
+        sample_ao_html, "https://www.atlasobscura.com/places/antoines-restaurant"
+    )
 
     assert res["name"] == "Antoine’s Restaurant"
     assert res["latitude"] == 29.956737
@@ -340,13 +344,22 @@ def test_sanitize_official_website():
     from app.services.extraction import sanitize_official_website
 
     # Blacklisted domains should return None
-    assert sanitize_official_website("https://www.google.com/search?q=philadelphia&sca_esv=123") is None
+    assert (
+        sanitize_official_website("https://www.google.com/search?q=philadelphia&sca_esv=123")
+        is None
+    )
     assert sanitize_official_website("https://maps.google.com/place/Alcatraz") is None
-    assert sanitize_official_website("https://www.tripadvisor.com/Attraction_Review-123.html") is None
+    assert (
+        sanitize_official_website("https://www.tripadvisor.com/Attraction_Review-123.html") is None
+    )
     assert sanitize_official_website("https://www.roadsideamerica.com/story/32967") is None
     assert sanitize_official_website("https://www.locationscout.net/peru/3272-machu-picchu") is None
-    assert sanitize_official_website("https://www.shothotspot.com/hotspot/mexico/chichen-itza") is None
-    assert sanitize_official_website("https://www.atlasobscura.com/places/antoines-restaurant") is None
+    assert (
+        sanitize_official_website("https://www.shothotspot.com/hotspot/mexico/chichen-itza") is None
+    )
+    assert (
+        sanitize_official_website("https://www.atlasobscura.com/places/antoines-restaurant") is None
+    )
     assert sanitize_official_website("https://en.wikipedia.org/wiki/Philadelphia") is None
     assert sanitize_official_website("https://www.yelp.com/biz/antoines-new-orleans") is None
     assert sanitize_official_website("not-a-valid-url") is None
@@ -355,8 +368,13 @@ def test_sanitize_official_website():
 
     # Legitimate official websites should be preserved
     assert sanitize_official_website("https://www.phila.gov") == "https://www.phila.gov"
-    assert sanitize_official_website("https://www.nps.gov/yose/index.htm") == "https://www.nps.gov/yose/index.htm"
-    assert sanitize_official_website("https://www.easternstate.org") == "https://www.easternstate.org"
+    assert (
+        sanitize_official_website("https://www.nps.gov/yose/index.htm")
+        == "https://www.nps.gov/yose/index.htm"
+    )
+    assert (
+        sanitize_official_website("https://www.easternstate.org") == "https://www.easternstate.org"
+    )
 
     # Google redirect URLs should be properly unwrapped
     redirect_url = "https://www.google.com/url?q=https://www.phila.gov/&sa=U&ved=2ahUKEwi..."
@@ -381,20 +399,50 @@ def test_sanitize_image_url():
     from app.services.extraction import is_map_or_placeholder_image, sanitize_image_url
 
     # Static maps and placeholder tiles should be detected and filtered out
-    assert is_map_or_placeholder_image("https://maps.google.com/maps/api/staticmap?center=39.9395225,-75.1328185&zoom=14") is True
-    assert is_map_or_placeholder_image("https://maps.googleapis.com/maps/api/staticmap?center=39.9395225,-75.1328185") is True
-    assert is_map_or_placeholder_image("https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=123") is True
-    assert is_map_or_placeholder_image("https://maps.gstatic.com/tactile/omnibox/cleardot.gif") is True
-    assert is_map_or_placeholder_image("https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png") is True
-    assert is_map_or_placeholder_image("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7") is True
+    assert (
+        is_map_or_placeholder_image(
+            "https://maps.google.com/maps/api/staticmap?center=39.9395225,-75.1328185&zoom=14"
+        )
+        is True
+    )
+    assert (
+        is_map_or_placeholder_image(
+            "https://maps.googleapis.com/maps/api/staticmap?center=39.9395225,-75.1328185"
+        )
+        is True
+    )
+    assert (
+        is_map_or_placeholder_image(
+            "https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=123"
+        )
+        is True
+    )
+    assert (
+        is_map_or_placeholder_image("https://maps.gstatic.com/tactile/omnibox/cleardot.gif") is True
+    )
+    assert (
+        is_map_or_placeholder_image(
+            "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png"
+        )
+        is True
+    )
+    assert (
+        is_map_or_placeholder_image(
+            "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+        )
+        is True
+    )
     assert is_map_or_placeholder_image("not-a-valid-url") is True
     assert is_map_or_placeholder_image(None) is True
 
-    assert sanitize_image_url("https://maps.google.com/maps/api/staticmap?center=39.9395225,-75.1328185") is None
+    assert (
+        sanitize_image_url(
+            "https://maps.google.com/maps/api/staticmap?center=39.9395225,-75.1328185"
+        )
+        is None
+    )
 
     # Legitimate place subject photos must be preserved
     real_photo = "https://lh5.googleusercontent.com/p/AF1QipN30X8x9Q_test=w1080-h720-k-no"
     assert is_map_or_placeholder_image(real_photo) is False
     assert sanitize_image_url(real_photo) == real_photo
-
-

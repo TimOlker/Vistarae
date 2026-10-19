@@ -73,7 +73,9 @@ def _build_response(prefs: UserPreferencesTable | None) -> UserPreferencesRespon
             pacing=PacingMode(prefs.pacing) if prefs else PacingMode.MODERATE,
             meal_intervals_hours=prefs.meal_intervals_hours if prefs else 4.0,
             lunch_packing_enabled=prefs.lunch_packing_enabled if prefs else False,
-            transit_speed_mode=TransitSpeedMode(prefs.transit_speed_mode) if prefs else TransitSpeedMode.WALKING,
+            transit_speed_mode=TransitSpeedMode(prefs.transit_speed_mode)
+            if prefs
+            else TransitSpeedMode.WALKING,
             daily_activity_hour_cap=prefs.daily_activity_hour_cap if prefs else 8.0,
             preferred_currency=prefs.preferred_currency if prefs else "USD",
         ),

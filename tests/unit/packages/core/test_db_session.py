@@ -197,11 +197,15 @@ class TestRetryBackoff:
         async def mock_sleep(delay: float) -> None:
             sleep_calls.append(delay)
 
-        with patch(
-            "vistarae_core.adapters.db.session._probe_connection",
-            new_callable=AsyncMock,
-            side_effect=OSError("timeout"),
-        ), patch("asyncio.sleep", side_effect=mock_sleep), pytest.raises(RuntimeError):
+        with (
+            patch(
+                "vistarae_core.adapters.db.session._probe_connection",
+                new_callable=AsyncMock,
+                side_effect=OSError("timeout"),
+            ),
+            patch("asyncio.sleep", side_effect=mock_sleep),
+            pytest.raises(RuntimeError),
+        ):
             await init_engine()
 
         assert sleep_calls == [0.5, 1.5]
@@ -238,7 +242,9 @@ class TestSessionDependency:
         mock_factory = MagicMock()
         mock_factory.return_value.__aenter__.return_value = mock_session
 
-        with patch("vistarae_core.adapters.db.session._get_session_factory", return_value=mock_factory):
+        with patch(
+            "vistarae_core.adapters.db.session._get_session_factory", return_value=mock_factory
+        ):
             gen = get_db_session()
             session = await anext(gen)
             assert session is mock_session
@@ -259,7 +265,9 @@ class TestSessionDependency:
         mock_factory = MagicMock()
         mock_factory.return_value.__aenter__.return_value = mock_session
 
-        with patch("vistarae_core.adapters.db.session._get_session_factory", return_value=mock_factory):
+        with patch(
+            "vistarae_core.adapters.db.session._get_session_factory", return_value=mock_factory
+        ):
             gen = get_db_session()
             session = await anext(gen)
             assert session is mock_session
@@ -267,4 +275,3 @@ class TestSessionDependency:
                 await gen.athrow(RuntimeError("Handler failure"))
             mock_session.rollback.assert_called_once()
             mock_session.commit.assert_not_called()
-

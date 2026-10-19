@@ -18,72 +18,53 @@ ENV_FILES = (
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=ENV_FILES,
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore")
 
     # Database
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/vistarae",
-        description="Async PostgreSQL connection string"
+        description="Async PostgreSQL connection string",
     )
     DATABASE_URL_SYNC: str = Field(
         default="postgresql://postgres:postgres@localhost:5432/vistarae",
-        description="Sync PostgreSQL connection string for migrations/scripts"
+        description="Sync PostgreSQL connection string for migrations/scripts",
     )
 
     # LLM Settings
-    GEMINI_API_KEY: str = Field(
-        default="",
-        description="Google AI Studio Gemini API Key"
-    )
+    GEMINI_API_KEY: str = Field(default="", description="Google AI Studio Gemini API Key")
     GEMINI_MODEL: str = Field(
-        default="gemini-2.5-flash-lite",
-        description="Gemini Flash-Lite model slug"
+        default="gemini-2.5-flash-lite", description="Gemini Flash-Lite model slug"
     )
 
     # Geocoding Settings
     NOMINATIM_BASE_URL: str = Field(
-        default="https://nominatim.openstreetmap.org",
-        description="OSM Nominatim base URL"
+        default="https://nominatim.openstreetmap.org", description="OSM Nominatim base URL"
     )
     NOMINATIM_USER_AGENT: str = Field(
-        default="VistaraeTravelEngine/1.0",
-        description="OSM Nominatim custom User-Agent"
+        default="VistaraeTravelEngine/1.0", description="OSM Nominatim custom User-Agent"
     )
     NOMINATIM_RATE_LIMIT_SEC: float = Field(
-        default=1.0,
-        description="Enforced sleep delay between non-cached Nominatim requests"
+        default=1.0, description="Enforced sleep delay between non-cached Nominatim requests"
     )
 
     # Telemetry
     OTEL_SERVICE_NAME: str = Field(
-        default="vistarae-backend",
-        description="OpenTelemetry service name"
+        default="vistarae-backend", description="OpenTelemetry service name"
     )
     OTEL_EXPORTER_OTLP_ENDPOINT: str = Field(
-        default="http://localhost:4317",
-        description="OTLP collector gRPC endpoint"
+        default="http://localhost:4317", description="OTLP collector gRPC endpoint"
     )
-    OTEL_TRACES_ENABLED: bool = Field(
-        default=True,
-        description="Enable OpenTelemetry tracing"
-    )
+    OTEL_TRACES_ENABLED: bool = Field(default=True, description="Enable OpenTelemetry tracing")
 
     # JWT Authentication & Security
     JWT_SECRET_KEY: str = Field(
         default="vistarae-super-secret-jwt-key-change-in-production",
-        description="Secret key for signing JWT tokens"
+        description="Secret key for signing JWT tokens",
     )
-    JWT_ALGORITHM: str = Field(
-        default="HS256",
-        description="Algorithm for JWT signing"
-    )
+    JWT_ALGORITHM: str = Field(default="HS256", description="Algorithm for JWT signing")
     JWT_EXPIRE_MINUTES: int = Field(
         default=60 * 24 * 30,  # 30 days
-        description="Access token lifespan in minutes"
+        description="Access token lifespan in minutes",
     )
 
     # Server & CORS
@@ -91,9 +72,7 @@ class Settings(BaseSettings):
     APP_HOST: str = Field(default="0.0.0.0")
     APP_PORT: int = Field(default=8030)
     LOG_LEVEL: str = Field(default="INFO")
-    CORS_ORIGINS: list[str] | str = Field(
-        default=["*"]
-    )
+    CORS_ORIGINS: list[str] | str = Field(default=["*"])
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

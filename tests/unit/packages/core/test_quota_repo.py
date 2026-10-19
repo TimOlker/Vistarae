@@ -40,9 +40,7 @@ class TestQuotaRepositoryGet:
     """Tests for get_quota."""
 
     @pytest.mark.asyncio
-    async def test_get_quota_found(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_get_quota_found(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts UserQuota entity correctly built from row."""
         now = datetime.now(UTC)
         fake_row = UserQuotasTable(
@@ -249,18 +247,14 @@ class TestQuotaRepositoryTokenBudget:
         assert available is False
 
     @pytest.mark.asyncio
-    async def test_increment_tokens(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_increment_tokens(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts update executed for both user_quotas and user_metrics."""
         repo = SqlAlchemyQuotaRepository(mock_session)
         await repo.increment_tokens(test_user_id, 1500)
         assert mock_session.execute.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_update_quota(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_update_quota(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts administrative update executes successfully."""
         repo = SqlAlchemyQuotaRepository(mock_session)
         await repo.update_quota(

@@ -123,15 +123,11 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # ── Atomic get-or-create the idempotency record ───────────────────
-        status, cached_code, cached_payload = await repo.get_or_create(
-            user_id, idempotency_key
-        )
+        status, cached_code, cached_payload = await repo.get_or_create(user_id, idempotency_key)
 
         if status == IdempotencyStatus.PENDING and cached_code is None:
             # Newly inserted PENDING record — proceed with the actual request.
-            return await self._execute_and_cache(
-                request, call_next, repo, user_id, idempotency_key
-            )
+            return await self._execute_and_cache(request, call_next, repo, user_id, idempotency_key)
 
         if status == IdempotencyStatus.PENDING:
             # Existing PENDING record means a concurrent request is in flight.
@@ -146,9 +142,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             )
 
         # FAILED status — allow retry by re-running (get_or_create transitions to PENDING).
-        return await self._execute_and_cache(
-            request, call_next, repo, user_id, idempotency_key
-        )
+        return await self._execute_and_cache(request, call_next, repo, user_id, idempotency_key)
 
     @staticmethod
     async def _execute_and_cache(

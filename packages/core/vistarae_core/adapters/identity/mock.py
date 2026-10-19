@@ -42,9 +42,7 @@ class MockIdentityProvider:
         try:
             user_uuid = UUID(token)
         except ValueError as exc:
-            raise ValueError(
-                f"X-Mock-User-Id must be a valid UUID; got '{token}'."
-            ) from exc
+            raise ValueError(f"X-Mock-User-Id must be a valid UUID; got '{token}'.") from exc
 
         logger.debug("MSG -->| [mock.py -> local] Mock auth bypass for user_id=%s", user_uuid)
 
@@ -84,7 +82,9 @@ class MockIdentityProvider:
         import uuid
 
         user_sub = str(uuid.uuid5(uuid.NAMESPACE_DNS, email))
-        logger.info("MSG -->| [mock.py -> local] Mock sign_up for email=%s, sub=%s", email, user_sub)
+        logger.info(
+            "MSG -->| [mock.py -> local] Mock sign_up for email=%s, sub=%s", email, user_sub
+        )
         return {
             "user_sub": user_sub,
             "user_confirmed": False,
@@ -167,4 +167,3 @@ class MockIdentityProvider:
         """
         logger.info("MSG -->| [mock.py -> local] Mock global_sign_out")
         return True
-

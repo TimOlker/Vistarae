@@ -1,6 +1,5 @@
 """Unit tests for country name to ISO 3166-1 alpha-2 code mapping."""
 
-import pytest
 from app.services.countries import map_country_to_code, normalize_country_key, parse_country_input
 
 

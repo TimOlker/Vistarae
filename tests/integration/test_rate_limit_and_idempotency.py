@@ -55,9 +55,18 @@ class TestRateLimitAndIdempotencyOrder:
 
         # Mock rate limit check to return limit exceeded
         with (
-            patch("vistarae_core.middleware.rate_limit.get_cached_tier", return_value=(UserTier.LOW, False)),
-            patch("vistarae_core.adapters.repositories.quota_repo.SqlAlchemyQuotaRepository.increment_request_count", new_callable=AsyncMock) as mock_incr,
-            patch("vistarae_core.adapters.repositories.idempotency_repo.SqlAlchemyIdempotencyRepository.get_or_create", new_callable=AsyncMock) as mock_idemp,
+            patch(
+                "vistarae_core.middleware.rate_limit.get_cached_tier",
+                return_value=(UserTier.LOW, False),
+            ),
+            patch(
+                "vistarae_core.adapters.repositories.quota_repo.SqlAlchemyQuotaRepository.increment_request_count",
+                new_callable=AsyncMock,
+            ) as mock_incr,
+            patch(
+                "vistarae_core.adapters.repositories.idempotency_repo.SqlAlchemyIdempotencyRepository.get_or_create",
+                new_callable=AsyncMock,
+            ) as mock_idemp,
         ):
             mock_incr.return_value = (61, 60, True)  # Exceeded!
 
@@ -83,9 +92,18 @@ class TestRateLimitAndIdempotencyOrder:
         test_id = uuid.uuid4()
 
         with (
-            patch("vistarae_core.middleware.rate_limit.get_cached_tier", return_value=(UserTier.LOW, False)),
-            patch("vistarae_core.adapters.repositories.quota_repo.SqlAlchemyQuotaRepository.increment_request_count", new_callable=AsyncMock) as mock_incr,
-            patch("vistarae_core.adapters.repositories.idempotency_repo.SqlAlchemyIdempotencyRepository.get_or_create", new_callable=AsyncMock) as mock_idemp,
+            patch(
+                "vistarae_core.middleware.rate_limit.get_cached_tier",
+                return_value=(UserTier.LOW, False),
+            ),
+            patch(
+                "vistarae_core.adapters.repositories.quota_repo.SqlAlchemyQuotaRepository.increment_request_count",
+                new_callable=AsyncMock,
+            ) as mock_incr,
+            patch(
+                "vistarae_core.adapters.repositories.idempotency_repo.SqlAlchemyIdempotencyRepository.get_or_create",
+                new_callable=AsyncMock,
+            ) as mock_idemp,
         ):
             mock_incr.return_value = (1, 60, False)
             mock_idemp.return_value = (

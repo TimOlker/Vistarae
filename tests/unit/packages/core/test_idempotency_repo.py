@@ -142,18 +142,14 @@ class TestIdempotencyRepositoryMutations:
     """Tests for complete, fail, cleanup, and get_record."""
 
     @pytest.mark.asyncio
-    async def test_complete(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_complete(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts complete executes update with status COMPLETED."""
         repo = SqlAlchemyIdempotencyRepository(mock_session)
         await repo.complete(test_user_id, "key-1", 200, {"success": True})
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_fail(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_fail(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts fail executes update with status FAILED."""
         repo = SqlAlchemyIdempotencyRepository(mock_session)
         await repo.fail(test_user_id, "key-1")
@@ -171,9 +167,7 @@ class TestIdempotencyRepositoryMutations:
         assert deleted == 7
 
     @pytest.mark.asyncio
-    async def test_get_record_found(
-        self, mock_session: AsyncMock, test_user_id: uuid.UUID
-    ) -> None:
+    async def test_get_record_found(self, mock_session: AsyncMock, test_user_id: uuid.UUID) -> None:
         """Asserts get_record returns IdempotencyRecord when found."""
         now = datetime.now(UTC)
         fake_row = IdempotencyKeysTable(
