@@ -76,3 +76,105 @@ async def test_geocode_geocache_miss_and_store():
         # Verify entry added to database cache
         mock_db.add.assert_called_once()
         mock_db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_reverse_geocode_hit_and_miss():
+    mock_db = AsyncMock()
+    # 1. Test cache hit
+    cached_entry = Geocache(
+        query_hash="dummyhash",
+        latitude=37.7304,
+        longitude=-119.5736,
+        display_name="Glacier Point Road, Yosemite, CA",
+        raw_json={"address": {"village": "Yosemite Village", "state": "California", "country_code": "us"}},
+    )
+    mock_db.scalar.return_value = cached_entry
+
+    from app.services.geocoding import enrich_candidate_from_address, reverse_geocode
+    display_name, raw = await reverse_geocode(37.7304, -119.5736, mock_db)
+    assert display_name == "Glacier Point Road, Yosemite, CA"
+    assert raw["address"]["village"] == "Yosemite Village"
+
+    # 2. Test cache miss
+    mock_db.scalar.return_value = None
+    fake_reverse_response = {
+        "display_name": "Glacier Point Road, Curry Village, Mariposa County, California, 95389, USA",
+        "address": {
+            "road": "Glacier Point Road",
+            "village": "Curry Village",
+            "county": "Mariposa County",
+            "state": "California",
+            "country_code": "us",
+            "postcode": "95389",
+            "country": "United States",
+        },
+    }
+
+    with patch("httpx.AsyncClient.get") as mock_get:
+        from unittest.mock import MagicMock
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = fake_reverse_response
+        mock_get.return_value = mock_resp
+
+        disp, res = await reverse_geocode(37.730412, -119.573645, mock_db)
+        assert disp == fake_reverse_response["display_name"]
+        assert res["address"]["state"] == "California"
+
+    # 3. Test enrich_candidate_from_address
+    from app.schemas.extraction import POIExtractionCandidate
+    candidate = POIExtractionCandidate(
+        name="Wilderness Viewpoint",
+        poi_type="photo location",
+        search_address_query="Wilderness Viewpoint",
+        iptc_city=None,
+        iptc_province_state=None,
+        iptc_country_code=None,
+    )
+    enrich_candidate_from_address(candidate, fake_reverse_response)
+    assert candidate.iptc_city == "Curry Village"
+    assert candidate.iptc_province_state == "California"
+    assert candidate.iptc_country_code == "US"
+    assert candidate.iptc_zip_code == "95389"
+    assert candidate.iptc_sublocation == "Glacier Point Road"
+
+
+@pytest.mark.asyncio
+async def test_geocode_google_plus_code():
+    """Tests resolution of Google Plus Codes (Open Location Codes)."""
+    mock_db = AsyncMock()
+    mock_db.scalar.return_value = None
+
+    # Test full Plus Code
+    lat, lng, disp, raw = await geocode_query("7GQJ8H92+5M4", mock_db)
+    assert round(lat, 3) == 25.318
+    assert round(lng, 3) == 32.552
+
+
+def test_enrich_multinational_candidate_country_code():
+    from app.schemas.ingestion import StandardizedCandidatePOI
+    from app.services.geocoding import enrich_candidate_from_address
+
+    cand = StandardizedCandidatePOI(
+        name="Qhapaq Ñan, Andean Road System",
+        iptc_country_code="AR",
+        raw_data={"_allowed_country_codes": ["AR", "BO", "CL", "CO", "EC", "PE"]},
+    )
+    ecuador_geo = {
+        "address": {
+            "road": "Qhapaq Ñan",
+            "village": "Juncal",
+            "county": "Cañar",
+            "state": "Cañar",
+            "country_code": "ec",
+            "country": "Ecuador",
+        }
+    }
+    enrich_candidate_from_address(cand, ecuador_geo)
+    assert cand.iptc_country_code == "EC"
+    assert cand.iptc_city == "Juncal"
+    assert cand.iptc_province_state == "Cañar"
+    assert cand.iptc_world_region == "Ecuador"
+
+

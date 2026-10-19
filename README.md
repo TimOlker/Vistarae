@@ -81,8 +81,8 @@ Every API interaction across the extension and backend strictly conforms to W3C 
 1. **Trace Propagation**:
    - The Chrome extension generates a root trace context and injects:
      - `traceparent: 00-{trace_id}-{client_span_id}-01`
-     - `X-Source: chrome-extension://vistarae`
-     - `X-Destination: {BACKEND_API_URL}`
+     - `X-Source: extension`
+     - `X-Destination: backend`
    - FastAPI middleware extracts the W3C context, instantiates a server span, and logs:
      `INCOMING | TraceID={trace_id} | SpanID={span_id} | ParentID={parent_span_id} | Source={source} -> Destination={destination}`
    - FastAPI attaches correlation headers to all responses:
@@ -125,32 +125,69 @@ cp .env.example .env
 ```
 
 ### 2. Start Services
-```bash
-# Start PostGIS, Jaeger, and FastAPI
-make up
-```
+- **Windows (PowerShell)**:
+  ```powershell
+  docker compose up -d
+  ```
+- **macOS / Linux (Make)**:
+  ```bash
+  make up
+  ```
 
-### 3. Run Migrations & Seed Sample Data
-```bash
-# Run PostGIS DDL migrations
-make migrate
+### 3. Sync Environment & Dependencies
+- **Using uv (Recommended)**:
+  ```bash
+  uv sync
+  ```
+- **Windows (PowerShell)**:
+  ```powershell
+  .\vistarae.ps1 sync
+  ```
+- **macOS / Linux (Make)**:
+  ```bash
+  make sync
+  ```
 
-# Populate sample Yosemite & Glacier Point records
-make seed
-```
+### 4. Run Migrations & Seed Sample Data
+- **Windows (PowerShell)**:
+  ```powershell
+  .\vistarae.ps1 migrate
+  .\vistarae.ps1 seed
+  ```
+- **Using uv directly**:
+  ```bash
+  uv run alembic upgrade head
+  uv run python scripts/seed_local_db.py
+  ```
+- **macOS / Linux (Make)**:
+  ```bash
+  make migrate
+  make seed
+  ```
 
-### 4. Load the Chrome Extension
+### 5. Load the Chrome Extension
 *(Detailed guide: [Chrome Extension Installation Guide](documentation/extension_installation.md))*
 1. Open Google Chrome and navigate to `chrome://extensions/`.
 2. Toggle on **Developer mode** in the upper-right corner.
 3. Click **Load unpacked** and select the `extension/` directory inside this repository (`D:\Coding\Vistarae\extension`).
 4. Highlight any text on a travel website or blog, and press `Ctrl+Shift+S` (or `Cmd+Shift+S`) or right-click and choose **"Capture to Vistarae"**!
 
-### 5. Run Automated Tests & Linting
-```bash
-make test
-make lint
-```
+### 6. Run Automated Tests & Linting
+- **Windows (PowerShell)**:
+  ```powershell
+  .\vistarae.ps1 test
+  .\vistarae.ps1 lint
+  ```
+- **Using uv directly**:
+  ```bash
+  uv run pytest -v
+  uv run ruff check .
+  ```
+- **macOS / Linux (Make)**:
+  ```bash
+  make test
+  make lint
+  ```
 
 ---
 

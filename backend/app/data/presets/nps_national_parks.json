@@ -1,0 +1,947 @@
+[
+  {
+    "name": "Acadia National Park",
+    "latitude": 44.35,
+    "longitude": -68.21,
+    "iptc_city": "Bar Harbor",
+    "iptc_province_state": "Maine",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Covering most of Mount Desert Island and associated smaller islands, Acadia features the tallest mountain on the Atlantic coast of the United States (Cadillac Mountain), granite peaks, ocean shoreline, woodlands, and lakes.",
+    "website_official": "https://www.nps.gov/acad/index.htm"
+  },
+  {
+    "name": "American Samoa National Park",
+    "latitude": -14.25,
+    "longitude": -170.68,
+    "iptc_city": "Pago Pago",
+    "iptc_province_state": "American Samoa",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The southernmost US national park preserves coral reefs, rainforests, volcanic mountains, and white sand beaches across three Samoan islands.",
+    "website_official": "https://www.nps.gov/npsa/index.htm"
+  },
+  {
+    "name": "Arches National Park",
+    "latitude": 38.68,
+    "longitude": -109.57,
+    "iptc_city": "Moab",
+    "iptc_province_state": "Utah",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Preserves over 2,000 natural sandstone arches, including the world-famous Delicate Arch, Landscape Arch, and Double Arch, amidst red rock desert formations.",
+    "website_official": "https://www.nps.gov/arch/index.htm"
+  },
+  {
+    "name": "Badlands National Park",
+    "latitude": 43.75,
+    "longitude": -102.5,
+    "iptc_city": "Interior",
+    "iptc_province_state": "South Dakota",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Striking sharply eroded buttes, pinnacles, and spires blended with the largest protected mixed-grass prairie in the United States, rich in fossil beds.",
+    "website_official": "https://www.nps.gov/badl/index.htm"
+  },
+  {
+    "name": "Big Bend National Park",
+    "latitude": 29.25,
+    "longitude": -103.25,
+    "iptc_city": "Terlingua",
+    "iptc_province_state": "Texas",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Named for the prominent bend in the Rio Grande along the US-Mexico border, encompassing the Chisos Mountains and a massive section of the Chihuahuan Desert.",
+    "website_official": "https://www.nps.gov/bibe/index.htm"
+  },
+  {
+    "name": "Biscayne National Park",
+    "latitude": 25.65,
+    "longitude": -80.08,
+    "iptc_city": "Homestead",
+    "iptc_province_state": "Florida",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Located in Biscayne Bay south of Miami, 95 percent of the park is water, safeguarding mangrove shorelines, emerald islands, and living coral reefs.",
+    "website_official": "https://www.nps.gov/bisc/index.htm"
+  },
+  {
+    "name": "Black Canyon of the Gunnison National Park",
+    "latitude": 38.57,
+    "longitude": -107.72,
+    "iptc_city": "Montrose",
+    "iptc_province_state": "Colorado",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Carved by the Gunnison River, the park protects some of the steepest cliffs, oldest rock, and craggiest spires in North America.",
+    "website_official": "https://www.nps.gov/blca/index.htm"
+  },
+  {
+    "name": "Bryce Canyon National Park",
+    "latitude": 37.57,
+    "longitude": -112.18,
+    "iptc_city": "Bryce",
+    "iptc_province_state": "Utah",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "A giant natural amphitheater along the Paunsaugunt Plateau famous for its vibrant red, orange, and white hoodoos formed by frost weathering.",
+    "website_official": "https://www.nps.gov/brca/index.htm"
+  },
+  {
+    "name": "Canyonlands National Park",
+    "latitude": 38.2,
+    "longitude": -109.93,
+    "iptc_city": "Moab",
+    "iptc_province_state": "Utah",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "A wilderness of countless canyons and fantastically formed buttes carved by the Colorado River, Green River, and their respective tributaries.",
+    "website_official": "https://www.nps.gov/cany/index.htm"
+  },
+  {
+    "name": "Capitol Reef National Park",
+    "latitude": 38.2,
+    "longitude": -111.17,
+    "iptc_city": "Torrey",
+    "iptc_province_state": "Utah",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Features the Waterpocket Fold, a 100-mile warp in the Earth crust with brilliant white Navajo Sandstone domes and towering monoliths.",
+    "website_official": "https://www.nps.gov/care/index.htm"
+  },
+  {
+    "name": "Carlsbad Caverns National Park",
+    "latitude": 32.17,
+    "longitude": -104.44,
+    "iptc_city": "Carlsbad",
+    "iptc_province_state": "New Mexico",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Features more than 119 limestone caves, including the massive Big Room, adorned with dramatic stalactites, stalagmites, and Mexican free-tailed bats.",
+    "website_official": "https://www.nps.gov/cave/index.htm"
+  },
+  {
+    "name": "Channel Islands National Park",
+    "latitude": 34.01,
+    "longitude": -119.42,
+    "iptc_city": "Ventura",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Encompasses five ecologically isolated islands off Southern California with unique endemic wildlife, kelp forests, sea caves, and marine sanctuaries.",
+    "website_official": "https://www.nps.gov/chis/index.htm"
+  },
+  {
+    "name": "Congaree National Park",
+    "latitude": 33.78,
+    "longitude": -80.78,
+    "iptc_city": "Hopkins",
+    "iptc_province_state": "South Carolina",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Preserves the largest remaining intact expanse of old growth bottomland hardwood forest in the southeastern United States with champion trees.",
+    "website_official": "https://www.nps.gov/cong/index.htm"
+  },
+  {
+    "name": "Crater Lake National Park",
+    "latitude": 42.94,
+    "longitude": -122.1,
+    "iptc_city": "Crater Lake",
+    "iptc_province_state": "Oregon",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Formed by the collapse of Mount Mazama volcano, this caldera holds the deepest lake in the United States, celebrated for its astonishing intense blue color.",
+    "website_official": "https://www.nps.gov/crla/index.htm"
+  },
+  {
+    "name": "Cuyahoga Valley National Park",
+    "latitude": 41.24,
+    "longitude": -81.55,
+    "iptc_city": "Brecksville",
+    "iptc_province_state": "Ohio",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Nestled along the Cuyahoga River between Akron and Cleveland, featuring Brandywine Falls, scenic railroad excursions, deep forests, and historic canal paths.",
+    "website_official": "https://www.nps.gov/cuva/index.htm"
+  },
+  {
+    "name": "Death Valley National Park",
+    "latitude": 36.24,
+    "longitude": -116.82,
+    "iptc_city": "Furnace Creek",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The hottest, driest, and lowest national park in North America, with the Badwater Basin salt flats sitting at 282 feet below sea level below Telescope Peak.",
+    "website_official": "https://www.nps.gov/deva/index.htm"
+  },
+  {
+    "name": "Denali National Park and Preserve",
+    "latitude": 63.33,
+    "longitude": -150.5,
+    "iptc_city": "Denali Park",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Centered around Denali, North America highest peak at 20,310 feet, spanning 6 million acres of pristine subarctic wilderness and taiga.",
+    "website_official": "https://www.nps.gov/dena/index.htm"
+  },
+  {
+    "name": "Dry Tortugas National Park",
+    "latitude": 24.63,
+    "longitude": -82.87,
+    "iptc_city": "Key West",
+    "iptc_province_state": "Florida",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Historic 19th-century Fort Jefferson sits on secluded coral keys 70 miles west of Key West, surrounded by crystal waters and rich shipwrecks.",
+    "website_official": "https://www.nps.gov/drto/index.htm"
+  },
+  {
+    "name": "Everglades National Park",
+    "latitude": 25.32,
+    "longitude": -80.93,
+    "iptc_city": "Homestead",
+    "iptc_province_state": "Florida",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The largest subtropical wilderness in the United States, protecting an unparalleled wetland ecosystem home to the American alligator and crocodile.",
+    "website_official": "https://www.nps.gov/ever/index.htm"
+  },
+  {
+    "name": "Gates of the Arctic National Park and Preserve",
+    "latitude": 67.78,
+    "longitude": -153.3,
+    "iptc_city": "Bettles",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "America northernmost national park protects the rugged Brooks Range with no roads, trails, or visitor facilities, preserving untamed arctic ecosystem.",
+    "website_official": "https://www.nps.gov/gaar/index.htm"
+  },
+  {
+    "name": "Gateway Arch National Park",
+    "latitude": 38.63,
+    "longitude": -90.19,
+    "iptc_city": "St. Louis",
+    "iptc_province_state": "Missouri",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Commemorates the Lewis and Clark Expedition and America westward expansion, featuring the world-famous 630-foot stainless steel catenary arch.",
+    "website_official": "https://www.nps.gov/gear/index.htm"
+  },
+  {
+    "name": "Glacier Bay National Park and Preserve",
+    "latitude": 58.5,
+    "longitude": -137.0,
+    "iptc_city": "Gustavus",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Encompasses tidewater glaciers, snow-capped mountain ranges, deep fjords, and temperate rainforest populated by humpback whales, orcas, and bears.",
+    "website_official": "https://www.nps.gov/glba/index.htm"
+  },
+  {
+    "name": "Glacier National Park",
+    "latitude": 48.8,
+    "longitude": -114.0,
+    "iptc_city": "West Glacier",
+    "iptc_province_state": "Montana",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The Crown of the Continent showcases glacially carved peaks, pristine alpine lakes, and the engineering marvel Going-to-the-Sun Road.",
+    "website_official": "https://www.nps.gov/glac/index.htm"
+  },
+  {
+    "name": "Grand Canyon National Park",
+    "latitude": 36.06,
+    "longitude": -112.14,
+    "iptc_city": "Grand Canyon Village",
+    "iptc_province_state": "Arizona",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Carved by the Colorado River, the mile-deep canyon exposes billions of years of geological history, spanning 277 miles across northern Arizona.",
+    "website_official": "https://www.nps.gov/grca/index.htm"
+  },
+  {
+    "name": "Grand Teton National Park",
+    "latitude": 43.73,
+    "longitude": -110.8,
+    "iptc_city": "Moose",
+    "iptc_province_state": "Wyoming",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The Teton Range rises abruptly without foothills over Jackson Hole valley, featuring pristine Jenny Lake, Jackson Lake, and mountaineering classics.",
+    "website_official": "https://www.nps.gov/grte/index.htm"
+  },
+  {
+    "name": "Great Basin National Park",
+    "latitude": 38.98,
+    "longitude": -114.3,
+    "iptc_city": "Baker",
+    "iptc_province_state": "Nevada",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Showcases 5,000-year-old ancient bristlecone pines, Lehman Caves limestone caverns, and Wheeler Peak rising dramatically from the sagebrush desert.",
+    "website_official": "https://www.nps.gov/grba/index.htm"
+  },
+  {
+    "name": "Great Sand Dunes National Park and Preserve",
+    "latitude": 37.73,
+    "longitude": -105.51,
+    "iptc_city": "Mosca",
+    "iptc_province_state": "Colorado",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The tallest sand dunes in North America (up to 750 feet) sit nestled against the rugged Sangre de Cristo Mountains and seasonal Medano Creek.",
+    "website_official": "https://www.nps.gov/grsa/index.htm"
+  },
+  {
+    "name": "Great Smoky Mountains National Park",
+    "latitude": 35.68,
+    "longitude": -83.53,
+    "iptc_city": "Gatlinburg",
+    "iptc_province_state": "Tennessee",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The most visited national park in the United States, celebrated for its mist-shrouded ancient ridges, lush biodiversity, and historic Appalachian cabins.",
+    "website_official": "https://www.nps.gov/grsm/index.htm"
+  },
+  {
+    "name": "Guadalupe Mountains National Park",
+    "latitude": 31.92,
+    "longitude": -104.87,
+    "iptc_city": "Salt Flat",
+    "iptc_province_state": "Texas",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Features Guadalupe Peak (highest point in Texas at 8,751 ft), McKittrick Canyon, and an extraordinarily preserved Permian fossil reef.",
+    "website_official": "https://www.nps.gov/gumo/index.htm"
+  },
+  {
+    "name": "Haleakalā National Park",
+    "latitude": 20.72,
+    "longitude": -156.17,
+    "iptc_city": "Kula",
+    "iptc_province_state": "Hawaii",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Dominating East Maui, the massive shield volcano offers surreal summit sunrise views above the clouds and lush coastal Kipahulu waterfalls.",
+    "website_official": "https://www.nps.gov/hale/index.htm"
+  },
+  {
+    "name": "Hawaiʻi Volcanoes National Park",
+    "latitude": 19.38,
+    "longitude": -155.2,
+    "iptc_city": "Volcano",
+    "iptc_province_state": "Hawaii",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Encompasses two of the worlds most active volcanoes, Kilauea and Mauna Loa, with dramatic caldera lava lakes and native rainforests on the Big Island.",
+    "website_official": "https://www.nps.gov/havo/index.htm"
+  },
+  {
+    "name": "Hot Springs National Park",
+    "latitude": 34.51,
+    "longitude": -93.05,
+    "iptc_city": "Hot Springs",
+    "iptc_province_state": "Arkansas",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The oldest federally protected reservation preserves historic Bathhouse Row and natural geothermal springs flowing from the Ouachita Mountains.",
+    "website_official": "https://www.nps.gov/hosp/index.htm"
+  },
+  {
+    "name": "Indiana Dunes National Park",
+    "latitude": 41.65,
+    "longitude": -87.05,
+    "iptc_city": "Porter",
+    "iptc_province_state": "Indiana",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Spans 15 miles of Lake Michigan southern shoreline, encompassing shifting sand dunes, bogs, prairies, and rich ecological biodiversity.",
+    "website_official": "https://www.nps.gov/indu/index.htm"
+  },
+  {
+    "name": "Isle Royale National Park",
+    "latitude": 47.97,
+    "longitude": -89.17,
+    "iptc_city": "Houghton",
+    "iptc_province_state": "Michigan",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "An isolated wilderness island in Lake Superior known for its roadless solitude, hiking trails, and landmark wolf and moose predator-prey study.",
+    "website_official": "https://www.nps.gov/isro/index.htm"
+  },
+  {
+    "name": "Joshua Tree National Park",
+    "latitude": 33.79,
+    "longitude": -115.9,
+    "iptc_city": "Twentynine Palms",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Where the Mojave and Colorado deserts converge, famous for whimsical Joshua trees (Yucca brevifolia) and massive granite boulder rock-climbing formations.",
+    "website_official": "https://www.nps.gov/jotr/index.htm"
+  },
+  {
+    "name": "Katmai National Park and Preserve",
+    "latitude": 58.5,
+    "longitude": -155.0,
+    "iptc_city": "King Salmon",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "World-famous for coastal brown bears catching sockeye salmon at Brooks Falls and the volcanic Valley of Ten Thousand Smokes created by Novarupta.",
+    "website_official": "https://www.nps.gov/katm/index.htm"
+  },
+  {
+    "name": "Kenai Fjords National Park",
+    "latitude": 59.92,
+    "longitude": -149.65,
+    "iptc_city": "Seward",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Where ice age glaciers pour from the colossal Harding Icefield into coastal fjords inhabited by puffins, sea otters, sea lions, and calving icebergs.",
+    "website_official": "https://www.nps.gov/kefj/index.htm"
+  },
+  {
+    "name": "Kings Canyon National Park",
+    "latitude": 36.8,
+    "longitude": -118.55,
+    "iptc_city": "Grant Grove",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Adjoining Sequoia National Park, preserves General Grant Grove of giant sequoias and the deepest canyon in the United States carved by the Kings River.",
+    "website_official": "https://www.nps.gov/seki/index.htm"
+  },
+  {
+    "name": "Kobuk Valley National Park",
+    "latitude": 67.55,
+    "longitude": -159.28,
+    "iptc_city": "Kotzebue",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Surrounded by the Arctic Circle, featuring 25 square miles of Great Kobuk Sand Dunes and the major migration path of half a million western Arctic caribou.",
+    "website_official": "https://www.nps.gov/kova/index.htm"
+  },
+  {
+    "name": "Lake Clark National Park and Preserve",
+    "latitude": 60.97,
+    "longitude": -153.42,
+    "iptc_city": "Port Alsworth",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Where three mountain ranges converge with active volcanoes, turquoise alpine lakes, salmon runs, and Dick Proenneke historic wilderness cabin at Twin Lakes.",
+    "website_official": "https://www.nps.gov/lacl/index.htm"
+  },
+  {
+    "name": "Lassen Volcanic National Park",
+    "latitude": 40.49,
+    "longitude": -121.51,
+    "iptc_city": "Mineral",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Features Lassen Peak (the worlds largest plug dome volcano) alongside bubbling mud pots, steaming sulfur fumaroles, and cinder cones.",
+    "website_official": "https://www.nps.gov/lavo/index.htm"
+  },
+  {
+    "name": "Mammoth Cave National Park",
+    "latitude": 37.18,
+    "longitude": -86.1,
+    "iptc_city": "Mammoth Cave",
+    "iptc_province_state": "Kentucky",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The worlds longest known cave system, with over 400 miles of surveyed underground passageways carved through limestone beneath rolling hills.",
+    "website_official": "https://www.nps.gov/maca/index.htm"
+  },
+  {
+    "name": "Mesa Verde National Park",
+    "latitude": 37.18,
+    "longitude": -108.49,
+    "iptc_city": "Mancos",
+    "iptc_province_state": "Colorado",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Protects extraordinarily preserved Ancestral Puebloan cliff dwellings, including Cliff Palace, Balcony House, and Long House dating from 600 to 1300 CE.",
+    "website_official": "https://www.nps.gov/meve/index.htm"
+  },
+  {
+    "name": "Mount Rainier National Park",
+    "latitude": 46.85,
+    "longitude": -121.75,
+    "iptc_city": "Ashford",
+    "iptc_province_state": "Washington",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "An active stratovolcano rising to 14,411 feet, Mount Rainier is encrusted with 26 major glaciers and surrounded by world-class subalpine wildflower meadows.",
+    "website_official": "https://www.nps.gov/mora/index.htm"
+  },
+  {
+    "name": "New River Gorge National Park and Preserve",
+    "latitude": 37.95,
+    "longitude": -81.08,
+    "iptc_city": "Glen Jean",
+    "iptc_province_state": "West Virginia",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "A 53-mile canyon carved by one of the oldest rivers on the continent, renowned for whitewater rafting, rock climbing, and the iconic New River Gorge Bridge.",
+    "website_official": "https://www.nps.gov/neri/index.htm"
+  },
+  {
+    "name": "North Cascades National Park",
+    "latitude": 48.7,
+    "longitude": -121.2,
+    "iptc_city": "Sedro-Woolley",
+    "iptc_province_state": "Washington",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Often called the American Alps, featuring jagged mountain spires, over 300 glaciers, cascading waterfalls, and vibrant turquoise hydroelectric lakes.",
+    "website_official": "https://www.nps.gov/noca/index.htm"
+  },
+  {
+    "name": "Olympic National Park",
+    "latitude": 47.97,
+    "longitude": -123.5,
+    "iptc_city": "Port Angeles",
+    "iptc_province_state": "Washington",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Showcases three distinct ecosystems: wild Pacific coastline with sea stacks, glacier-capped Mount Olympus, and the lush temperate Hoh Rain Forest.",
+    "website_official": "https://www.nps.gov/olym/index.htm"
+  },
+  {
+    "name": "Petrified Forest National Park",
+    "latitude": 35.07,
+    "longitude": -109.78,
+    "iptc_city": "Holbrook",
+    "iptc_province_state": "Arizona",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Contains one of the largest concentrations of brilliant 225-million-year-old petrified wood in the world alongside the colorful badlands of the Painted Desert.",
+    "website_official": "https://www.nps.gov/pefo/index.htm"
+  },
+  {
+    "name": "Pinnacles National Park",
+    "latitude": 36.48,
+    "longitude": -121.16,
+    "iptc_city": "Paicines",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The eroded remains of an extinct volcano featuring massive rock spires, talus caves inhabited by bat colonies, and release sites for endangered California condors.",
+    "website_official": "https://www.nps.gov/pinn/index.htm"
+  },
+  {
+    "name": "Redwood National and State Parks",
+    "latitude": 41.3,
+    "longitude": -124.0,
+    "iptc_city": "Crescent City",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Protects nearly half of all remaining coastal redwoods (Sequoia sempervirens), the tallest living trees on Earth, spanning scenic northern California coastline.",
+    "website_official": "https://www.nps.gov/redw/index.htm"
+  },
+  {
+    "name": "Rocky Mountain National Park",
+    "latitude": 40.4,
+    "longitude": -105.58,
+    "iptc_city": "Estes Park",
+    "iptc_province_state": "Colorado",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Straddles the Continental Divide with over 60 peaks above 12,000 feet, Trail Ridge Road reaching 12,183 ft, alpine tundra, and abundant elk herds.",
+    "website_official": "https://www.nps.gov/romo/index.htm"
+  },
+  {
+    "name": "Saguaro National Park",
+    "latitude": 32.25,
+    "longitude": -110.5,
+    "iptc_city": "Tucson",
+    "iptc_province_state": "Arizona",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Divided into eastern and western districts flanking Tucson, safeguarding dense forests of the iconic giant saguaro cactus (Carnegiea gigantea).",
+    "website_official": "https://www.nps.gov/sagu/index.htm"
+  },
+  {
+    "name": "Sequoia National Park",
+    "latitude": 36.48,
+    "longitude": -118.56,
+    "iptc_city": "Three Rivers",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Home to the General Sherman Tree, the largest living tree on Earth by volume, Mount Whitney (highest summit in contiguous US at 14,505 ft), and Moro Rock.",
+    "website_official": "https://www.nps.gov/seki/index.htm"
+  },
+  {
+    "name": "Shenandoah National Park",
+    "latitude": 38.53,
+    "longitude": -78.35,
+    "iptc_city": "Luray",
+    "iptc_province_state": "Virginia",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Features the scenic 105-mile Skyline Drive riding along the crest of the Blue Ridge Mountains, with cascading waterfalls, quiet hollows, and Old Rag Mountain.",
+    "website_official": "https://www.nps.gov/shen/index.htm"
+  },
+  {
+    "name": "Theodore Roosevelt National Park",
+    "latitude": 46.97,
+    "longitude": -103.45,
+    "iptc_city": "Medora",
+    "iptc_province_state": "North Dakota",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Honors the conservation legacy of President Theodore Roosevelt across colorful badlands, the Little Missouri River, bison herds, and wild feral horses.",
+    "website_official": "https://www.nps.gov/thro/index.htm"
+  },
+  {
+    "name": "Virgin Islands National Park",
+    "latitude": 18.33,
+    "longitude": -64.73,
+    "iptc_city": "Cruz Bay",
+    "iptc_province_state": "Virgin Islands",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Covers approximately 60 percent of Saint John island, renowned for turquoise waters, Trunk Bay underwater snorkeling trail, and Danish sugar plantation ruins.",
+    "website_official": "https://www.nps.gov/viis/index.htm"
+  },
+  {
+    "name": "Voyageurs National Park",
+    "latitude": 48.5,
+    "longitude": -92.88,
+    "iptc_city": "International Falls",
+    "iptc_province_state": "Minnesota",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "A water-based wilderness along the Canadian border accessible primarily by boat, celebrated for island camping, fishing, and northern lights displays.",
+    "website_official": "https://www.nps.gov/voya/index.htm"
+  },
+  {
+    "name": "White Sands National Park",
+    "latitude": 32.78,
+    "longitude": -106.17,
+    "iptc_city": "Alamogordo",
+    "iptc_province_state": "New Mexico",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The worlds largest gypsum dunefield covering 275 square miles of glistening white wave-like dunes in the Tularosa Basin.",
+    "website_official": "https://www.nps.gov/whsa/index.htm"
+  },
+  {
+    "name": "Wind Cave National Park",
+    "latitude": 43.57,
+    "longitude": -103.48,
+    "iptc_city": "Hot Springs",
+    "iptc_province_state": "South Dakota",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "One of the worlds longest and most complex caves, famous for rare honeycomb boxwork calcite formations beneath a native mixed-grass prairie teeming with bison.",
+    "website_official": "https://www.nps.gov/wica/index.htm"
+  },
+  {
+    "name": "Wrangell-St. Elias National Park and Preserve",
+    "latitude": 61.0,
+    "longitude": -142.0,
+    "iptc_city": "Copper Center",
+    "iptc_province_state": "Alaska",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The largest national park in the United States (over 13.2 million acres) where four major mountain ranges converge with massive glaciers and Kennecott copper mine.",
+    "website_official": "https://www.nps.gov/wrst/index.htm"
+  },
+  {
+    "name": "Yellowstone National Park",
+    "latitude": 44.6,
+    "longitude": -110.5,
+    "iptc_city": "Yellowstone National Park",
+    "iptc_province_state": "Wyoming",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "The worlds first national park (1872), home to more than half of the worlds geothermal features including Old Faithful, Grand Prismatic Spring, and wild bison herds.",
+    "website_official": "https://www.nps.gov/yell/index.htm"
+  },
+  {
+    "name": "Yosemite National Park",
+    "latitude": 37.85,
+    "longitude": -119.57,
+    "iptc_city": "Yosemite Village",
+    "iptc_province_state": "California",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Celebrated for its iconic granite monoliths El Capitan and Half Dome, towering Yosemite Falls, ancient giant sequoias, and scenic glacial valleys.",
+    "website_official": "https://www.nps.gov/yose/index.htm"
+  },
+  {
+    "name": "Zion National Park",
+    "latitude": 37.3,
+    "longitude": -113.05,
+    "iptc_city": "Springdale",
+    "iptc_province_state": "Utah",
+    "iptc_country_code": "US",
+    "category_tags": [
+      "NPS",
+      "national park"
+    ],
+    "poi_type": "site to see",
+    "description": "Dramatic Navajo sandstone canyon carved by the Virgin River, renowned for the exhilarating knife-edge Angels Landing ridge and The Narrows river hike.",
+    "website_official": "https://www.nps.gov/zion/index.htm"
+  }
+]

@@ -8,8 +8,8 @@ Vistarae (`vistarae`) is a travel dream and point-of-interest (POI) capture plat
 ### 1. Telemetry & W3C Distributed Tracing
 - Every request initiated by the Chrome Extension must include standard W3C headers:
   - `traceparent: 00-{trace_id}-{client_span_id}-01`
-  - `X-Source: chrome-extension://vistarae`
-  - `X-Destination: {BACKEND_API_URL}`
+  - `X-Source: extension`
+  - `X-Destination: backend`
 - FastAPI `telemetry.py` middleware extracts the W3C context, instantiates a server span, and logs:
   `INCOMING | TraceID={trace_id} | SpanID={span_id} | ParentID={parent_span_id} | Source={source} -> Destination={destination}`
 - Correlation headers attached to all backend responses:

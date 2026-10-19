@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environments
 .env*
+!.env.example
 .venv
 env/
 venv/
@@ -43,3 +44,5 @@ vistarae_pgdata/
 .idea/
 *.swp
 *.swo
+
+photo_scraper/output

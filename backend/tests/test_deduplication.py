@@ -104,3 +104,66 @@ async def test_collision_unique_location():
     assert status == CollisionStatus.UNIQUE_LOCATION
     assert dup is None
     assert parent is None
+
+
+@pytest.mark.asyncio
+async def test_check_duplicate_poi_endpoint():
+    from httpx import ASGITransport, AsyncClient
+    from app.db import get_db
+    from app.main import app
+    from app.models import User
+    from app.services.auth import get_current_user
+
+    test_user = User(
+        id=uuid.UUID("11111111-2222-3333-4444-555555555555"),
+        email="traveler@vistarae.com",
+        hashed_password="pw",
+        full_name="Traveler",
+        is_active=True,
+    )
+
+    mock_db = AsyncMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: test_user
+
+    dup_id = uuid.uuid4()
+    mock_result = MagicMock()
+    mock_result.mappings.return_value.all.return_value = [
+        {
+            "id": dup_id,
+            "name": "Glacier Point Overlook",
+            "name_aliases": ["Glacier Point"],
+            "poi_type": "photo location",
+            "personal_rating": 5,
+            "description": "Breathtaking overlook",
+            "iptc_city": "Yosemite Village",
+            "iptc_province_state": "California",
+            "geofence_radius_ft": 500,
+            "parent_poi_id": None,
+            "distance_meters": 10.0,
+            "name_similarity": 0.85,
+        }
+    ]
+    mock_db.execute.return_value = mock_result
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/pois/check-duplicate",
+            json={
+                "name": "Glacier Point View",
+                "latitude": 37.7304,
+                "longitude": -119.5736,
+                "radius_ft": 500,
+            },
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["collision_status"] == "POTENTIAL_DUPLICATE"
+    assert data["matched_poi"] is not None
+    assert data["matched_poi"]["id"] == str(dup_id)
+    assert data["matched_poi"]["name"] == "Glacier Point Overlook"
+
+    app.dependency_overrides.clear()
+

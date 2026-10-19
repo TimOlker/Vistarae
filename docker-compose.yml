@@ -10,13 +10,24 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - vistarae_pgdata:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+      - postgis_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d vistarae"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - vistarae-net
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    container_name: vistarae-elasticmq
+    restart: unless-stopped
+    ports:
+      - "9324:9324" # SQS
+      - "9325:9325" # UI / Stats
+    volumes:
+      - ./docker/elasticmq.conf:/opt/elasticmq.conf
     networks:
       - vistarae-net
 
@@ -54,21 +65,24 @@ services:
       - NOMINATIM_BASE_URL=${NOMINATIM_BASE_URL:-https://nominatim.openstreetmap.org}
       - NOMINATIM_USER_AGENT=${NOMINATIM_USER_AGENT:-VistaraeTravelEngine/1.0}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      - ELASTICMQ_ENDPOINT=${ELASTICMQ_ENDPOINT:-http://elasticmq:9324}
       - APP_ENV=${APP_ENV:-development}
     ports:
-      - "8000:8000"
+      - "8030:8030"
     volumes:
       - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
+      elasticmq:
+        condition: service_started
       jaeger:
         condition: service_started
     networks:
       - vistarae-net
 
 volumes:
-  vistarae_pgdata:
+  postgis_data:
 
 networks:
   vistarae-net:

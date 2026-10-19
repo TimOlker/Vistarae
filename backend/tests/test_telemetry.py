@@ -54,8 +54,8 @@ async def test_w3c_traceparent_propagation_headers():
             "/health",
             headers={
                 "traceparent": traceparent,
-                "X-Source": "chrome-extension://vistarae",
-                "X-Destination": "http://localhost:8000/health",
+                "X-Source": "extension",
+                "X-Destination": "backend",
             },
         )
 

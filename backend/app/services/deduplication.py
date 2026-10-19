@@ -15,8 +15,8 @@ FEET_TO_METERS = 0.3048
 
 async def check_spatial_collision(
     cand_name: str,
-    cand_lat: float,
-    cand_lng: float,
+    cand_lat: float | None,
+    cand_lng: float | None,
     radius_ft: int,
     db: AsyncSession,
     user_id: uuid.UUID | None = None,
@@ -26,6 +26,9 @@ async def check_spatial_collision(
     Returns:
         (collision_status, matched_duplicate, nearby_parent_candidate)
     """
+    if cand_lat is None or cand_lng is None or (cand_lat == 0.0 and cand_lng == 0.0):
+        return (CollisionStatus.UNIQUE_LOCATION, None, None)
+
     radius_meters = float(radius_ft) * FEET_TO_METERS
 
     # Query existing POIs within spatial radius using ST_DWithin and compute similarity
@@ -41,6 +44,7 @@ async def check_spatial_collision(
             p.iptc_province_state,
             p.geofence_radius_ft,
             p.parent_poi_id,
+            p.category_tags,
             ST_Distance(p.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) AS distance_meters,
             similarity(p.name, :cand_name) AS name_similarity
         FROM pois p
@@ -95,6 +99,8 @@ async def check_spatial_collision(
             description=row["description"],
             iptc_city=row["iptc_city"],
             iptc_province_state=row["iptc_province_state"],
+            parent_poi_id=row["parent_poi_id"],
+            category_tags=row.get("category_tags") or [],
         )
 
         # 1. Collision / Potential Duplicate: Distance <= radius AND similarity >= 0.60

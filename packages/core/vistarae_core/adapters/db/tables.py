@@ -1,0 +1,264 @@
+# Copyright (c) 2026 Vistarae. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""SQLAlchemy 2.0 ORM table definitions for all Vistarae tenant entities.
+
+Implements Constitution Principle 3 & 4:
+- All enum fields use VARCHAR(n) backed by Python StrEnum (no PostgreSQL ENUM)
+- All child tables reference users(id) ON DELETE CASCADE
+- Idempotency uniqueness enforced at DB level via UniqueConstraint
+- No Row-Level Security — enforced via explicit WHERE user_id predicates
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from vistarae_core.adapters.db.base import Base
+
+
+class UserTable(Base):
+    """Tenant anchor record — core identity and profile."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    cognito_sub: Mapped[str] = mapped_column(String(256), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    # Relationships (convenience — not required for repo queries)
+    preferences: Mapped[UserPreferencesTable | None] = relationship(
+        "UserPreferencesTable",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    metrics: Mapped[UserMetricsTable | None] = relationship(
+        "UserMetricsTable",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    quotas: Mapped[UserQuotasTable | None] = relationship(
+        "UserQuotasTable",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    idempotency_keys: Mapped[list[IdempotencyKeysTable]] = relationship(
+        "IdempotencyKeysTable",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("idx_users_cognito_sub", "cognito_sub"),
+        Index("idx_users_email", "email"),
+    )
+
+
+class UserPreferencesTable(Base):
+    """Partitioned tenant configuration — UI, POI, and Planner preferences."""
+
+    __tablename__ = "user_preferences"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+
+    # ── Account / UI ────────────────────────────────────────────────────────
+    theme: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="system"
+    )
+    email_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    push_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    marketing_emails_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+
+    # ── POI Mode ────────────────────────────────────────────────────────────
+    clustering_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    clustering_radius_meters: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    default_map_layer: Mapped[str] = mapped_column(String(32), nullable=False, default="standard")
+    geoproximity_scope_km: Mapped[float] = mapped_column(Float, nullable=False, default=25.0)
+    pin_color_presets: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=lambda: {"favorite": "#E11D48", "dream": "#8B5CF6", "visited": "#10B981", "default": "#3B82F6"},
+    )
+
+    # ── Planner Mode ────────────────────────────────────────────────────────
+    pacing: Mapped[str] = mapped_column(String(16), nullable=False, default="moderate")
+    meal_intervals_hours: Mapped[float] = mapped_column(Float, nullable=False, default=4.0)
+    lunch_packing_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    transit_speed_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="walking")
+    daily_activity_hour_cap: Mapped[float] = mapped_column(Float, nullable=False, default=8.0)
+    preferred_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    user: Mapped[UserTable] = relationship("UserTable", back_populates="preferences")
+
+    __table_args__ = (
+        CheckConstraint("theme IN ('light', 'dark', 'system')", name="ck_user_prefs_theme"),
+        CheckConstraint(
+            "pacing IN ('relaxed', 'moderate', 'fast_paced')", name="ck_user_prefs_pacing"
+        ),
+        CheckConstraint(
+            "transit_speed_mode IN ('walking', 'bicycling', 'transit', 'driving')",
+            name="ck_user_prefs_transit",
+        ),
+        CheckConstraint(
+            "clustering_radius_meters BETWEEN 10 AND 500",
+            name="ck_user_prefs_clustering_radius",
+        ),
+        CheckConstraint(
+            "meal_intervals_hours BETWEEN 1.0 AND 8.0",
+            name="ck_user_prefs_meal_intervals",
+        ),
+        CheckConstraint(
+            "daily_activity_hour_cap BETWEEN 1.0 AND 18.0",
+            name="ck_user_prefs_daily_cap",
+        ),
+    )
+
+
+class UserMetricsTable(Base):
+    """Aggregate utilization and consumption counters."""
+
+    __tablename__ = "user_metrics"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    poi_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_consumed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    user: Mapped[UserTable] = relationship("UserTable", back_populates="metrics")
+
+
+class UserQuotasTable(Base):
+    """Governance allocation, rolling rate limiting state, and disablement flag."""
+
+    __tablename__ = "user_quotas"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    monthly_token_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=50000)
+    current_token_usage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tier: Mapped[str] = mapped_column(String(16), nullable=False, default="low")
+    request_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    window_start_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    is_disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    user: Mapped[UserTable] = relationship("UserTable", back_populates="quotas")
+
+    __table_args__ = (
+        CheckConstraint("tier IN ('low', 'high', 'admin')", name="ck_user_quotas_tier"),
+        Index("idx_user_quotas_tier", "tier"),
+    )
+
+
+class IdempotencyKeysTable(Base):
+    """Duplicate mutation prevention via database-backed key locking."""
+
+    __tablename__ = "idempotency_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    idempotency_key: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING")
+    response_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped[UserTable] = relationship("UserTable", back_populates="idempotency_keys")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uq_idempotency_user_key"),
+        CheckConstraint(
+            "status IN ('PENDING', 'COMPLETED', 'FAILED')", name="ck_idempotency_status"
+        ),
+        Index("idx_idempotency_keys_created_at", "created_at"),
+    )

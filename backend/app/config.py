@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     # Server & CORS
     APP_ENV: str = Field(default="development")
     APP_HOST: str = Field(default="0.0.0.0")
-    APP_PORT: int = Field(default=8000)
+    APP_PORT: int = Field(default=8030)
     LOG_LEVEL: str = Field(default="INFO")
     CORS_ORIGINS: list[str] | str = Field(
         default=["*"]

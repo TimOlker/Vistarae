@@ -40,6 +40,7 @@ propagator = TraceContextTextMapPropagator()
 # Messaging Tags
 TAG_INBOUND_MSG = "->|  "
 TAG_RESPONSE_MSG = "<-|  "
+TAG_INBOUND_RESPONSE_ERR_MSG = "<X|  "
 TAG_OUTBOUND_MSG = "  |->"
 TAG_OUTBOUND_RESP = "  |<-"
 
@@ -64,8 +65,10 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         traceparent = request.headers.get("traceparent")
-        source = request.headers.get("x-source", "unknown-source")
-        destination = request.headers.get("x-destination", str(request.url))
+        raw_source = request.headers.get("x-source", "unknown-source")
+        raw_destination = request.headers.get("x-destination", str(request.url))
+        source = raw_source.split(",")[0].strip() if raw_source else "unknown-source"
+        destination = raw_destination.split(",")[0].strip() if raw_destination else str(request.url)
 
         trace_id = None
         parent_span_id = None
@@ -78,14 +81,17 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 trace_id = match.group(1)
                 parent_span_id = match.group(2)
 
+        parent_id_tag = ''
         if not trace_id:
             trace_id = generate_trace_id()
             parent_span_id = "0000000000000000"
+        else:
+            parent_id_tag = f"ParentID={parent_span_id} | "
 
         # Log incoming request using required format
         log_detail = (
-            f"INCOMING | TraceID={trace_id} | SpanID={current_span_id} | "
-            f"ParentID={parent_span_id} | Source={source} -> Destination={destination} | "
+            f"TraceID={trace_id} | {parent_id_tag}"
+            f"SpanID={current_span_id} | Src={source} -> Dst={destination} | "
             f"Method={request.method} Path={request.url.path}"
         )
         log_msg(TAG_INBOUND_MSG, log_detail)
@@ -116,25 +122,32 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
             try:
                 response = await call_next(request)
 
-                # Attach correlation headers to response
+                # Attach correlation and cache-control headers to response
                 response.headers["X-Transaction-ID"] = trace_id
                 response.headers["X-Current-Span-ID"] = current_span_id
                 response.headers["X-Parent-Transaction-ID"] = parent_span_id
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
 
-                log_msg(
-                    TAG_RESPONSE_MSG,
-                    f"OUTGOING | TraceID={trace_id} | SpanID={current_span_id} | "
-                    f"Status={response.status_code} | Path={request.url.path}"
+                rsp_log_detail = (
+                    f"TraceID={trace_id} | {parent_id_tag}"
+                    f"SpanID={current_span_id} | Src={destination} -> Dst={source} | "
+                    f"Method={request.method} Path={request.url.path}"
+                    f"Status={response.status_code}"
                 )
+                log_msg(TAG_RESPONSE_MSG, rsp_log_detail)
                 return response
             except Exception as exc:
                 span.set_status(Status(StatusCode.ERROR, str(exc)))
                 span.record_exception(exc)
-                log_msg(
-                    TAG_RESPONSE_MSG,
-                    f"OUTGOING ERROR | TraceID={trace_id} | SpanID={current_span_id} | "
+                rsp_log_detail = (
+                    f"TraceID={trace_id} | {parent_id_tag}"
+                    f"SpanID={current_span_id} | Src={destination} -> Dst={source} | "
+                    f"Method={request.method} Path={request.url.path}"
                     f"Error={exc!s}"
                 )
+                log_msg(TAG_INBOUND_RESPONSE_ERR_MSG, rsp_log_detail)
                 raise
 
 

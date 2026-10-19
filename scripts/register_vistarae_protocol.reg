@@ -1,0 +1,21 @@
+Windows Registry Editor Version 5.00
+
+; Vistarae Folder Protocol Handler Registration
+; Registers the vistarae-folder:// URI scheme for the current user
+; Note: Replace D:\\Coding\\Vistarae with your actual repository path if different,
+; or simply run: .\vistarae.ps1 register-protocol
+
+[HKEY_CURRENT_USER\Software\Classes\vistarae-folder]
+@="URL:Vistarae Folder Protocol"
+"FriendlyTypeName"="Vistarae Folder Opener"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\vistarae-folder\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\vistarae-folder\shell\open]
+
+[HKEY_CURRENT_USER\Software\Classes\vistarae-folder\shell\open\command]
+@="\"D:\\Coding\\Vistarae\\scripts\\VistaraeFolderOpener.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\VistaraeFolderOpener.exe]
+"FriendlyAppName"="Vistarae Folder Opener"

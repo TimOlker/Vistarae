@@ -1,15 +1,21 @@
-.PHONY: help up down restart logs migrate seed test lint
+.PHONY: help up down restart logs sync migrate seed clean-db reset-db test lint run scrape
 
 help:
-	@echo "Vistarae Developer Shortcuts:"
-	@echo "  make up       - Start PostGIS, Jaeger, and FastAPI services"
+	@echo "Vistarae Developer Shortcuts (powered by uv):"
+	@echo "  make sync     - Sync dependencies and editable packages with uv"
+	@echo "  make up       - Start PostGIS, Jaeger, and background services"
 	@echo "  make down     - Stop all running services"
 	@echo "  make restart  - Restart all services"
 	@echo "  make logs     - Tail logs across services"
-	@echo "  make migrate  - Execute SQL migrations against active database"
-	@echo "  make seed     - Seed database with sample POIs and lists"
-	@echo "  make test     - Run backend pytest suite"
-	@echo "  make lint     - Run code quality and formatting checks"
+	@echo "  make migrate  - Run Alembic schema migrations via uv"
+	@echo "  make seed     - Seed local database via uv"
+	@echo "  make test     - Run pytest suite with coverage via uv"
+	@echo "  make lint     - Run code quality checks via uv"
+	@echo "  make run      - Start local development gateway via uv"
+	@echo "  make scrape   - Run photo scraper tool via uv"
+
+sync:
+	uv sync
 
 up:
 	docker compose up -d
@@ -24,16 +30,27 @@ logs:
 	docker compose logs -f
 
 migrate:
-	docker compose exec -T db psql -U postgres -d vistarae -f /docker-entrypoint-initdb.d/20261001_init_postgis.sql
-	docker compose exec -T db psql -U postgres -d vistarae -f /docker-entrypoint-initdb.d/20261002_create_pois_and_access_points.sql
-	docker compose exec -T db psql -U postgres -d vistarae -f /docker-entrypoint-initdb.d/20261003_create_lists_and_geocache.sql
-	docker compose exec -T db psql -U postgres -d vistarae -f /docker-entrypoint-initdb.d/20261004_create_users_and_add_user_id.sql
+	uv run alembic upgrade head
 
 seed:
-	docker compose exec -T db psql -U postgres -d vistarae -f /app/../supabase/seed.sql
+	uv run python scripts/seed_local_db.py
+
+clean-db:
+	docker compose exec -T db psql -U postgres -d vistarae -c "TRUNCATE pois, poi_access_points, poi_list_memberships, lists, user_tags, idempotency_keys, user_quotas, user_metrics, user_preferences, users CASCADE;"
+
+reset-db:
+	docker compose exec -T db psql -U postgres -d vistarae -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	$(MAKE) migrate
 
 test:
-	cd backend && pytest -v
+	uv run pytest -v
 
 lint:
-	cd backend && ruff check .
+	uv run ruff check .
+
+run:
+	uv run uvicorn services.local_gateway:app --reload --port 8030
+
+scrape:
+	uv run python photo_scraper/main.py
+

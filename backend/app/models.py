@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
@@ -39,6 +40,7 @@ class User(Base):
 
     pois: Mapped[list["POI"]] = relationship("POI", back_populates="user", cascade="all, delete-orphan")
     lists: Mapped[list["ListModel"]] = relationship("ListModel", back_populates="user", cascade="all, delete-orphan")
+    tags: Mapped[list["UserTag"]] = relationship("UserTag", back_populates="user", cascade="all, delete-orphan")
 
 
 class POI(Base):
@@ -62,10 +64,12 @@ class POI(Base):
     )
     visited: Mapped[bool] = mapped_column(Boolean, default=False)
     visit_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    visit_dates: Mapped[list[date] | None] = mapped_column(ARRAY(Date), default=list)
+    visit_again: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # PostGIS Geography Point (4326)
-    location: Mapped[str] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=False
+    # PostGIS Geography Point (4326) - nullable when location cannot be determined
+    location: Mapped[str | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326), nullable=True
     )
     geofence_radius_ft: Mapped[int] = mapped_column(Integer, default=500)
 
@@ -95,7 +99,7 @@ class POI(Base):
     iptc_city: Mapped[str | None] = mapped_column(String(255), nullable=True)
     iptc_province_state: Mapped[str | None] = mapped_column(String(255), nullable=True)
     iptc_country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
-    iptc_world_region: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    iptc_world_region: Mapped[str | None] = mapped_column(Text, nullable=True)
     iptc_zip_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -113,6 +117,9 @@ class POI(Base):
         "POI", remote_side=[id], backref="children", lazy="selectin"
     )
     user: Mapped["User"] = relationship("User", back_populates="pois")
+    scanned_paths: Mapped[list["ScannedPath"]] = relationship(
+        "ScannedPath", back_populates="poi", lazy="selectin"
+    )
 
 
 class POIAccessPoint(Base):
@@ -184,3 +191,76 @@ class Geocache(Base):
     cached_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.clock_timestamp()
     )
+
+
+class UserTag(Base):
+    __tablename__ = "user_tags"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="tags")
+
+
+class ScannedPath(Base):
+    __tablename__ = "scanned_paths"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    poi_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("pois.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    folder_path: Mapped[str] = mapped_column(Text, nullable=False)
+    folder_name: Mapped[str] = mapped_column(Text, nullable=False)
+    parent_folder: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False, index=True)
+
+    site_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    city: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str | None] = mapped_column(Text, nullable=True)
+    country: Mapped[str | None] = mapped_column(Text, nullable=True)
+    country_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    confidence: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_llm_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    nominatim_raw: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    photo_count: Mapped[int] = mapped_column(Integer, default=0)
+    earliest_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    latest_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Multi-POI conflict tracking
+    conflict_poi_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), default=list
+    )
+    has_conflict: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    conflict_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp(), onupdate=func.clock_timestamp()
+    )
+
+    poi: Mapped[Optional["POI"]] = relationship("POI", back_populates="scanned_paths")
+    user: Mapped["User"] = relationship("User")
+
+

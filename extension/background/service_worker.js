@@ -3,7 +3,7 @@
  * Implements W3C Distributed Tracing, JWT Authentication, Context Menu, Hotkeys, and API dispatching.
  */
 
-const DEFAULT_BACKEND_URL = "http://localhost:8000";
+const DEFAULT_BACKEND_URL = "http://localhost:8030";
 
 // Messaging tags protocol
 const TAG_INBOUND_MSG = "->|  ";
@@ -32,8 +32,8 @@ function createTraceHeaders(targetUrl) {
   const spanId = randomHex(16);
   return {
     traceparent: `00-${traceId}-${spanId}-01`,
-    "X-Source": "chrome-extension://vistarae",
-    "X-Destination": targetUrl,
+    "X-Source": "extension",
+    "X-Destination": "backend",
     traceId,
     spanId,
   };
@@ -45,19 +45,67 @@ function createTraceHeaders(targetUrl) {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "vistarae-capture-selection",
-    title: "Capture to Vistarae",
-    contexts: ["selection"],
+    title: "Capture to Vistarae (Ctrl+Shift+S)",
+    contexts: ["selection", "page", "link"],
+  });
+  chrome.contextMenus.create({
+    id: "vistarae-browse-pois",
+    title: "Browse Saved POIs",
+    contexts: ["all"],
   });
   console.log("Vistarae extension installed. Context menu registered.");
 });
 
 /**
+ * Extension Action Icon Click Listener (toolbar icon opens browser tab).
+ */
+chrome.action.onClicked.addListener((tab) => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("browser/browser.html") });
+});
+
+/**
+ * Safely dispatches a message to a content script tab.
+ * If the tab was loaded before extension install/reload, dynamically injects content_script.js.
+ */
+async function sendMessageToTab(tabId, message) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+  } catch (err) {
+    if (
+      err.message?.includes("Receiving end does not exist") ||
+      err.message?.includes("Could not establish connection")
+    ) {
+      logMsg(TAG_INBOUND_MSG, `[SW] Content script missing on tab ${tabId}. Dynamically injecting content_script.js...`);
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ["content/content_script.js"],
+        });
+        // Wait briefly for listener initialization
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tabId, message).catch((retryErr) => {
+            console.warn("[SW] Retry message failed:", retryErr.message);
+          });
+        }, 150);
+      } catch (injectErr) {
+        console.warn(`[SW] Could not dynamically inject script into tab ${tabId}:`, injectErr.message);
+      }
+    } else {
+      console.warn(`[SW] Error dispatching message to tab ${tabId}:`, err.message);
+    }
+  }
+}
+
+/**
  * Context Menu Click Listener.
  */
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "vistarae-capture-selection" && tab?.id) {
+  if (info.menuItemId === "vistarae-browse-pois") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("browser/browser.html") });
+  } else if (info.menuItemId === "vistarae-capture-selection" && tab?.id) {
     logMsg(TAG_INBOUND_MSG, `[SW] Context menu capture triggered on tab ${tab.id}`);
-    chrome.tabs.sendMessage(tab.id, { action: "TRIGGER_CAPTURE", text: info.selectionText });
+    const captureText = info.linkUrl || info.selectionText || null;
+    sendMessageToTab(tab.id, { action: "TRIGGER_CAPTURE", text: captureText });
   }
 });
 
@@ -69,11 +117,12 @@ chrome.commands.onCommand.addListener((command) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         logMsg(TAG_INBOUND_MSG, `[SW] Keyboard shortcut triggered capture on tab ${tabs[0].id}`);
-        chrome.tabs.sendMessage(tabs[0].id, { action: "TRIGGER_CAPTURE" });
+        sendMessageToTab(tabs[0].id, { action: "TRIGGER_CAPTURE" });
       }
     });
   }
 });
+
 
 /**
  * API Dispatcher with W3C Tracing and Bearer Token Injection.
@@ -91,8 +140,8 @@ async function dispatchApiRequest(endpoint, method, body = null) {
   const headers = {
     "Content-Type": "application/json",
     traceparent: traceInfo.traceparent,
-    "X-Source": traceInfo["X-Source"],
-    "X-Destination": traceInfo["X-Destination"],
+    "X-Source": "extension",
+    "X-Destination": "backend",
   };
 
   if (token) {
@@ -107,6 +156,7 @@ async function dispatchApiRequest(endpoint, method, body = null) {
   const fetchOptions = {
     method,
     headers,
+    cache: "no-store",
   };
   if (body) {
     fetchOptions.body = JSON.stringify(body);
@@ -114,13 +164,26 @@ async function dispatchApiRequest(endpoint, method, body = null) {
 
   try {
     const response = await fetch(targetUrl, fetchOptions);
-    const responseData = await response.json();
 
     const currentSpanId = response.headers.get("X-Current-Span-ID") || "unknown";
     logMsg(
       TAG_OUTBOUND_RESP,
       `[SW] HTTP ${response.status} ${targetUrl} | TraceID=${traceInfo.traceId} ServerSpanID=${currentSpanId}`
     );
+
+    if (response.status === 204) {
+      return { success: true, data: null };
+    }
+
+    let responseData = null;
+    const text = await response.text();
+    if (text) {
+      try {
+        responseData = JSON.parse(text);
+      } catch (parseErr) {
+        responseData = { detail: text };
+      }
+    }
 
     if (response.status === 401) {
       return { success: false, unauthorized: true, error: responseData?.detail || "Authentication required." };
@@ -220,5 +283,131 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === "GET_LISTS") {
+    dispatchApiRequest("/api/v1/lists", "GET")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending GET_LISTS response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "GET_TAGS") {
+    dispatchApiRequest("/api/v1/tags", "GET")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending GET_TAGS response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "CREATE_TAG") {
+    dispatchApiRequest("/api/v1/tags", "POST", message.payload)
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending CREATE_TAG response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  // 3. POI Browser Handlers
+  if (message.action === "OPEN_BROWSER") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("browser/browser.html") });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.action === "OPEN_TAB") {
+    chrome.tabs.create({ url: message.url });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.action === "GET_POIS") {
+    const params = new URLSearchParams();
+    if (message.payload) {
+      for (const [key, value] of Object.entries(message.payload)) {
+        if (value !== undefined && value !== null && value !== "") {
+          params.append(key, value);
+        }
+      }
+    }
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    dispatchApiRequest(`/api/v1/pois${qs}`, "GET")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending GET_POIS response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "GET_POI") {
+    dispatchApiRequest(`/api/v1/pois/${message.payload.id}`, "GET")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending GET_POI response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "UPDATE_POI") {
+    dispatchApiRequest(`/api/v1/pois/${message.payload.id}`, "PUT", message.payload.data)
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending UPDATE_POI response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "DELETE_POI") {
+    dispatchApiRequest(`/api/v1/pois/${message.payload.id}`, "DELETE")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending DELETE_POI response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "BULK_DELETE_POIS") {
+    dispatchApiRequest("/api/v1/pois/bulk-delete", "POST", message.payload)
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending BULK_DELETE_POIS response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "BULK_UPDATE_POIS") {
+    dispatchApiRequest("/api/v1/pois/bulk-update", "POST", message.payload)
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending BULK_UPDATE_POIS response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  // 4. Geocoding Handlers
+  if (message.action === "REVERSE_GEOCODE") {
+    const lat = message.payload?.latitude;
+    const lng = message.payload?.longitude;
+    dispatchApiRequest(`/api/v1/reverse-geocode?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lng)}`, "GET")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending REVERSE_GEOCODE response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
+  if (message.action === "GEOCODE_QUERY") {
+    const query = message.payload?.query || "";
+    dispatchApiRequest(`/api/v1/geocode?query=${encodeURIComponent(query)}`, "GET")
+      .then((res) => {
+        logMsg(TAG_RESPONSE_MSG, `[SW] Sending GEOCODE_QUERY response (success=${res.success})`);
+        sendResponse(res);
+      });
+    return true;
+  }
+
   return false;
 });
+

@@ -1,0 +1,706 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Vistarae Local Gateway",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "summary": "Health Live",
+        "description": "Zero-IO liveness probe for container alive checks.\n\nReturns:\n    Dict with status 'alive'.",
+        "operationId": "health_live_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Live Health Live Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Health Ready",
+        "description": "Database readiness probe executing SELECT 1.\n\nArgs:\n    session: Active database session.\n\nReturns:\n    200 OK with status 'ready' or 503 Service Unavailable if database is unreachable.",
+        "operationId": "health_ready_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "auth",
+          "auth"
+        ],
+        "summary": "Register",
+        "description": "Registers a new user in the identity provider.\n\nArgs:\n    body: Registration parameters (email, password, full_name).\n    id_provider: Injected identity provider.\n\nReturns:\n    RegisterResponse with Cognito subject and confirmation status.\n\nRaises:\n    HTTPException: 400 or 409 if validation or registration fails.",
+        "operationId": "register_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/confirm-signup": {
+      "post": {
+        "tags": [
+          "auth",
+          "auth"
+        ],
+        "summary": "Confirm Signup",
+        "description": "Confirms signup and provisions local database tenant records.\n\nArgs:\n    body: Confirmation parameters (email, confirmation_code, full_name).\n    id_provider: Injected identity provider.\n    session: Active database session.\n\nReturns:\n    ConfirmSignUpResponse with tenant user UUID.\n\nRaises:\n    HTTPException: 400 if verification code is invalid.",
+        "operationId": "confirm_signup_api_auth_confirm_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmSignUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmSignUpResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "auth",
+          "auth"
+        ],
+        "summary": "Login",
+        "description": "Authenticates credentials against identity provider.\n\nArgs:\n    body: Login credentials.\n    id_provider: Injected identity provider.\n\nReturns:\n    LoginResponse with JWT bearer tokens.\n\nRaises:\n    HTTPException: 401 if credentials are invalid.",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "auth",
+          "auth"
+        ],
+        "summary": "Forgot Password",
+        "description": "Initiates password reset code dispatch.\n\nArgs:\n    body: Registered email.\n    id_provider: Injected identity provider.\n\nReturns:\n    ForgotPasswordResponse acknowledgement.\n\nRaises:\n    HTTPException: 404 if email not found.",
+        "operationId": "forgot_password_api_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgotPasswordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": [
+          "auth",
+          "auth"
+        ],
+        "summary": "Reset Password",
+        "description": "Confirms password reset with code and new password.\n\nArgs:\n    body: Password reset parameters.\n    id_provider: Injected identity provider.\n\nReturns:\n    ResetPasswordResponse acknowledgement.\n\nRaises:\n    HTTPException: 400 if code is invalid or password rejected.",
+        "operationId": "reset_password_api_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetPasswordResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth",
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "Revokes active user session via GlobalSignOut.\n\nArgs:\n    body: Optional body containing access_token.\n    authorization: Optional Authorization header with Bearer token.\n    id_provider: Injected identity provider.\n\nReturns:\n    LogoutResponse confirming sign out.\n\nRaises:\n    HTTPException: 400 if no access token was supplied.",
+        "operationId": "logout_api_auth_logout_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest",
+                "default": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ConfirmSignUpRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address"
+          },
+          "confirmation_code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Confirmation Code",
+            "description": "Verification code"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name",
+            "description": "Optional full name override"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "confirmation_code"
+        ],
+        "title": "ConfirmSignUpRequest",
+        "description": "Payload for confirming user signup via verification code."
+      },
+      "ConfirmSignUpResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed",
+            "description": "Confirmation outcome"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id",
+            "description": "Internal tenant user UUID"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmed",
+          "user_id",
+          "message"
+        ],
+        "title": "ConfirmSignUpResponse",
+        "description": "Response returned upon successful account confirmation and provisioning."
+      },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's registered email address"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest",
+        "description": "Payload to initiate a password reset code dispatch."
+      },
+      "ForgotPasswordResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message confirming code dispatch"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ForgotPasswordResponse",
+        "description": "Acknowledgement of password reset dispatch."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "description": "User's account password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "Payload for authenticating with credentials."
+      },
+      "LoginResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "JWT Bearer access token"
+          },
+          "id_token": {
+            "type": "string",
+            "title": "Id Token",
+            "description": "OpenID Connect ID token"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token",
+            "description": "Cognito refresh token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Token scheme",
+            "default": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Token validity duration in seconds",
+            "default": 3600
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "access_token",
+          "id_token"
+        ],
+        "title": "LoginResponse",
+        "description": "Tokens returned upon successful login."
+      },
+      "LogoutRequest": {
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token",
+            "description": "Optional access token to revoke (falls back to Authorization header)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LogoutRequest",
+        "description": "Payload to invalidate sessions via GlobalSignOut."
+      },
+      "LogoutResponse": {
+        "properties": {
+          "logged_out": {
+            "type": "boolean",
+            "title": "Logged Out",
+            "description": "Logout outcome"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message confirming sign out"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "logged_out",
+          "message"
+        ],
+        "title": "LogoutResponse",
+        "description": "Acknowledgement of successful logout."
+      },
+      "RegisterRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "Password",
+            "description": "User's password (min 8 chars)"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name",
+            "description": "Optional full name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "description": "Payload for user registration."
+      },
+      "RegisterResponse": {
+        "properties": {
+          "user_sub": {
+            "type": "string",
+            "title": "User Sub",
+            "description": "Unique Cognito subject identifier"
+          },
+          "user_confirmed": {
+            "type": "boolean",
+            "title": "User Confirmed",
+            "description": "Whether user account is pre-confirmed"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Instruction message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_sub",
+          "user_confirmed",
+          "message"
+        ],
+        "title": "RegisterResponse",
+        "description": "Response returned upon successful registration."
+      },
+      "ResetPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User's email address"
+          },
+          "confirmation_code": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Confirmation Code",
+            "description": "Reset code"
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "New Password",
+            "description": "New password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "confirmation_code",
+          "new_password"
+        ],
+        "title": "ResetPasswordRequest",
+        "description": "Payload to complete password reset with received code."
+      },
+      "ResetPasswordResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Status message confirming password reset"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ResetPasswordResponse",
+        "description": "Acknowledgement of successful password reset."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

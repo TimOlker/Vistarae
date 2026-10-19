@@ -10,9 +10,14 @@
     "storage"
   ],
   "host_permissions": [
-    "http://localhost:8000/*",
-    "http://127.0.0.1:8000/*",
-    "https://*.supabase.co/*"
+    "http://localhost:8030/*",
+    "http://127.0.0.1:8030/*",
+    "https://*.supabase.co/*",
+    "https://*.atlasobscura.com/*",
+    "https://*.tripadvisor.com/*",
+    "https://*.roadsideamerica.com/*",
+    "https://*.locationscout.net/*",
+    "https://*.shothotspot.com/*"
   ],
   "background": {
     "service_worker": "background/service_worker.js",
@@ -35,7 +40,7 @@
     }
   },
   "action": {
-    "default_title": "Capture to Vistarae"
+    "default_title": "Vistarae - Open POI Browser (or Ctrl+Shift+S to capture)"
   },
   "icons": {
     "16": "icons/icon16.png",
@@ -46,7 +51,8 @@
     {
       "resources": [
         "content/overlay.css",
-        "icons/*"
+        "icons/*",
+        "browser/*"
       ],
       "matches": ["<all_urls>"]
     }

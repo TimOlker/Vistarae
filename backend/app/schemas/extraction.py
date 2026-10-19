@@ -42,23 +42,23 @@ class POIExtractionCandidate(BaseModel):
         description="Category keywords like 'waterfall', 'viewpoint', 'sunset', 'hiking'"
     )
     physical_effort: str | None = Field(
-        default="drive-up",
+        default=None,
         description="Physical effort level required: drive-up, paved walk, moderate hike, strenuous, stairs"
     )
     booking_lead_time: str | None = Field(
-        default="walk-in ok",
+        default=None,
         description="Booking lead time: walk-in ok, 1-3 days ahead, months ahead, permit lottery"
     )
     indoor_outdoor: IndoorOutdoor | None = Field(
-        default="Outdoor",
+        default=None,
         description="Setting environment: Indoor, Outdoor, or Mixed"
     )
     estimated_duration: str | None = Field(
-        default="1-2 hours",
+        default=None,
         description="Typical visit duration: 30 mins, 1-2 hours, half day, full day"
     )
     cost_tier: str | None = Field(
-        default="Free",
+        default=None,
         description="Cost estimate: Free, $, $$, $$$, $$$$"
     )
     hours_seasonality: str | None = Field(
@@ -90,7 +90,25 @@ class POIExtractionCandidate(BaseModel):
 
 class ExtractAndCheckRequest(BaseModel):
     """Payload sent from the Chrome Extension to initiate extraction and collision check."""
-    selected_text: str = Field(..., description="Highlighted text from user selection")
-    page_title: str = Field(..., description="Active web page document.title")
+    selected_text: str = Field(default="", description="Highlighted text from user selection or generated summary")
+    page_title: str = Field(default="", description="Active web page document.title")
     page_url: str = Field(..., description="Active web page window.location.href")
     og_image_url: str | None = Field(default=None, description="OpenGraph preview image URL")
+    latitude: float | None = Field(default=None, description="Direct latitude if known (e.g. from Google Maps pin)")
+    longitude: float | None = Field(default=None, description="Direct longitude if known (e.g. from Google Maps pin)")
+    place_name: str | None = Field(default=None, description="Direct place name if extracted from Google Maps URL/DOM")
+    category: str | None = Field(default=None, description="Direct category classification if extracted from Google Maps DOM")
+    website: str | None = Field(default=None, description="Direct official website URL if known")
+    phone_number: str | None = Field(default=None, description="Direct phone number if known")
+    city: str | None = Field(default=None, description="Direct city if known from source schema")
+    state: str | None = Field(default=None, description="Direct state/province if known from source schema")
+    country: str | None = Field(default=None, description="Direct country code if known from source schema")
+    postal_code: str | None = Field(default=None, description="Direct postal code if known from source schema")
+    category_tags: list[str] | None = Field(default=None, description="Direct category tags if known from source schema")
+    physical_effort: str | None = Field(default=None, description="Direct physical effort if known")
+    booking_lead_time: str | None = Field(default=None, description="Direct booking lead time if known")
+    indoor_outdoor: IndoorOutdoor | None = Field(default=None, description="Direct setting environment if known")
+    estimated_duration: str | None = Field(default=None, description="Direct estimated duration if known")
+    cost_tier: str | None = Field(default=None, description="Direct cost tier if known")
+    best_time_to_visit: str | None = Field(default=None, description="Direct best time to visit if known")
+    source_type: str | None = Field(default=None, description="Source classification, e.g. Atlas Obscura, Google Maps, Web Selection")

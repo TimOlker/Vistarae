@@ -1,0 +1,780 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Foundation, Auth & Admin API
+  version: 1.0.0
+  description: Foundation authentication, preferences, quotas, rate limiting, and administrative API.
+servers:
+  - url: http://localhost:8000
+    description: Local Development Gateway
+  - url: https://api.vistarae.com
+    description: Production API
+
+paths:
+  /health/live:
+    get:
+      summary: Liveness Probe
+      description: Returns 200 OK without database connection pool I/O to preserve serverless compute budgets.
+      responses:
+        '200':
+          description: Service is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: alive
+
+  /health/ready:
+    get:
+      summary: Readiness Probe
+      description: Verifies database connectivity via SELECT 1. Used in CI and manual deployment checks.
+      responses:
+        '200':
+          description: Database is connected and ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+        '503':
+          description: Database connection failure.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/users/me:
+    get:
+      summary: Get Current User Profile
+      description: Returns profile, aggregate preferences, metrics, and quota status.
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: User profile and preferences retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      summary: Update Current User Profile
+      description: Updates basic profile fields such as display name.
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    delete:
+      summary: Delete Account (GDPR)
+      description: Permanently deletes user from AWS Cognito and cascades deletion across all database tables.
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '204':
+          description: Account permanently deleted.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/users/me/preferences:
+    get:
+      summary: Get All User Preferences
+      description: Returns Account/UI, POI Mode, and Planner Mode preference configurations.
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: All user preferences.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/users/me/preferences/ui:
+    patch:
+      summary: Update Account/UI Preferences
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUIPreferencesRequest'
+      responses:
+        '200':
+          description: UI preferences updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UIPreferencesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/users/me/preferences/poi:
+    patch:
+      summary: Update POI Mode Preferences
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePOIPreferencesRequest'
+      responses:
+        '200':
+          description: POI preferences updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIPreferencesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/users/me/preferences/planner:
+    patch:
+      summary: Update Planner Mode Preferences
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlannerPreferencesRequest'
+      responses:
+        '200':
+          description: Planner preferences updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlannerPreferencesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/admin/metrics:
+    get:
+      summary: Platform Telemetry & Usage Metrics
+      description: Returns system-wide tenant counts, token utilization, and tier distributions.
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: Platform telemetry summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMetricsResponse'
+        '403':
+          $ref: '#/components/responses/AdminForbidden'
+
+  /api/admin/users/{user_id}:
+    get:
+      summary: Inspect Tenant Account
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: Tenant operational details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetailResponse'
+        '403':
+          $ref: '#/components/responses/AdminForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/users/{user_id}/quota:
+    patch:
+      summary: Update User Quota / Tier
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserQuotaRequest'
+      responses:
+        '200':
+          description: Quota updated and in-memory tier cache invalidated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQuotaResponse'
+        '403':
+          $ref: '#/components/responses/AdminForbidden'
+
+  /api/admin/users/{user_id}/disable:
+    post:
+      summary: Administratively Disable User
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: User disabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: disabled
+
+  /api/admin/users/{user_id}/enable:
+    post:
+      summary: Administratively Enable User
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: User re-enabled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: enabled
+
+  /api/admin/quotas/defaults:
+    put:
+      summary: Update Default Platform Quotas
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotaDefaultsRequest'
+      responses:
+        '200':
+          description: Defaults updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaDefaultsResponse'
+
+  /api/admin/trace-injection/toggle:
+    post:
+      summary: Toggle Global Admin Trace Injection
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      responses:
+        '200':
+          description: Trace injection state toggled.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trace_injection_enabled:
+                    type: boolean
+
+  /api/admin/users/{user_id}/messages:
+    post:
+      summary: Dispatch Administrative Message
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+        - MockAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminMessageRequest'
+      responses:
+        '202':
+          description: Message accepted for dispatch.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    MockAuth:
+      type: apiKey
+      in: header
+      name: X-Mock-User-Id
+      description: Valid only when STAGE == 'local'. Bypasses Cognito JWKS verification.
+
+  responses:
+    BadRequest:
+      description: Bad Request / Schema Validation Failed
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Unauthorized:
+      description: Unauthorized / Missing or Invalid Token
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Forbidden:
+      description: Forbidden / Account Disabled
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    AdminForbidden:
+      description: Forbidden / Administrative Access Required
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFound:
+      description: Resource Not Found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    TooManyRequests:
+      description: Rate Limit Exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Remaining seconds before current rate limit window resets.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateUserRequest:
+      type: object
+      required:
+        - full_name
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    UserProfileResponse:
+      type: object
+      required:
+        - user
+        - preferences
+        - metrics
+        - quotas
+      properties:
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        preferences:
+          $ref: '#/components/schemas/UserPreferencesResponse'
+        metrics:
+          $ref: '#/components/schemas/UserMetricsResponse'
+        quotas:
+          $ref: '#/components/schemas/UserQuotaResponse'
+
+    UserPreferencesResponse:
+      type: object
+      required:
+        - ui
+        - poi
+        - planner
+      properties:
+        ui:
+          $ref: '#/components/schemas/UIPreferencesResponse'
+        poi:
+          $ref: '#/components/schemas/POIPreferencesResponse'
+        planner:
+          $ref: '#/components/schemas/PlannerPreferencesResponse'
+
+    UIPreferencesResponse:
+      type: object
+      required:
+        - theme
+        - email_notifications_enabled
+        - push_notifications_enabled
+        - marketing_emails_enabled
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+        email_notifications_enabled:
+          type: boolean
+        push_notifications_enabled:
+          type: boolean
+        marketing_emails_enabled:
+          type: boolean
+
+    UpdateUIPreferencesRequest:
+      type: object
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+        email_notifications_enabled:
+          type: boolean
+        push_notifications_enabled:
+          type: boolean
+        marketing_emails_enabled:
+          type: boolean
+
+    POIPreferencesResponse:
+      type: object
+      required:
+        - clustering_enabled
+        - clustering_radius_meters
+        - default_map_layer
+        - geoproximity_scope_km
+        - pin_color_presets
+      properties:
+        clustering_enabled:
+          type: boolean
+        clustering_radius_meters:
+          type: integer
+          minimum: 10
+          maximum: 500
+        default_map_layer:
+          type: string
+          maxLength: 32
+        geoproximity_scope_km:
+          type: number
+          minimum: 1.0
+          maximum: 500.0
+        pin_color_presets:
+          type: object
+          additionalProperties:
+            type: string
+
+    UpdatePOIPreferencesRequest:
+      type: object
+      properties:
+        clustering_enabled:
+          type: boolean
+        clustering_radius_meters:
+          type: integer
+          minimum: 10
+          maximum: 500
+        default_map_layer:
+          type: string
+          maxLength: 32
+        geoproximity_scope_km:
+          type: number
+          minimum: 1.0
+          maximum: 500.0
+        pin_color_presets:
+          type: object
+          additionalProperties:
+            type: string
+
+    PlannerPreferencesResponse:
+      type: object
+      required:
+        - pacing
+        - meal_intervals_hours
+        - lunch_packing_enabled
+        - transit_speed_mode
+        - daily_activity_hour_cap
+        - preferred_currency
+      properties:
+        pacing:
+          type: string
+          enum: [relaxed, moderate, fast_paced]
+        meal_intervals_hours:
+          type: number
+          minimum: 1.0
+          maximum: 8.0
+        lunch_packing_enabled:
+          type: boolean
+        transit_speed_mode:
+          type: string
+          enum: [walking, bicycling, transit, driving]
+        daily_activity_hour_cap:
+          type: number
+          minimum: 1.0
+          maximum: 18.0
+        preferred_currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+
+    UpdatePlannerPreferencesRequest:
+      type: object
+      properties:
+        pacing:
+          type: string
+          enum: [relaxed, moderate, fast_paced]
+        meal_intervals_hours:
+          type: number
+        lunch_packing_enabled:
+          type: boolean
+        transit_speed_mode:
+          type: string
+          enum: [walking, bicycling, transit, driving]
+        daily_activity_hour_cap:
+          type: number
+        preferred_currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+
+    UserMetricsResponse:
+      type: object
+      required:
+        - poi_count
+        - total_tokens_consumed
+        - updated_at
+      properties:
+        poi_count:
+          type: integer
+        total_tokens_consumed:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
+
+    UserQuotaResponse:
+      type: object
+      required:
+        - monthly_token_quota
+        - current_token_usage
+        - tier
+        - is_disabled
+        - updated_at
+      properties:
+        monthly_token_quota:
+          type: integer
+        current_token_usage:
+          type: integer
+        tier:
+          type: string
+          enum: [low, high, admin]
+        is_disabled:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateUserQuotaRequest:
+      type: object
+      properties:
+        monthly_token_quota:
+          type: integer
+          minimum: 0
+        tier:
+          type: string
+          enum: [low, high, admin]
+
+    AdminMetricsResponse:
+      type: object
+      required:
+        - total_users
+        - active_users
+        - disabled_users
+        - total_pois
+        - total_tokens_consumed
+        - tier_distribution
+      properties:
+        total_users:
+          type: integer
+        active_users:
+          type: integer
+        disabled_users:
+          type: integer
+        total_pois:
+          type: integer
+        total_tokens_consumed:
+          type: integer
+        tier_distribution:
+          type: object
+          additionalProperties:
+            type: integer
+
+    AdminUserDetailResponse:
+      type: object
+      required:
+        - profile
+        - quotas
+        - metrics
+      properties:
+        profile:
+          $ref: '#/components/schemas/UserResponse'
+        quotas:
+          $ref: '#/components/schemas/UserQuotaResponse'
+        metrics:
+          $ref: '#/components/schemas/UserMetricsResponse'
+
+    QuotaDefaultsRequest:
+      type: object
+      required:
+        - default_token_quota
+        - default_tier
+      properties:
+        default_token_quota:
+          type: integer
+          minimum: 1000
+        default_tier:
+          type: string
+          enum: [low, high, admin]
+
+    QuotaDefaultsResponse:
+      type: object
+      required:
+        - default_token_quota
+        - default_tier
+      properties:
+        default_token_quota:
+          type: integer
+        default_tier:
+          type: string
+
+    AdminMessageRequest:
+      type: object
+      required:
+        - title
+        - message
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000

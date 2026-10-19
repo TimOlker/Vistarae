@@ -14,10 +14,10 @@ make up
 
 # Option B: Run locally with Python
 cd backend
-python -m uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8030
 ```
 
-Verify the API is accessible by visiting the Swagger UI at [http://localhost:8000/docs](http://localhost:8000/docs).
+Verify the API is accessible by visiting the Swagger UI at [http://localhost:8030/docs](http://localhost:8000/docs).
 
 ---
 
@@ -93,6 +93,32 @@ Click **"Save to Vistarae"**. A confirmation toast will confirm that the record 
 
 ---
 
+## 🗺️ How to Browse & Manage Saved Entries (POI Explorer)
+
+The extension includes a dedicated, full-tab **POI Explorer & Database Browser**:
+
+### Ways to Open the Explorer
+1. **Click the Vistarae Icon**: Click the Vistarae icon (📌) in your Chrome toolbar.
+2. **Right-Click Context Menu**: Right-click anywhere on any page $\rightarrow$ select **"Browse Saved POIs"**.
+3. **From the Capture Overlay**: Click the **"Browse POIs"** button in the header of the capture modal.
+
+### Browsing & Filtering Capabilities
+* **All Places**: View your entire captured catalog sorted by newest first.
+* **By Location**: Filter by City/Town, State/Province, and Country code.
+* **Near Coordinates (Lat/Long)**: Enter latitude and longitude with a search radius (5–250 miles), or click **"📍 Use Current Location"** to automatically acquire your browser's GPS position.
+* **By List**: Select any of your custom lists or trip itineraries from the dropdown.
+* **By Category Tag**: Filter by tags (e.g., `NPS`, `viewpoint`, `museum`, `historic`, `ship`) with 1-click quick-filter chips.
+* **Keyword Search**: Instant live search matching names, descriptions, or city names.
+
+### Table Features & Record Management
+* **Key Information**: Displays thumbnail, name (linked to site), POI type badge, city/state/country, coordinates with quick Google Maps link, rating stars, tags, effort, duration, cost, and capture date.
+* **Edit Details (✏️)**: Opens a full modal allowing live editing of name, type, rating, description, coordinates, city, state, country, visit logistics, tags, and list assignments.
+* **Delete Record (🗑️)**: Permanently removes a POI and cascades memberships with a confirmation safety prompt.
+* **Export to CSV (📥)**: Exports currently filtered entries into an RFC 4180 compliant `.csv` spreadsheet file.
+* **Visualize on Google Maps (🗺️)**: Launches Google Maps plotting the filtered pins or multi-stop directions route.
+
+---
+
 ## 🛠️ Developer & Troubleshooting Tips
 
 ### Reloading After Code Changes
@@ -109,3 +135,4 @@ If you modify files inside `extension/`:
   * `MSG   |->`: Outbound API calls with `TraceID` and `SpanID`.
   * `MSG   |<-`: Server responses with `ServerSpanID`.
 * **In-Page Shadow DOM Inspection**: Open Chrome DevTools (`F12`) on any webpage where Vistarae is active. The modal is encapsulated inside `<vistarae-capture-root>` under an open `#shadow-root` to prevent host website CSS collisions.
+
