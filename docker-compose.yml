@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: vistarae-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-vistarae}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - vistarae_pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vistarae"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vistarae-net
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: vistarae-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686" # Web UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - vistarae-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vistarae-backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+      - path: .env.${APP_ENV:-development}
+        required: false
+      - path: .env.local
+        required: false
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/vistarae}
+      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:-postgresql://postgres:postgres@db:5432/vistarae}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      - NOMINATIM_BASE_URL=${NOMINATIM_BASE_URL:-https://nominatim.openstreetmap.org}
+      - NOMINATIM_USER_AGENT=${NOMINATIM_USER_AGENT:-VistaraeTravelEngine/1.0}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      - APP_ENV=${APP_ENV:-development}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    networks:
+      - vistarae-net
+
+volumes:
+  vistarae_pgdata:
+
+networks:
+  vistarae-net:
+    driver: bridge
