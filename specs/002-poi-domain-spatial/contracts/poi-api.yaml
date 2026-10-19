@@ -1,0 +1,821 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Point of Interest & Geospatial Service API
+  version: 1.0.0
+  description: >
+    OpenAPI 3.1 contract for the POI Domain & Geospatial Engine (Phase 2: 002-poi-domain-spatial).
+    Provides planar bounding-box exploration, multi-facet filtering, deduplication checks,
+    interactive record merging, bulk operations, list curation, and semantic vector discovery.
+servers:
+  - url: http://localhost:8030
+    description: Local Unified ASGI Gateway
+  - url: https://api.vistarae.com
+    description: Production AWS API Gateway
+
+paths:
+  /api/pois:
+    get:
+      summary: List POIs with Planar Viewport & Facet Filtering
+      operationId: listPois
+      parameters:
+        - name: bbox
+          in: query
+          required: false
+          description: Planar bounding box in degrees (minLng,minLat,maxLng,maxLat)
+          schema:
+            type: string
+            example: "-120.0,37.0,-119.0,38.0"
+        - name: list_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: tag_ids
+          in: query
+          required: false
+          description: Comma-separated tag UUIDs
+          schema:
+            type: string
+        - name: visit_state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [not_visited, visited_do_not_return, visited_return]
+        - name: hierarchy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, root_only, children_only]
+            default: all
+        - name: parent_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Full-text name/description filter
+          schema:
+            type: string
+        - name: semantic_q
+          in: query
+          required: false
+          description: Natural language conceptual search query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Paginated array of POIs matching criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIListResponse'
+        '400':
+          $ref: '#/components/responses/ProblemDetails400'
+        '422':
+          $ref: '#/components/responses/ProblemDetails422'
+
+    post:
+      summary: Create a new Point of Interest
+      operationId: createPoi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POICreateRequest'
+      responses:
+        '201':
+          description: POI successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIResponse'
+        '400':
+          $ref: '#/components/responses/ProblemDetails400'
+        '422':
+          $ref: '#/components/responses/ProblemDetails422'
+
+  /api/pois/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Retrieve POI Details by ID
+      operationId: getPoiById
+      responses:
+        '200':
+          description: Complete POI details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+    patch:
+      summary: Update POI attributes
+      operationId: updatePoi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POIUpdateRequest'
+      responses:
+        '200':
+          description: POI successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIResponse'
+        '400':
+          $ref: '#/components/responses/ProblemDetails400'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+    delete:
+      summary: Delete POI
+      operationId: deletePoi
+      responses:
+        '204':
+          description: POI successfully deleted
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+
+  /api/pois/dedup-check:
+    get:
+      summary: Probe for Potential Duplicate POIs
+      operationId: checkDuplicates
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: preset
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [urban, macro]
+            default: urban
+      responses:
+        '200':
+          description: List of potential duplicate matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DedupCheckResponse'
+
+  /api/pois/merge:
+    post:
+      summary: Interactively Merge Two Duplicate POIs
+      operationId: mergePois
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POIMergeRequest'
+      responses:
+        '200':
+          description: Successfully merged record (target POI)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIResponse'
+        '400':
+          description: Circular hierarchy cycle detected or invalid IDs
+          $ref: '#/components/responses/ProblemDetails400'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+        '422':
+          description: Combined tag count exceeds 30
+          $ref: '#/components/responses/ProblemDetails422'
+
+  /api/pois/bulk-tags:
+    post:
+      summary: Bulk Attach or Detach Tags across Multiple POIs
+      operationId: bulkTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkTagsRequest'
+      responses:
+        '200':
+          description: Number of modified records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modified_count:
+                    type: integer
+
+  /api/pois/bulk-lists:
+    post:
+      summary: Bulk Attach or Detach Lists across Multiple POIs
+      operationId: bulkLists
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkListsRequest'
+      responses:
+        '200':
+          description: Number of modified records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modified_count:
+                    type: integer
+
+  /api/pois/bulk-delete:
+    post:
+      summary: Bulk Delete POIs
+      operationId: bulkDeletePois
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [poi_ids]
+              properties:
+                poi_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Number of deleted records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/lists:
+    get:
+      summary: List User Curated Lists
+      operationId: listUserLists
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListResponse'
+    post:
+      summary: Create a new Curated List
+      operationId: createList
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListCreateRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+
+  /api/lists/{id}/shared:
+    get:
+      summary: Access a Public Curated List and Member POIs
+      operationId: getSharedList
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Shared list and member POIs in read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedListResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+
+  /api/tags:
+    get:
+      summary: List User Tags
+      operationId: listTags
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagResponse'
+    post:
+      summary: Create or Get User Tag
+      operationId: createTag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+
+components:
+  schemas:
+    POIResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - lon
+        - lat
+        - visit_state
+        - enrichment_status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        wiki_url:
+          type: string
+          nullable: true
+        image_urls:
+          type: array
+          items:
+            type: string
+        directory_paths:
+          type: array
+          items:
+            type: string
+        creation_metadata:
+          type: object
+        visit_state:
+          type: string
+          enum: [not_visited, visited_do_not_return, visited_return]
+        visited_dates:
+          type: array
+          items:
+            type: string
+        rating:
+          type: integer
+          minimum: 0
+          maximum: 5
+          nullable: true
+        estimated_cost:
+          type: number
+          nullable: true
+        pricing_unit:
+          type: string
+          nullable: true
+        recommended_duration_hours:
+          type: number
+          minimum: 0.25
+          maximum: 12.00
+          nullable: true
+        recommended_visit_days:
+          type: integer
+          default: 1
+        enrichment_status:
+          type: string
+          enum: [SUCCESS, PARTIAL, FAILED]
+        lon:
+          type: number
+          format: double
+        lat:
+          type: number
+          format: double
+        similarity_score:
+          type: number
+          nullable: true
+          description: Populated only on semantic_q queries (0.0 to 1.0)
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagResponse'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    POICreateRequest:
+      type: object
+      required:
+        - name
+        - lon
+        - lat
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        lon:
+          type: number
+          minimum: -180.0
+          maximum: 180.0
+        lat:
+          type: number
+          minimum: -90.0
+          maximum: 90.0
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        wiki_url:
+          type: string
+          nullable: true
+        image_urls:
+          type: array
+          items:
+            type: string
+        tag_names:
+          type: array
+          items:
+            type: string
+            maxLength: 64
+        visit_state:
+          type: string
+          enum: [not_visited, visited_do_not_return, visited_return]
+          default: not_visited
+        rating:
+          type: integer
+          minimum: 0
+          maximum: 5
+          nullable: true
+        recommended_duration_hours:
+          type: number
+          minimum: 0.25
+          maximum: 12.00
+          nullable: true
+
+    POIUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        wiki_url:
+          type: string
+          nullable: true
+        image_urls:
+          type: array
+          items:
+            type: string
+        visit_state:
+          type: string
+          enum: [not_visited, visited_do_not_return, visited_return]
+        visited_dates:
+          type: array
+          items:
+            type: string
+        rating:
+          type: integer
+          minimum: 0
+          maximum: 5
+          nullable: true
+        estimated_cost:
+          type: number
+          nullable: true
+        recommended_duration_hours:
+          type: number
+          minimum: 0.25
+          maximum: 12.00
+          nullable: true
+
+    POIMergeRequest:
+      type: object
+      required:
+        - target_poi_id
+        - source_poi_id
+      properties:
+        target_poi_id:
+          type: string
+          format: uuid
+          description: POI record to retain
+        source_poi_id:
+          type: string
+          format: uuid
+          description: POI record to delete
+        use_source_for:
+          type: array
+          items:
+            type: string
+          description: List of attribute names to copy from source to target
+          example: ["description", "official_url", "image_urls"]
+        merge_tags:
+          type: boolean
+          default: true
+
+    POIListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/POIResponse'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    DedupCheckResponse:
+      type: object
+      required:
+        - matches
+      properties:
+        matches:
+          type: array
+          items:
+            type: object
+            required:
+              - existing_poi
+              - distance_meters
+              - name_similarity
+              - match_confidence
+            properties:
+              existing_poi:
+                $ref: '#/components/schemas/POIResponse'
+              distance_meters:
+                type: number
+              name_similarity:
+                type: number
+              match_confidence:
+                type: number
+
+    BulkTagsRequest:
+      type: object
+      required:
+        - poi_ids
+        - tag_ids
+        - action
+      properties:
+        poi_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        action:
+          type: string
+          enum: [attach, detach]
+
+    BulkListsRequest:
+      type: object
+      required:
+        - poi_ids
+        - list_ids
+        - action
+      properties:
+        poi_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        list_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        action:
+          type: string
+          enum: [attach, detach]
+
+    ListResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - is_public
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_public:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListCreateRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+        is_public:
+          type: boolean
+          default: false
+
+    SharedListResponse:
+      type: object
+      required:
+        - list
+        - pois
+      properties:
+        list:
+          $ref: '#/components/schemas/ListResponse'
+        pois:
+          type: array
+          items:
+            $ref: '#/components/schemas/POIResponse'
+
+    TagResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+
+  responses:
+    ProblemDetails400:
+      description: Bad Request (e.g. cyclic hierarchy detected)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ProblemDetails404:
+      description: Resource Not Found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ProblemDetails422:
+      description: Unprocessable Content (e.g. tag count > 30, invalid lat/lon range)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
