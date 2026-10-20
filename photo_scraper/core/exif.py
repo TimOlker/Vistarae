@@ -1,4 +1,27 @@
-"""EXIF metadata extractor for image files (dates and GPS coordinates)."""
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""EXIF metadata extractor for image files (dates and GPS coordinates) (T-041).
+
+Extracts latitude, longitude, and date taken from EXIF metadata across supported
+image formats (JPEG, HEIC, TIFF, PNG, WEBP), gracefully skipping unreadable or
+corrupted files.
+"""
+
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
@@ -55,9 +78,7 @@ def _parse_exif_date(date_str: str) -> date | None:
     if not date_str or not isinstance(date_str, str):
         return None
 
-    date_str = date_str.strip()
-    # Replace null terminators
-    date_str = date_str.replace("\x00", "")
+    date_str = date_str.strip().replace("\x00", "")
 
     # Expected formats: "YYYY:MM:DD HH:MM:SS", "YYYY-MM-DD HH:MM:SS", "YYYY:MM:DD"
     formats = [
@@ -72,7 +93,6 @@ def _parse_exif_date(date_str: str) -> date | None:
     for fmt in formats:
         try:
             dt = datetime.strptime(date_str[:19], fmt)
-            # Basic sanity check on year
             if 1970 <= dt.year <= 2100:
                 return dt.date()
         except ValueError:
@@ -80,8 +100,11 @@ def _parse_exif_date(date_str: str) -> date | None:
     return None
 
 
-def extract_image_metadata(file_path: Path) -> ImageMetadata:
-    """Reads EXIF data from an image file, returning dates and coordinates if present."""
+def extract_image_metadata(file_path: Path) -> ImageMetadata:  # noqa: C901
+    """Reads EXIF data from an image file, returning dates and coordinates if present.
+
+    Gracefully skips unreadable files or unsupported formats.
+    """
     meta = ImageMetadata(file_path=file_path)
 
     if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
@@ -94,7 +117,6 @@ def extract_image_metadata(file_path: Path) -> ImageMetadata:
                 return meta
 
             # 1. Date extraction
-            # Tag IDs: DateTimeOriginal=36867, DateTimeDigitized=36868, DateTime=306
             date_val = None
             for tag_id in (36867, 36868, 306):
                 raw_val = exif.get(tag_id)
@@ -103,7 +125,7 @@ def extract_image_metadata(file_path: Path) -> ImageMetadata:
                     if date_val:
                         break
 
-            # If not in main exif, check Exif IFD (tag 34665)
+            # If not in main exif, check Exif IFD (tag 34665 / 0x8769)
             if not date_val:
                 try:
                     exif_ifd = exif.get_ifd(0x8769)
@@ -125,14 +147,11 @@ def extract_image_metadata(file_path: Path) -> ImageMetadata:
                 gps_ifd = {}
 
             if not gps_ifd:
-                # Fallback to direct tag 34853
                 gps_raw = exif.get(34853)
                 if isinstance(gps_raw, dict):
                     gps_ifd = gps_raw
 
             if gps_ifd:
-                # GPSLatitude = 2, GPSLatitudeRef = 1
-                # GPSLongitude = 4, GPSLongitudeRef = 3
                 lat_raw = gps_ifd.get(2)
                 lat_ref = gps_ifd.get(1)
                 lon_raw = gps_ifd.get(4)
@@ -147,7 +166,6 @@ def extract_image_metadata(file_path: Path) -> ImageMetadata:
                             lat = -lat
                         if lon_ref and str(lon_ref).upper().startswith("W"):
                             lon = -lon
-                        # Verify valid ranges
                         if -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0 and not (lat == 0.0 and lon == 0.0):
                             meta.latitude = round(lat, 7)
                             meta.longitude = round(lon, 7)

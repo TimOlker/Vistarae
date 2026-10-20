@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Core domain exceptions.
@@ -152,3 +165,84 @@ class POINotFoundError(DomainError):
         """
         super().__init__(f"Point of interest {poi_id} not found.")
         self.poi_id = poi_id
+
+
+class IngestJobNotFoundError(DomainError):
+    """Raised when an ingestion job cannot be found for the tenant."""
+
+    def __init__(self, job_id: str) -> None:
+        """Initializes an ingest job not found error.
+
+        Args:
+            job_id: ID of the requested ingestion job.
+        """
+        super().__init__(f"Ingestion job {job_id} not found.")
+        self.job_id = job_id
+
+
+class FileTooLargeError(DomainError):
+    """Raised when an uploaded file exceeds the maximum permitted size."""
+
+    def __init__(self, size: int, max_size: int = 2_097_152) -> None:
+        """Initializes a file too large error.
+
+        Args:
+            size: Actual file size in bytes.
+            max_size: Maximum permitted file size in bytes (default 2MB).
+        """
+        super().__init__(
+            f"File size {size} bytes exceeds maximum allowed limit of {max_size} bytes."
+        )
+        self.size = size
+        self.max_size = max_size
+
+
+class RowLimitExceededError(DomainError):
+    """Raised when an uploaded CSV exceeds the maximum permitted row count."""
+
+    def __init__(self, count: int, max_rows: int = 2000) -> None:
+        """Initializes a row limit exceeded error.
+
+        Args:
+            count: Total data rows in the file.
+            max_rows: Maximum permitted rows (default 2,000).
+        """
+        super().__init__(
+            f"Row count {count} exceeds maximum allowed limit of {max_rows} rows."
+        )
+        self.count = count
+        self.max_rows = max_rows
+
+
+class InvalidMimeTypeError(DomainError):
+    """Raised when an uploaded file does not match allowed CSV MIME types."""
+
+    def __init__(self, mime_type: str, allowed: list[str] | None = None) -> None:
+        """Initializes an invalid MIME type error.
+
+        Args:
+            mime_type: Uploaded MIME type.
+            allowed: List of acceptable MIME types.
+        """
+        allowed_types = allowed or ["text/csv", "text/plain", "application/vnd.ms-excel"]
+        super().__init__(
+            f"MIME type '{mime_type}' is invalid. Allowed: {allowed_types}."
+        )
+        self.mime_type = mime_type
+        self.allowed = allowed_types
+
+
+class InvalidCSVHeaderError(DomainError):
+    """Raised when a CSV upload is missing required canonical column headers."""
+
+    def __init__(self, missing_headers: list[str]) -> None:
+        """Initializes an invalid CSV header error.
+
+        Args:
+            missing_headers: Required headers that were not found.
+        """
+        super().__init__(
+            f"CSV header validation failed: missing required column(s) {missing_headers}."
+        )
+        self.missing_headers = missing_headers
+

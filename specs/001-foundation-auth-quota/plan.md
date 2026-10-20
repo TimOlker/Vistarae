@@ -192,7 +192,20 @@ d:\Coding\Vistarae\
 The root `pyproject.toml` manages monorepo dependencies, test execution, coverage enforcement, and linting standards:
 
 ```toml
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 [project]
@@ -262,7 +275,20 @@ show_missing = true
 
 #### 2.1 Package Manifest (`packages/core/pyproject.toml`)
 ```toml
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
@@ -424,7 +450,20 @@ Abstract interfaces using `typing.Protocol`:
 The local gateway is initialized in Phase 2 (`T-015`) to provide application lifespan connection management and standalone dual-probe health check endpoints (`/health/live`, `/health/ready`). In Phase 9 (`T-050`), once `services.user` and `services.admin` have been implemented, the microservice sub-applications and Starlette LIFO middleware stack are mounted:
 
 ```python
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Unified Local Development ASGI Gateway.

@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Abstract repository port interfaces.
@@ -17,6 +30,7 @@ from vistarae_core.domain.entities import (
     POI,
     GeocodingCacheEntry,
     IdempotencyRecord,
+    IngestJob,
     ListEntity,
     PotentialDuplicateMatch,
     TagEntity,
@@ -28,6 +42,7 @@ from vistarae_core.domain.entities import (
 from vistarae_core.domain.value_objects import (
     BoundingBox,
     IdempotencyStatus,
+    IngestJobStatus,
     MergeResolutionRule,
     UserTier,
     VisitState,
@@ -676,3 +691,153 @@ class IGeocodingCacheRepository(Protocol):
             Number of evicted rows.
         """
         ...
+
+
+class IIngestJobRepository(Protocol):
+    """Persistence contract for asynchronous bulk ingestion jobs."""
+
+    async def create_job(self, job: IngestJob) -> IngestJob:
+        """Creates an ingestion job record.
+
+        Args:
+            job: IngestJob domain entity to persist.
+
+        Returns:
+            Created IngestJob domain entity with persisted identifiers.
+        """
+        ...
+
+    async def get_job_by_id(self, job_id: UUID, user_id: UUID) -> IngestJob | None:
+        """Retrieves an ingestion job enforcing tenant isolation.
+
+        Args:
+            job_id: Primary key of the ingestion job.
+            user_id: Tenant UUID.
+
+        Returns:
+            IngestJob entity or None if not found or tenant mismatch.
+        """
+        ...
+
+    async def increment_processed_rows(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+        count: int = 1,
+    ) -> IngestJob | None:
+        """Atomically increments the count of processed rows.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+            count: Number of rows processed to add.
+
+        Returns:
+            Updated IngestJob entity or None.
+        """
+        ...
+
+    async def append_duplicate_payload(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+        duplicate: dict[str, Any],
+    ) -> IngestJob | None:
+        """Appends a suspected duplicate candidate to duplicate_payloads JSONB.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+            duplicate: Duplicate candidate dictionary.
+
+        Returns:
+            Updated IngestJob entity or None.
+        """
+        ...
+
+    async def append_error_summary(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+        error: dict[str, Any],
+    ) -> IngestJob | None:
+        """Appends a row failure object to error_summary JSONB.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+            error: Error summary dictionary.
+
+        Returns:
+            Updated IngestJob entity or None.
+        """
+        ...
+
+    async def update_job_status(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+        status: IngestJobStatus,
+    ) -> IngestJob | None:
+        """Updates the status of an ingestion job.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+            status: Target IngestJobStatus value.
+
+        Returns:
+            Updated IngestJob entity or None.
+        """
+        ...
+
+    async def get_pending_duplicates(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+    ) -> list[dict[str, Any]]:
+        """Retrieves duplicate payloads with triage_status == 'PENDING_REVIEW'.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+
+        Returns:
+            List of pending duplicate dictionaries.
+        """
+        ...
+
+    async def update_duplicate_triage_decisions(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+        decisions: list[dict[str, Any]],
+    ) -> IngestJob | None:
+        """Applies user triage decisions (COMMITTED or REJECTED) to duplicate_payloads.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+            decisions: List of decision dicts with row_number and triage_status.
+
+        Returns:
+            Updated IngestJob entity or None.
+        """
+        ...
+
+    async def recalculate_job_status(
+        self,
+        job_id: UUID,
+        user_id: UUID,
+    ) -> IngestJob | None:
+        """Recalculates and transitions job status based on processed_rows and duplicates.
+
+        Args:
+            job_id: Ingest job UUID.
+            user_id: Tenant UUID.
+
+        Returns:
+            Updated IngestJob entity or None.
+        """
+        ...
+

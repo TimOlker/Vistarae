@@ -29,7 +29,20 @@ Follow-up TODOs: None (all template placeholders fully resolved).
 - *State-Driven*: While formatting comments in SQL migration and query files (`.sql`), the author shall prefix each header line with `--`.
 - *Ubiquitous*: The author shall use the exact standard header banner:
   ```text
-  Copyright (c) 2026 Vistarae. All rights reserved.
+  Copyright (c) 2026 Tim Olker
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
   SPDX-License-Identifier: Apache-2.0
   ```
 - *Event-Driven*: When staging files for a git commit, the pre-commit hook runner shall execute `ruff check`, `ruff format`, `prettier`, and `check-copyright-header`.
