@@ -21,11 +21,11 @@ Phase 1 (`001-foundation-auth-quota`) establishes the core infrastructure, ident
 - **Testing**: PyTest 8+, `pytest-asyncio`, `pytest-cov` (enforcing $\ge 90\%$ branch and line coverage), `httpx.AsyncClient` ASGI test client
 - **Target Platform**: Local development on Windows/macOS/Linux via Docker Compose & Uvicorn; Cloud deployment on AWS Lambda (via Mangum) + Neon PostgreSQL
 - **Project Type**: Python monorepo (Ports & Adapters architecture) with shared domain library (`packages/core`), standalone microservices (`services/user`, `services/admin`), and unified local ASGI gateway (`services/local_gateway.py`)
-- **Performance Goals**: 
+- **Performance Goals**:
   - ASGI alive check (`/health/live`): $<2$ms (zero DB I/O)
   - Cached rate-limit check: $<1$ms via in-memory 60s TTL tier cache
   - Idempotent request replay: $<10$ms response latency (`X-Cache-Lookup: HIT`)
-- **Constraints**: 
+- **Constraints**:
   - Zero DB queries on `/health/live` to protect Neon 190h/mo scale-to-zero compute quota
   - Zero CloudWatch `PutMetricData` or DynamoDB dependencies (Zero-Cost Architecture)
   - Strict RFC 7807 / RFC 9457 `application/problem+json` error envelopes
@@ -36,19 +36,19 @@ Phase 1 (`001-foundation-auth-quota`) establishes the core infrastructure, ident
 
 ## Constitution Check
 
-*GATE: Verified prior to research and design phases against `.specify/memory/constitution.md`.*
+_GATE: Verified prior to research and design phases against `.specify/memory/constitution.md`._
 
-| Constitutional Invariant | Status | Compliance Detail |
-| :--- | :---: | :--- |
-| **1. File Header & Pre-Commit** | **PASS** | Mandatory copyright header `# Copyright (c) 2026 Vistarae. All rights reserved.` and `SPDX-License-Identifier: Apache-2.0` on every `.py` and `--` on `.sql` file. Google-style docstrings (`Args:`, `Returns:`, `Raises:`). Cognitive complexity $\le 15$. |
-| **2. Monorepo & Ports/Adapters** | **PASS** | Shared domain, value objects, exceptions, and `typing.Protocol` ports placed in `packages/core` installed via `pip install -e ./packages/core`. Zero `boto3` or database driver imports in domain logic. Standalone ASGI apps with `Mangum(app, lifespan="off")`. |
-| **3. Database & Tenancy** | **PASS** | SQLAlchemy 2.0 Async (`create_async_engine`, `AsyncSession`). URL normalized to `postgresql+asyncpg://`. Local uses `QueuePool(pool_size=5, max_overflow=5)`. Cloud uses `NullPool` with `connect_args={"statement_cache_size": 0}`. 3-attempt backoff retry loop (500ms, 1500ms, 3000ms). Explicit `WHERE user_id = :current_user_id` on all queries. No Postgres RLS. |
-| **4. Alembic & Environment** | **PASS** | All migrations strictly inside `db/migrations/`. Reversible `downgrade()` implemented and tested. Enums modeled as Python `StrEnum` backed by `VARCHAR(n)` columns (no PostgreSQL native `ENUM`). `alembic check` enforced. |
-| **5. API Contract & Validation** | **PASS** | Pydantic v2 `StrictBaseModel` (`extra="forbid"`, `validate_assignment=True`, `str_strip_whitespace=True`). OpenAPI 3.1 contracts exported. All errors formatted as RFC 7807 / RFC 9457 Problem Details. |
-| **6. Middleware & Security** | **PASS** | Middleware order: `IdempotencyMiddleware` registered first, `RateLimitMiddleware` registered second (so Rate-Limiting executes outermost under Starlette LIFO). Rate limit 429 returns before idempotency allocation. CORS strictly configured (local `http://localhost:5173`, prod extension origin; never `*`). |
-| **7. Observability & Tracing** | **PASS** | W3C `traceparent` propagation. Local mode emits literal directional markers (`MSG: -->|`, `MSG: <--|`, `MSG: <~~|`). Cloud mode emits structured JSON with X-Ray trace context. |
-| **8. PyTest & SDD Governance** | **PASS** | $\ge 90\%$ branch and line coverage enforced (`--cov=packages/core --cov=services --cov-fail-under=90`). Tests mirror source tree 1:1 inside `tests/unit/`. Classes structured as `Test<FeatureOrMethod>`. |
-| **Operational & Infrastructure** | **PASS** | Docker Compose runs `postgis/postgis:16-3.4` with volume `postgis_data` and ElasticMQ native mounting `docker/elasticmq.conf` with 180s visibility timeout. Neon scale-to-zero preserved via `/health/live`. |
+| Constitutional Invariant         |  Status  | Compliance Detail                                                                                                                                                                                                                                                                                                                                                       |
+| :------------------------------- | :------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------ | -------------------------------------------------------------- |
+| **1. File Header & Pre-Commit**  | **PASS** | Mandatory copyright header `# Copyright (c) 2026 Vistarae. All rights reserved.` and `SPDX-License-Identifier: Apache-2.0` on every `.py` and `--` on `.sql` file. Google-style docstrings (`Args:`, `Returns:`, `Raises:`). Cognitive complexity $\le 15$.                                                                                                             |
+| **2. Monorepo & Ports/Adapters** | **PASS** | Shared domain, value objects, exceptions, and `typing.Protocol` ports placed in `packages/core` installed via `pip install -e ./packages/core`. Zero `boto3` or database driver imports in domain logic. Standalone ASGI apps with `Mangum(app, lifespan="off")`.                                                                                                       |
+| **3. Database & Tenancy**        | **PASS** | SQLAlchemy 2.0 Async (`create_async_engine`, `AsyncSession`). URL normalized to `postgresql+asyncpg://`. Local uses `QueuePool(pool_size=5, max_overflow=5)`. Cloud uses `NullPool` with `connect_args={"statement_cache_size": 0}`. 3-attempt backoff retry loop (500ms, 1500ms, 3000ms). Explicit `WHERE user_id = :current_user_id` on all queries. No Postgres RLS. |
+| **4. Alembic & Environment**     | **PASS** | All migrations strictly inside `db/migrations/`. Reversible `downgrade()` implemented and tested. Enums modeled as Python `StrEnum` backed by `VARCHAR(n)` columns (no PostgreSQL native `ENUM`). `alembic check` enforced.                                                                                                                                             |
+| **5. API Contract & Validation** | **PASS** | Pydantic v2 `StrictBaseModel` (`extra="forbid"`, `validate_assignment=True`, `str_strip_whitespace=True`). OpenAPI 3.1 contracts exported. All errors formatted as RFC 7807 / RFC 9457 Problem Details.                                                                                                                                                                 |
+| **6. Middleware & Security**     | **PASS** | Middleware order: `IdempotencyMiddleware` registered first, `RateLimitMiddleware` registered second (so Rate-Limiting executes outermost under Starlette LIFO). Rate limit 429 returns before idempotency allocation. CORS strictly configured (local `http://localhost:5173`, prod extension origin; never `*`).                                                       |
+| **7. Observability & Tracing**   | **PASS** | W3C `traceparent` propagation. Local mode emits literal directional markers (`MSG: -->                                                                                                                                                                                                                                                                                  | `, `MSG: <-- | `, `MSG: <~~ | `). Cloud mode emits structured JSON with X-Ray trace context. |
+| **8. PyTest & SDD Governance**   | **PASS** | $\ge 90\%$ branch and line coverage enforced (`--cov=packages/core --cov=services --cov-fail-under=90`). Tests mirror source tree 1:1 inside `tests/unit/`. Classes structured as `Test<FeatureOrMethod>`.                                                                                                                                                              |
+| **Operational & Infrastructure** | **PASS** | Docker Compose runs `postgis/postgis:16-3.4` with volume `postgis_data` and ElasticMQ native mounting `docker/elasticmq.conf` with 180s visibility timeout. Neon scale-to-zero preserved via `/health/live`.                                                                                                                                                            |
 
 ---
 
@@ -189,6 +189,7 @@ d:\Coding\Vistarae\
 ## Detailed Component Specifications
 
 ### 1. Root Workspace `pyproject.toml`
+
 The root `pyproject.toml` manages monorepo dependencies, test execution, coverage enforcement, and linting standards:
 
 ```toml
@@ -274,6 +275,7 @@ show_missing = true
 ### 2. `packages/core` Layout & Implementation
 
 #### 2.1 Package Manifest (`packages/core/pyproject.toml`)
+
 ```toml
 # Copyright (c) 2026 Tim Olker
 #
@@ -311,18 +313,22 @@ dependencies = [
 ```
 
 #### 2.2 Domain Entities & Value Objects (`vistarae_core/domain/`)
+
 - `value_objects.py`: Defines `UserTier`, `ThemeMode`, `PacingMode`, `TransitSpeedMode`, and `IdempotencyStatus` using Python `StrEnum`.
 - `entities.py`: Pure Python dataclasses representing business aggregates (`User`, `UserPreferences`, `UserQuota`, `UserMetric`, `IdempotencyRecord`) without SQLAlchemy or Pydantic runtime dependencies.
 - `exceptions.py`: Pure domain exceptions (`AccountDisabledError`, `QuotaExceededError`, `IdempotencyConflictError`, `TenantNotFoundError`).
 
 #### 2.3 Port Interfaces (`vistarae_core/ports/`)
+
 Abstract interfaces using `typing.Protocol`:
+
 - `IUserRepository`: `get_by_id(user_id)`, `get_by_cognito_sub(sub)`, `create(user, preferences, quotas, metrics)`, `update_profile(user_id, full_name)`, `delete(user_id)`.
 - `IQuotaRepository`: `get_quota(user_id)`, `increment_request_count(user_id, tier, window_seconds=60) -> tuple[int, int, bool]`, `check_token_budget(user_id, required_tokens) -> bool`, `increment_tokens(user_id, tokens)`.
 - `IIdempotencyRepository`: `get_or_create(user_id, key) -> tuple[IdempotencyStatus, int | None, dict | None]`, `complete(user_id, key, status_code, payload)`, `fail(user_id, key)`, `cleanup_older_than(hours=24)`.
 - `IIdentityProvider`: `verify_token(token) -> dict`, `delete_user(cognito_sub)`.
 
 #### 2.4 Database Adapter (`vistarae_core/adapters/db/`)
+
 - `session.py`:
   - Normalizes `DATABASE_URL` from `postgres://` or `postgresql://` to `postgresql+asyncpg://` and replaces `sslmode=require` with `ssl=require`.
   - Configures `QueuePool` (pool_size=5, max_overflow=5) when `STAGE == 'local'`.
@@ -332,11 +338,13 @@ Abstract interfaces using `typing.Protocol`:
 - `tables.py`: Defines SQLAlchemy 2.0 ORM models mapping `users`, `user_preferences`, `user_metrics`, `user_quotas`, and `idempotency_keys` with `ON DELETE CASCADE`.
 
 #### 2.5 Repositories Adapter (`vistarae_core/adapters/repositories/`)
+
 - `user_repo.py`: Async SQLAlchemy implementation of `IUserRepository`.
 - `quota_repo.py`: Atomic rolling window increment using PostgreSQL `INSERT ... ON CONFLICT DO UPDATE` with timestamp checks.
 - `idempotency_repo.py`: Atomic `INSERT ... ON CONFLICT (user_id, idempotency_key) DO NOTHING` returning record status.
 
 #### 2.6 Middleware (`vistarae_core/middleware/`)
+
 - `telemetry.py`:
   - Extracts W3C `traceparent` (`00-{trace_id}-{parent_span_id}-01`).
   - Generates new server `span_id`.
@@ -359,6 +367,7 @@ Abstract interfaces using `typing.Protocol`:
   - If newly created: Intercepts response stream; upon successful completion (2XX/3XX), caches code & body as `COMPLETED`; on error, marks `FAILED`.
 
 #### 2.7 Domain Application Services (`vistarae_core/services/`)
+
 - `token_budget.py`:
   - `TokenBudgetService`: Encapsulates pre-flight token budget verification and atomic post-flight usage tracking.
   - Verifies `current_token_usage < monthly_token_quota`.
@@ -370,6 +379,7 @@ Abstract interfaces using `typing.Protocol`:
 ### 3. `db/migrations` (Alembic Setup & Initial Migration)
 
 #### 3.1 Async Alembic Runner (`alembic.ini` & `db/migrations/env.py`)
+
 - Standard root configuration file `alembic.ini` with `script_location = db/migrations`.
 - Configured for SQLAlchemy 2.0 async engine via `asyncpg`.
 - Sourced from `DATABASE_URL` environment variable.
@@ -377,6 +387,7 @@ Abstract interfaces using `typing.Protocol`:
 - Replaces `%` in connection strings for safe URL parsing.
 
 #### 3.2 Initial Migration Script (`0001_foundation_auth_quota.py`)
+
 - Header standard:
   ```sql
   -- Copyright (c) 2026 Vistarae. All rights reserved.
@@ -401,11 +412,13 @@ Abstract interfaces using `typing.Protocol`:
 ### 4. `services/user` (UserFunction)
 
 #### 4.1 FastAPI App (`services/user/main.py`)
+
 - Independent ASGI application instance exposing routes under `/api/users`.
 - Serverless entrypoint: `lambda_handler = Mangum(app, lifespan="off")`.
 - Lifespan handler initializes connection pool and disposes cleanly.
 
 #### 4.2 Authentication Dependency (`services/user/dependencies.py`)
+
 - Resolves authenticated user context:
   - If `STAGE == "local"` and `X-Mock-User-Id` header is present: validates UUID format and retrieves/provisions mock user.
   - If `STAGE != "local"`: verifies Bearer JWT against AWS Cognito JWKS cache.
@@ -413,6 +426,7 @@ Abstract interfaces using `typing.Protocol`:
   - If `user_quotas.is_disabled` is `TRUE`: returns RFC 7807 403 Forbidden (`https://errors.vistarae.com/account-disabled`).
 
 #### 4.3 Route Handlers
+
 - `GET /api/users/me`: Returns `UserProfileResponse` combining user profile, sub-domain preferences, metrics, and quota status.
 - `PATCH /api/users/me`: Updates `full_name` in `users`.
 - `GET /api/users/me/preferences`: Returns `UserPreferencesResponse` (UI, POI, Planner).
@@ -426,14 +440,17 @@ Abstract interfaces using `typing.Protocol`:
 ### 5. `services/admin` (AdminFunction)
 
 #### 5.1 FastAPI App (`services/admin/main.py`)
+
 - Independent ASGI application instance exposing routes under `/api/admin`.
 - Serverless entrypoint: `lambda_handler = Mangum(app, lifespan="off")`.
 
 #### 5.2 Admin RBAC Guard (`services/admin/dependencies.py`)
+
 - Inspects authenticated caller's tier from `user_quotas` or Cognito admin group claims.
 - If caller tier is not `'admin'`: raises RFC 7807 403 Forbidden (`https://errors.vistarae.com/admin-forbidden`).
 
 #### 5.3 Route Handlers
+
 - `GET /api/admin/metrics`: Aggregates platform telemetry (`total_users`, `active_users`, `disabled_users`, `total_pois`, `total_tokens_consumed`, `tier_distribution`).
 - `GET /api/admin/users/{user_id}`: Inspects complete tenant account details (profile, quotas, preferences, metrics).
 - `PATCH /api/admin/users/{user_id}/quota`: Updates `monthly_token_quota` or `tier` in `user_quotas` and invalidates the target user's in-memory tier cache entry.
@@ -554,7 +571,9 @@ app = gateway
 ### 7. Local Infrastructure (`docker-compose.yml` & `docker/elasticmq.conf`)
 
 #### 7.1 ElasticMQ Configuration (`docker/elasticmq.conf`)
+
 Pre-configures local SQS queue emulation with DLQ and 180-second visibility timeout:
+
 ```hocon
 include classpath("application.conf")
 
@@ -597,6 +616,7 @@ queues {
 ```
 
 #### 7.2 Docker Compose Services (`docker-compose.yml`)
+
 - `postgis`: Image `postgis/postgis:16-3.4`, port 5432, named volume `postgis_data:/var/lib/postgresql/data`.
 - `elasticmq`: Image `softwaremill/elasticmq-native:latest`, ports 9324 (SQS) & 9325 (stats), mounts `docker/elasticmq.conf:/opt/elasticmq.conf`.
 
@@ -616,6 +636,6 @@ queues {
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-| :--- | :--- | :--- |
-| *None* | *All requirements and patterns fully adhere to the Vistarae Constitution.* | *N/A* |
+| Violation | Why Needed                                                                 | Simpler Alternative Rejected Because |
+| :-------- | :------------------------------------------------------------------------- | :----------------------------------- |
+| _None_    | _All requirements and patterns fully adhere to the Vistarae Constitution._ | _N/A_                                |

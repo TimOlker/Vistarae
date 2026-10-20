@@ -2,9 +2,9 @@ name: Deploy Supabase Migrations
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'supabase/migrations/**'
+      - "supabase/migrations/**"
 
 jobs:
   deploy:

@@ -106,7 +106,6 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return asyncio.run(worker.process_batch(records))
 
 
-
 async def run_local_worker(
     max_iterations: int | None = None,
     poll_wait_seconds: int = 5,

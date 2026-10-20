@@ -3,7 +3,7 @@
 **Feature**: `002-poi-domain-spatial`  
 **Date**: 2026-10-19  
 **Status**: Completed  
-**Author**: Antigravity  
+**Author**: Antigravity
 
 ---
 
@@ -44,11 +44,13 @@ uv run pytest --cov=packages/core --cov=services --cov-fail-under=90
 ## 3. End-to-End Validation Scenarios
 
 Set a test JWT authorization token:
+
 ```bash
 export AUTH_HEADER="Authorization: Bearer <TEST_USER_JWT>"
 ```
 
 ### Scenario 1: Create a POI with Geocoding and AI Vector Embeddings
+
 ```bash
 curl -X POST "http://localhost:8030/api/pois" \
   -H "$AUTH_HEADER" \
@@ -66,32 +68,41 @@ curl -X POST "http://localhost:8030/api/pois" \
     "tag_names": ["viewpoint", "yosemite", "scenic"]
   }'
 ```
-*Expected Outcome*: HTTP 201 Created with populated `id`, canonical `lon`/`lat`, `states: ["California"]`, `countries: ["United States"]`, `enrichment_status = 'SUCCESS'`, and tags assigned. (Multi-state destinations such as Yellowstone National Park support `states: ["Wyoming", "Montana", "Idaho"]`, and cross-border destinations such as Niagara Falls support `countries: ["United States", "Canada"]`).
+
+_Expected Outcome_: HTTP 201 Created with populated `id`, canonical `lon`/`lat`, `states: ["California"]`, `countries: ["United States"]`, `enrichment_status = 'SUCCESS'`, and tags assigned. (Multi-state destinations such as Yellowstone National Park support `states: ["Wyoming", "Montana", "Idaho"]`, and cross-border destinations such as Niagara Falls support `countries: ["United States", "Canada"]`).
 
 ---
 
 ### Scenario 2: Planar Bounding-Box Viewport Query
+
 Fetch all POIs within a bounding box covering Yosemite National Park:
+
 ```bash
 curl -X GET "http://localhost:8030/api/pois?bbox=-120.0,37.0,-119.0,38.0&visit_state=not_visited&hierarchy=all" \
   -H "$AUTH_HEADER"
 ```
-*Expected Outcome*: HTTP 200 OK returning only POIs within the geographic envelope, completed in $< 75$ms p95 latency backed by `idx_pois_user_geom_geometry`.
+
+_Expected Outcome_: HTTP 200 OK returning only POIs within the geographic envelope, completed in $< 75$ms p95 latency backed by `idx_pois_user_geom_geometry`.
 
 ---
 
 ### Scenario 3: Deduplication Detection Probe
+
 Probe for collision against an existing POI using trigram similarity and geodesic proximity:
+
 ```bash
 curl -X GET "http://localhost:8030/api/pois/dedup-check?name=Glacier+Point&lon=-119.5745&lat=37.7302&preset=urban" \
   -H "$AUTH_HEADER"
 ```
-*Expected Outcome*: HTTP 200 OK returning a list of `matches` with `distance_meters < 805` and `name_similarity >= 0.60`.
+
+_Expected Outcome_: HTTP 200 OK returning a list of `matches` with `distance_meters < 805` and `name_similarity >= 0.60`.
 
 ---
 
 ### Scenario 4: Interactive Record Merge
+
 Merge a duplicate record into the canonical target POI:
+
 ```bash
 curl -X POST "http://localhost:8030/api/pois/merge" \
   -H "$AUTH_HEADER" \
@@ -103,17 +114,21 @@ curl -X POST "http://localhost:8030/api/pois/merge" \
     "merge_tags": true
   }'
 ```
-*Expected Outcome*: HTTP 200 OK with the target record updated, subordinate children re-parented, and source POI deleted. If merging would create a cyclic hierarchy, returns HTTP 400 Bad Request with RFC 7807 `ProblemDetails`.
+
+_Expected Outcome_: HTTP 200 OK with the target record updated, subordinate children re-parented, and source POI deleted. If merging would create a cyclic hierarchy, returns HTTP 400 Bad Request with RFC 7807 `ProblemDetails`.
 
 ---
 
 ### Scenario 5: Semantic AI Vector Search
+
 Query POIs conceptually without matching exact keywords:
+
 ```bash
 curl -X GET "http://localhost:8030/api/pois?semantic_q=breathtaking+high+granite+cliffs" \
   -H "$AUTH_HEADER"
 ```
-*Expected Outcome*: HTTP 200 OK returning ranked POIs with `similarity_score` (between 0.0 and 1.0) sorted by cosine similarity distance.
+
+_Expected Outcome_: HTTP 200 OK returning ranked POIs with `similarity_score` (between 0.0 and 1.0) sorted by cosine similarity distance.
 
 ---
 

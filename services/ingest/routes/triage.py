@@ -122,9 +122,7 @@ async def submit_triage_decisions(
                 await poi_repo.bulk_attach_lists(user.id, [poi_id], [job.target_list_id])
 
     # 2. Update duplicate payloads triage status
-    decision_dicts = [
-        {"row_number": d.row_number, "decision": d.decision} for d in body.decisions
-    ]
+    decision_dicts = [{"row_number": d.row_number, "decision": d.decision} for d in body.decisions]
     updated_job = await ingest_repo.update_duplicate_triage_decisions(
         job_id=job_id,
         user_id=user.id,

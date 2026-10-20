@@ -1,58 +1,77 @@
 {
   "manifest_version": 3,
-  "name": "Vistarae - Travel POI Capture",
+  "name": "Vistarae — POI & Travel Capture Engine",
   "version": "1.0.0",
-  "description": "Capture points of interest, scenic overlooks, trails, and travel dreams into PostGIS with AI extraction and geocoding.",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "contextMenus",
-    "storage"
-  ],
-  "host_permissions": [
-    "http://localhost:8030/*",
-    "http://127.0.0.1:8030/*",
-    "https://*.supabase.co/*",
-    "https://*.atlasobscura.com/*",
-    "https://*.tripadvisor.com/*",
-    "https://*.roadsideamerica.com/*",
-    "https://*.locationscout.net/*",
-    "https://*.shothotspot.com/*"
-  ],
+  "description": "Capture travel dreams, scenic overlooks, trails, and POIs across the web with automated geocoding and desktop photo folder access.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Capture to Vistarae (Ctrl+Shift+S)",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "background": {
     "service_worker": "background/service_worker.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/content_script.js"],
-      "run_at": "document_idle"
-    }
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "storage",
+    "nativeMessaging"
   ],
+  "host_permissions": [
+    "https://cognito-idp.*.amazonaws.com/*",
+    "https://*.cloudfront.net/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8030/*",
+    "https://*.google.com/maps/*",
+    "https://*.roadtrippers.com/*",
+    "https://*.tripadvisor.com/*",
+    "https://*.atlasobscura.com/*",
+    "https://*.wikipedia.org/*"
+  ],
+  "externally_connectable": {
+    "matches": ["https://*.cloudfront.net/*", "http://localhost:5173/*"]
+  },
   "commands": {
     "capture-to-vistarae": {
       "suggested_key": {
         "default": "Ctrl+Shift+S",
         "mac": "Command+Shift+S"
       },
-      "description": "Capture highlighted text to Vistarae"
+      "description": "Capture travel POI or highlighted text from active page"
     }
   },
-  "action": {
-    "default_title": "Vistarae - Open POI Browser (or Ctrl+Shift+S to capture)"
-  },
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/parsers/BasePoiParser.js",
+        "content/parsers/GoogleMapsParser.js",
+        "content/parsers/RoadtrippersParser.js",
+        "content/parsers/TripAdvisorParser.js",
+        "content/parsers/GenericSelectionParser.js",
+        "content/content_script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "web_accessible_resources": [
     {
       "resources": [
         "content/overlay.css",
-        "icons/*",
-        "browser/*"
+        "icons/icon16.png",
+        "icons/icon48.png",
+        "icons/icon128.png"
       ],
       "matches": ["<all_urls>"]
     }

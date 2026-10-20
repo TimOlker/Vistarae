@@ -130,7 +130,7 @@ stateDiagram-v2
     SplitModalShown --> Idle: Dismiss modal
     FileValidating --> Uploading: File <= 2MB and Rows <= 2000
     Uploading --> Polling: 202 Accepted (job_id received)
-    
+
     state Polling {
         [*] --> CheckStatus
         CheckStatus --> WaitInterval: Status in [PENDING, PROCESSING]
@@ -138,7 +138,7 @@ stateDiagram-v2
     }
 
     Polling --> Triaging: duplicates_pending_count > 0
-    
+
     state Triaging {
         [*] --> LoadFromIndexedDB
         LoadFromIndexedDB --> StagingDecisions: Load existing or init decisions
@@ -150,7 +150,7 @@ stateDiagram-v2
     SubmittingTriage --> Completed: 200 OK (Purge IndexedDB job_id)
     Polling --> Completed: Status == COMPLETED and duplicates == 0
     Polling --> Failed: Status == FAILED (Purge IndexedDB job_id)
-    
+
     Completed --> [*]
     Failed --> [*]
 ```
@@ -160,13 +160,13 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     Start[POI Coordinates Loaded in Canonical WGS-84] --> CheckLayer{Is Active Layer shifted?<br/>amap or baidu}
-    
+
     CheckLayer -->|No: osm, satellite, google, road| PassThrough[Render Canonical WGS-84 Coordinates]
     CheckLayer -->|Yes: amap or baidu| CheckBBox{Are Coordinates inside China BBox?<br/>73.66°E to 135.05°E<br/>18.16°N to 53.55°N}
-    
+
     CheckBBox -->|No| PassThrough
     CheckBBox -->|Yes| ApplyTransform[Execute Client-Side Transform<br/>wgs84_to_gcj02 or wgs84_to_bd09]
-    
+
     ApplyTransform --> RenderTransformed[Render Transformed Marker on Canvas]
     PassThrough --> RenderDirect[Render Direct Marker on Canvas]
 
@@ -186,6 +186,7 @@ flowchart TD
 ## 3. Storage Schemas & Client Caching
 
 ### 3.1 IndexedDB Store: `vistarae_ingest_db`
+
 - **Database Name**: `vistarae_ingest_db`
 - **Database Version**: `1`
 - **Object Store**: `triage_jobs`
@@ -195,9 +196,11 @@ flowchart TD
   - `idx_last_updated`: `last_updated` (numeric timestamp ms)
 - **Eviction Routine**:
   ```typescript
-  export async function evictExpiredTriageJobs(db: IDBPDatabase): Promise<void> {
-    const tx = db.transaction('triage_jobs', 'readwrite');
-    const index = tx.store.index('idx_expires_at');
+  export async function evictExpiredTriageJobs(
+    db: IDBPDatabase,
+  ): Promise<void> {
+    const tx = db.transaction("triage_jobs", "readwrite");
+    const index = tx.store.index("idx_expires_at");
     const now = Date.now();
     let cursor = await index.openCursor(IDBKeyRange.upperBound(now));
     while (cursor) {
@@ -209,6 +212,7 @@ flowchart TD
   ```
 
 ### 3.2 Browser `localStorage` Fallback & Preference Cache
+
 - `vistarae_theme_mode`: `'light' | 'dark' | 'system'` (persisted for unauthenticated visitors).
 - `vistarae_auth_token`: Cognito JWT ID/Access token.
 - `vistarae_viewport_filter`: `'true' | 'false'` (table filter toggle state).
@@ -236,7 +240,7 @@ export class ApiError extends Error {
 
   constructor(problem: ProblemDetails) {
     super(problem.detail || problem.title);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.problem = problem;
   }
 }

@@ -15,7 +15,7 @@ paths:
       summary: Liveness Probe
       description: Returns 200 OK without database connection pool I/O to preserve serverless compute budgets.
       responses:
-        '200':
+        "200":
           description: Service is alive.
           content:
             application/json:
@@ -31,7 +31,7 @@ paths:
       summary: Readiness Probe
       description: Verifies database connectivity via SELECT 1. Used in CI and manual deployment checks.
       responses:
-        '200':
+        "200":
           description: Database is connected and ready.
           content:
             application/json:
@@ -41,12 +41,12 @@ paths:
                   status:
                     type: string
                     example: ready
-        '503':
+        "503":
           description: Database connection failure.
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
   /api/users/me:
     get:
@@ -56,18 +56,18 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: User profile and preferences retrieved.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfileResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+                $ref: "#/components/schemas/UserProfileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
     patch:
       summary: Update Current User Profile
       description: Updates basic profile fields such as display name.
@@ -79,20 +79,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
+              $ref: "#/components/schemas/UpdateUserRequest"
       responses:
-        '200':
+        "200":
           description: Profile updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
     delete:
       summary: Delete Account (GDPR)
       description: Permanently deletes user from AWS Cognito and cascades deletion across all database tables.
@@ -100,12 +100,12 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '204':
+        "204":
           description: Account permanently deleted.
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /api/users/me/preferences:
     get:
@@ -115,14 +115,14 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: All user preferences.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserPreferencesResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: "#/components/schemas/UserPreferencesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/users/me/preferences/ui:
     patch:
@@ -135,16 +135,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUIPreferencesRequest'
+              $ref: "#/components/schemas/UpdateUIPreferencesRequest"
       responses:
-        '200':
+        "200":
           description: UI preferences updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UIPreferencesResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: "#/components/schemas/UIPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/users/me/preferences/poi:
     patch:
@@ -157,16 +157,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdatePOIPreferencesRequest'
+              $ref: "#/components/schemas/UpdatePOIPreferencesRequest"
       responses:
-        '200':
+        "200":
           description: POI preferences updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIPreferencesResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: "#/components/schemas/POIPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/users/me/preferences/planner:
     patch:
@@ -179,16 +179,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdatePlannerPreferencesRequest'
+              $ref: "#/components/schemas/UpdatePlannerPreferencesRequest"
       responses:
-        '200':
+        "200":
           description: Planner preferences updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlannerPreferencesResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+                $ref: "#/components/schemas/PlannerPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/admin/metrics:
     get:
@@ -198,14 +198,14 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: Platform telemetry summary.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminMetricsResponse'
-        '403':
-          $ref: '#/components/responses/AdminForbidden'
+                $ref: "#/components/schemas/AdminMetricsResponse"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
 
   /api/admin/users/{user_id}:
     get:
@@ -221,16 +221,16 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: Tenant operational details.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUserDetailResponse'
-        '403':
-          $ref: '#/components/responses/AdminForbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                $ref: "#/components/schemas/AdminUserDetailResponse"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/admin/users/{user_id}/quota:
     patch:
@@ -250,16 +250,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserQuotaRequest'
+              $ref: "#/components/schemas/UpdateUserQuotaRequest"
       responses:
-        '200':
+        "200":
           description: Quota updated and in-memory tier cache invalidated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserQuotaResponse'
-        '403':
-          $ref: '#/components/responses/AdminForbidden'
+                $ref: "#/components/schemas/UserQuotaResponse"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
 
   /api/admin/users/{user_id}/disable:
     post:
@@ -275,7 +275,7 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: User disabled.
           content:
             application/json:
@@ -300,7 +300,7 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: User re-enabled.
           content:
             application/json:
@@ -322,14 +322,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/QuotaDefaultsRequest'
+              $ref: "#/components/schemas/QuotaDefaultsRequest"
       responses:
-        '200':
+        "200":
           description: Defaults updated.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/QuotaDefaultsResponse'
+                $ref: "#/components/schemas/QuotaDefaultsResponse"
 
   /api/admin/trace-injection/toggle:
     post:
@@ -338,7 +338,7 @@ paths:
         - BearerAuth: []
         - MockAuth: []
       responses:
-        '200':
+        "200":
           description: Trace injection state toggled.
           content:
             application/json:
@@ -366,9 +366,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdminMessageRequest'
+              $ref: "#/components/schemas/AdminMessageRequest"
       responses:
-        '202':
+        "202":
           description: Message accepted for dispatch.
 
 components:
@@ -389,31 +389,31 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     Unauthorized:
       description: Unauthorized / Missing or Invalid Token
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     Forbidden:
       description: Forbidden / Account Disabled
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     AdminForbidden:
       description: Forbidden / Administrative Access Required
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     NotFound:
       description: Resource Not Found
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     TooManyRequests:
       description: Rate Limit Exceeded
       headers:
@@ -424,7 +424,7 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
   schemas:
     ProblemDetails:
@@ -502,13 +502,13 @@ components:
         - quotas
       properties:
         user:
-          $ref: '#/components/schemas/UserResponse'
+          $ref: "#/components/schemas/UserResponse"
         preferences:
-          $ref: '#/components/schemas/UserPreferencesResponse'
+          $ref: "#/components/schemas/UserPreferencesResponse"
         metrics:
-          $ref: '#/components/schemas/UserMetricsResponse'
+          $ref: "#/components/schemas/UserMetricsResponse"
         quotas:
-          $ref: '#/components/schemas/UserQuotaResponse'
+          $ref: "#/components/schemas/UserQuotaResponse"
 
     UserPreferencesResponse:
       type: object
@@ -518,11 +518,11 @@ components:
         - planner
       properties:
         ui:
-          $ref: '#/components/schemas/UIPreferencesResponse'
+          $ref: "#/components/schemas/UIPreferencesResponse"
         poi:
-          $ref: '#/components/schemas/POIPreferencesResponse'
+          $ref: "#/components/schemas/POIPreferencesResponse"
         planner:
-          $ref: '#/components/schemas/PlannerPreferencesResponse'
+          $ref: "#/components/schemas/PlannerPreferencesResponse"
 
     UIPreferencesResponse:
       type: object
@@ -734,11 +734,11 @@ components:
         - metrics
       properties:
         profile:
-          $ref: '#/components/schemas/UserResponse'
+          $ref: "#/components/schemas/UserResponse"
         quotas:
-          $ref: '#/components/schemas/UserQuotaResponse'
+          $ref: "#/components/schemas/UserQuotaResponse"
         metrics:
-          $ref: '#/components/schemas/UserMetricsResponse'
+          $ref: "#/components/schemas/UserMetricsResponse"
 
     QuotaDefaultsRequest:
       type: object

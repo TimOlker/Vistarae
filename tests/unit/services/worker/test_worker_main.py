@@ -48,7 +48,14 @@ class TestWorkerMain:
                 {
                     "messageId": "msg-123",
                     "receiptHandle": "rh-123",
-                    "body": json.dumps({"raw_name": "Test POI", "csv_job_id": "00000000-0000-0000-0000-000000000001", "user_id": "00000000-0000-0000-0000-000000000002", "absolute_row_number": 1}),
+                    "body": json.dumps(
+                        {
+                            "raw_name": "Test POI",
+                            "csv_job_id": "00000000-0000-0000-0000-000000000001",
+                            "user_id": "00000000-0000-0000-0000-000000000002",
+                            "absolute_row_number": 1,
+                        }
+                    ),
                     "messageAttributes": {},
                 }
             ]
@@ -68,7 +75,14 @@ class TestWorkerMain:
         sample_msg = {
             "MessageId": "msg-local-1",
             "ReceiptHandle": "rh-local-1",
-            "Body": json.dumps({"raw_name": "Local POI", "csv_job_id": "00000000-0000-0000-0000-000000000001", "user_id": "00000000-0000-0000-0000-000000000002", "absolute_row_number": 1}),
+            "Body": json.dumps(
+                {
+                    "raw_name": "Local POI",
+                    "csv_job_id": "00000000-0000-0000-0000-000000000001",
+                    "user_id": "00000000-0000-0000-0000-000000000002",
+                    "absolute_row_number": 1,
+                }
+            ),
         }
         mock_queue.receive_messages.return_value = [sample_msg]
         mock_queue.delete_message.return_value = None
@@ -84,9 +98,7 @@ class TestWorkerMain:
 
             mock_queue.receive_messages.assert_called_once()
             mock_worker.process_batch.assert_called_once()
-            mock_queue.delete_message.assert_called_once_with(
-                "vistarae-ingest-local", "rh-local-1"
-            )
+            mock_queue.delete_message.assert_called_once_with("vistarae-ingest-local", "rh-local-1")
 
     async def test_run_local_worker_recovers_from_exception(self) -> None:
         """Asserts exception in polling loop is caught and logged without aborting prematurely."""

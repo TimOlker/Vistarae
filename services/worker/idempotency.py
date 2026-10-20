@@ -81,9 +81,7 @@ async def claim_row_idempotency(
             idempotency_key=key,
             status=IdempotencyStatus.COMPLETED.value,
         )
-        .on_conflict_do_nothing(
-            index_elements=["user_id", "idempotency_key"]
-        )
+        .on_conflict_do_nothing(index_elements=["user_id", "idempotency_key"])
         .returning(IdempotencyKeysTable.id)
     )
 

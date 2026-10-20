@@ -9,6 +9,7 @@
 ## Summary
 
 Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backbone, scalable batch processing worker, and automated command-line ingestion utilities for the Vistarae platform:
+
 1. **Asynchronous Ingest Gateway (`services/ingest`)**:
    - Accepts bulk CSV uploads with strict file size ($\le 2$MB) and row count ($\le 2,000$ rows) guardrails, returning RFC 7807 413 or 422 upon violation.
    - Neutralizes formula injection characters (`=`, `+`, `-`, `@`, `\t`, `\r`), strips raw HTML tags, and truncates descriptions to 4,000 characters.
@@ -33,6 +34,7 @@ Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backb
 **Language/Version**: Python 3.12 (enforced by `pyproject.toml` `requires-python = ">=3.12"`)
 
 **Primary Dependencies**:
+
 - Web & Validation: `fastapi>=0.115.0`, `pydantic>=2.8.0`, `mangum>=0.17.0`
 - Persistence & Geospatial: `sqlalchemy[asyncio]>=2.0.32`, `asyncpg>=0.29.0`, `geoalchemy2>=0.15.0`, `alembic>=1.13.0`
 - Queueing & Cloud: `boto3>=1.35.0`, `botocore>=1.35.0`
@@ -41,6 +43,7 @@ Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backb
 - Observability: `opentelemetry-api>=1.26.0`, `opentelemetry-sdk>=1.26.0`, `aws-xray-sdk>=2.14.0`
 
 **Storage**: PostgreSQL 16+ (Neon / Docker PostGIS) with extensions:
+
 - `postgis` (3.4+)
 - `btree_gist` (composite multi-column GiST indexes with UUID `user_id`)
 - `pg_trgm` (trigram fuzzy string matching)
@@ -54,12 +57,14 @@ Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backb
 **Project Type**: Monorepo with shared editable core library (`packages/core`), modular ingestion service (`services/ingest`), background worker (`services/worker`), and CLI utilities (`scripts/`, `photo_scraper/`).
 
 **Performance Goals**:
+
 - CSV Upload Gateway: $< 1.5$s acceptance latency for 1,000-row CSV file returning HTTP 202 (SC-001).
 - Ingestion Throughput: $> 50$ rows/second when addresses are cached in `geocoding_cache` (SC-003).
 - Rate-Limited Geocoding: Exactly 1 req/second spacing across all outbound Nominatim calls (SC-002).
 - Local DLQ Redrive: 100 messages redriven in $< 5$ seconds (SC-007).
 
 **Constraints**:
+
 - Zero-Cost architecture (no DynamoDB, CloudWatch PutMetricData, or Redis).
 - OpenStreetMap Nominatim compliance: strictly $\le 1$ req/sec, custom `User-Agent: VistaraeTravelEngine/1.0`.
 - Single-worker concurrency (`ReservedConcurrentExecutions: 1`) to eliminate distributed DB lock contention.
@@ -72,19 +77,19 @@ Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backb
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle / Rule | Compliance Status | Analysis & Evidence |
-|---|---|---|
-| **Principle 1: File Headers & Pre-Commit** | **PASS** | All new source files (`.py`, `.sql`) mandate Apache-2.0 copyright header banner, Google-style docstrings, cognitive complexity $\le 15$, and max 3 indentation levels. |
-| **Principle 2: Ports & Adapters Architecture** | **PASS** | Domain entities (`IngestJob`, `IngestRowMessage`) and ports (`IIngestJobRepository`, `IQueuePort`) reside in `packages/core`. Adapters (`IngestJobRepository`, `SQSQueueAdapter`) are isolated in `packages/core/vistarae_core/adapters/`. `services/ingest` handles HTTP routing; `services/worker` handles SQS events. |
-| **Principle 3: Database, PgBouncer & Tenancy** | **PASS** | All operations use SQLAlchemy 2.0 Pure Async components (`AsyncSession`). `WHERE user_id = :current_user_id` is enforced across all repository queries and composite indexes (`idx_ingest_jobs_user_created`). Row-Level Security (RLS) is omitted. Prepared statement caching disabled via `statement_cache_size=0`. |
-| **Principle 4: Alembic Isolation & Reversibility** | **PASS** | Migration `0003_async_ingestion_cli.py` provides a 100% reversible `downgrade()` function dropping `ingest_jobs` and its indexes. `job_status` uses Python `StrEnum` backed by `VARCHAR(16)` with check constraints (no native PostgreSQL ENUM). |
-| **Principle 5: API Contracts & Error Standards** | **PASS** | Authoritative OpenAPI 3.1 specification generated at `contracts/ingest-api.yaml`. Boundary models use Pydantic v2 `StrictBaseModel`. Error responses formatted as RFC 7807 `ProblemDetails` (413, 415, 422, 404). |
-| **Principle 6: Middleware Order & Security** | **PASS** | `CORSMiddleware`, `RateLimitMiddleware`, and `IdempotencyMiddleware` configured in LIFO order. Formula injection characters neutralized (`=`, `+`, `-`, `@`, `\t`, `\r`) with prepended single quote; HTML tags stripped. Redrive CLI requires `--env` and confirmation. |
-| **Principle 7: Observability & OpenTelemetry** | **PASS** | Cross-boundary directional message logging (`MSG: -->|`, `MSG: <--|`) enforced for local runs; W3C `traceparent` and `X-Amzn-Trace-Id` injected into SQS `MessageAttributes` and extracted into OpenTelemetry spans in `BatchIngestWorker`. |
-| **Principle 8: PyTest & SDD Governance** | **PASS** | Tests mirror production structure 1:1 under `tests/unit/services/ingest/` and `tests/unit/services/worker/`. Minimum 90% branch and line coverage ceiling strictly enforced. |
-| **Operational Invariant 1: Queue Discipline** | **PASS** | Uploads $> 2$MB or $> 2,000$ rows rejected with RFC 7807 413/422. Primary queue has `VisibilityTimeout: 180s` and `ReceiveMessageWaitTimeSeconds: 20`. DLQ redrive policy has `maxReceiveCount: 3` and 14-day retention. SQS worker enables `ReportBatchItemFailures: true` and maps failed messages 1:1. Synthetic idempotency key `sha256(f"{user_id}:{csv_job_id}:{row_number}")` guarantees record-level idempotency. |
+| Principle / Rule                                   | Compliance Status | Analysis & Evidence                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Principle 1: File Headers & Pre-Commit**         | **PASS**          | All new source files (`.py`, `.sql`) mandate Apache-2.0 copyright header banner, Google-style docstrings, cognitive complexity $\le 15$, and max 3 indentation levels.                                                                                                                                                                                                                                                    |
+| **Principle 2: Ports & Adapters Architecture**     | **PASS**          | Domain entities (`IngestJob`, `IngestRowMessage`) and ports (`IIngestJobRepository`, `IQueuePort`) reside in `packages/core`. Adapters (`IngestJobRepository`, `SQSQueueAdapter`) are isolated in `packages/core/vistarae_core/adapters/`. `services/ingest` handles HTTP routing; `services/worker` handles SQS events.                                                                                                  |
+| **Principle 3: Database, PgBouncer & Tenancy**     | **PASS**          | All operations use SQLAlchemy 2.0 Pure Async components (`AsyncSession`). `WHERE user_id = :current_user_id` is enforced across all repository queries and composite indexes (`idx_ingest_jobs_user_created`). Row-Level Security (RLS) is omitted. Prepared statement caching disabled via `statement_cache_size=0`.                                                                                                     |
+| **Principle 4: Alembic Isolation & Reversibility** | **PASS**          | Migration `0003_async_ingestion_cli.py` provides a 100% reversible `downgrade()` function dropping `ingest_jobs` and its indexes. `job_status` uses Python `StrEnum` backed by `VARCHAR(16)` with check constraints (no native PostgreSQL ENUM).                                                                                                                                                                          |
+| **Principle 5: API Contracts & Error Standards**   | **PASS**          | Authoritative OpenAPI 3.1 specification generated at `contracts/ingest-api.yaml`. Boundary models use Pydantic v2 `StrictBaseModel`. Error responses formatted as RFC 7807 `ProblemDetails` (413, 415, 422, 404).                                                                                                                                                                                                         |
+| **Principle 6: Middleware Order & Security**       | **PASS**          | `CORSMiddleware`, `RateLimitMiddleware`, and `IdempotencyMiddleware` configured in LIFO order. Formula injection characters neutralized (`=`, `+`, `-`, `@`, `\t`, `\r`) with prepended single quote; HTML tags stripped. Redrive CLI requires `--env` and confirmation.                                                                                                                                                  |
+| **Principle 7: Observability & OpenTelemetry**     | **PASS**          | Cross-boundary directional message logging (`MSG: -->                                                                                                                                                                                                                                                                                                                                                                     | `, `MSG: <-- | `) enforced for local runs; W3C `traceparent`and`X-Amzn-Trace-Id`injected into SQS`MessageAttributes`and extracted into OpenTelemetry spans in`BatchIngestWorker`. |
+| **Principle 8: PyTest & SDD Governance**           | **PASS**          | Tests mirror production structure 1:1 under `tests/unit/services/ingest/` and `tests/unit/services/worker/`. Minimum 90% branch and line coverage ceiling strictly enforced.                                                                                                                                                                                                                                              |
+| **Operational Invariant 1: Queue Discipline**      | **PASS**          | Uploads $> 2$MB or $> 2,000$ rows rejected with RFC 7807 413/422. Primary queue has `VisibilityTimeout: 180s` and `ReceiveMessageWaitTimeSeconds: 20`. DLQ redrive policy has `maxReceiveCount: 3` and 14-day retention. SQS worker enables `ReportBatchItemFailures: true` and maps failed messages 1:1. Synthetic idempotency key `sha256(f"{user_id}:{csv_job_id}:{row_number}")` guarantees record-level idempotency. |
 
 ---
 

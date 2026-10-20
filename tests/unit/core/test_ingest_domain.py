@@ -176,7 +176,11 @@ class TestQueueAdapters:
 
         # Send batch
         entries = [
-            {"Id": "1", "MessageBody": {"text": "hello"}, "MessageAttributes": {"traceparent": "00-test-01"}},
+            {
+                "Id": "1",
+                "MessageBody": {"text": "hello"},
+                "MessageAttributes": {"traceparent": "00-test-01"},
+            },
             {"Id": "2", "MessageBody": {"text": "world"}},
         ]
         res = await adapter.send_message_batch("test-queue", entries)
@@ -198,7 +202,9 @@ class TestQueueAdapters:
     async def test_sqs_queue_adapter_with_mocked_client(self) -> None:
         """Tests SQSQueueAdapter batch dispatch and error boundaries."""
         mock_boto = MagicMock()
-        mock_boto.get_queue_url.return_value = {"QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/test-q"}
+        mock_boto.get_queue_url.return_value = {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/test-q"
+        }
         mock_boto.send_message_batch.return_value = {
             "Successful": [{"Id": "1", "MessageId": "msg-1"}],
             "Failed": [],

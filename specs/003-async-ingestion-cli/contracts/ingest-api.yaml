@@ -35,30 +35,30 @@ paths:
                   format: binary
                   description: CSV file payload (max 2MB, max 2,000 rows)
       responses:
-        '202':
+        "202":
           description: CSV accepted and enqueued for asynchronous background processing
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IngestUploadResponse'
-        '413':
+                $ref: "#/components/schemas/IngestUploadResponse"
+        "413":
           description: File size exceeds 2MB limit
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '415':
+                $ref: "#/components/schemas/ProblemDetails"
+        "415":
           description: Unsupported MIME type
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
+                $ref: "#/components/schemas/ProblemDetails"
+        "422":
           description: Unprocessable CSV (row limit exceeded, invalid headers, or corrupted encoding)
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
   /jobs/{job_id}:
     get:
@@ -75,18 +75,18 @@ paths:
             format: uuid
           description: UUID of the ingestion job
       responses:
-        '200':
+        "200":
           description: Current job progress metrics and pending review duplicates
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IngestJobProgressResponse'
-        '404':
+                $ref: "#/components/schemas/IngestJobProgressResponse"
+        "404":
           description: Job not found or does not belong to the authenticated user
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
   /jobs/{job_id}/triage:
     post:
@@ -107,9 +107,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TriageRequest'
+              $ref: "#/components/schemas/TriageRequest"
       responses:
-        '200':
+        "200":
           description: Triage decisions applied successfully
           content:
             application/json:
@@ -127,13 +127,14 @@ paths:
                     type: integer
                   job_status:
                     type: string
-                    enum: [PENDING, PROCESSING, COMPLETED, PARTIAL_SUCCESS, FAILED]
-        '404':
+                    enum:
+                      [PENDING, PROCESSING, COMPLETED, PARTIAL_SUCCESS, FAILED]
+        "404":
           description: Job not found or does not belong to the authenticated user
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: "#/components/schemas/ProblemDetails"
 
   /health/ready:
     get:
@@ -141,7 +142,7 @@ paths:
       operationId: health_ready
       description: Verifies SQS GetQueueAttributes and PostgreSQL SELECT 1 connectivity
       responses:
-        '200':
+        "200":
           description: All dependencies ready
           content:
             application/json:
@@ -157,7 +158,7 @@ paths:
                   database:
                     type: string
                     example: connected
-        '503':
+        "503":
           description: One or more dependencies unreachable
           content:
             application/json:
@@ -174,7 +175,7 @@ paths:
       operationId: health_live
       description: Pure process liveness probe with zero network or database I/O
       responses:
-        '200':
+        "200":
           description: ASGI process responsive
           content:
             application/json:
@@ -277,7 +278,7 @@ components:
         duplicate_items:
           type: array
           items:
-            $ref: '#/components/schemas/DuplicateItemResponse'
+            $ref: "#/components/schemas/DuplicateItemResponse"
         error_summary:
           type: array
           items:
@@ -309,7 +310,7 @@ components:
         decisions:
           type: array
           items:
-            $ref: '#/components/schemas/TriageDecisionItem'
+            $ref: "#/components/schemas/TriageDecisionItem"
 
     ProblemDetails:
       type: object

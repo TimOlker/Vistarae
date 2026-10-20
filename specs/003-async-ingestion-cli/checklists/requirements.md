@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-10-19  
-**Feature**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md)  
+**Feature**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md)
 
 ## Content Quality
 

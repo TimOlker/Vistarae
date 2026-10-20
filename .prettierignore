@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+.venv/
+venv/
+*.pyc
+__pycache__/
+extension/browser/vendor/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

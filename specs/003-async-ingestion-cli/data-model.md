@@ -3,7 +3,7 @@
 **Feature Identifier**: `003-async-ingestion-cli`  
 **Date**: 2026-10-19  
 **Status**: Completed  
-**Spec**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md) | **Research**: [research.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/research.md)  
+**Spec**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md) | **Research**: [research.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/research.md)
 
 ---
 
@@ -24,35 +24,35 @@ CREATE TABLE IF NOT EXISTS ingest_jobs (
     error_summary JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
+
     CONSTRAINT ck_ingest_jobs_status CHECK (
         job_status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'PARTIAL_SUCCESS', 'FAILED')
     )
 );
 
 -- Index for tenant-scoped job history and sorting
-CREATE INDEX IF NOT EXISTS idx_ingest_jobs_user_created 
+CREATE INDEX IF NOT EXISTS idx_ingest_jobs_user_created
     ON ingest_jobs (user_id, created_at DESC);
 
 -- Index for fast user-scoped job lookup by primary key
-CREATE INDEX IF NOT EXISTS idx_ingest_jobs_id_user 
+CREATE INDEX IF NOT EXISTS idx_ingest_jobs_id_user
     ON ingest_jobs (id, user_id);
 ```
 
 ### 1.2 Column Dictionary
 
-| Column | Type | Constraints | Description |
-| :--- | :--- | :--- | :--- |
-| `id` | `UUID` | Primary Key, `gen_random_uuid()` | Unique job identifier returned to the client upon upload. |
-| `user_id` | `UUID` | Foreign Key `users(id)` ON DELETE CASCADE | Tenant identifier for data isolation (Constitution Principle 3). |
-| `job_status` | `VARCHAR(16)` | NOT NULL, Check Constraint | Job lifecycle state: `PENDING`, `PROCESSING`, `COMPLETED`, `PARTIAL_SUCCESS`, `FAILED`. |
-| `total_rows` | `INT` | NOT NULL, DEFAULT 0 | Count of valid data rows parsed from the uploaded CSV. |
-| `processed_rows` | `INT` | NOT NULL, DEFAULT 0 | Count of rows successfully processed or triaged so far. |
-| `duplicate_payloads` | `JSONB` | NOT NULL, DEFAULT `'[]'::jsonb` | JSON array of suspected duplicate items flagged for user triage. |
-| `target_list_id` | `UUID` | NULL, FK `lists(id)` ON DELETE SET NULL | Optional list to which imported POIs are automatically attached. |
-| `error_summary` | `JSONB` | NOT NULL, DEFAULT `'[]'::jsonb` | Array of row-level error objects recording validation/unresolvable failures. |
-| `created_at` | `TIMESTAMPTZ`| NOT NULL, DEFAULT NOW() | Timestamp when the upload was accepted. |
-| `updated_at` | `TIMESTAMPTZ`| NOT NULL, DEFAULT NOW() | Timestamp of last progress or status mutation. |
+| Column               | Type          | Constraints                               | Description                                                                             |
+| :------------------- | :------------ | :---------------------------------------- | :-------------------------------------------------------------------------------------- |
+| `id`                 | `UUID`        | Primary Key, `gen_random_uuid()`          | Unique job identifier returned to the client upon upload.                               |
+| `user_id`            | `UUID`        | Foreign Key `users(id)` ON DELETE CASCADE | Tenant identifier for data isolation (Constitution Principle 3).                        |
+| `job_status`         | `VARCHAR(16)` | NOT NULL, Check Constraint                | Job lifecycle state: `PENDING`, `PROCESSING`, `COMPLETED`, `PARTIAL_SUCCESS`, `FAILED`. |
+| `total_rows`         | `INT`         | NOT NULL, DEFAULT 0                       | Count of valid data rows parsed from the uploaded CSV.                                  |
+| `processed_rows`     | `INT`         | NOT NULL, DEFAULT 0                       | Count of rows successfully processed or triaged so far.                                 |
+| `duplicate_payloads` | `JSONB`       | NOT NULL, DEFAULT `'[]'::jsonb`           | JSON array of suspected duplicate items flagged for user triage.                        |
+| `target_list_id`     | `UUID`        | NULL, FK `lists(id)` ON DELETE SET NULL   | Optional list to which imported POIs are automatically attached.                        |
+| `error_summary`      | `JSONB`       | NOT NULL, DEFAULT `'[]'::jsonb`           | Array of row-level error objects recording validation/unresolvable failures.            |
+| `created_at`         | `TIMESTAMPTZ` | NOT NULL, DEFAULT NOW()                   | Timestamp when the upload was accepted.                                                 |
+| `updated_at`         | `TIMESTAMPTZ` | NOT NULL, DEFAULT NOW()                   | Timestamp of last progress or status mutation.                                          |
 
 ---
 
@@ -126,6 +126,7 @@ Each message enqueued to `vistarae-ingest-{STAGE}` represents a single CSV row:
 ```
 
 **SQS Message Attributes**:
+
 - `traceparent`: `00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01` (`String`)
 - `X-Amzn-Trace-Id`: `Root=1-5759e988-bd862e3fe1be46a994272793` (`String`)
 - `user_id`: `9d71c4c1-2cb2-49da-91db-c875d71cbfd2` (`String`)

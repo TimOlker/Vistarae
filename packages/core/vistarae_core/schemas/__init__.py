@@ -132,7 +132,6 @@ __all__ = [
     "TagResponse",
     "TriageDecisionItem",
     "TriageRequest",
-
     "UIPreferencesResponse",
     "UpdatePlannerPreferencesRequest",
     "UpdatePOIPreferencesRequest",

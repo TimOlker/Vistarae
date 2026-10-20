@@ -262,4 +262,3 @@ class IngestRowMessage:
     absolute_row_number: int
     row_data: dict[str, str]
     target_list_id: UUID | None = None
-

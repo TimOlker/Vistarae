@@ -139,11 +139,13 @@ async def upload_csv(
             "absolute_row_number": row["absolute_row_number"],
             "row_data": row["row_data"],
         }
-        messages.append({
-            "Id": f"row-{row['absolute_row_number']}",
-            "MessageBody": body,
-            "MessageAttributes": trace_attrs,
-        })
+        messages.append(
+            {
+                "Id": f"row-{row['absolute_row_number']}",
+                "MessageBody": body,
+                "MessageAttributes": trace_attrs,
+            }
+        )
 
     # Send in chunks of 10
     for i in range(0, len(messages), 10):

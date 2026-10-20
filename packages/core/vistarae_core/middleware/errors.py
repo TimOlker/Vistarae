@@ -288,9 +288,7 @@ def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
         )
 
     @app.exception_handler(FileTooLargeError)
-    async def file_too_large_handler(
-        request: Request, exc: FileTooLargeError
-    ) -> JSONResponse:
+    async def file_too_large_handler(request: Request, exc: FileTooLargeError) -> JSONResponse:
         """Converts FileTooLargeError → 413 Payload Too Large ProblemDetails."""
         return _problem_response(
             ProblemDetails(
@@ -363,7 +361,6 @@ def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
         )
 
     @app.exception_handler(Exception)
-
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Catches unhandled exceptions and returns a 500 ProblemDetails response.
 

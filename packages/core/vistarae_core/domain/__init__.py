@@ -107,4 +107,3 @@ __all__ = [
     "VisitState",
     "WGS84Point",
 ]
-

@@ -29,11 +29,7 @@ from pathlib import Path
 def _load_migration_module():
     """Dynamically loads the 0003 migration module."""
     migration_path = (
-        Path(__file__).parents[3]
-        / "db"
-        / "migrations"
-        / "versions"
-        / "0003_async_ingestion_cli.py"
+        Path(__file__).parents[3] / "db" / "migrations" / "versions" / "0003_async_ingestion_cli.py"
     )
     spec = importlib.util.spec_from_file_location("migration_0003", migration_path)
     assert spec is not None and spec.loader is not None

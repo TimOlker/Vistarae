@@ -56,25 +56,33 @@ class InMemoryIngestRepo:
             return job
         return None
 
-    async def increment_processed_rows(self, job_id: uuid.UUID, user_id: uuid.UUID, count: int = 1) -> IngestJob | None:
+    async def increment_processed_rows(
+        self, job_id: uuid.UUID, user_id: uuid.UUID, count: int = 1
+    ) -> IngestJob | None:
         job = await self.get_job_by_id(job_id, user_id)
         if job:
             job.processed_rows += count
         return job
 
-    async def append_duplicate_payload(self, job_id: uuid.UUID, user_id: uuid.UUID, duplicate: dict) -> IngestJob | None:
+    async def append_duplicate_payload(
+        self, job_id: uuid.UUID, user_id: uuid.UUID, duplicate: dict
+    ) -> IngestJob | None:
         job = await self.get_job_by_id(job_id, user_id)
         if job:
             job.duplicate_payloads.append(duplicate)
         return job
 
-    async def append_error_summary(self, job_id: uuid.UUID, user_id: uuid.UUID, error: dict) -> IngestJob | None:
+    async def append_error_summary(
+        self, job_id: uuid.UUID, user_id: uuid.UUID, error: dict
+    ) -> IngestJob | None:
         job = await self.get_job_by_id(job_id, user_id)
         if job:
             job.error_summary.append(error)
         return job
 
-    async def update_job_status(self, job_id: uuid.UUID, user_id: uuid.UUID, status: IngestJobStatus) -> IngestJob | None:
+    async def update_job_status(
+        self, job_id: uuid.UUID, user_id: uuid.UUID, status: IngestJobStatus
+    ) -> IngestJob | None:
         job = await self.get_job_by_id(job_id, user_id)
         if job:
             job.job_status = status
@@ -84,10 +92,14 @@ class InMemoryIngestRepo:
         job = await self.get_job_by_id(job_id, user_id)
         return job.duplicate_payloads if job else []
 
-    async def update_duplicate_triage_decisions(self, job_id: uuid.UUID, user_id: uuid.UUID, decisions: list[dict]) -> IngestJob | None:
+    async def update_duplicate_triage_decisions(
+        self, job_id: uuid.UUID, user_id: uuid.UUID, decisions: list[dict]
+    ) -> IngestJob | None:
         return await self.get_job_by_id(job_id, user_id)
 
-    async def recalculate_job_status(self, job_id: uuid.UUID, user_id: uuid.UUID) -> IngestJob | None:
+    async def recalculate_job_status(
+        self, job_id: uuid.UUID, user_id: uuid.UUID
+    ) -> IngestJob | None:
         return await self.get_job_by_id(job_id, user_id)
 
 
