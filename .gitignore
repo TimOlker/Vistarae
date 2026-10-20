@@ -46,3 +46,13 @@ vistarae_pgdata/
 *.swo
 
 photo_scraper/output
+
+# Frontend & Node.js
+node_modules/
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
