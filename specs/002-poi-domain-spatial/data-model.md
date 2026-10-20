@@ -3,7 +3,7 @@
 **Feature Identifier**: `002-poi-domain-spatial`  
 **Date**: 2026-10-19  
 **Status**: Completed  
-**Author**: Antigravity  
+**Author**: Antigravity
 
 ---
 
@@ -149,6 +149,7 @@ class PotentialDuplicateMatch:
 ## 2. Relational Database Schema (`packages/core/vistarae_core/adapters/db/tables.py`)
 
 ### 2.1 Table: `pois`
+
 - `id`: `UUID(as_uuid=True)`, PK, default `uuid.uuid4`.
 - `user_id`: `UUID(as_uuid=True)`, FK `users(id) ON DELETE CASCADE`, indexed, NOT NULL.
 - `parent_poi_id`: `UUID(as_uuid=True)`, FK `pois(id) ON DELETE SET NULL`, indexed, NULL.
@@ -179,12 +180,14 @@ class PotentialDuplicateMatch:
 - `updated_at`: `TIMESTAMPTZ`, NOT NULL, default `NOW()`.
 
 #### Check Constraints
+
 - `ck_pois_visit_state`: `visit_state IN ('not_visited', 'visited_do_not_return', 'visited_return')`
 - `ck_pois_rating`: `rating IS NULL OR (rating >= 0 AND rating <= 5)`
 - `ck_pois_duration`: `recommended_duration_hours IS NULL OR (recommended_duration_hours >= 0.25 AND recommended_duration_hours <= 12.00)`
 - `ck_pois_enrichment`: `enrichment_status IN ('SUCCESS', 'PARTIAL', 'FAILED')`
 
 #### Indexes
+
 - `idx_pois_user_geom`: `USING gist (user_id, geom)` (Geodesic proximity, `ST_DWithin`, `ST_Distance`).
 - `idx_pois_user_geom_geometry`: `USING gist (user_id, (geom::geometry))` (Planar viewport bounding boxes, `ST_MakeEnvelope`).
 - `idx_pois_states_gin`: `USING gin (states)` (JSONB containment `@>` for state searches).
@@ -196,6 +199,7 @@ class PotentialDuplicateMatch:
 ---
 
 ### 2.2 Table: `lists`
+
 - `id`: `UUID`, PK.
 - `user_id`: `UUID`, FK `users(id) ON DELETE CASCADE`, NOT NULL.
 - `title`: `VARCHAR(200)`, NOT NULL.
@@ -206,12 +210,14 @@ class PotentialDuplicateMatch:
 - Index: `idx_lists_user_id` on `(user_id)`.
 
 ### 2.3 Table: `poi_lists` (Association)
+
 - `poi_id`: `UUID`, FK `pois(id) ON DELETE CASCADE`.
 - `list_id`: `UUID`, FK `lists(id) ON DELETE CASCADE`.
 - `added_at`: `TIMESTAMPTZ`, NOT NULL, default `NOW()`.
 - Primary Key: `(poi_id, list_id)`.
 
 ### 2.4 Table: `tags`
+
 - `id`: `UUID`, PK.
 - `user_id`: `UUID`, FK `users(id) ON DELETE CASCADE`, NOT NULL.
 - `name`: `VARCHAR(64)`, NOT NULL.
@@ -219,11 +225,13 @@ class PotentialDuplicateMatch:
 - Unique Constraint: `uq_tags_user_name` on `(user_id, name)`.
 
 ### 2.5 Table: `poi_tags` (Association)
+
 - `poi_id`: `UUID`, FK `pois(id) ON DELETE CASCADE`.
 - `tag_id`: `UUID`, FK `tags(id) ON DELETE CASCADE`.
 - Primary Key: `(poi_id, tag_id)`.
 
 ### 2.6 Table: `geocoding_cache`
+
 - `query_hash`: `VARCHAR(64)`, PK (SHA-256 hex digest).
 - `lat`: `DOUBLE PRECISION`, NOT NULL.
 - `lon`: `DOUBLE PRECISION`, NOT NULL.
@@ -238,6 +246,7 @@ class PotentialDuplicateMatch:
 ## 3. Port Protocols (`packages/core/vistarae_core/ports/`)
 
 ### 3.1 `IPOIRepository` (`repositories.py`)
+
 ```python
 class IPOIRepository(Protocol):
     async def create(self, poi: POI) -> POI: ...
@@ -245,7 +254,7 @@ class IPOIRepository(Protocol):
     async def update(self, poi: POI) -> POI: ...
     async def delete(self, poi_id: UUID, user_id: UUID) -> bool: ...
     async def bulk_delete(self, poi_ids: list[UUID], user_id: UUID) -> int: ...
-    
+
     async def list_pois(
         self,
         user_id: UUID,
@@ -287,6 +296,7 @@ class IPOIRepository(Protocol):
 ```
 
 ### 3.2 `IGeocodingPort` (`geocoding.py`)
+
 ```python
 @dataclass(frozen=True)
 class GeocodingResult:
@@ -304,6 +314,7 @@ class IGeocodingPort(Protocol):
 ```
 
 ### 3.3 `IEmbeddingPort` (`embedding.py`)
+
 ```python
 class IEmbeddingPort(Protocol):
     async def generate_embedding(self, text: str) -> list[float]: ...
@@ -319,7 +330,7 @@ stateDiagram-v2
 
     NOT_VISITED --> VISITED_RETURN: User visits & marks to return
     NOT_VISITED --> VISITED_DO_NOT_RETURN: User visits & marks not to return
-    
+
     VISITED_RETURN --> VISITED_DO_NOT_RETURN: User changes preference
     VISITED_DO_NOT_RETURN --> VISITED_RETURN: User changes preference
     VISITED_RETURN --> NOT_VISITED: User resets visit state

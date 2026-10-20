@@ -10,9 +10,10 @@
 
 ## 1. Executive Summary & Context
 
-Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backbone, scalable batch processing worker, and automated command-line ingestion utilities for the Vistarae platform. While Phase 1 provided authentication, rate-limiting, and quota governance, and Phase 2 delivered spatial POI storage and vector search, Phase 3 allows travelers to onboard massive collections of travel destinations effortlessly. 
+Phase 3 (`003-async-ingestion-cli`) establishes the asynchronous ingestion backbone, scalable batch processing worker, and automated command-line ingestion utilities for the Vistarae platform. While Phase 1 provided authentication, rate-limiting, and quota governance, and Phase 2 delivered spatial POI storage and vector search, Phase 3 allows travelers to onboard massive collections of travel destinations effortlessly.
 
 This phase covers three tightly integrated systems:
+
 1. **Asynchronous Ingest Gateway & Job Lifecycle (`/api/ingest/*`)**: Accepts bulk CSV uploads with strict file size, row count, formula injection, and HTML sanitization guardrails; partitions records into individual SQS messages (dispatched in SQS batch requests of 10) with W3C distributed tracing context; enqueues tasks to AWS SQS (or ElasticMQ locally); and exposes job progress polling and duplicate triage endpoints (`COMMITTED`, `PENDING_REVIEW`, `REJECTED`).
 2. **Batch Ingest Worker (`BatchIngestWorker`)**: An event-driven SQS consumer that extracts OpenTelemetry and AWS X-Ray trace contexts, guarantees record-level idempotency via synthetic SHA-256 keys, enforces a 1 request/second Nominatim geocoding ceiling via in-memory rate limiting with single-worker concurrency, and reports partial batch failures back to SQS (`batchItemFailures`).
 3. **Operational & AI CLI Tooling**:
@@ -33,7 +34,7 @@ This phase covers three tightly integrated systems:
 
 ---
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Bulk CSV Upload with Upload Guardrails & Asynchronous Tracking (Priority: P1)
 
@@ -44,6 +45,7 @@ As a traveler with an extensive spreadsheet of saved travel recommendations, I w
 **Independent Test**: Can be fully tested by submitting a 50-row CSV file via `POST /api/ingest/csv`, receiving an HTTP 202 Accepted response with a job ID, polling `GET /api/ingest/jobs/{job_id}`, and verifying that `processed_rows` increments until reaching `job_status: COMPLETED`.
 
 **Acceptance Scenarios**:
+
 1. **Given** an authenticated user uploads a valid 500-row CSV file under 2MB, **When** submitting `POST /api/ingest/csv`, **Then** the service creates an `ingest_jobs` record, packages each row into an individual SQS message (sent in SQS batch requests of up to 10) with preserved `absolute_row_number`, enqueues them to SQS with trace headers, and returns HTTP 202 with `job_id` and initial status `PENDING`.
 2. **Given** a client uploads a CSV file larger than 2MB, **When** submitting the upload, **Then** the service immediately returns an RFC 7807 413 Payload Too Large error without persisting data or enqueuing messages.
 3. **Given** a client uploads a CSV file with 2,500 rows, **When** submitting the upload, **Then** the service returns an RFC 7807 422 Unprocessable Content error indicating the 2,000-row limit has been exceeded.
@@ -60,6 +62,7 @@ As a platform operator, I need the SQS background worker to process micro-batche
 **Independent Test**: Can be tested by publishing an SQS batch containing 10 rows (5 cached addresses, 4 new addresses, and 1 malformed record), verifying that cached rows return instantly, new addresses throttle at 1-second intervals, the 9 valid rows commit to the database, and the single failing message identifier is returned in `batchItemFailures`.
 
 **Acceptance Scenarios**:
+
 1. **Given** an SQS batch of 10 rows consumed by `BatchIngestWorker`, **When** the worker processes each row, **Then** it generates `sha256(f"{user_id}:{csv_job_id}:{absolute_row_number}")` and inserts an idempotency record; if the row was already recorded, it skips processing.
 2. **Given** multiple concurrent worker tasks requiring external geocoding, **When** querying addresses not in `geocoding_cache`, **Then** workers coordinate through atomic database reservations to space outbound calls by at least 1.0 second.
 3. **Given** an address query that already exists in `geocoding_cache` with an unexpired TTL, **When** processed by the worker, **Then** the worker retrieves the cached coordinates immediately without consuming a rate-limiter slot.
@@ -76,6 +79,7 @@ As a traveler importing travel recommendations from travel blogs, I want the sys
 **Independent Test**: Can be tested by importing a CSV with a row identical in name and location to an existing POI, polling `GET /api/ingest/jobs/{job_id}`, observing the duplicate payload in `PENDING_REVIEW`, and posting `COMMITTED` to `/api/ingest/jobs/{job_id}/triage` to confirm the record commits to `pois`.
 
 **Acceptance Scenarios**:
+
 1. **Given** a CSV row matches an existing POI with trigram similarity $\ge 0.60$ and geodesic distance $\le 805$ meters, **When** processed by the worker, **Then** the worker appends the staged data and collision details into `duplicate_payloads` with status `PENDING_REVIEW` and does not insert into `pois`.
 2. **Given** a job with items in `duplicate_payloads`, **When** the user calls `GET /api/ingest/jobs/{job_id}`, **Then** the response includes job progress and an array of `PENDING_REVIEW` items with match confidence and candidate details.
 3. **Given** an item with status `PENDING_REVIEW`, **When** the user posts `decision: COMMITTED` to the triage endpoint, **Then** the system creates the POI, links it to any designated target list, and updates the triage status to `COMMITTED`.
@@ -92,6 +96,7 @@ As a system administrator or developer, I need a safe, environment-aware CLI too
 **Independent Test**: Can be tested by placing a poisoned message into `vistarae-ingest-dlq-local`, running `python scripts/redrive_dlq.py --env local --max-messages 10`, and confirming the message is deleted from the DLQ and re-enqueued into `vistarae-ingest-local`.
 
 **Acceptance Scenarios**:
+
 1. **Given** messages exist in `vistarae-ingest-dlq-local`, **When** a developer executes `python scripts/redrive_dlq.py --env local`, **Then** the script moves messages in batches of up to 10 using SQS batch APIs without requiring interactive confirmation.
 2. **Given** a developer executes `python scripts/redrive_dlq.py --env prod`, **When** prompted for interactive confirmation, **Then** the script aborts if the user does not explicitly type "yes".
 3. **Given** confirmation is provided in a cloud environment (`staging` or `prod`), **When** executed, **Then** the script triggers AWS native `start_message_move_task` and reports task status.
@@ -109,6 +114,7 @@ As a photographer or traveler with gigabytes of vacation photos organized in fol
 **Independent Test**: Can be tested by pointing `photo_scraper` at a folder containing sample JPEG photos with EXIF tags, verifying that Gemini Flash-Lite is invoked with structured JSON output, confirming that uncertain locations prompt the CLI user, and verifying that the final output is a valid CSV adhering to Vistarae ingestion standards.
 
 **Acceptance Scenarios**:
+
 1. **Given** a directory containing photo files with EXIF GPS coordinates and timestamp metadata, **When** running the photo scanner CLI, **Then** the scanner extracts coordinates, dates, and folder naming hierarchy.
 2. **Given** extracted metadata, **When** calling Google Gemini Flash-Lite, **Then** the request enforces `response_mime_type="application/json"`, `thinking_budget=0`, and a strict Pydantic output schema (`PhotoPOIInference`).
 3. **Given** Gemini returns `is_uncertain: true` or a confidence score below 0.70 or a generic category (e.g., "Airport", "Hotel", "Restaurant"), **When** running in interactive mode, **Then** the CLI prompts the user to confirm, edit, or reject the inferred POI; **When** running with `--non-interactive` or in a non-TTY environment, **Then** the CLI assigns `triage_status = 'NEEDS_REVIEW'` in the CSV without prompting.
@@ -129,7 +135,7 @@ As a photographer or traveler with gigabytes of vacation photos organized in fol
 
 ---
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -189,7 +195,7 @@ As a photographer or traveler with gigabytes of vacation photos organized in fol
 
 ---
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **IngestJob (`ingest_jobs`)**: Represents an asynchronous bulk ingestion task. Key attributes: `id` (UUID), `user_id` (UUID), `job_status` (`PENDING`, `PROCESSING`, `COMPLETED`, `PARTIAL_SUCCESS`, `FAILED`), `total_rows` (int), `processed_rows` (int), `duplicate_payloads` (JSONB array of staged duplicates awaiting triage), `target_list_id` (optional UUID), `created_at`, `updated_at`.
 - **DuplicatePayload (Value Object in `duplicate_payloads`)**: Represents an imported row flagged as a potential duplicate. Attributes: `row_number` (int), `raw_name` (str), `candidate_poi_id` (UUID), `match_type` (`POTENTIAL_DUPLICATE` or `NEARBY_PARENT`), `similarity_score` (float), `distance_meters` (float), `triage_status` (`PENDING_REVIEW`, `COMMITTED`, `REJECTED`), `staged_poi_data` (dict of normalized POI fields).
@@ -213,7 +219,7 @@ As a photographer or traveler with gigabytes of vacation photos organized in fol
 
 ---
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

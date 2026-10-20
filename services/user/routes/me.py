@@ -31,6 +31,7 @@ from vistarae_core.adapters.db.tables import (
     UserQuotasTable,
     UserTable,
 )
+from vistarae_core.adapters.identity.cognito import CognitoIdentityProvider
 from vistarae_core.domain.entities import User
 from vistarae_core.domain.value_objects import PacingMode, ThemeMode, TransitSpeedMode, UserTier
 from vistarae_core.schemas.preferences import (
@@ -47,7 +48,6 @@ from vistarae_core.schemas.user import (
     UserResponse,
 )
 
-from vistarae_core.adapters.identity.cognito import CognitoIdentityProvider
 from services.user.dependencies import get_current_user
 
 router = APIRouter()

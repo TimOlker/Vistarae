@@ -74,7 +74,9 @@ class FakePOIRepo:
         self.duplicates_to_return: list[PotentialDuplicateMatch] = []
         self.attached_lists: list[tuple[uuid.UUID, uuid.UUID]] = []
 
-    async def find_potential_duplicates(self, user_id, name, point, radius_meters=805.0, similarity_threshold=0.60):
+    async def find_potential_duplicates(
+        self, user_id, name, point, radius_meters=805.0, similarity_threshold=0.60
+    ):
         return self.duplicates_to_return
 
     async def create(self, poi: POI) -> POI:
@@ -111,18 +113,20 @@ class TestBatchIngestWorker:
 
         record = {
             "messageId": "msg-001",
-            "body": json.dumps({
-                "job_id": str(job_id),
-                "user_id": str(user_id),
-                "target_list_id": None,
-                "absolute_row_number": 2,
-                "row_data": {
-                    "name": "Glacier Point",
-                    "description": "Overlook above Yosemite Valley",
-                    "latitude": "37.730",
-                    "longitude": "-119.573",
-                },
-            }),
+            "body": json.dumps(
+                {
+                    "job_id": str(job_id),
+                    "user_id": str(user_id),
+                    "target_list_id": None,
+                    "absolute_row_number": 2,
+                    "row_data": {
+                        "name": "Glacier Point",
+                        "description": "Overlook above Yosemite Valley",
+                        "latitude": "37.730",
+                        "longitude": "-119.573",
+                    },
+                }
+            ),
             "messageAttributes": {
                 "traceparent": {"stringValue": "00-trace-01"},
             },
@@ -174,17 +178,19 @@ class TestBatchIngestWorker:
 
         record = {
             "messageId": "msg-002",
-            "body": json.dumps({
-                "job_id": str(job_id),
-                "user_id": str(user_id),
-                "target_list_id": None,
-                "absolute_row_number": 3,
-                "row_data": {
-                    "name": "Yosemite Valley Overlook",
-                    "latitude": "37.716",
-                    "longitude": "-119.678",
-                },
-            }),
+            "body": json.dumps(
+                {
+                    "job_id": str(job_id),
+                    "user_id": str(user_id),
+                    "target_list_id": None,
+                    "absolute_row_number": 3,
+                    "row_data": {
+                        "name": "Yosemite Valley Overlook",
+                        "latitude": "37.716",
+                        "longitude": "-119.678",
+                    },
+                }
+            ),
         }
 
         mock_session = AsyncMock()
@@ -220,12 +226,14 @@ class TestBatchIngestWorker:
 
         record = {
             "messageId": "msg-003",
-            "body": json.dumps({
-                "job_id": str(job_id),
-                "user_id": str(user_id),
-                "absolute_row_number": 10,
-                "row_data": {"name": "Nowhere Fantasy Land"},
-            }),
+            "body": json.dumps(
+                {
+                    "job_id": str(job_id),
+                    "user_id": str(user_id),
+                    "absolute_row_number": 10,
+                    "row_data": {"name": "Nowhere Fantasy Land"},
+                }
+            ),
         }
 
         mock_session = AsyncMock()
@@ -255,7 +263,6 @@ class TestBatchIngestWorker:
             geocoder=AsyncMock(),
             embedding_port=MockEmbeddingAdapter(),
         )
-
 
         records = [
             {"messageId": "msg-ok-1", "body": "{}"},

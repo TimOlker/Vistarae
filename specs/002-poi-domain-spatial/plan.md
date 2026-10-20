@@ -9,6 +9,7 @@
 ## Summary
 
 Phase 2 (`002-poi-domain-spatial`) implements the Point of Interest (POI) domain, geospatial engine, and semantic search layer. The architectural design establishes:
+
 1. Pure domain aggregates and value objects in `packages/core/vistarae_core/domain/` (`POI`, `ListEntity`, `TagEntity`, `GeocodingCacheEntry`, `WGS84Point`, `BoundingBox`, `DeduplicationPreset`, `MergeResolutionRule`), supporting cross-border and multi-jurisdiction destinations spanning multiple states and/or sovereign countries via JSONB string arrays (`states`, `countries`).
 2. Dual-indexed PostGIS persistence in `packages/core/vistarae_core/adapters/db/tables.py` and `adapters/repositories/poi_repo.py`:
    - Planar viewport exploration using `(geom::geometry) && ST_MakeEnvelope(...)` backed by composite functional GiST index `idx_pois_user_geom_geometry`.
@@ -27,6 +28,7 @@ Phase 2 (`002-poi-domain-spatial`) implements the Point of Interest (POI) domain
 **Language/Version**: Python 3.12 (enforced by `pyproject.toml` `requires-python = ">=3.12"`)
 
 **Primary Dependencies**:
+
 - Web & Validation: `fastapi>=0.115.0`, `pydantic>=2.8.0`, `mangum>=0.17.0`
 - Persistence & Geospatial: `sqlalchemy[asyncio]>=2.0.32`, `asyncpg>=0.29.0`, `geoalchemy2>=0.15.0`, `shapely>=2.0.0`, `alembic>=1.13.0`
 - AI & Embeddings: `google-genai>=0.1.1`, `tenacity`
@@ -34,6 +36,7 @@ Phase 2 (`002-poi-domain-spatial`) implements the Point of Interest (POI) domain
 - Observability: `opentelemetry-api>=1.26.0`, `opentelemetry-sdk>=1.26.0`
 
 **Storage**: PostgreSQL 16+ with extensions:
+
 - `postgis` (3.4+)
 - `btree_gist` (composite multi-column GiST indexes with UUID `user_id`)
 - `pg_trgm` (trigram fuzzy string matching)
@@ -47,11 +50,13 @@ Phase 2 (`002-poi-domain-spatial`) implements the Point of Interest (POI) domain
 **Project Type**: Monorepo with shared editable core library (`packages/core`) and modular domain service (`services/poi`).
 
 **Performance Goals**:
+
 - Planar viewport queries (`GET /api/pois?bbox=...`): $< 75$ms p95 latency for up to 200 spatial points over 10,000 indexed records (SC-001).
 - Geocoding cache resolution: $< 10$ms response latency with 0 outbound network requests on cache hits (SC-002).
 - Interactive merge operations: $< 150$ms atomic execution with 0 orphaned relationships (SC-004).
 
 **Constraints**:
+
 - Zero-Cost architecture (no DynamoDB, CloudWatch PutMetricData, or Redis).
 - Canonical WGS-84 coordinate storage (`EPSG:4326`); China bounding box shifts (GCJ-02/BD-09) isolated strictly to frontend clients.
 - Multi-tenant tenant scoping (`WHERE user_id = :current_user_id`) enforced across all database queries.
@@ -64,19 +69,19 @@ Phase 2 (`002-poi-domain-spatial`) implements the Point of Interest (POI) domain
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle / Rule | Compliance Status | Analysis & Evidence |
-|---|---|---|
-| **Principle 1: File Headers & Pre-Commit** | **PASS** | All new source files (`.py`, `.sql`) mandate Apache-2.0 copyright header banner, Google-style docstrings, cognitive complexity $\le 15$, and max 3 indentation levels. |
-| **Principle 2: Ports & Adapters Architecture** | **PASS** | Domain entities (`POI`, `ListEntity`, `TagEntity`) and interfaces (`IPOIRepository`, `IGeocodingPort`, `IEmbeddingPort`) reside in `packages/core`. Adapters (`POIRepository`, `MapboxGeocodingAdapter`, `GeminiEmbeddingAdapter`) are isolated in `packages/core/vistarae_core/adapters/`. `services/poi` handles HTTP routing and Mangum entrypoints. |
-| **Principle 3: Database, PgBouncer & Tenancy** | **PASS** | All operations use SQLAlchemy 2.0 Pure Async components (`AsyncSession`). `WHERE user_id = :current_user_id` is enforced across all repository queries and composite GiST indexes. Row-Level Security (RLS) is strictly omitted. Prepared statement caching disabled via `statement_cache_size=0`. |
-| **Principle 4: Alembic Isolation & Reversibility** | **PASS** | Migration `0002_poi_domain_spatial.py` provides a 100% reversible `downgrade()` function dropping all tables and indexes in reverse dependency order. All enum columns use Python `StrEnum` backed by `VARCHAR(n)` with `CheckConstraint` (no PostgreSQL native `ENUM`). |
-| **Principle 5: API Contracts & Error Standards** | **PASS** | Authoritative OpenAPI 3.1 specification generated at `contracts/poi-api.yaml`. Boundary models use Pydantic v2 `StrictBaseModel`. All error responses formatted as RFC 7807 `ProblemDetails`. |
-| **Principle 6: Middleware Order & Security** | **PASS** | LIFO middleware ordering (`RateLimitMiddleware` outermost, `IdempotencyMiddleware` innermost) maintained via `services.local_gateway`. No hardcoded API keys; all Mapbox/Gemini tokens injected via environment settings. |
-| **Principle 7: Observability & OpenTelemetry** | **PASS** | Cross-boundary directional message logging (`MSG: -->|`, `MSG: <--|`) enforced for local runs; W3C `traceparent` passed across service calls. |
-| **Principle 8: PyTest & SDD Governance** | **PASS** | Tests mirror production structure 1:1 under `tests/unit/services/poi/`. Total test coverage gate enforced at $\ge 90\%$ line and branch coverage. |
-| **Operational Invariant 2: Geospatial Storage** | **PASS** | Coordinates stored canonically as `geography(Point, 4326)` in `pois.geom` and `geometry(MultiPolygon, 4326)` in `pois.region_geom`. Viewport queries use `(geom::geometry) && ST_MakeEnvelope` backed by composite functional GiST index `idx_pois_user_geom_geometry`. Miles converted to meters (`miles * 1609.344`). China coordinate shifts strictly isolated to frontend client. |
+| Principle / Rule                                   | Compliance Status | Analysis & Evidence                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------- |
+| **Principle 1: File Headers & Pre-Commit**         | **PASS**          | All new source files (`.py`, `.sql`) mandate Apache-2.0 copyright header banner, Google-style docstrings, cognitive complexity $\le 15$, and max 3 indentation levels.                                                                                                                                                                                                                |
+| **Principle 2: Ports & Adapters Architecture**     | **PASS**          | Domain entities (`POI`, `ListEntity`, `TagEntity`) and interfaces (`IPOIRepository`, `IGeocodingPort`, `IEmbeddingPort`) reside in `packages/core`. Adapters (`POIRepository`, `MapboxGeocodingAdapter`, `GeminiEmbeddingAdapter`) are isolated in `packages/core/vistarae_core/adapters/`. `services/poi` handles HTTP routing and Mangum entrypoints.                               |
+| **Principle 3: Database, PgBouncer & Tenancy**     | **PASS**          | All operations use SQLAlchemy 2.0 Pure Async components (`AsyncSession`). `WHERE user_id = :current_user_id` is enforced across all repository queries and composite GiST indexes. Row-Level Security (RLS) is strictly omitted. Prepared statement caching disabled via `statement_cache_size=0`.                                                                                    |
+| **Principle 4: Alembic Isolation & Reversibility** | **PASS**          | Migration `0002_poi_domain_spatial.py` provides a 100% reversible `downgrade()` function dropping all tables and indexes in reverse dependency order. All enum columns use Python `StrEnum` backed by `VARCHAR(n)` with `CheckConstraint` (no PostgreSQL native `ENUM`).                                                                                                              |
+| **Principle 5: API Contracts & Error Standards**   | **PASS**          | Authoritative OpenAPI 3.1 specification generated at `contracts/poi-api.yaml`. Boundary models use Pydantic v2 `StrictBaseModel`. All error responses formatted as RFC 7807 `ProblemDetails`.                                                                                                                                                                                         |
+| **Principle 6: Middleware Order & Security**       | **PASS**          | LIFO middleware ordering (`RateLimitMiddleware` outermost, `IdempotencyMiddleware` innermost) maintained via `services.local_gateway`. No hardcoded API keys; all Mapbox/Gemini tokens injected via environment settings.                                                                                                                                                             |
+| **Principle 7: Observability & OpenTelemetry**     | **PASS**          | Cross-boundary directional message logging (`MSG: -->                                                                                                                                                                                                                                                                                                                                 | `, `MSG: <-- | `) enforced for local runs; W3C `traceparent` passed across service calls. |
+| **Principle 8: PyTest & SDD Governance**           | **PASS**          | Tests mirror production structure 1:1 under `tests/unit/services/poi/`. Total test coverage gate enforced at $\ge 90\%$ line and branch coverage.                                                                                                                                                                                                                                     |
+| **Operational Invariant 2: Geospatial Storage**    | **PASS**          | Coordinates stored canonically as `geography(Point, 4326)` in `pois.geom` and `geometry(MultiPolygon, 4326)` in `pois.region_geom`. Viewport queries use `(geom::geometry) && ST_MakeEnvelope` backed by composite functional GiST index `idx_pois_user_geom_geometry`. Miles converted to meters (`miles * 1609.344`). China coordinate shifts strictly isolated to frontend client. |
 
 ---
 
@@ -161,5 +166,5 @@ tests/unit/services/poi/
 > **Constitution Check passed with zero violations.** No complexity justifications required.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|---|---|---|
-| *None* | N/A | N/A |
+| --------- | ---------- | ------------------------------------ |
+| _None_    | N/A        | N/A                                  |

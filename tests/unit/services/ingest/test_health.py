@@ -41,9 +41,7 @@ class TestHealthEndpoints:
 
     async def test_health_live_endpoint(self) -> None:
         """Asserts zero-IO liveness probe returns 200 OK."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.get("/health/live")
             assert response.status_code == 200
             assert response.json() == {"status": "alive"}

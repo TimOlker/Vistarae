@@ -70,7 +70,6 @@ def sanitize_text_field(value: str) -> str:
     return cleaned.strip()
 
 
-
 def parse_and_sanitize_csv(  # noqa: C901
     file_bytes: bytes,
     content_type: str | None = None,
@@ -152,10 +151,12 @@ def parse_and_sanitize_csv(  # noqa: C901
                 sanitized = sanitized[:4000]
             row_dict[col_name] = sanitized
 
-        rows.append({
-            "absolute_row_number": line_number,
-            "row_data": row_dict,
-        })
+        rows.append(
+            {
+                "absolute_row_number": line_number,
+                "row_data": row_dict,
+            }
+        )
 
     if header_row is None:
         raise DomainError("CSV file contains no headers.")

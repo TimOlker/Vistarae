@@ -105,4 +105,3 @@ class IQueuePort(Protocol):
             receipt_handle: Receipt handle of the message to delete.
         """
         ...
-

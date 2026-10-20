@@ -129,6 +129,4 @@ class MockQueueAdapter:
             receipt_handle: Unique receipt handle.
         """
         queue = self._queues[queue_name]
-        self._queues[queue_name] = [
-            m for m in queue if m.get("ReceiptHandle") != receipt_handle
-        ]
+        self._queues[queue_name] = [m for m in queue if m.get("ReceiptHandle") != receipt_handle]

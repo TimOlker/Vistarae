@@ -617,4 +617,3 @@ class IngestJobTable(Base):
         Index("idx_ingest_jobs_user_created", "user_id", text("created_at DESC")),
         Index("idx_ingest_jobs_id_user", "id", "user_id"),
     )
-

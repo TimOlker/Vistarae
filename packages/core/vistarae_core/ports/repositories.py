@@ -840,4 +840,3 @@ class IIngestJobRepository(Protocol):
             Updated IngestJob entity or None.
         """
         ...
-

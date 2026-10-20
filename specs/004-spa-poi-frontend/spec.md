@@ -12,9 +12,10 @@
 
 ## 1. Executive Summary & Context
 
-Phase 4 (`004-spa-poi-frontend`) delivers the responsive, high-performance Single-Page Application (SPA) for Vistarae travelers. It unites the identity, quota, administrative, spatial POI, and asynchronous ingestion capabilities engineered in Phases 1–3 into an intuitive, visually stunning web application. 
+Phase 4 (`004-spa-poi-frontend`) delivers the responsive, high-performance Single-Page Application (SPA) for Vistarae travelers. It unites the identity, quota, administrative, spatial POI, and asynchronous ingestion capabilities engineered in Phases 1–3 into an intuitive, visually stunning web application.
 
 The application provides:
+
 1. **Core SPA Architecture & Governance**: A Vite-powered modular TypeScript frontend with API proxying, auto-generated OpenAPI type contracts, RFC 7807/9457 ProblemDetails error boundary mapping, global Terms of Service (TOS), unified light/dark/system theme management, AWS Cognito authentication flows, deep sub-domain preference panels (Account/UI, POI Mode, Planner Mode), and an administrative governance dashboard.
 2. **Interactive Map & Synchronized Table View**: Multi-layer geospatial mapping across global (OpenStreetMap, Satellite, Google Maps, Road) and shifted regional Chinese tile sets (AutoNavi/Amap, Baidu). It features an in-browser two-way coordinate transformation engine (WGS-84 $\leftrightarrow$ GCJ-02/BD-09) active strictly within the China bounding box, high-precision numerical iteration (< 0.000001° threshold) for sub-meter pin drops, 300ms viewport debounce, adaptive client-side Supercluster (< 1,000 POIs) vs. backend spatial query switching, and bidirectional map-table filtering.
 3. **Client-Only Photo EXIF & Ingestion Triage UI**: A privacy-first, zero-cloud-bandwidth photo reader extracting GPS and timestamps directly in browser memory with interactive geolocation fallbacks, paired with an asynchronous CSV upload and triage modal supporting row/size error splitting, progress polling, and offline-persistent triage decisions.
@@ -24,13 +25,14 @@ The application provides:
 ## Clarifications
 
 ### Session 2026-10-20
+
 - Q: How should the application handle map layer switching persistence and marker re-projection when a traveler toggles tile layers on the map view widget? → A: Option A (Session-first with explicit default): Layer changes on the map widget apply immediately to the active map session and re-project cached markers in-memory (setData) without network calls; default_map_layer in user_preferences.poi updates only via Settings (/settings/poi) or an explicit "Save as Default" control.
 - Q: What lifecycle, eviction, and server synchronization policy should govern IndexedDB duplicate triage persistence? → A: Option A (Job-synced with 7-day TTL & auto-cleanup): IndexedDB (vistarae_ingest_db, store triage_jobs) keys decisions by job_id; purges the record immediately upon successful submission of POST /api/ingest/jobs/{job_id}/triage or when polled status is COMPLETED/FAILED; and opportunistically evicts records older than 7 days on app launch.
 - Q: Which image formats and memory lifecycle rules should the client-only Photo EXIF Reader support during manual POI creation? → A: Option A (Universal mobile format support & Blob lifecycle): Client-only reader parses EXIF from JPEG, WebP, PNG, and HEIC/HEIF files entirely in browser memory; renders a local preview via URL.createObjectURL(file) with guaranteed URL.revokeObjectURL cleanup upon modal close; and stores extracted GPS coordinates as canonical WGS-84 (projecting to GCJ-02/BD-09 purely for display if a Chinese layer is active).
 
 ---
 
-## 2. User Scenarios & Testing *(mandatory)*
+## 2. User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Authentication, Profile, Preferences & Theming (Priority: P1)
 
@@ -144,7 +146,7 @@ An authorized administrator navigates to the dedicated Admin Dashboard to review
 
 ---
 
-## 3. Requirements *(mandatory)*
+## 3. Requirements _(mandatory)_
 
 ### Core SPA Setup & UI Requirements (`REQ-UI-xxx`)
 
@@ -314,7 +316,7 @@ Reverse Transform on Pin Drop:
 
 ---
 
-## 5. Success Criteria *(mandatory)*
+## 5. Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

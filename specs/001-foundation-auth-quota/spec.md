@@ -1,4 +1,5 @@
 # Specification: Phase 1 — Foundation, Authentication, Quotas & Administration
+
 **Feature Identifier:** `001-foundation-auth-quota`  
 **Status:** `DRAFT` | **Version:** `1.0.0` | **Date:** `2026-10-18`  
 **Target Systems:** Vistarae Backend (FastAPI), Local Infrastructure (Docker Compose, ElasticMQ, PostGIS), Database (PostgreSQL 16 / Alembic), Identity (AWS Cognito)
@@ -10,6 +11,7 @@
 Phase 1 (`001-foundation-auth-quota`) establishes the architectural and security backbone for the Vistarae platform. It provisions local infrastructure for offline-first development, creates core multi-tenant relational and spatial database schemas via Alembic, establishes identity management with AWS Cognito (supporting seamless local stage bypass), and introduces zero-overhead runtime governance via rolling-window rate limiting, token consumption budgeting, idempotency protection, and administrative controls.
 
 ### 1.1 Scope Boundaries
+
 1. **Local Infrastructure (`docker-compose.yml`)**:
    - `postgis/postgis:16-3.4` container with persistent named volume `postgis_data:/var/lib/postgresql/data`.
    - `softwaremill/elasticmq-native:latest` container mounting `docker/elasticmq.conf` pre-configuring local SQS emulation for `vistarae-ingest-local` (with DLQ) and `vistarae-ingest-dlq-local`.
@@ -37,7 +39,7 @@ Phase 1 (`001-foundation-auth-quota`) establishes the architectural and security
 ```mermaid
 flowchart TD
     Client[Chrome Extension / Web Client] -->|W3C Trace & Bearer Token| Traefik[FastAPI Middleware Pipeline]
-    
+
     subgraph Middleware Pipeline
         MW_Trace[Telemetry Middleware<br/>W3C Context & Msg Tags]
         MW_Auth[Auth Dependency<br/>Cognito JWKS / X-Mock-User-Id]
@@ -78,6 +80,7 @@ flowchart TD
 ## 3. Data Dictionary & Schemas
 
 ### 3.1 Database Extensions
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
@@ -109,14 +112,14 @@ CREATE TABLE user_preferences (
     email_notifications_enabled BOOLEAN DEFAULT TRUE NOT NULL,
     push_notifications_enabled BOOLEAN DEFAULT TRUE NOT NULL,
     marketing_emails_enabled BOOLEAN DEFAULT FALSE NOT NULL,
-    
+
     -- POI Mode Preferences
     clustering_enabled BOOLEAN DEFAULT TRUE NOT NULL,
     clustering_radius_meters INT DEFAULT 50 NOT NULL,
     default_map_layer VARCHAR(32) DEFAULT 'standard' NOT NULL,
     geoproximity_scope_km FLOAT DEFAULT 25.0 NOT NULL,
     pin_color_presets JSONB DEFAULT '{"favorite": "#E11D48", "dream": "#8B5CF6", "visited": "#10B981", "default": "#3B82F6"}'::jsonb NOT NULL,
-    
+
     -- Planner Mode Preferences
     pacing VARCHAR(16) DEFAULT 'moderate' NOT NULL, -- 'relaxed', 'moderate', 'fast_paced'
     meal_intervals_hours FLOAT DEFAULT 4.0 NOT NULL,
@@ -124,7 +127,7 @@ CREATE TABLE user_preferences (
     transit_speed_mode VARCHAR(16) DEFAULT 'walking' NOT NULL, -- 'walking', 'bicycling', 'transit', 'driving'
     daily_activity_hour_cap FLOAT DEFAULT 8.0 NOT NULL,
     preferred_currency VARCHAR(3) DEFAULT 'USD' NOT NULL,
-    
+
     created_at TIMESTAMPTZ DEFAULT clock_timestamp() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT clock_timestamp() NOT NULL
 );
@@ -165,6 +168,7 @@ CREATE INDEX idx_idempotency_keys_created_at ON idempotency_keys(created_at);
 ```
 
 ### 3.3 ElasticMQ Configuration (`docker/elasticmq.conf`)
+
 ```hocon
 include classpath("application.conf")
 
@@ -290,7 +294,9 @@ queues {
 ## 5. API Contracts & Endpoint Specifications
 
 ### 5.1 RFC 7807 Standard Error Envelope
+
 All error responses from middleware, dependencies, and route handlers shall strictly adhere to RFC 7807 (`application/problem+json`):
+
 ```json
 {
   "type": "https://errors.vistarae.com/rate-limit-exceeded",
@@ -303,35 +309,35 @@ All error responses from middleware, dependencies, and route handlers shall stri
 
 ### 5.2 UserFunction Routes (`/api/users/*`)
 
-| Method | Endpoint | Description | Request Body | Success Response |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/users/me` | Fetch active user profile, quotas & metrics | None | `200 OK` (`UserProfileResponse`) |
-| `PATCH` | `/api/users/me` | Update full name | `{"full_name": "string"}` | `200 OK` (`UserResponse`) |
-| `GET` | `/api/users/me/preferences` | Fetch all user preferences | None | `200 OK` (`UserPreferencesResponse`) |
-| `PATCH` | `/api/users/me/preferences/ui` | Update Account/UI preferences | `UpdateUIPreferencesRequest` | `200 OK` (`UIPreferencesResponse`) |
-| `PATCH` | `/api/users/me/preferences/poi` | Update POI Mode preferences | `UpdatePOIPreferencesRequest` | `200 OK` (`POIPreferencesResponse`) |
-| `PATCH` | `/api/users/me/preferences/planner` | Update Planner Mode preferences | `UpdatePlannerPreferencesRequest` | `200 OK` (`PlannerPreferencesResponse`) |
-| `DELETE` | `/api/users/me` | Permanent account deletion | None | `204 No Content` |
+| Method   | Endpoint                            | Description                                 | Request Body                      | Success Response                        |
+| :------- | :---------------------------------- | :------------------------------------------ | :-------------------------------- | :-------------------------------------- |
+| `GET`    | `/api/users/me`                     | Fetch active user profile, quotas & metrics | None                              | `200 OK` (`UserProfileResponse`)        |
+| `PATCH`  | `/api/users/me`                     | Update full name                            | `{"full_name": "string"}`         | `200 OK` (`UserResponse`)               |
+| `GET`    | `/api/users/me/preferences`         | Fetch all user preferences                  | None                              | `200 OK` (`UserPreferencesResponse`)    |
+| `PATCH`  | `/api/users/me/preferences/ui`      | Update Account/UI preferences               | `UpdateUIPreferencesRequest`      | `200 OK` (`UIPreferencesResponse`)      |
+| `PATCH`  | `/api/users/me/preferences/poi`     | Update POI Mode preferences                 | `UpdatePOIPreferencesRequest`     | `200 OK` (`POIPreferencesResponse`)     |
+| `PATCH`  | `/api/users/me/preferences/planner` | Update Planner Mode preferences             | `UpdatePlannerPreferencesRequest` | `200 OK` (`PlannerPreferencesResponse`) |
+| `DELETE` | `/api/users/me`                     | Permanent account deletion                  | None                              | `204 No Content`                        |
 
 ### 5.3 AdminFunction Routes (`/api/admin/*`)
 
-| Method | Endpoint | Description | Request Body | Success Response |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/admin/metrics` | Platform telemetry and usage insights | None | `200 OK` (`AdminMetricsResponse`) |
-| `GET` | `/api/admin/users/{user_id}` | Detailed tenant inspection | None | `200 OK` (`AdminUserDetailResponse`) |
-| `PATCH` | `/api/admin/users/{user_id}/quota` | Adjust user quota or tier | `{"monthly_token_quota": 100000, "tier": "high"}` | `200 OK` (`UserQuotaResponse`) |
-| `POST` | `/api/admin/users/{user_id}/disable` | Administratively disable user | None | `200 OK` (`{"status": "disabled"}`) |
-| `POST` | `/api/admin/users/{user_id}/enable` | Re-enable disabled user | None | `200 OK` (`{"status": "enabled"}`) |
-| `PUT` | `/api/admin/quotas/defaults` | Update global default quotas | `{"default_token_quota": 50000, "default_tier": "low"}` | `200 OK` (`QuotaDefaultsResponse`) |
-| `POST` | `/api/admin/trace-injection/toggle` | Toggle trace injection debug flag | None | `200 OK` (`{"trace_injection_enabled": bool}`) |
-| `POST` | `/api/admin/users/{user_id}/messages` | Send administrative alert | `{"title": "string", "message": "string"}` | `202 Accepted` |
+| Method  | Endpoint                              | Description                           | Request Body                                            | Success Response                               |
+| :------ | :------------------------------------ | :------------------------------------ | :------------------------------------------------------ | :--------------------------------------------- |
+| `GET`   | `/api/admin/metrics`                  | Platform telemetry and usage insights | None                                                    | `200 OK` (`AdminMetricsResponse`)              |
+| `GET`   | `/api/admin/users/{user_id}`          | Detailed tenant inspection            | None                                                    | `200 OK` (`AdminUserDetailResponse`)           |
+| `PATCH` | `/api/admin/users/{user_id}/quota`    | Adjust user quota or tier             | `{"monthly_token_quota": 100000, "tier": "high"}`       | `200 OK` (`UserQuotaResponse`)                 |
+| `POST`  | `/api/admin/users/{user_id}/disable`  | Administratively disable user         | None                                                    | `200 OK` (`{"status": "disabled"}`)            |
+| `POST`  | `/api/admin/users/{user_id}/enable`   | Re-enable disabled user               | None                                                    | `200 OK` (`{"status": "enabled"}`)             |
+| `PUT`   | `/api/admin/quotas/defaults`          | Update global default quotas          | `{"default_token_quota": 50000, "default_tier": "low"}` | `200 OK` (`QuotaDefaultsResponse`)             |
+| `POST`  | `/api/admin/trace-injection/toggle`   | Toggle trace injection debug flag     | None                                                    | `200 OK` (`{"trace_injection_enabled": bool}`) |
+| `POST`  | `/api/admin/users/{user_id}/messages` | Send administrative alert             | `{"title": "string", "message": "string"}`              | `202 Accepted`                                 |
 
 ### 5.4 Dual-Probe Routes (`/health/*`)
 
-| Method | Endpoint | Scope | Database I/O | Success Response |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/health/live` | Container / ASGI liveness | Zero DB I/O | `200 OK` (`{"status": "alive"}`) |
-| `GET` | `/health/ready` | CI / Pre-deploy / Manual check | `SELECT 1` | `200 OK` (`{"status": "ready"}`) |
+| Method | Endpoint        | Scope                          | Database I/O | Success Response                 |
+| :----- | :-------------- | :----------------------------- | :----------- | :------------------------------- |
+| `GET`  | `/health/live`  | Container / ASGI liveness      | Zero DB I/O  | `200 OK` (`{"status": "alive"}`) |
+| `GET`  | `/health/ready` | CI / Pre-deploy / Manual check | `SELECT 1`   | `200 OK` (`{"status": "ready"}`) |
 
 ---
 
@@ -345,6 +351,7 @@ In accordance with project-wide telemetry standards, all messages sent or receiv
 - Outbound external response received: `MSG   |<-`
 
 ### 6.1 W3C Distributed Tracing Invariants
+
 1. Incoming requests from clients must carry standard W3C headers:
    - `traceparent: 00-{trace_id}-{client_span_id}-01`
    - `X-Source: extension` (or `web`)
@@ -358,19 +365,19 @@ In accordance with project-wide telemetry standards, all messages sent or receiv
 
 ## 7. Acceptance Criteria & Test Matrix
 
-| Req ID | Target Component | Test Description | Verification Condition |
-| :--- | :--- | :--- | :--- |
+| Req ID               | Target Component           | Test Description                            | Verification Condition                                                                                                           |
+| :------------------- | :------------------------- | :------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- |
 | `REQ-FOUND-001..005` | Docker Compose / ElasticMQ | Local compose startup & queue configuration | `docker compose up -d` boots postgis and elasticmq; SQS queues `vistarae-ingest-local` & DLQ exist with 180s visibility timeout. |
-| `REQ-FOUND-006..011` | Alembic Migration | Schema migration execution | `alembic upgrade head` succeeds; `postgis`, `btree_gist`, `vector` enabled; foreign keys cascade. |
-| `REQ-FOUND-012..015` | Health Probes | ASGI liveness vs DB readiness | `/health/live` returns 200 without DB connection; `/health/ready` executes `SELECT 1` and returns 503 when DB is stopped. |
-| `REQ-AUTH-001..006` | Identity Service | Cognito Auth Lifecycle | Signup, verification, login, forgot-password, reset-password, and logout succeed. |
-| `REQ-AUTH-007..008` | Auth Dependency | Local stage bypass | When `APP_ENV=local`, `X-Mock-User-Id` resolves user; in non-local environments, header is rejected. |
-| `REQ-AUTH-009..010` | User Service | Cascade account deletion | Calling `DELETE /api/users/me` invokes Cognito `AdminDeleteUser` and cascades Postgres deletion for all user records. |
-| `REQ-AUTH-011..012` | Auth Dependency | Orphaned & disabled JWT handling | Orphaned JWTs return 401; users with `is_disabled=TRUE` return 403. |
-| `REQ-QUOTA-001..006` | Rate Limiter | Rolling window & tier caching | Low tier allows 60 req/min, 61st request returns RFC 7807 429 with `Retry-After`; High tier allows 300 req/min. |
-| `REQ-QUOTA-007..012` | Idempotency Middleware | Key locking & cached responses | Simultaneous duplicate `Idempotency-Key` returns 409; completed key returns cached body with `X-Cache-Lookup: HIT`. |
-| `REQ-QUOTA-013..015` | Token Budgeting | Pre-flight check & atomic increment | Rejects LLM call with 429 if `current_token_usage >= monthly_token_quota`; increments usage atomically on success. |
-| `REQ-ADMIN-001..015` | Admin & User Services | User/Admin CRUD & Permissions | User can update sub-domain preferences; Admin can alter quotas, toggle traces, disable accounts, and read platform metrics. |
+| `REQ-FOUND-006..011` | Alembic Migration          | Schema migration execution                  | `alembic upgrade head` succeeds; `postgis`, `btree_gist`, `vector` enabled; foreign keys cascade.                                |
+| `REQ-FOUND-012..015` | Health Probes              | ASGI liveness vs DB readiness               | `/health/live` returns 200 without DB connection; `/health/ready` executes `SELECT 1` and returns 503 when DB is stopped.        |
+| `REQ-AUTH-001..006`  | Identity Service           | Cognito Auth Lifecycle                      | Signup, verification, login, forgot-password, reset-password, and logout succeed.                                                |
+| `REQ-AUTH-007..008`  | Auth Dependency            | Local stage bypass                          | When `APP_ENV=local`, `X-Mock-User-Id` resolves user; in non-local environments, header is rejected.                             |
+| `REQ-AUTH-009..010`  | User Service               | Cascade account deletion                    | Calling `DELETE /api/users/me` invokes Cognito `AdminDeleteUser` and cascades Postgres deletion for all user records.            |
+| `REQ-AUTH-011..012`  | Auth Dependency            | Orphaned & disabled JWT handling            | Orphaned JWTs return 401; users with `is_disabled=TRUE` return 403.                                                              |
+| `REQ-QUOTA-001..006` | Rate Limiter               | Rolling window & tier caching               | Low tier allows 60 req/min, 61st request returns RFC 7807 429 with `Retry-After`; High tier allows 300 req/min.                  |
+| `REQ-QUOTA-007..012` | Idempotency Middleware     | Key locking & cached responses              | Simultaneous duplicate `Idempotency-Key` returns 409; completed key returns cached body with `X-Cache-Lookup: HIT`.              |
+| `REQ-QUOTA-013..015` | Token Budgeting            | Pre-flight check & atomic increment         | Rejects LLM call with 429 if `current_token_usage >= monthly_token_quota`; increments usage atomically on success.               |
+| `REQ-ADMIN-001..015` | Admin & User Services      | User/Admin CRUD & Permissions               | User can update sub-domain preferences; Admin can alter quotas, toggle traces, disable accounts, and read platform metrics.      |
 
 ---
 

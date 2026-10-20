@@ -3,17 +3,20 @@
 **Feature Identifier**: `003-async-ingestion-cli`  
 **Date**: 2026-10-19  
 **Status**: Completed  
-**Spec**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md)  
+**Spec**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md)
 
 ---
 
 ## 1. CSV Upload Guardrails, Security Sanitization & Ingestion API
 
 ### Context & Problem
+
 CSV imports accept untrusted user spreadsheets that may contain Formula Injection payloads (CSV injection via `=`, `+`, `-`, `@`, `\t`, `\r`), raw HTML or script tags, excessively long descriptions, corrupted encodings, or oversized payloads that could exhaust server memory.
 
 ### Decision
+
 Implement a multi-tier streaming validation and sanitization pipeline in `services/ingest/routes/upload.py`:
+
 1. **Size & MIME Pre-Check**:
    - Verify `Content-Length <= 2,097,152` bytes (2MB); return RFC 7807 413 Payload Too Large if exceeded.
    - Enforce MIME check: must be `text/csv`, `text/plain`, or `application/vnd.ms-excel`; return RFC 7807 415 if invalid.
@@ -29,18 +32,22 @@ Implement a multi-tier streaming validation and sanitization pipeline in `servic
    - Require at least one name column (`name`, `title`, or `place_name`) and one location indicator (`address`, `query`, or both `latitude` and `longitude`).
 
 ### Alternatives Considered & Rejected
-- *Pandas / Polars DataFrame parsing*: Rejected to avoid bringing heavyweight data science dependencies into the lightweight serverless runtime.
-- *Strict formula stripping (removing characters entirely)*: Rejected because negative numbers or legitimate titles (e.g. "- Overlook Point") would lose their first character. Prepending `'` safely neutralizes execution in Excel/Sheets while preserving content readability.
+
+- _Pandas / Polars DataFrame parsing_: Rejected to avoid bringing heavyweight data science dependencies into the lightweight serverless runtime.
+- _Strict formula stripping (removing characters entirely)_: Rejected because negative numbers or legitimate titles (e.g. "- Overlook Point") would lose their first character. Prepending `'` safely neutralizes execution in Excel/Sheets while preserving content readability.
 
 ---
 
 ## 2. SQS Micro-Batch Dispatch & Message Granularity
 
 ### Context & Problem
+
 In AWS Lambda with SQS event source mapping, reporting partial batch failures (`batchItemFailures`) operates at the SQS message level (`messageId`), not on sub-elements within a custom JSON array. If multiple CSV rows are packed into a single SQS message, a failure in row 3 causes SQS to redrive all rows in that message, requiring complex partial state tracking.
 
 ### Decision
+
 Partition CSV rows 1:1 into individual SQS messages (`IngestRowMessage`):
+
 1. Each CSV row becomes an independent SQS message containing:
    - `job_id: UUID`
    - `user_id: UUID`
@@ -56,16 +63,19 @@ Partition CSV rows 1:1 into individual SQS messages (`IngestRowMessage`):
 4. The primary queue is configured with `ReceiveMessageWaitTimeSeconds: 20` (Long Polling) and `VisibilityTimeout: 180s` (6x the Lambda 30-second timeout). The dead-letter queue (DLQ) is configured with `maxReceiveCount: 3` and 14-day retention.
 
 ### Alternatives Considered & Rejected
-- *Packing 10 rows per SQS message*: Rejected during clarification because a transient failure in one row would force SQS to redrive all 10 rows, increasing complexity and risk of poison-pill message looping.
+
+- _Packing 10 rows per SQS message_: Rejected during clarification because a transient failure in one row would force SQS to redrive all 10 rows, increasing complexity and risk of poison-pill message looping.
 
 ---
 
 ## 3. Worker Concurrency & In-Memory Rate Limiting
 
 ### Context & Problem
+
 OpenStreetMap Nominatim enforces an absolute usage ceiling of 1 request per second per application. When background workers process hundreds of rows, they must never exceed 1 req/sec. Distributed database locking in Neon PgBouncer transaction mode introduces connection pool contention and risks compute scale-to-zero disruptions.
 
 ### Decision
+
 1. **Single-Worker Concurrency (`ReservedConcurrentExecutions: 1`)**:
    - The SQS consumer Lambda function is configured with `ReservedConcurrentExecutions: 1` in AWS.
    - In local development, the worker loop runs as a single async consumer process.
@@ -79,17 +89,20 @@ OpenStreetMap Nominatim enforces an absolute usage ceiling of 1 request per seco
      - Store result in `geocoding_cache` with a 90-day expiration (`NOW() + INTERVAL '90 days'`).
 
 ### Alternatives Considered & Rejected
-- *Distributed table lock row in Neon (`rate_limit_locks`)*: Rejected during clarification audit. Holding locks or executing high-frequency updates across shared PgBouncer transaction pools wastes connection slots and contradicts Constitution Principle 3 tenancy standards.
-- *Redis token bucket*: Rejected. Vistarae adheres to a Zero-Cost Architecture with no external Redis infrastructure.
+
+- _Distributed table lock row in Neon (`rate_limit_locks`)_: Rejected during clarification audit. Holding locks or executing high-frequency updates across shared PgBouncer transaction pools wastes connection slots and contradicts Constitution Principle 3 tenancy standards.
+- _Redis token bucket_: Rejected. Vistarae adheres to a Zero-Cost Architecture with no external Redis infrastructure.
 
 ---
 
 ## 4. Record-Level Idempotency & Partial Batch Failure Handling
 
 ### Context & Problem
+
 Serverless queues guarantee at-least-once delivery. If a network blip occurs after a row is saved to the database but before the SQS message is deleted, SQS will re-deliver the message. Re-delivery must not generate duplicate POIs or corrupt job metrics.
 
 ### Decision
+
 1. **Synthetic Idempotency Key**:
    - For every row message, the worker computes:
      `key = hashlib.sha256(f"{user_id}:{job_id}:{absolute_row_number}".encode()).hexdigest()`
@@ -113,10 +126,13 @@ Serverless queues guarantee at-least-once delivery. If a network blip occurs aft
 ## 5. Operational Dead-Letter Queue (DLQ) Redrive
 
 ### Context & Problem
+
 Operational scripts that move messages from dead-letter queues back into production queues carry high operational risk. Running an unintended redrive in production can flood downstream services with poisoned messages.
 
 ### Decision
+
 Implement `scripts/redrive_dlq.py` with rigorous environment gating:
+
 1. Mandate `--env` argument (`local`, `staging`, `prod` / `production`).
 2. Provide `--dry-run` to inspect visible DLQ message counts without altering queues.
 3. For cloud environments (`staging`, `prod`):
@@ -131,9 +147,11 @@ Implement `scripts/redrive_dlq.py` with rigorous environment gating:
 ## 6. AI Photo Scanner CLI (`photo_scraper`) Architecture
 
 ### Context & Problem
+
 Travelers have large photo collections organized in nested directories (e.g. `2024/Japan/Kyoto/Fushimi Inari/DSC_0123.jpg`). Extracting POIs requires parsing file path structures, reading EXIF GPS tags, utilizing LLM semantic reasoning to infer landmark identities, and resolving uncertain locations.
 
 ### Decision
+
 1. **EXIF & Metadata Extraction**:
    - Use Pillow / ExifRead to extract GPS latitude/longitude, timestamp taken, and camera tags.
    - Extract directory path components, splitting into continent/country/region/city/landmark candidates.

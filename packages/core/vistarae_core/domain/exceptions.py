@@ -207,9 +207,7 @@ class RowLimitExceededError(DomainError):
             count: Total data rows in the file.
             max_rows: Maximum permitted rows (default 2,000).
         """
-        super().__init__(
-            f"Row count {count} exceeds maximum allowed limit of {max_rows} rows."
-        )
+        super().__init__(f"Row count {count} exceeds maximum allowed limit of {max_rows} rows.")
         self.count = count
         self.max_rows = max_rows
 
@@ -225,9 +223,7 @@ class InvalidMimeTypeError(DomainError):
             allowed: List of acceptable MIME types.
         """
         allowed_types = allowed or ["text/csv", "text/plain", "application/vnd.ms-excel"]
-        super().__init__(
-            f"MIME type '{mime_type}' is invalid. Allowed: {allowed_types}."
-        )
+        super().__init__(f"MIME type '{mime_type}' is invalid. Allowed: {allowed_types}.")
         self.mime_type = mime_type
         self.allowed = allowed_types
 
@@ -245,4 +241,3 @@ class InvalidCSVHeaderError(DomainError):
             f"CSV header validation failed: missing required column(s) {missing_headers}."
         )
         self.missing_headers = missing_headers
-

@@ -94,16 +94,16 @@ paths:
             type: integer
             default: 0
       responses:
-        '200':
+        "200":
           description: Paginated array of POIs matching criteria
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIListResponse'
-        '400':
-          $ref: '#/components/responses/ProblemDetails400'
-        '422':
-          $ref: '#/components/responses/ProblemDetails422'
+                $ref: "#/components/schemas/POIListResponse"
+        "400":
+          $ref: "#/components/responses/ProblemDetails400"
+        "422":
+          $ref: "#/components/responses/ProblemDetails422"
 
     post:
       summary: Create a new Point of Interest
@@ -113,18 +113,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/POICreateRequest'
+              $ref: "#/components/schemas/POICreateRequest"
       responses:
-        '201':
+        "201":
           description: POI successfully created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIResponse'
-        '400':
-          $ref: '#/components/responses/ProblemDetails400'
-        '422':
-          $ref: '#/components/responses/ProblemDetails422'
+                $ref: "#/components/schemas/POIResponse"
+        "400":
+          $ref: "#/components/responses/ProblemDetails400"
+        "422":
+          $ref: "#/components/responses/ProblemDetails422"
 
   /api/pois/{id}:
     parameters:
@@ -138,14 +138,14 @@ paths:
       summary: Retrieve POI Details by ID
       operationId: getPoiById
       responses:
-        '200':
+        "200":
           description: Complete POI details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+                $ref: "#/components/schemas/POIResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
     patch:
       summary: Update POI attributes
       operationId: updatePoi
@@ -154,26 +154,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/POIUpdateRequest'
+              $ref: "#/components/schemas/POIUpdateRequest"
       responses:
-        '200':
+        "200":
           description: POI successfully updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIResponse'
-        '400':
-          $ref: '#/components/responses/ProblemDetails400'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+                $ref: "#/components/schemas/POIResponse"
+        "400":
+          $ref: "#/components/responses/ProblemDetails400"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
     delete:
       summary: Delete POI
       operationId: deletePoi
       responses:
-        '204':
+        "204":
           description: POI successfully deleted
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
 
   /api/pois/dedup-check:
     get:
@@ -205,12 +205,12 @@ paths:
             enum: [urban, macro]
             default: urban
       responses:
-        '200':
+        "200":
           description: List of potential duplicate matches
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DedupCheckResponse'
+                $ref: "#/components/schemas/DedupCheckResponse"
 
   /api/pois/merge:
     post:
@@ -221,22 +221,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/POIMergeRequest'
+              $ref: "#/components/schemas/POIMergeRequest"
       responses:
-        '200':
+        "200":
           description: Successfully merged record (target POI)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIResponse'
-        '400':
+                $ref: "#/components/schemas/POIResponse"
+        "400":
           description: Circular hierarchy cycle detected or invalid IDs
-          $ref: '#/components/responses/ProblemDetails400'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
-        '422':
+          $ref: "#/components/responses/ProblemDetails400"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
+        "422":
           description: Combined tag count exceeds 30
-          $ref: '#/components/responses/ProblemDetails422'
+          $ref: "#/components/responses/ProblemDetails422"
 
   /api/pois/bulk-tags:
     post:
@@ -247,9 +247,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BulkTagsRequest'
+              $ref: "#/components/schemas/BulkTagsRequest"
       responses:
-        '200':
+        "200":
           description: Number of modified records
           content:
             application/json:
@@ -268,9 +268,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BulkListsRequest'
+              $ref: "#/components/schemas/BulkListsRequest"
       responses:
-        '200':
+        "200":
           description: Number of modified records
           content:
             application/json:
@@ -298,7 +298,7 @@ paths:
                     type: string
                     format: uuid
       responses:
-        '200':
+        "200":
           description: Number of deleted records
           content:
             application/json:
@@ -313,13 +313,13 @@ paths:
       summary: List User Curated Lists
       operationId: listUserLists
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ListResponse'
+                  $ref: "#/components/schemas/ListResponse"
     post:
       summary: Create a new Curated List
       operationId: createList
@@ -328,13 +328,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ListCreateRequest'
+              $ref: "#/components/schemas/ListCreateRequest"
       responses:
-        '201':
+        "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResponse'
+                $ref: "#/components/schemas/ListResponse"
 
   /api/lists/{id}/shared:
     get:
@@ -348,27 +348,27 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Shared list and member POIs in read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SharedListResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+                $ref: "#/components/schemas/SharedListResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
 
   /api/tags:
     get:
       summary: List User Tags
       operationId: listTags
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TagResponse'
+                  $ref: "#/components/schemas/TagResponse"
     post:
       summary: Create or Get User Tag
       operationId: createTag
@@ -384,11 +384,11 @@ paths:
                   type: string
                   maxLength: 64
       responses:
-        '201':
+        "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagResponse'
+                $ref: "#/components/schemas/TagResponse"
 
 components:
   schemas:
@@ -494,7 +494,7 @@ components:
         tags:
           type: array
           items:
-            $ref: '#/components/schemas/TagResponse'
+            $ref: "#/components/schemas/TagResponse"
         created_at:
           type: string
           format: date-time
@@ -698,7 +698,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/POIResponse'
+            $ref: "#/components/schemas/POIResponse"
         total:
           type: integer
         limit:
@@ -722,7 +722,7 @@ components:
               - match_confidence
             properties:
               existing_poi:
-                $ref: '#/components/schemas/POIResponse'
+                $ref: "#/components/schemas/POIResponse"
               distance_meters:
                 type: number
               name_similarity:
@@ -824,11 +824,11 @@ components:
         - pois
       properties:
         list:
-          $ref: '#/components/schemas/ListResponse'
+          $ref: "#/components/schemas/ListResponse"
         pois:
           type: array
           items:
-            $ref: '#/components/schemas/POIResponse'
+            $ref: "#/components/schemas/POIResponse"
 
     TagResponse:
       type: object
@@ -876,16 +876,16 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ProblemDetails404:
       description: Resource Not Found
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ProblemDetails422:
       description: Unprocessable Content (e.g. tag count > 30, invalid lat/lon range)
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"

@@ -3,7 +3,7 @@
 **Feature Identifier**: `003-async-ingestion-cli`  
 **Date**: 2026-10-19  
 **Status**: Completed  
-**Spec**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md) | **Contracts**: [ingest-api.yaml](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/contracts/ingest-api.yaml)  
+**Spec**: [spec.md](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/spec.md) | **Contracts**: [ingest-api.yaml](file:///d:/Coding/Vistarae/specs/003-async-ingestion-cli/contracts/ingest-api.yaml)
 
 ---
 
@@ -29,6 +29,7 @@ alembic upgrade head
 ### 2.1 Valid Upload (HTTP 202 Accepted)
 
 Create a sample valid CSV (`sample_valid.csv`):
+
 ```csv
 name,description,address,city,state,country,latitude,longitude,visited_date,tags
 "Multnomah Falls","Iconic 620-foot cascade in the Columbia River Gorge.","50000 E Historic Columbia River Hwy","Bridal Veil","Oregon","United States",45.5762,-122.1158,2024-06-20,"waterfall,hiking"
@@ -44,6 +45,7 @@ curl -i -X POST http://localhost:8030/api/ingest/csv \
 ```
 
 **Expected Response**:
+
 - HTTP Status: `202 Accepted`
 - Body:
   ```json
@@ -87,6 +89,7 @@ python -m services.worker.main --env local
 ```
 
 **Expected Worker Log Flow**:
+
 1. Ingests SQS message from `vistarae-ingest-local`.
 2. Extracts W3C `traceparent` and opens OpenTelemetry span.
 3. Computes `sha256(f"{user_id}:{job_id}:{absolute_row_number}")` and inserts into `idempotency_keys`.
@@ -101,6 +104,7 @@ python -m services.worker.main --env local
 ### 3.2 Verify Idempotency
 
 Re-send the same SQS message with the same `(user_id, job_id, absolute_row_number)`.
+
 - Worker detects conflict on `idempotency_keys` (`ON CONFLICT DO NOTHING`).
 - Worker logs `Idempotency hit, skipping duplicate processing` and deletes message.
 - Zero duplicate rows are inserted into `pois`.
@@ -117,6 +121,7 @@ curl -X GET http://localhost:8030/api/ingest/jobs/<job_id> \
 ```
 
 **Expected Response**:
+
 ```json
 {
   "id": "<job_id>",
@@ -157,6 +162,7 @@ curl -X POST http://localhost:8030/api/ingest/jobs/<job_id>/triage \
 ```
 
 **Expected Result**:
+
 - POI is inserted into `pois` table.
 - Item status updates to `COMMITTED`.
 - Job status updates to `COMPLETED`.
@@ -190,6 +196,7 @@ head -n 5 ./output/vacation_ingest.csv
 ```
 
 **Expected CSV Output**:
+
 - Valid CSV header: `name,description,address,city,state,country,latitude,longitude,visited_date,tags,triage_status`
 - Ambiguous photos flagged with `triage_status: NEEDS_REVIEW`
 - High-confidence photos marked `triage_status: APPROVED`

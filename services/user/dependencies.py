@@ -89,9 +89,7 @@ async def get_current_user(
     stage = os.getenv("STAGE", os.getenv("APP_ENV", "local")).lower()
     is_local = stage in ("local", "dev", "development", "test", "testing")
 
-    actual_mock_id = (
-        x_mock_user_id if isinstance(x_mock_user_id, str) and x_mock_user_id else None
-    )
+    actual_mock_id = x_mock_user_id if isinstance(x_mock_user_id, str) and x_mock_user_id else None
     actual_auth = authorization if isinstance(authorization, str) and authorization else None
 
     if is_local and actual_mock_id:
@@ -141,9 +139,7 @@ async def _resolve_mock_user(mock_id: str, session: AsyncSession) -> User:
     sub_str = claims["sub"]
 
     result = await session.execute(
-        select(UserTable).where(
-            (UserTable.id == user_uuid) | (UserTable.cognito_sub == sub_str)
-        )
+        select(UserTable).where((UserTable.id == user_uuid) | (UserTable.cognito_sub == sub_str))
     )
     row = result.scalar_one_or_none()
 

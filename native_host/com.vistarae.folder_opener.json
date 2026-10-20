@@ -1,0 +1,9 @@
+{
+  "name": "com.vistarae.folder_opener",
+  "description": "Vistarae Local Folder Opener Native Host",
+  "path": "run_dispatcher.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://ekafkcbddmcmflnbgnlkaebpllpnjggk/"
+  ]
+}

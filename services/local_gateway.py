@@ -140,7 +140,6 @@ gateway.mount("/api/poi-service", poi_app)
 gateway.mount("/api/ingest-service", ingest_app)
 
 
-
 # 4. Middleware registration:
 # Under Starlette's LIFO execution model:
 # TelemetryMiddleware (outermost) -> RateLimitMiddleware -> IdempotencyMiddleware (innermost)

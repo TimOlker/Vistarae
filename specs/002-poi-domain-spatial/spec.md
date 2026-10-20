@@ -24,7 +24,7 @@ Phase 2 (`002-poi-domain-spatial`) establishes the core Point of Interest (POI) 
 
 ---
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Planar Viewport POI Exploration & Combinable Filtering (Priority: P1)
 
@@ -35,6 +35,7 @@ As a traveler exploring an interactive map, I need to rapidly fetch all saved PO
 **Independent Test**: Can be fully tested by creating 10 POIs across various geographic locations and issuing `GET /api/pois?bbox=minLng,minLat,maxLng,maxLat&visit_state=not_visited&hierarchy=root_only`, verifying that only points matching both spatial envelope and filter criteria return in under 100ms.
 
 **Acceptance Scenarios**:
+
 1. **Given** a user has 50 POIs saved across North America, **When** the client submits `GET /api/pois?bbox=-120.0,37.0,-119.0,38.0`, **Then** the system returns only the POIs whose coordinates fall within that geographic envelope with HTTP 200.
 2. **Given** a user filters by tag "scenic" and visit state "not_visited", **When** querying with an active viewport bounding box, **Then** the system returns the intersection of viewport containment, tag association, and visit state matching.
 3. **Given** a user selects `hierarchy=root_only`, **When** querying POIs in a region containing a National Park and its subordinate viewpoints, **Then** only the top-level parent POI returns, omitting child overlooks.
@@ -50,6 +51,7 @@ As a traveler capturing locations from multiple blogs and guides, I want the sys
 **Independent Test**: Can be tested by posting two POIs located within 0.2 miles with similar names, executing a deduplication probe to verify collision reporting, and executing `POST /api/pois/merge` to verify the kept POI retains selected attributes while the duplicate is removed with foreign keys reassigned.
 
 **Acceptance Scenarios**:
+
 1. **Given** two existing POIs belonging to the user within 500 meters of each other, **When** the user checks for duplicates, **Then** the system returns them as potential duplicates with geodesic distance and match confidence.
 2. **Given** two duplicate POIs (Source A and Source B), **When** the user calls `/api/pois/merge` specifying `target_poi_id=A`, `source_poi_id=B`, keeping Description from A, Website from B, and unioning all Tags, **Then** the system updates A with the selected fields, deletes B, re-links all list memberships, and logs the merge transaction.
 
@@ -64,6 +66,7 @@ As a traveler saving a scenic overlook by address or coordinates, I need the sys
 **Independent Test**: Can be tested by geocoding the same address query twice; the first request executes an outbound provider call and writes to `geocoding_cache`, while the second returns immediately from the database cache with zero outbound network traffic.
 
 **Acceptance Scenarios**:
+
 1. **Given** an address string not yet present in `geocoding_cache`, **When** geocoding is requested, **Then** the system queries the external provider, stores the result with a 90-day expiration timestamp, and sets enrichment status to `SUCCESS`.
 2. **Given** a query whose normalized SHA-256 hash exists in `geocoding_cache` and `expires_at > NOW()`, **When** geocoding is requested, **Then** the system returns the cached coordinates and formatted address without making an outbound HTTP request.
 3. **Given** an external geocoding provider times out after 3 seconds, **When** creating a POI with raw user-supplied coordinates, **Then** the POI is saved with `enrichment_status = 'PARTIAL'` and the operation succeeds without blocking the user.
@@ -79,6 +82,7 @@ As a traveler seeking inspiration from my saved places, I want to search for con
 **Independent Test**: Can be tested by creating POIs with narrative descriptions of alpine vistas, generating 768-dimensional embeddings, and querying `/api/pois?semantic_q=misty+mountain+views`, verifying that the top cosine similarity matches rank highest.
 
 **Acceptance Scenarios**:
+
 1. **Given** a new POI is created with a name, description, and tags, **When** persisted, **Then** the system computes an MD5 checksum of the normalized content, generates a 768-dimensional embedding via Gemini, and stores both on the record.
 2. **Given** an existing POI receives an update modifying only its `rating`, **When** updated, **Then** the system verifies the `embedding_md5` is unchanged and bypasses external embedding generation.
 3. **Given** a user queries `/api/pois?semantic_q=waterfall`, **When** evaluated, **Then** the database uses the HNSW cosine similarity index to return ranked POIs with similarity distance scores.
@@ -94,6 +98,7 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 **Independent Test**: Can be tested by selecting 5 POIs, executing `POST /api/pois/bulk-tags` to add "roadtrip-2026", and verifying all 5 records reflect the new tag association in a single atomic transaction.
 
 **Acceptance Scenarios**:
+
 1. **Given** a user owns 10 POIs, **When** submitting a bulk tag request with 10 POI IDs and tag "Summer2026", **Then** all 10 POIs are linked to that tag atomically.
 2. **Given** a user generates a share link for a list marked `is_public = TRUE`, **When** a secondary authenticated user accesses the shared list URL, **Then** the system returns the list details and member POIs in read-only mode.
 
@@ -111,7 +116,7 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 
 ---
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -176,7 +181,7 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 
 ---
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **`pois`**: Point of Interest representing a physical travel dream, scenic overlook, trail, or destination. Bound to a tenant `user_id`, optionally referencing a parent POI (`parent_poi_id`), carrying geography coordinates (`geom`), optional regional polygon boundaries (`region_geom`), 768-dimensional AI semantic vector (`embedding`), and visit tracking metadata.
 - **`lists`**: Curated itinerary collections (e.g., "Pacific Coast Highway 2026", "Tokyo Coffee Tour") owned by a user, with support for public sharing.
@@ -187,7 +192,7 @@ As a traveler organizing a group trip, I need to perform bulk tagging, bulk list
 
 ---
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

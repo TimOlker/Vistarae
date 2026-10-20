@@ -85,8 +85,12 @@ class TestCognitoIdentityProvider:
         monkeypatch.delenv("COGNITO_USER_POOL_ID", raising=False)
         monkeypatch.setenv("COGNITO_CLIENT_ID", "client-123")
 
-        with patch("boto3.client"), pytest.raises(
-            RuntimeError, match="Fast-fail startup error: Cognito configuration missing COGNITO_USER_POOL_ID"
+        with (
+            patch("boto3.client"),
+            pytest.raises(
+                RuntimeError,
+                match="Fast-fail startup error: Cognito configuration missing COGNITO_USER_POOL_ID",
+            ),
         ):
             CognitoIdentityProvider()
 
@@ -98,8 +102,12 @@ class TestCognitoIdentityProvider:
         monkeypatch.setenv("COGNITO_USER_POOL_ID", "pool-123")
         monkeypatch.delenv("COGNITO_CLIENT_ID", raising=False)
 
-        with patch("boto3.client"), pytest.raises(
-            RuntimeError, match="Fast-fail startup error: Cognito configuration missing COGNITO_CLIENT_ID"
+        with (
+            patch("boto3.client"),
+            pytest.raises(
+                RuntimeError,
+                match="Fast-fail startup error: Cognito configuration missing COGNITO_CLIENT_ID",
+            ),
         ):
             CognitoIdentityProvider()
 

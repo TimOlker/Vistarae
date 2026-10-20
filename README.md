@@ -48,11 +48,19 @@ vistarae/
 ├── extension/                     # Chrome Extension (Manifest V3)
 │   ├── manifest.json
 │   ├── background/
-│   │   └── service_worker.js      # W3C trace injection & API dispatcher
+│   │   ├── service_worker.js      # W3C trace injection & API dispatcher
+│   │   ├── auth.js                # Cognito silent refresh & token mutex
+│   │   └── telemetry.js           # W3C traceparent & Idempotency-Key
 │   ├── content/
 │   │   ├── content_script.js      # Selection listener & Shadow DOM modal injector
-│   │   └── overlay.css            # Scoped CSS styles for Shadow DOM form
+│   │   ├── overlay.css            # Scoped CSS styles for Shadow DOM form
+│   │   └── parsers/               # Polymorphic site parsers (Maps, Roadtrippers, TripAdvisor)
+│   ├── browser/                   # Full-tab POI Explorer workstation & CSV export
 │   └── icons/                     # Vistarae compass icons (16, 48, 128)
+├── native_host/                   # Chrome Native Messaging Host (Pure Python)
+│   ├── folder_dispatcher.py       # 4-byte framed stdio dispatcher with UNC guards
+│   ├── run_dispatcher.bat         # Windows python -u unbuffered launcher
+│   └── com.vistarae.folder_opener.json # Native messaging host manifest
 ├── docker-compose.yml             # Local dev stack (FastAPI + PostGIS + Jaeger)
 ├── Makefile                       # Developer orchestration shortcuts
 ├── GEMINI.md                      # Project architectural rules & standards
@@ -66,8 +74,8 @@ vistarae/
 - **Frontend**: Chrome Extension (Manifest V3), Vanilla JavaScript, CSS-isolated Shadow DOM.
 - **Backend**: Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy (asyncio) with asyncpg & GeoAlchemy2.
 - **Database & Geospatial Engine**: PostgreSQL 16+ with PostGIS 3.4+ and `pg_trgm` extensions.
-  - *Development*: Local Docker container (`postgis/postgis:16-3.4`).
-  - *Production*: Supabase Free Tier (PostGIS enabled, connection via Transaction Pooler port 6543).
+  - _Development_: Local Docker container (`postgis/postgis:16-3.4`).
+  - _Production_: Supabase Free Tier (PostGIS enabled, connection via Transaction Pooler port 6543).
 - **LLM Extraction**: Google Gemini Flash-Lite via Google AI Studio (`google-genai` SDK) utilizing strict JSON schema / Pydantic structured output. Reasoning/thinking budget set to `0` for low latency and minimal token usage.
 - **Deterministic Geocoding**: OpenStreetMap Nominatim API (1 req/sec rate limit, custom User-Agent `VistaraeTravelEngine/1.0`, backed by an internal PostGIS `geocache` table with SHA256 hashing).
 - **Distributed Observability**: OpenTelemetry W3C distributed tracing (`traceparent` header propagation), Jaeger tracing, and strict microservice message logging tags.
@@ -119,12 +127,14 @@ When the backend processes candidate coordinates (`cand_lat`, `cand_lng`, `radiu
 ## 🚀 Quickstart & Developer Orchestration
 
 ### 1. Configure Environment
+
 ```bash
 cp .env.example .env
 # Edit .env and supply your GEMINI_API_KEY from Google AI Studio
 ```
 
 ### 2. Start Services
+
 - **Windows (PowerShell)**:
   ```powershell
   docker compose up -d
@@ -135,6 +145,7 @@ cp .env.example .env
   ```
 
 ### 3. Sync Environment & Dependencies
+
 - **Using uv (Recommended)**:
   ```bash
   uv sync
@@ -149,6 +160,7 @@ cp .env.example .env
   ```
 
 ### 4. Run Migrations & Seed Sample Data
+
 - **Windows (PowerShell)**:
   ```powershell
   .\vistarae.ps1 migrate
@@ -165,14 +177,29 @@ cp .env.example .env
   make seed
   ```
 
-### 5. Load the Chrome Extension
-*(Detailed guide: [Chrome Extension Installation Guide](documentation/extension_installation.md))*
-1. Open Google Chrome and navigate to `chrome://extensions/`.
-2. Toggle on **Developer mode** in the upper-right corner.
-3. Click **Load unpacked** and select the `extension/` directory inside this repository (`D:\Coding\Vistarae\extension`).
-4. Highlight any text on a travel website or blog, and press `Ctrl+Shift+S` (or `Cmd+Shift+S`) or right-click and choose **"Capture to Vistarae"**!
+### 5. Register Native Messaging Host & Load Extension
+
+_(Detailed guide: [Chrome Extension & Native Host Guide](docs/extension_native_host.md))_
+
+1. **Register the Native Messaging Host** (user-level, non-admin):
+   ```bash
+   python scripts/register_native_host.py
+   ```
+2. **Load Unpacked Extension in Chrome**:
+   - Open Google Chrome and navigate to `chrome://extensions/`.
+   - Toggle on **Developer mode** in the upper-right corner.
+   - Click **Load unpacked** and select the `extension/` directory inside this repository (`D:\Coding\Vistarae\extension`).
+   - Pin **Vistarae — POI & Travel Capture Engine** to your toolbar.
+3. **Capture POIs**:
+   - Highlight any text or navigate to Google Maps, Roadtrippers, or TripAdvisor.
+   - Press `Ctrl+Shift+S` (Windows) or `Cmd+Shift+S` (macOS), or right-click and choose **"Capture to Vistarae"**!
+   - Review pre-extracted details in the isolated Shadow DOM modal and hit `Ctrl+Enter` or **Save to Vistarae**.
+4. **Browse POIs & Reveal Local Folders**:
+   - Right-click anywhere and select **"Browse Saved POIs"** to launch the full-tab POI Explorer.
+   - Filter by tags or proximity, export to sanitized CSV, or click **"Reveal Folder"** to open local photo directories.
 
 ### 6. Run Automated Tests & Linting
+
 - **Windows (PowerShell)**:
   ```powershell
   .\vistarae.ps1 test
@@ -192,6 +219,7 @@ cp .env.example .env
 ---
 
 ## 🔗 Downstream Systems (Future Scope)
+
 1. **Photo Cataloging**: Embedding IPTC/EXIF location metadata into images based on GPS/time matching.
 2. **Trip Planning**: Clustering POIs into daily itineraries using physical effort, duration, indoor/outdoor tags, and access points.
 3. **Map Sharing**: Exporting GeoJSON layers with custom pins to Google My Maps, Leaflet, or Mapbox.

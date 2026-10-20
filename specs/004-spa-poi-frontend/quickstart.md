@@ -11,30 +11,37 @@
 ## 1. Prerequisites & Environment Setup
 
 ### 1.1 Host Requirements
+
 - **Node.js**: v20.x or later (`node -v`)
 - **Package Manager**: `npm` v10.x or later
 - **Python**: v3.12+ (for local backend gateway)
 - **Docker**: Docker Desktop / Compose v2+ (for PostgreSQL/PostGIS and ElasticMQ)
 
 ### 1.2 Start Local Backend Infrastructure
+
 Ensure local database and SQS containers are running:
+
 ```bash
 docker compose up -d
 ```
 
 Start the unified local ASGI gateway on port 8000:
+
 ```bash
 python -m uvicorn services.local_gateway:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Verify backend health probe:
+
 ```bash
 curl http://localhost:8000/health/live
 # Expected: {"status":"alive"}
 ```
 
 ### 1.3 Initialize Frontend Workspace
+
 Navigate to the frontend directory, install dependencies, and generate TypeScript types from the backend OpenAPI contract:
+
 ```bash
 cd frontend
 npm install
@@ -44,9 +51,11 @@ npm run codegen
 Verify that `./frontend/src/types/api.ts` was generated and contains definitions for `POIResponse`, `UserPreferencesResponse`, etc.
 
 ### 1.4 Start Vite Development Server
+
 ```bash
 npm run dev
 ```
+
 Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 
 ---
@@ -54,6 +63,7 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ## 2. End-to-End Verification Scenarios
 
 ### Scenario 1: Authentication, Theming & Preferences Persistence
+
 1. Navigate to `http://localhost:5173/signup`.
 2. Register a new user (`traveler@example.com`, password, full name).
 3. In local stage, verify the email confirmation code automatically pre-fills or input `123456`. Submit to confirm signup.
@@ -71,6 +81,7 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ---
 
 ### Scenario 2: Interactive Map Exploration, Layer Switching & Viewport Synchronization
+
 1. Navigate to the main dashboard map view at `http://localhost:5173/`.
 2. Observe the layer switcher widget in the upper-right corner.
 3. Switch layers:
@@ -88,6 +99,7 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ---
 
 ### Scenario 3: Two-Way Coordinate Transformation (China Bounding Box)
+
 1. In the search box or via panning, navigate the map view to Beijing, China (`116.4074°E, 39.9042°N`).
 2. Activate the **AutoNavi / Amap** map layer.
 3. Observe markers within China: Assert that markers render without visual displacement relative to road imagery (transformed to GCJ-02 in-memory).
@@ -101,6 +113,7 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ---
 
 ### Scenario 4: Client-Only Photo EXIF Metadata Reader
+
 1. Open the **"Add POI"** modal dialog.
 2. Drag and drop a sample photo containing GPS metadata (JPEG or iPhone `.heic` file):
    - Assert the photo thumbnail appears immediately via an ephemeral Blob URL.
@@ -116,6 +129,7 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ---
 
 ### Scenario 5: CSV Ingestion Guardrails, Job Polling & Triage Persistence
+
 1. Navigate to the Ingestion view (`/ingest`).
 2. Test File Guardrails:
    - Attempt to select a CSV file larger than 2MB or containing > 2,000 rows.
@@ -133,6 +147,7 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ---
 
 ### Scenario 6: Admin Governance & Access Controls
+
 1. Authenticate with an administrator account (or set `X-Mock-User-Tier: ADMIN`).
 2. Navigate to `http://localhost:5173/admin`:
    - Assert the Admin Dashboard renders platform metric cards (total users, active sessions, monthly token budget utilization).
@@ -147,12 +162,14 @@ Open [http://localhost:5173](http://localhost:5173) in an evergreen browser.
 ## 3. Automated Test Suite Execution
 
 Run the complete frontend test suite (unit tests, coordinate projection assertions, and component tests):
+
 ```bash
 cd frontend
 npm run test:unit
 ```
 
 Expected Output:
+
 ```text
 ✓ src/utils/coordinates.test.ts (12 tests) - Sub-meter Newton iteration & China bbox guard
 ✓ src/utils/exifReader.test.ts (8 tests) - JPEG/HEIC in-memory extraction & Blob cleanup

@@ -2,13 +2,14 @@
 
 **Feature**: Foundation, Authentication, Quotas & Administration  
 **Date**: 2026-10-18  
-**Status**: APPROVED  
+**Status**: APPROVED
 
 ---
 
 ## 1. Domain Entities & Value Objects
 
 ### 1.1 Enumerations (Python `StrEnum`)
+
 All state and category fields are modeled as Python `StrEnum` backed by PostgreSQL `VARCHAR(n)` columns with check constraints (strictly prohibiting native PostgreSQL `ENUM` types per Constitution Principle 4):
 
 ```python
@@ -119,6 +120,7 @@ erDiagram
 ## 3. Database Invariants & DDL Definition
 
 ### 3.1 Extensions Required
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
@@ -127,6 +129,7 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 ```
 
 ### 3.2 Constraints & Foreign Key Policies
+
 1. **Mandatory Foreign Key Cascade**: Every child table references `users(id) ON DELETE CASCADE`.
 2. **Idempotency Uniqueness**: `UNIQUE (user_id, idempotency_key)` guarantees duplicate prevention per tenant.
 3. **No Row-Level Security (RLS)**: Enforced via explicit repository query predicates (`WHERE user_id = :current_user_id`) to avoid PgBouncer session variable leakage across shared connection pools.
@@ -138,6 +141,7 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 All schemas inherit from `StrictBaseModel` with `extra="forbid"`, `validate_assignment=True`, and `str_strip_whitespace=True` (Constitution Principle 5).
 
 ### 4.1 Base Schema
+
 ```python
 from pydantic import BaseModel, ConfigDict
 
@@ -151,6 +155,7 @@ class StrictBaseModel(BaseModel):
 ```
 
 ### 4.2 User & Profile Schemas
+
 ```python
 from uuid import UUID
 from datetime import datetime
@@ -175,6 +180,7 @@ class UserProfileResponse(StrictBaseModel):
 ```
 
 ### 4.3 Sub-Domain Preference Schemas
+
 ```python
 class UIPreferencesResponse(StrictBaseModel):
     theme: ThemeMode
@@ -225,6 +231,7 @@ class UserPreferencesResponse(StrictBaseModel):
 ```
 
 ### 4.4 Metrics & Quota Schemas
+
 ```python
 class UserMetricsResponse(StrictBaseModel):
     poi_count: int
@@ -244,6 +251,7 @@ class UpdateUserQuotaRequest(StrictBaseModel):
 ```
 
 ### 4.5 Standard Error Envelope (RFC 7807)
+
 ```python
 from pydantic import AnyHttpUrl
 
@@ -265,6 +273,7 @@ class ProblemDetails(StrictBaseModel):
 ## 5. State Transitions
 
 ### 5.1 Idempotency Key Lifecycle
+
 ```text
 [Incoming Mutating Request]
          │
@@ -288,6 +297,7 @@ class ProblemDetails(StrictBaseModel):
 ```
 
 ### 5.2 Rolling Window Rate Limit Lifecycle
+
 ```text
 [Incoming Request]
          │

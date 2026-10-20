@@ -64,7 +64,9 @@ class InMemoryPOIRepo:
     def __init__(self) -> None:
         self.pois: list[POI] = []
 
-    async def find_potential_duplicates(self, user_id, name, point, radius_meters=805.0, similarity_threshold=0.60):
+    async def find_potential_duplicates(
+        self, user_id, name, point, radius_meters=805.0, similarity_threshold=0.60
+    ):
         return []
 
     async def create(self, poi: POI) -> POI:
@@ -113,26 +115,32 @@ class TestWorkerPipelineIntegration:
 
         records = []
         for i in range(1, 5):
-            records.append({
-                "messageId": f"msg-valid-{i}",
-                "body": json.dumps({
-                    "job_id": str(job_id),
-                    "user_id": str(user_id),
-                    "absolute_row_number": i + 1,
-                    "row_data": {
-                        "name": f"Valid Place {i}",
-                        "latitude": f"37.{i}",
-                        "longitude": f"-122.{i}",
-                    },
-                }),
-                "messageAttributes": {"traceparent": {"stringValue": f"00-trace-{i}-01"}},
-            })
+            records.append(
+                {
+                    "messageId": f"msg-valid-{i}",
+                    "body": json.dumps(
+                        {
+                            "job_id": str(job_id),
+                            "user_id": str(user_id),
+                            "absolute_row_number": i + 1,
+                            "row_data": {
+                                "name": f"Valid Place {i}",
+                                "latitude": f"37.{i}",
+                                "longitude": f"-122.{i}",
+                            },
+                        }
+                    ),
+                    "messageAttributes": {"traceparent": {"stringValue": f"00-trace-{i}-01"}},
+                }
+            )
 
         # Add 1 malformed record with corrupt JSON body
-        records.append({
-            "messageId": "msg-malformed-5",
-            "body": "not-valid-json{{{",
-        })
+        records.append(
+            {
+                "messageId": "msg-malformed-5",
+                "body": "not-valid-json{{{",
+            }
+        )
 
         result = await worker.process_batch(records)
         failures = result.get("batchItemFailures", [])
@@ -151,12 +159,18 @@ class TestWorkerPipelineIntegration:
             "Records": [
                 {
                     "messageId": "lambda-msg-1",
-                    "body": json.dumps({
-                        "job_id": str(uuid.uuid4()),
-                        "user_id": str(uuid.uuid4()),
-                        "absolute_row_number": 2,
-                        "row_data": {"name": "Golden Gate Bridge", "latitude": "37.819", "longitude": "-122.478"},
-                    }),
+                    "body": json.dumps(
+                        {
+                            "job_id": str(uuid.uuid4()),
+                            "user_id": str(uuid.uuid4()),
+                            "absolute_row_number": 2,
+                            "row_data": {
+                                "name": "Golden Gate Bridge",
+                                "latitude": "37.819",
+                                "longitude": "-122.478",
+                            },
+                        }
+                    ),
                 }
             ]
         }

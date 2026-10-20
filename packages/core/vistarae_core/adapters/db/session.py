@@ -238,7 +238,6 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 _get_session_factory = get_session_factory
 
 
-
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI/Starlette dependency yielding a transactional AsyncSession.
 

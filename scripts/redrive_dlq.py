@@ -100,9 +100,7 @@ def redrive_dlq(
                 QueueUrl=dlq_url,
                 AttributeNames=["ApproximateNumberOfMessages"],
             )
-            count = int(
-                attrs.get("Attributes", {}).get("ApproximateNumberOfMessages", 0)
-            )
+            count = int(attrs.get("Attributes", {}).get("ApproximateNumberOfMessages", 0))
         except Exception:
             # Fallback for mock environments without get_queue_attributes attributes
             resp = client.receive_message(
@@ -118,9 +116,9 @@ def redrive_dlq(
     # 4. Cloud execution via AWS Native Message Move Task
     if normalized_env != "local":
         try:
-            dlq_arn = client.get_queue_attributes(
-                QueueUrl=dlq_url, AttributeNames=["QueueArn"]
-            )["Attributes"]["QueueArn"]
+            dlq_arn = client.get_queue_attributes(QueueUrl=dlq_url, AttributeNames=["QueueArn"])[
+                "Attributes"
+            ]["QueueArn"]
             main_arn = client.get_queue_attributes(
                 QueueUrl=main_queue_url, AttributeNames=["QueueArn"]
             )["Attributes"]["QueueArn"]

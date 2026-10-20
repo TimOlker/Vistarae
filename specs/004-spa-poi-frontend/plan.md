@@ -9,6 +9,7 @@
 ## 1. Summary
 
 Phase 4 delivers the single-page application (SPA) under `frontend/` powered by Vite, React 18, and strict TypeScript. It features:
+
 - A modular architecture consuming backend OpenAPI contracts via `npx openapi-typescript` (`src/types/api.ts`).
 - An RFC 7807 / RFC 9457 `ProblemDetails` error boundary and toast notification system with `Retry-After` countdown banners.
 - A Vanilla CSS design system with an instant (< 50ms) Theme Engine (`light`, `dark`, `system`) persisted to `user_preferences.ui.theme`.
@@ -49,21 +50,21 @@ Phase 4 delivers the single-page application (SPA) under `frontend/` powered by 
 
 ## 3. Constitution Check
 
-*GATE: Verified prior to research and re-evaluated post-design against `.specify/memory/constitution.md`.*
+_GATE: Verified prior to research and re-evaluated post-design against `.specify/memory/constitution.md`._
 
-| Constitutional Invariant | Status | Compliance Detail |
-| :--- | :---: | :--- |
-| **1. File Header & Pre-Commit** | **PASS** | Every `.ts` and `.tsx` file starts with `// Copyright (c) 2026 Vistarae. All rights reserved.` and `SPDX-License-Identifier: Apache-2.0`. Pre-commit verifies `prettier` and `check-copyright-header`. Max nesting $\le 3$, cognitive complexity $\le 15$ (coordinate math exempted). |
-| **2. Monorepo & Ports/Adapters** | **PASS** | `frontend/` isolated from backend python packages; communicates strictly via REST API over `/api` proxy. |
-| **3. Database & Tenancy** | **PASS** | Frontend passes Cognito JWT bearer tokens. In local development (`STAGE == "local"`), passes `X-Mock-User-Id` and `X-Mock-User-Tier`. No direct database access from frontend. |
-| **4. Alembic & Environment** | **PASS** | Frontend consumes existing backend migrations (`0001`, `0002`, `0003`). No new database migrations required for Phase 4. |
-| **5. API Contract & Validation** | **PASS** | `./frontend/src/types/api.ts` generated directly from `./openapi.json` via `openapi-typescript`. CI checks `git diff --exit-code ./frontend/src/types/api.ts`. All error handling maps RFC 7807 `ProblemDetails`. |
-| **6. Middleware & Security** | **PASS** | Local Vite proxy targets `http://localhost:8000` with CORS whitelisting `http://localhost:5173`. Mutating operations supply UUIDv4 `Idempotency-Key` headers. |
-| **7. Observability & Tracing** | **PASS** | Frontend generates W3C `traceparent` headers (`00-{trace_id}-{span_id}-01`) and sets `X-Source: web-client`, `X-Destination: backend`. |
-| **8. PyTest & SDD Governance** | **PASS** | Unit tests cover all coordinate transforms, EXIF extraction, and triage persistence. Implementation plan derived strictly from ratified `spec.md`. |
-| **Operational & Infrastructure 1** | **PASS** | CSV uploads pre-validated client-side ($\le$ 2MB, $\le$ 2,000 rows). Oversized files present split instructions modal. Triage decisions persisted in IndexedDB with 7-day TTL matching SQS retention. |
-| **Operational & Infrastructure 2** | **PASS** | Coordinate transformations (`wgs84_to_gcj02`, `gcj02_to_wgs84`) executed purely on client side if and only if inside China bounding box (`73.66°E–135.05°E`, `18.16°N–53.55°N`). Backend persists canonical WGS-84 exclusively. |
-| **Operational & Infrastructure 3** | **PASS** | Static build output (`frontend/dist`) designed for private Amazon S3 bucket fronted by AWS CloudFront with Origin Access Control (OAC). Photo EXIF runs in-memory with zero AWS bandwidth. |
+| Constitutional Invariant           |  Status  | Compliance Detail                                                                                                                                                                                                                                                                     |
+| :--------------------------------- | :------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. File Header & Pre-Commit**    | **PASS** | Every `.ts` and `.tsx` file starts with `// Copyright (c) 2026 Vistarae. All rights reserved.` and `SPDX-License-Identifier: Apache-2.0`. Pre-commit verifies `prettier` and `check-copyright-header`. Max nesting $\le 3$, cognitive complexity $\le 15$ (coordinate math exempted). |
+| **2. Monorepo & Ports/Adapters**   | **PASS** | `frontend/` isolated from backend python packages; communicates strictly via REST API over `/api` proxy.                                                                                                                                                                              |
+| **3. Database & Tenancy**          | **PASS** | Frontend passes Cognito JWT bearer tokens. In local development (`STAGE == "local"`), passes `X-Mock-User-Id` and `X-Mock-User-Tier`. No direct database access from frontend.                                                                                                        |
+| **4. Alembic & Environment**       | **PASS** | Frontend consumes existing backend migrations (`0001`, `0002`, `0003`). No new database migrations required for Phase 4.                                                                                                                                                              |
+| **5. API Contract & Validation**   | **PASS** | `./frontend/src/types/api.ts` generated directly from `./openapi.json` via `openapi-typescript`. CI checks `git diff --exit-code ./frontend/src/types/api.ts`. All error handling maps RFC 7807 `ProblemDetails`.                                                                     |
+| **6. Middleware & Security**       | **PASS** | Local Vite proxy targets `http://localhost:8000` with CORS whitelisting `http://localhost:5173`. Mutating operations supply UUIDv4 `Idempotency-Key` headers.                                                                                                                         |
+| **7. Observability & Tracing**     | **PASS** | Frontend generates W3C `traceparent` headers (`00-{trace_id}-{span_id}-01`) and sets `X-Source: web-client`, `X-Destination: backend`.                                                                                                                                                |
+| **8. PyTest & SDD Governance**     | **PASS** | Unit tests cover all coordinate transforms, EXIF extraction, and triage persistence. Implementation plan derived strictly from ratified `spec.md`.                                                                                                                                    |
+| **Operational & Infrastructure 1** | **PASS** | CSV uploads pre-validated client-side ($\le$ 2MB, $\le$ 2,000 rows). Oversized files present split instructions modal. Triage decisions persisted in IndexedDB with 7-day TTL matching SQS retention.                                                                                 |
+| **Operational & Infrastructure 2** | **PASS** | Coordinate transformations (`wgs84_to_gcj02`, `gcj02_to_wgs84`) executed purely on client side if and only if inside China bounding box (`73.66°E–135.05°E`, `18.16°N–53.55°N`). Backend persists canonical WGS-84 exclusively.                                                       |
+| **Operational & Infrastructure 3** | **PASS** | Static build output (`frontend/dist`) designed for private Amazon S3 bucket fronted by AWS CloudFront with Origin Access Control (OAC). Photo EXIF runs in-memory with zero AWS bandwidth.                                                                                            |
 
 ---
 
@@ -159,6 +160,7 @@ frontend/
 ## 5. Complexity Tracking
 
 No constitutional violations exist. All design decisions adhere strictly to:
+
 - Principle 1 (Standardized copyright header `// Copyright (c) 2026 Vistarae. All rights reserved.`).
 - Principle 5 (Synchronized TypeScript types via `openapi-typescript` and RFC 7807 Problem Details).
 - Principle 6 (CORS whitelisting `http://localhost:5173` in local development).
