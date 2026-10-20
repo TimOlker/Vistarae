@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Pydantic v2 boundary schemas for requests, responses, and errors."""
@@ -26,6 +39,14 @@ from vistarae_core.schemas.auth import (
 )
 from vistarae_core.schemas.base import StrictBaseModel
 from vistarae_core.schemas.errors import InvalidParam, ProblemDetails
+from vistarae_core.schemas.ingest import (
+    DuplicateItemResponse,
+    IngestJobProgressResponse,
+    IngestUploadResponse,
+    PhotoPOIInference,
+    TriageDecisionItem,
+    TriageRequest,
+)
 from vistarae_core.schemas.poi import (
     BulkDeleteRequest,
     BulkDeleteResponse,
@@ -76,8 +97,11 @@ __all__ = [
     "ConfirmSignUpRequest",
     "ConfirmSignUpResponse",
     "DedupCheckResponse",
+    "DuplicateItemResponse",
     "ForgotPasswordRequest",
     "ForgotPasswordResponse",
+    "IngestJobProgressResponse",
+    "IngestUploadResponse",
     "InvalidParam",
     "ListCreateRequest",
     "ListResponse",
@@ -86,6 +110,7 @@ __all__ = [
     "LoginResponse",
     "LogoutRequest",
     "LogoutResponse",
+    "PhotoPOIInference",
     "PlannerPreferencesResponse",
     "POICreateRequest",
     "POIListResponse",
@@ -105,6 +130,9 @@ __all__ = [
     "StrictBaseModel",
     "TagCreateRequest",
     "TagResponse",
+    "TriageDecisionItem",
+    "TriageRequest",
+
     "UIPreferencesResponse",
     "UpdatePlannerPreferencesRequest",
     "UpdatePOIPreferencesRequest",

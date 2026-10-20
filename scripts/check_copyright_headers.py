@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Verification script for mandatory file copyright header banners.
@@ -13,15 +26,57 @@ import sys
 from pathlib import Path
 
 PYTHON_HEADER = (
-    "# Copyright (c) 2026 Vistarae. All rights reserved.\n# SPDX-License-Identifier: Apache-2.0"
+    "# Copyright (c) 2026 Tim Olker\n"
+    "#\n"
+    '# Licensed under the Apache License, Version 2.0 (the "License");\n'
+    "# you may not use this file except in compliance with the License.\n"
+    "# You may obtain a copy of the License at\n"
+    "#\n"
+    "#     http://www.apache.org/licenses/LICENSE-2.0\n"
+    "#\n"
+    "# Unless required by applicable law or agreed to in writing, software\n"
+    '# distributed under the License is distributed on an "AS IS" BASIS,\n'
+    "# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n"
+    "# See the License for the specific language governing permissions and\n"
+    "# limitations under the License.\n"
+    "#\n"
+    "# SPDX-License-Identifier: Apache-2.0"
 )
 
 TYPESCRIPT_HEADER = (
-    "// Copyright (c) 2026 Vistarae. All rights reserved.\n// SPDX-License-Identifier: Apache-2.0"
+    "// Copyright (c) 2026 Tim Olker\n"
+    "//\n"
+    '// Licensed under the Apache License, Version 2.0 (the "License");\n'
+    "// you may not use this file except in compliance with the License.\n"
+    "// You may obtain a copy of the License at\n"
+    "//\n"
+    "//     http://www.apache.org/licenses/LICENSE-2.0\n"
+    "//\n"
+    "// Unless required by applicable law or agreed to in writing, software\n"
+    '// distributed under the License is distributed on an "AS IS" BASIS,\n'
+    "// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n"
+    "// See the License for the specific language governing permissions and\n"
+    "// limitations under the License.\n"
+    "//\n"
+    "// SPDX-License-Identifier: Apache-2.0"
 )
 
 SQL_HEADER = (
-    "-- Copyright (c) 2026 Vistarae. All rights reserved.\n-- SPDX-License-Identifier: Apache-2.0"
+    "-- Copyright (c) 2026 Tim Olker\n"
+    "--\n"
+    '-- Licensed under the Apache License, Version 2.0 (the "License");\n'
+    "-- you may not use this file except in compliance with the License.\n"
+    "-- You may obtain a copy of the License at\n"
+    "--\n"
+    "--     http://www.apache.org/licenses/LICENSE-2.0\n"
+    "--\n"
+    "-- Unless required by applicable law or agreed to in writing, software\n"
+    '-- distributed under the License is distributed on an "AS IS" BASIS,\n'
+    "-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n"
+    "-- See the License for the specific language governing permissions and\n"
+    "-- limitations under the License.\n"
+    "--\n"
+    "-- SPDX-License-Identifier: Apache-2.0"
 )
 
 EXT_HEADER_MAP: dict[str, str] = {
@@ -52,7 +107,7 @@ def check_file(path: Path) -> bool:
         return False
 
     normalized_content = content.replace("\r\n", "\n")
-    if expected_header not in normalized_content[:500]:
+    if expected_header not in normalized_content[:1500]:
         print(
             f"FAIL: Missing required copyright banner in {path}",
             file=sys.stderr,

@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """RFC 7807 / RFC 9457 FastAPI exception handlers.
@@ -20,11 +33,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from vistarae_core.domain.exceptions import (
     AccountDisabledError,
     CyclicHierarchyError,
+    FileTooLargeError,
     GeocodingTimeoutError,
     IdempotencyConflictError,
+    IngestJobNotFoundError,
     InvalidCoordinateError,
+    InvalidCSVHeaderError,
+    InvalidMimeTypeError,
     POINotFoundError,
     QuotaExceededError,
+    RowLimitExceededError,
     TagLimitExceededError,
     TenantNotFoundError,
 )
@@ -51,7 +69,7 @@ def _problem_response(problem: ProblemDetails) -> JSONResponse:
     )
 
 
-def add_problem_details_handlers(app: FastAPI) -> None:
+def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
     """Registers all RFC 7807 exception handlers on the given FastAPI app.
 
     Args:
@@ -269,7 +287,83 @@ def add_problem_details_handlers(app: FastAPI) -> None:
             )
         )
 
+    @app.exception_handler(FileTooLargeError)
+    async def file_too_large_handler(
+        request: Request, exc: FileTooLargeError
+    ) -> JSONResponse:
+        """Converts FileTooLargeError → 413 Payload Too Large ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/payload-too-large",
+                title="Payload Too Large",
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(InvalidMimeTypeError)
+    async def invalid_mime_type_handler(
+        request: Request, exc: InvalidMimeTypeError
+    ) -> JSONResponse:
+        """Converts InvalidMimeTypeError → 415 Unsupported Media Type ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/unsupported-media-type",
+                title="Unsupported Media Type",
+                status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(RowLimitExceededError)
+    async def row_limit_exceeded_handler(
+        request: Request, exc: RowLimitExceededError
+    ) -> JSONResponse:
+        """Converts RowLimitExceededError → 422 Unprocessable Content ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/row-limit-exceeded",
+                title="Row Limit Exceeded",
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(InvalidCSVHeaderError)
+    async def invalid_csv_header_handler(
+        request: Request, exc: InvalidCSVHeaderError
+    ) -> JSONResponse:
+        """Converts InvalidCSVHeaderError → 422 Unprocessable Content ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/invalid-csv-header",
+                title="Invalid CSV Header",
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
+    @app.exception_handler(IngestJobNotFoundError)
+    async def ingest_job_not_found_handler(
+        request: Request, exc: IngestJobNotFoundError
+    ) -> JSONResponse:
+        """Converts IngestJobNotFoundError → 404 Not Found ProblemDetails."""
+        return _problem_response(
+            ProblemDetails(
+                type="https://errors.vistarae.com/ingest-job-not-found",
+                title="Ingestion Job Not Found",
+                status=status.HTTP_404_NOT_FOUND,
+                detail=exc.message,
+                instance=str(request.url),
+            )
+        )
+
     @app.exception_handler(Exception)
+
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Catches unhandled exceptions and returns a 500 ProblemDetails response.
 

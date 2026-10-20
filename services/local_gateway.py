@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Unified Local Development ASGI Gateway (T-015, T-050).
@@ -25,6 +38,10 @@ from vistarae_core.middleware.telemetry import TelemetryMiddleware
 from vistarae_core.schemas.errors import ProblemDetails
 
 from services.admin.main import app as admin_app
+from services.ingest.main import app as ingest_app
+from services.ingest.routes.jobs import router as ingest_jobs_router
+from services.ingest.routes.triage import router as ingest_triage_router
+from services.ingest.routes.upload import router as ingest_upload_router
 from services.poi.main import app as poi_app
 from services.poi.routes.bulk import router as bulk_router
 from services.poi.routes.dedup import router as dedup_router
@@ -116,7 +133,13 @@ gateway.include_router(bulk_router, prefix="/api", tags=["bulk"])
 gateway.include_router(lists_router, prefix="/api", tags=["lists"])
 gateway.include_router(tags_router, prefix="/api", tags=["tags"])
 gateway.include_router(pois_router, prefix="/api", tags=["pois"])
+gateway.include_router(ingest_upload_router, prefix="/api/ingest", tags=["ingest"])
+gateway.include_router(ingest_jobs_router, prefix="/api/ingest", tags=["ingest"])
+gateway.include_router(ingest_triage_router, prefix="/api/ingest", tags=["ingest"])
 gateway.mount("/api/poi-service", poi_app)
+gateway.mount("/api/ingest-service", ingest_app)
+
+
 
 # 4. Middleware registration:
 # Under Starlette's LIFO execution model:

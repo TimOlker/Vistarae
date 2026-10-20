@@ -1,4 +1,17 @@
-# Copyright (c) 2026 Vistarae. All rights reserved.
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """Pure domain aggregates and business entities.
@@ -15,8 +28,10 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from vistarae_core.domain.value_objects import (
+    DuplicateTriageStatus,
     EnrichmentStatus,
     IdempotencyStatus,
+    IngestJobStatus,
     PacingMode,
     ThemeMode,
     TransitSpeedMode,
@@ -197,3 +212,54 @@ class PotentialDuplicateMatch:
     distance_meters: float
     name_similarity: float
     match_confidence: float
+
+
+@dataclass
+class IngestJob:
+    """Asynchronous ingestion job aggregate."""
+
+    id: UUID
+    user_id: UUID
+    job_status: IngestJobStatus
+    total_rows: int = 0
+    processed_rows: int = 0
+    duplicate_payloads: list[dict[str, Any]] = field(default_factory=list)
+    target_list_id: UUID | None = None
+    error_summary: list[dict[str, Any]] = field(default_factory=list)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    @property
+    def percent_complete(self) -> float:
+        """Calculates job completion percentage."""
+        if self.total_rows <= 0:
+            if self.job_status in (IngestJobStatus.COMPLETED, IngestJobStatus.PARTIAL_SUCCESS):
+                return 100.0
+            return 0.0
+        return round((self.processed_rows / self.total_rows) * 100.0, 2)
+
+
+@dataclass
+class DuplicatePayloadItem:
+    """Suspected duplicate record discovered during batch ingestion."""
+
+    row_number: int
+    raw_name: str
+    candidate_poi_id: UUID
+    match_type: str
+    similarity_score: float
+    distance_meters: float
+    triage_status: DuplicateTriageStatus
+    staged_poi_data: dict[str, Any]
+
+
+@dataclass
+class IngestRowMessage:
+    """Individual CSV row payload dispatched to SQS queue."""
+
+    job_id: UUID
+    user_id: UUID
+    absolute_row_number: int
+    row_data: dict[str, str]
+    target_list_id: UUID | None = None
+

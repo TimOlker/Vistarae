@@ -1949,10 +1949,279 @@
           }
         }
       }
+    },
+    "/api/ingest/csv": {
+      "post": {
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
+        "summary": "Accept bulk CSV upload for asynchronous processing",
+        "description": "Accepts CSV file upload, applies security guardrails, and dispatches to queue.\n\nArgs:\n    request: HTTP request context.\n    file: Multipart uploaded file.\n    target_list_id: Optional UUID of list to attach imported POIs.\n    user: Authenticated tenant user.\n    ingest_repo: Active IngestJobRepository instance.\n    queue_port: Active IQueuePort adapter.\n\nReturns:\n    IngestUploadResponse with HTTP 202 Accepted.",
+        "operationId": "upload_csv_api_ingest_csv_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_csv_api_ingest_csv_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
+        "summary": "Poll ingestion job status and retrieve staged duplicates",
+        "description": "Retrieves ingestion job state enforcing tenant isolation.\n\nArgs:\n    job_id: Unique ingestion job UUID.\n    user: Authenticated tenant user.\n    ingest_repo: Active IngestJobRepository port.\n\nReturns:\n    IngestJobProgressResponse containing progress metrics and staged duplicates.\n\nRaises:\n    IngestJobNotFoundError: If job does not exist or belongs to another tenant.",
+        "operationId": "get_job_progress_api_ingest_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestJobProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/triage": {
+      "post": {
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
+        "summary": "Submit interactive triage decisions for suspected duplicates",
+        "description": "Applies triage decisions, persists committed POIs, and recalculates job status.\n\nArgs:\n    job_id: Ingest job UUID.\n    body: TriageRequest payload with list of decision items.\n    user: Authenticated tenant user.\n    ingest_repo: Active IngestJobRepository port.\n    poi_repo: Active IPOIRepository port.\n\nReturns:\n    Updated IngestJobProgressResponse.\n\nRaises:\n    IngestJobNotFoundError: If job is not found for tenant.",
+        "operationId": "submit_triage_decisions_api_ingest_jobs__job_id__triage_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestJobProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Body_upload_csv_api_ingest_csv_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "CSV file to ingest"
+          },
+          "target_list_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target List Id",
+            "description": "Optional target list ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_csv_api_ingest_csv_post"
+      },
       "BulkDeleteRequest": {
         "properties": {
           "poi_ids": {
@@ -2182,6 +2451,67 @@
         "title": "DeduplicationPreset",
         "description": "Proximity search preset for duplicate detection."
       },
+      "DuplicateItemResponse": {
+        "properties": {
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "raw_name": {
+            "type": "string",
+            "title": "Raw Name"
+          },
+          "candidate_poi_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Candidate Poi Id"
+          },
+          "match_type": {
+            "type": "string",
+            "title": "Match Type"
+          },
+          "similarity_score": {
+            "type": "number",
+            "title": "Similarity Score"
+          },
+          "distance_meters": {
+            "type": "number",
+            "title": "Distance Meters"
+          },
+          "triage_status": {
+            "$ref": "#/components/schemas/DuplicateTriageStatus"
+          },
+          "staged_poi_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Staged Poi Data"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "row_number",
+          "raw_name",
+          "candidate_poi_id",
+          "match_type",
+          "similarity_score",
+          "distance_meters",
+          "triage_status",
+          "staged_poi_data"
+        ],
+        "title": "DuplicateItemResponse",
+        "description": "Suspected duplicate POI record presented for interactive triage."
+      },
+      "DuplicateTriageStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING_REVIEW",
+          "COMMITTED",
+          "REJECTED"
+        ],
+        "title": "DuplicateTriageStatus",
+        "description": "Review status for suspected duplicate POIs discovered during ingestion."
+      },
       "EnrichmentStatus": {
         "type": "string",
         "enum": [
@@ -2237,6 +2567,110 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IngestJobProgressResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "job_status": {
+            "$ref": "#/components/schemas/IngestJobStatus"
+          },
+          "total_rows": {
+            "type": "integer",
+            "title": "Total Rows"
+          },
+          "processed_rows": {
+            "type": "integer",
+            "title": "Processed Rows"
+          },
+          "percent_complete": {
+            "type": "number",
+            "title": "Percent Complete"
+          },
+          "duplicate_payloads": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateItemResponse"
+            },
+            "type": "array",
+            "title": "Duplicate Payloads"
+          },
+          "error_summary": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Error Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "job_status",
+          "total_rows",
+          "processed_rows",
+          "percent_complete",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "IngestJobProgressResponse",
+        "description": "Progress status, counts, and duplicate items for an ingestion job."
+      },
+      "IngestJobStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "COMPLETED",
+          "PARTIAL_SUCCESS",
+          "FAILED"
+        ],
+        "title": "IngestJobStatus",
+        "description": "Lifecycle state of an asynchronous bulk ingestion job."
+      },
+      "IngestUploadResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "job_status": {
+            "$ref": "#/components/schemas/IngestJobStatus"
+          },
+          "total_rows": {
+            "type": "integer",
+            "title": "Total Rows"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "job_status",
+          "total_rows",
+          "message"
+        ],
+        "title": "IngestUploadResponse",
+        "description": "Response returned upon accepting a bulk CSV upload."
       },
       "ListCreateRequest": {
         "properties": {
@@ -3563,6 +3997,43 @@
         ],
         "title": "TagResponse",
         "description": "Tag entity response model."
+      },
+      "TriageDecisionItem": {
+        "properties": {
+          "row_number": {
+            "type": "integer",
+            "title": "Row Number"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/DuplicateTriageStatus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "row_number",
+          "decision"
+        ],
+        "title": "TriageDecisionItem",
+        "description": "User triage decision for an individual suspected duplicate row."
+      },
+      "TriageRequest": {
+        "properties": {
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/TriageDecisionItem"
+            },
+            "type": "array",
+            "title": "Decisions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decisions"
+        ],
+        "title": "TriageRequest",
+        "description": "Batch payload containing duplicate triage decisions."
       },
       "ValidationError": {
         "properties": {
