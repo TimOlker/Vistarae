@@ -31,7 +31,6 @@ from vistarae_core.adapters.db.tables import (
     UserQuotasTable,
     UserTable,
 )
-from vistarae_core.adapters.identity.cognito import CognitoIdentityProvider
 from vistarae_core.domain.entities import User
 from vistarae_core.domain.value_objects import PacingMode, ThemeMode, TransitSpeedMode, UserTier
 from vistarae_core.schemas.preferences import (
@@ -48,10 +47,11 @@ from vistarae_core.schemas.user import (
     UserResponse,
 )
 
+from vistarae_core.adapters.identity.cognito import CognitoIdentityProvider
 from services.user.dependencies import get_current_user
 
 router = APIRouter()
-_cognito = CognitoIdentityProvider()
+_cognito = CognitoIdentityProvider(validate_config=False)
 
 
 @router.get("/me", response_model=UserProfileResponse, status_code=status.HTTP_200_OK)
@@ -218,7 +218,7 @@ async def delete_me(
         current_user: Authenticated user entity from dependency.
         session: Active database session.
     """
-    # 1. Remove from Cognito identity provider.
+    # 1. Remove from identity provider.
     await _cognito.delete_user(current_user.cognito_sub)
     # 2. Delete from PostgreSQL — triggers CASCADE on all child tables.
     await session.execute(delete(UserTable).where(UserTable.id == current_user.id))

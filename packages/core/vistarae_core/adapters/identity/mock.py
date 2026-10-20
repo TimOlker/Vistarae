@@ -41,10 +41,11 @@ class MockIdentityProvider:
     async def verify_token(self, token: str) -> dict[str, Any]:
         """Parses the mock token as a UUID and returns synthetic claims.
 
-        The mock 'token' is expected to be a raw UUID string (the mock user ID).
+        The mock 'token' can be a raw UUID string or prefixed with
+        'mock-access-token-', 'mock-id-token-', or 'mock-'.
 
         Args:
-            token: UUID string from X-Mock-User-Id header.
+            token: UUID or mock bearer token string.
 
         Returns:
             Synthetic claims dict with 'sub' and 'email' populated from the UUID.
@@ -52,8 +53,20 @@ class MockIdentityProvider:
         Raises:
             ValueError: If the token is not a valid UUID format.
         """
+        raw = token.strip()
+        if raw.startswith("Bearer "):
+            raw = raw.removeprefix("Bearer ").strip()
+        if raw.startswith("mock-access-token-"):
+            raw = raw.removeprefix("mock-access-token-")
+        elif raw.startswith("mock-id-token-"):
+            raw = raw.removeprefix("mock-id-token-")
+        elif raw.startswith("mock-token-"):
+            raw = raw.removeprefix("mock-token-")
+        elif raw.startswith("mock-"):
+            raw = raw.removeprefix("mock-")
+
         try:
-            user_uuid = UUID(token)
+            user_uuid = UUID(raw)
         except ValueError as exc:
             raise ValueError(f"X-Mock-User-Id must be a valid UUID; got '{token}'.") from exc
 
