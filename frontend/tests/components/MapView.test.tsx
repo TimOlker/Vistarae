@@ -16,15 +16,18 @@ const mockSource = {
   setTiles: mockSetTiles,
 };
 
+let mockExistingSources: Record<string, unknown> = {
+  "raster-tiles": mockSource,
+};
+
 const mockMapInstance = {
   addControl: vi.fn(),
-  addSource: vi.fn(),
+  addSource: vi.fn().mockImplementation((name: string) => {
+    mockExistingSources[name] = mockSource;
+  }),
   addLayer: vi.fn(),
   getSource: vi.fn().mockImplementation((name: string) => {
-    if (name === "pois" || name === "raster-tiles") {
-      return mockSource;
-    }
-    return undefined;
+    return mockExistingSources[name];
   }),
   getBounds: vi.fn().mockReturnValue({
     getWest: () => 116.0,
@@ -44,6 +47,8 @@ const mockMapInstance = {
   remove: vi.fn(),
   flyTo: vi.fn(),
   easeTo: vi.fn(),
+  getLayer: vi.fn().mockReturnValue(undefined),
+  setStyle: vi.fn(),
   isStyleLoaded: vi.fn().mockReturnValue(true),
   queryRenderedFeatures: vi.fn().mockReturnValue([]),
 };
@@ -76,6 +81,7 @@ describe("MapView Component", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     Object.keys(mockMapEvents).forEach((key) => delete mockMapEvents[key]);
+    mockExistingSources = { "raster-tiles": mockSource };
   });
 
   afterEach(() => {
@@ -188,5 +194,38 @@ describe("MapView Component", () => {
     expect(
       screen.getByText(/Click anywhere on the map to set location pin/i),
     ).toBeInTheDocument();
+  });
+
+  it("switches to vector style URL when OpenFreeMap layer is selected", () => {
+    const onLayerChange = vi.fn();
+    render(
+      <MapView
+        pois={samplePOIs}
+        totalPoiCount={1}
+        activeLayer="osm"
+        onLayerChange={onLayerChange}
+      />,
+    );
+
+    act(() => {
+      mockMapEvents["load"]?.forEach((cb) => cb());
+    });
+
+    // Open layer switcher
+    const switcherButton = screen.getByRole("button", { name: /layers/i });
+    act(() => {
+      switcherButton.click();
+    });
+
+    // Click on OpenFreeMap (English Vector)
+    const ofmButton = screen.getByText(/OpenFreeMap \(English Vector\)/i);
+    act(() => {
+      ofmButton.click();
+    });
+
+    expect(onLayerChange).toHaveBeenCalledWith("openfreemap");
+    expect(mockMapInstance.setStyle).toHaveBeenCalledWith(
+      "https://tiles.openfreemap.org/styles/liberty",
+    );
   });
 });

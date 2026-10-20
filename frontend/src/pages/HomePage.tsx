@@ -6,6 +6,7 @@ import type { BoundingBox, MapLayerId, POIMapFeature } from "../types/map";
 import { MapView } from "../components/map/MapView";
 import { POITable } from "../components/poi/POITable";
 import { POIDetailDrawer } from "../components/poi/POIDetailDrawer";
+import { usePreferences } from "../context/PreferencesContext";
 
 // Seed demonstration POIs across mainland China and international destinations
 export const INITIAL_DEMO_POIS: POIMapFeature[] = [
@@ -89,6 +90,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   isPickingLocation = false,
   onLocationPicked,
 }) => {
+  const { poi } = usePreferences();
   const [internalPois, setInternalPois] =
     useState<POIMapFeature[]>(INITIAL_DEMO_POIS);
   const pois = propsPois || internalPois;
@@ -104,7 +106,9 @@ export const HomePage: React.FC<HomePageProps> = ({
     [propsOnUpdatePois],
   );
 
-  const [activeLayer, setActiveLayer] = useState<MapLayerId>("osm");
+  const [activeLayer, setActiveLayer] = useState<MapLayerId>(
+    (poi.default_map_layer as MapLayerId) || "osm",
+  );
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const [isViewportFilterActive, setIsViewportFilterActive] =
     useState<boolean>(false);
@@ -264,6 +268,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             pois={pois}
             totalPoiCount={pois.length}
             activeLayer={activeLayer}
+            defaultLayer={(poi.default_map_layer as MapLayerId) || "osm"}
+            mapLanguage={poi.map_language || "local"}
             selectedPoiId={selectedPoiId}
             onLayerChange={setActiveLayer}
             onPOIClick={(poi) => {

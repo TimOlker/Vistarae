@@ -49,10 +49,11 @@ export function generateTraceparent(): {
 export interface ApiRequestOptions extends RequestInit {
   idempotencyKey?: string;
   skipAuth?: boolean;
+  timeoutMs?: number;
 }
 
 /**
- * Typed HTTP fetch wrapper enforcing W3C tracing, idempotency keys, and RFC 7807 ProblemDetails mapping.
+ * Typed HTTP fetch wrapper enforcing W3C tracing, idempotency keys, request timeouts, and RFC 7807 ProblemDetails mapping.
  */
 export async function apiFetch<T = unknown>(
   endpoint: string,
@@ -98,10 +99,55 @@ export async function apiFetch<T = unknown>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(endpoint, {
-    ...options,
-    headers,
-  });
+  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    timeoutController.abort(
+      new Error(`Request timed out after ${timeoutMs}ms`),
+    );
+  }, timeoutMs);
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      timeoutController.abort(options.signal.reason);
+    } else {
+      options.signal.addEventListener("abort", () => {
+        timeoutController.abort(options.signal?.reason);
+      });
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      ...options,
+      headers,
+      signal: timeoutController.signal,
+    });
+  } catch (err: unknown) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+
+    const isTimeout =
+      (err as Error)?.name === "AbortError" ||
+      (err as Error)?.message?.includes("timed out");
+
+    const problem: ProblemDetails = {
+      type: isTimeout
+        ? "https://errors.vistarae.com/gateway-timeout"
+        : "https://errors.vistarae.com/network-error",
+      title: isTimeout ? "Request Timeout" : "Network Error",
+      status: isTimeout ? 504 : 503,
+      detail: isTimeout
+        ? `The backend server did not respond within ${timeoutMs / 1000} seconds. Please verify the backend service is running.`
+        : (err as Error)?.message ||
+          "Failed to communicate with the backend server.",
+    };
+    throw new ApiError(problem);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     let problem: ProblemDetails;

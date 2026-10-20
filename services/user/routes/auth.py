@@ -158,10 +158,18 @@ async def register(
             password=body.password,
             full_name=body.full_name,
         )
+        import os  # noqa: PLC0415
+
+        stage = os.getenv("STAGE", os.getenv("APP_ENV", "local")).lower()
+        message = (
+            "Local dev mode: No email sent. Enter code 123456 to confirm."
+            if stage == "local"
+            else "Verification code dispatched to your registered email."
+        )
         return RegisterResponse(
             user_sub=result["user_sub"],
             user_confirmed=result.get("user_confirmed", False),
-            message="Verification code dispatched to your registered email.",
+            message=message,
         )
     except ValueError as exc:
         msg = str(exc)

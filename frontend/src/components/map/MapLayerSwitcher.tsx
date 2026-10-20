@@ -5,76 +5,101 @@ import React, { useState } from "react";
 import type { LayerConfig, MapLayerId } from "../../types/map";
 import { Layers, Check, Bookmark } from "lucide-react";
 
-export const MAP_LAYERS: LayerConfig[] = [
-  {
-    id: "osm",
-    name: "OpenStreetMap",
-    isShifted: false,
-    tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-    maxZoom: 19,
-    attribution: "© OpenStreetMap contributors",
-  },
-  {
-    id: "satellite",
-    name: "Satellite (Esri)",
-    isShifted: false,
-    tiles: [
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    ],
-    maxZoom: 18,
-    attribution: "© Esri, Maxar, Earthstar Geographics",
-  },
-  {
-    id: "road",
-    name: "Road (Voyager)",
-    isShifted: false,
-    tiles: [
-      "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-    ],
-    maxZoom: 19,
-    attribution: "© CARTO, © OpenStreetMap contributors",
-  },
-  {
-    id: "google-roadmap",
-    name: "Google Maps",
-    isShifted: false,
-    tiles: ["https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"],
-    maxZoom: 20,
-    attribution: "© Google",
-  },
-  {
-    id: "google-hybrid",
-    name: "Google Hybrid",
-    isShifted: false,
-    tiles: ["https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"],
-    maxZoom: 20,
-    attribution: "© Google",
-  },
-  {
-    id: "amap",
-    name: "AutoNavi / Amap (GCJ-02)",
-    isShifted: true,
-    tiles: [
-      "https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}",
-    ],
-    maxZoom: 18,
-    attribution: "© AutoNavi (高德地图)",
-  },
-  {
-    id: "baidu",
-    name: "Baidu Maps (BD-09)",
-    isShifted: true,
-    tiles: [
-      "https://api.map.baidu.com/customimage/tile?&x={x}&y={y}&z={z}&udt=20200825&scale=1",
-    ],
-    maxZoom: 18,
-    attribution: "© Baidu (百度地图)",
-  },
-];
+export function getMapLayers(language: string = "local"): LayerConfig[] {
+  const isLocal = !language || language === "local";
+  const googleHlParam = isLocal
+    ? ""
+    : `&hl=${encodeURIComponent(language)}&gl=US`;
+  const amapLangParam = language === "en" ? "en" : "zh_cn";
+
+  return [
+    {
+      id: "osm",
+      name: "OpenStreetMap",
+      isShifted: false,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    },
+    {
+      id: "openfreemap",
+      name: "OpenFreeMap (English Vector)",
+      isShifted: false,
+      type: "vector",
+      styleUrl: "https://tiles.openfreemap.org/styles/liberty",
+      tiles: [],
+      maxZoom: 19,
+      attribution: "© OpenFreeMap, © OpenStreetMap contributors",
+    },
+    {
+      id: "satellite",
+      name: "Satellite (Esri)",
+      isShifted: false,
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      ],
+      maxZoom: 18,
+      attribution: "© Esri, Maxar, Earthstar Geographics",
+    },
+    {
+      id: "road",
+      name: "Road (Voyager)",
+      isShifted: false,
+      tiles: [
+        "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+      ],
+      maxZoom: 19,
+      attribution: "© CARTO, © OpenStreetMap contributors",
+    },
+    {
+      id: "google-roadmap",
+      name: "Google Maps",
+      isShifted: false,
+      tiles: [
+        `https://mt1.google.com/vt/lyrs=m${googleHlParam}&x={x}&y={y}&z={z}`,
+      ],
+      maxZoom: 20,
+      attribution: "© Google",
+    },
+    {
+      id: "google-hybrid",
+      name: "Google Hybrid",
+      isShifted: false,
+      tiles: [
+        `https://mt1.google.com/vt/lyrs=y${googleHlParam}&x={x}&y={y}&z={z}`,
+      ],
+      maxZoom: 20,
+      attribution: "© Google",
+    },
+    {
+      id: "amap",
+      name: "AutoNavi / Amap (GCJ-02)",
+      isShifted: true,
+      tiles: [
+        `https://webrd01.is.autonavi.com/appmaptile?lang=${amapLangParam}&size=1&scale=1&style=8&x={x}&y={y}&z={z}`,
+      ],
+      maxZoom: 18,
+      attribution: "© AutoNavi (高德地图)",
+    },
+    {
+      id: "baidu",
+      name: "Baidu Maps (BD-09)",
+      isShifted: true,
+      tiles: [
+        "https://api.map.baidu.com/customimage/tile?&x={x}&y={y}&z={z}&udt=20200825&scale=1",
+      ],
+      maxZoom: 18,
+      attribution: "© Baidu (百度地图)",
+    },
+  ];
+}
+
+export const MAP_LAYERS: LayerConfig[] = getMapLayers("local");
 
 interface MapLayerSwitcherProps {
   activeLayer: MapLayerId;
   defaultLayer?: MapLayerId;
+  language?: string;
   onLayerChange: (layerId: MapLayerId) => void;
   onSaveAsDefault?: (layerId: MapLayerId) => void;
 }
@@ -82,11 +107,13 @@ interface MapLayerSwitcherProps {
 export const MapLayerSwitcher: React.FC<MapLayerSwitcherProps> = ({
   activeLayer,
   defaultLayer,
+  language = "local",
   onLayerChange,
   onSaveAsDefault,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const layers = getMapLayers(language);
 
   const handleSaveDefault = () => {
     if (onSaveAsDefault) {
@@ -151,7 +178,7 @@ export const MapLayerSwitcher: React.FC<MapLayerSwitcherProps> = ({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            {MAP_LAYERS.map((layer) => {
+            {layers.map((layer) => {
               const isActive = layer.id === activeLayer;
               const isDefault = layer.id === defaultLayer;
 

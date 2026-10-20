@@ -73,120 +73,149 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Navigation Links */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <button
-          type="button"
-          onClick={() => onNavigate("home")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "6px 12px",
-            borderRadius: "var(--radius-md, 8px)",
-            background:
-              currentView === "home"
-                ? "var(--accent-light, #eff6ff)"
-                : "transparent",
-            color:
-              currentView === "home"
-                ? "var(--accent, #2563eb)"
-                : "var(--text-secondary, #475569)",
-            fontSize: "13px",
-            fontWeight: 600,
-          }}
-        >
-          <Compass size={15} />
-          <span>Explorer</span>
-        </button>
+        {user ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onNavigate("home")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                background:
+                  currentView === "home"
+                    ? "var(--accent-light, #eff6ff)"
+                    : "transparent",
+                color:
+                  currentView === "home"
+                    ? "var(--accent, #2563eb)"
+                    : "var(--text-secondary, #475569)",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              <Compass size={15} />
+              <span>Explorer</span>
+            </button>
 
-        {onOpenAddPOI && (
-          <button
-            type="button"
-            onClick={onOpenAddPOI}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 12px",
-              borderRadius: "var(--radius-md, 8px)",
-              background: "transparent",
-              color: "var(--text-secondary, #475569)",
-              fontSize: "13px",
-              fontWeight: 600,
-            }}
-          >
-            <PlusCircle size={15} />
-            <span>Add POI</span>
-          </button>
-        )}
+            {onOpenAddPOI && (
+              <button
+                type="button"
+                onClick={onOpenAddPOI}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background: "transparent",
+                  color: "var(--text-secondary, #475569)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                <PlusCircle size={15} />
+                <span>Add POI</span>
+              </button>
+            )}
 
-        {onOpenUploadCSV && (
-          <button
-            type="button"
-            onClick={onOpenUploadCSV}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 12px",
-              borderRadius: "var(--radius-md, 8px)",
-              background: "transparent",
-              color: "var(--text-secondary, #475569)",
-              fontSize: "13px",
-              fontWeight: 600,
-            }}
-          >
-            <UploadCloud size={15} />
-            <span>Import CSV</span>
-          </button>
-        )}
+            {onOpenUploadCSV && (
+              <button
+                type="button"
+                onClick={onOpenUploadCSV}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background: "transparent",
+                  color: "var(--text-secondary, #475569)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                <UploadCloud size={15} />
+                <span>Import CSV</span>
+              </button>
+            )}
 
-        <button
-          type="button"
-          onClick={() => onNavigate("settings")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "6px 12px",
-            borderRadius: "var(--radius-md, 8px)",
-            background: currentView.startsWith("settings")
-              ? "var(--accent-light, #eff6ff)"
-              : "transparent",
-            color: currentView.startsWith("settings")
-              ? "var(--accent, #2563eb)"
-              : "var(--text-secondary, #475569)",
-            fontSize: "13px",
-            fontWeight: 600,
-          }}
-        >
-          <Settings size={15} />
-          <span>Preferences</span>
-        </button>
-
-        {user?.is_admin && (
-          <button
-            type="button"
-            onClick={() => onNavigate("admin")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 12px",
-              borderRadius: "var(--radius-md, 8px)",
-              background:
-                currentView === "admin"
+            <button
+              type="button"
+              onClick={() => onNavigate("settings")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: currentView.startsWith("settings")
                   ? "var(--accent-light, #eff6ff)"
                   : "transparent",
-              color:
-                currentView === "admin"
+                color: currentView.startsWith("settings")
                   ? "var(--accent, #2563eb)"
                   : "var(--text-secondary, #475569)",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              <Settings size={15} />
+              <span>Preferences</span>
+            </button>
+
+            {user?.is_admin && (
+              <button
+                type="button"
+                onClick={() => onNavigate("admin")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background:
+                    currentView === "admin"
+                      ? "var(--accent-light, #eff6ff)"
+                      : "transparent",
+                  color:
+                    currentView === "admin"
+                      ? "var(--accent, #2563eb)"
+                      : "var(--text-secondary, #475569)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                <Shield size={15} />
+                <span>Admin</span>
+              </button>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate("home");
+              setTimeout(() => {
+                const el = document.getElementById("features");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }, 50);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 12px",
+              borderRadius: "var(--radius-md, 8px)",
+              background: "transparent",
+              color: "var(--text-secondary, #475569)",
               fontSize: "13px",
               fontWeight: 600,
             }}
           >
-            <Shield size={15} />
-            <span>Admin</span>
+            <Compass size={15} />
+            <span>Features</span>
           </button>
         )}
 

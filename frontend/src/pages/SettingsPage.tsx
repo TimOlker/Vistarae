@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vistarae. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { usePreferences } from "../context/PreferencesContext";
 import { useToast } from "../context/ToastContext";
 import { Palette, Map, Calendar, Save } from "lucide-react";
@@ -22,6 +22,18 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   const [uiForm, setUiForm] = useState(ui);
   const [poiForm, setPoiForm] = useState(poi);
   const [plannerForm, setPlannerForm] = useState(planner);
+
+  useEffect(() => {
+    setUiForm(ui);
+  }, [ui]);
+
+  useEffect(() => {
+    setPoiForm(poi);
+  }, [poi]);
+
+  useEffect(() => {
+    setPlannerForm(planner);
+  }, [planner]);
 
   const handleSaveUI = async () => {
     setSaving(true);
@@ -379,12 +391,62 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
               }}
             >
               <option value="osm">OpenStreetMap</option>
+              <option value="openfreemap">OpenFreeMap (English Vector)</option>
               <option value="satellite">Satellite (Esri)</option>
               <option value="road">Road (CartoDB)</option>
               <option value="google-roadmap">Google Maps</option>
               <option value="google-hybrid">Google Hybrid</option>
               <option value="amap">AutoNavi / Amap (GCJ-02)</option>
               <option value="baidu">Baidu Maps (BD-09)</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "var(--text-primary)",
+              }}
+            >
+              Map Label Language
+            </label>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              Choose whether map tiles display native local place names or force
+              translations (e.g., &quot;Eiffel Tower&quot; vs &quot;Tour
+              Eiffel&quot;).
+            </span>
+            <select
+              value={poiForm.map_language || "local"}
+              onChange={(e) =>
+                setPoiForm((prev) => ({
+                  ...prev,
+                  map_language: e.target.value,
+                }))
+              }
+              style={{
+                padding: "8px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                background: "var(--bg-surface)",
+                color: "var(--text-primary)",
+                fontSize: "13px",
+              }}
+            >
+              <option value="local">
+                Local Language (Default - Native names)
+              </option>
+              <option value="en">English (Force English translations)</option>
+              <option value="es">Spanish (Español)</option>
+              <option value="fr">French (Français)</option>
+              <option value="de">German (Deutsch)</option>
+              <option value="zh">Chinese (中文)</option>
+              <option value="ja">Japanese (日本語)</option>
+              <option value="ko">Korean (한국어)</option>
+              <option value="it">Italian (Italiano)</option>
+              <option value="pt">Portuguese (Português)</option>
+              <option value="ru">Russian (Русский)</option>
+              <option value="ar">Arabic (العربية)</option>
             </select>
           </div>
 
@@ -562,7 +624,7 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
                 marginBottom: "6px",
               }}
             >
-              Preferred Currency (ISO 4217)
+              Preferred Currency
             </label>
             <select
               value={plannerForm.preferred_currency}

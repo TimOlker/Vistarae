@@ -38,7 +38,7 @@ export const TermsPage: React.FC<{ onNavigateHome?: () => void }> = ({
             }}
           >
             <ArrowLeft size={16} />
-            <span>Back to Explorer</span>
+            <span>Back to Home</span>
           </button>
         )}
 

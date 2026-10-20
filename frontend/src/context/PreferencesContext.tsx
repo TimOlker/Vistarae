@@ -23,11 +23,14 @@ export interface POIPreferences {
   clustering_enabled: boolean;
   clustering_radius_meters: number;
   default_map_layer: string;
+  map_language: string;
   geoproximity_scope_km: number;
   pin_color_presets: {
     not_visited?: string;
     visited_return?: string;
     visited_do_not_return?: string;
+    map_language?: string;
+    [key: string]: string | undefined;
   };
 }
 
@@ -61,6 +64,7 @@ const defaultPOI: POIPreferences = {
   clustering_enabled: true,
   clustering_radius_meters: 50,
   default_map_layer: "osm",
+  map_language: localStorage.getItem("vistarae_map_language") || "local",
   geoproximity_scope_km: 10.0,
   pin_color_presets: {
     not_visited: "#2563eb",
@@ -111,7 +115,15 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
       if (poiRes.status === "fulfilled" && poiRes.value) {
-        setPOI(poiRes.value);
+        const backendMapLang =
+          poiRes.value.pin_color_presets?.map_language ||
+          localStorage.getItem("vistarae_map_language") ||
+          "local";
+        setPOI({
+          ...poiRes.value,
+          map_language: backendMapLang,
+        });
+        localStorage.setItem("vistarae_map_language", backendMapLang);
       }
       if (plannerRes.status === "fulfilled" && plannerRes.value) {
         setPlanner(plannerRes.value);
@@ -141,11 +153,27 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const updatePOI = async (diff: Partial<POIPreferences>) => {
-    setPOI((prev) => ({ ...prev, ...diff }));
+    const nextLang = diff.map_language || poi.map_language || "local";
+    if (diff.map_language) {
+      localStorage.setItem("vistarae_map_language", diff.map_language);
+    }
+    setPOI((prev) => ({ ...prev, ...diff, map_language: nextLang }));
+
     if (isAuthenticated) {
+      // Pack map_language into pin_color_presets for backend persistence
+      const updatedPinPresets = {
+        ...(poi.pin_color_presets || {}),
+        ...(diff.pin_color_presets || {}),
+        map_language: nextLang,
+      };
+
+      const { map_language: _, ...backendPayload } = diff;
       await apiFetch("/api/users/me/preferences/poi", {
         method: "PATCH",
-        body: JSON.stringify(diff),
+        body: JSON.stringify({
+          ...backendPayload,
+          pin_color_presets: updatedPinPresets,
+        }),
       });
     }
   };

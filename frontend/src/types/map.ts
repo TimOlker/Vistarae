@@ -18,6 +18,7 @@ export type VisitState =
 
 export type MapLayerId =
   | "osm"
+  | "openfreemap"
   | "satellite"
   | "google-roadmap"
   | "google-hybrid"
@@ -29,6 +30,8 @@ export interface LayerConfig {
   id: MapLayerId;
   name: string;
   isShifted: boolean; // True for Amap (GCJ-02) and Baidu (BD-09)
+  type?: "raster" | "vector";
+  styleUrl?: string;
   tiles: string[];
   maxZoom: number;
   attribution: string;

@@ -3,7 +3,12 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
-import type { BoundingBox, MapLayerId, POIMapFeature } from "../../types/map";
+import type {
+  BoundingBox,
+  MapLayerId,
+  POIMapFeature,
+  LayerConfig,
+} from "../../types/map";
 import {
   createSuperclusterIndex,
   getClustersForViewport,
@@ -14,7 +19,33 @@ import {
   gcj02_to_wgs84,
   bd09_to_wgs84,
 } from "../../utils/coordinates";
-import { MapLayerSwitcher, MAP_LAYERS } from "./MapLayerSwitcher";
+import { MapLayerSwitcher, getMapLayers } from "./MapLayerSwitcher";
+
+function createRasterStyle(
+  layerConfig: LayerConfig,
+): maplibregl.StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      "raster-tiles": {
+        type: "raster",
+        tiles: layerConfig.tiles,
+        tileSize: 256,
+        attribution: layerConfig.attribution,
+        maxzoom: layerConfig.maxZoom,
+      },
+    },
+    layers: [
+      {
+        id: "raster-layer",
+        type: "raster",
+        source: "raster-tiles",
+        minzoom: 0,
+        maxzoom: layerConfig.maxZoom,
+      },
+    ],
+  };
+}
 
 export interface MapViewProps {
   pois: POIMapFeature[];
@@ -23,6 +54,7 @@ export interface MapViewProps {
   initialZoom?: number;
   activeLayer?: MapLayerId;
   defaultLayer?: MapLayerId;
+  mapLanguage?: string;
   selectedPoiId?: string | null;
   isPinDropMode?: boolean;
   onLayerChange?: (layer: MapLayerId) => void;
@@ -43,6 +75,7 @@ export const MapView: React.FC<MapViewProps> = ({
   initialZoom = 10,
   activeLayer: controlledLayer = "osm",
   defaultLayer = "osm",
+  mapLanguage = "local",
   selectedPoiId,
   isPinDropMode = false,
   onLayerChange,
@@ -58,10 +91,12 @@ export const MapView: React.FC<MapViewProps> = ({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const [sessionLayer, setSessionLayer] = useState<MapLayerId>(controlledLayer);
+  const sessionLayerRef = useRef<MapLayerId>(controlledLayer);
 
   // Sync internal layer state if parent changes controlled layer
   useEffect(() => {
     setSessionLayer(controlledLayer);
+    sessionLayerRef.current = controlledLayer;
   }, [controlledLayer]);
 
   // Extract current map bounding box
@@ -78,6 +113,7 @@ export const MapView: React.FC<MapViewProps> = ({
   // Update in-memory GeoJSON cluster data
   const updateGeoJSONSource = useCallback(
     (map: maplibregl.Map, layer: MapLayerId) => {
+      if (!map || !map.isStyleLoaded()) return;
       const source = map.getSource("pois") as
         maplibregl.GeoJSONSource | undefined;
       if (!source) return;
@@ -101,10 +137,99 @@ export const MapView: React.FC<MapViewProps> = ({
     [pois, totalPoiCount, getMapBBox, onViewportChange],
   );
 
+  // Ensure POI source and cluster layers are present (e.g. after style reload)
+  const ensurePOILayers = useCallback(
+    (mapInstance: maplibregl.Map, currentLayer: MapLayerId) => {
+      if (!mapInstance || !mapInstance.isStyleLoaded()) return;
+
+      if (!mapInstance.getSource("pois")) {
+        mapInstance.addSource("pois", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+      }
+
+      if (!mapInstance.getLayer?.("clusters")) {
+        mapInstance.addLayer({
+          id: "clusters",
+          type: "circle",
+          source: "pois",
+          filter: ["has", "point_count"],
+          paint: {
+            "circle-color": [
+              "step",
+              ["get", "point_count"],
+              "#3b82f6", // blue
+              10,
+              "#10b981", // green
+              30,
+              "#f59e0b", // amber
+            ],
+            "circle-radius": [
+              "step",
+              ["get", "point_count"],
+              18,
+              10,
+              24,
+              30,
+              30,
+            ],
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+      }
+
+      if (!mapInstance.getLayer?.("cluster-count")) {
+        mapInstance.addLayer({
+          id: "cluster-count",
+          type: "symbol",
+          source: "pois",
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field": "{point_count_abbreviated}",
+            "text-size": 12,
+          },
+          paint: {
+            "text-color": "#ffffff",
+          },
+        });
+      }
+
+      if (!mapInstance.getLayer?.("unclustered-point")) {
+        mapInstance.addLayer({
+          id: "unclustered-point",
+          type: "circle",
+          source: "pois",
+          filter: ["!", ["has", "point_count"]],
+          paint: {
+            "circle-color": [
+              "match",
+              ["get", "visit_state"],
+              "visited_return",
+              "#10b981", // Emerald green
+              "visited_do_not_return",
+              "#f59e0b", // Amber
+              /* 'not_visited' or default */
+              "#2563eb", // Royal blue
+            ],
+            "circle-radius": 8,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+      }
+
+      updateGeoJSONSource(mapInstance, currentLayer);
+    },
+    [updateGeoJSONSource],
+  );
+
   // Handle layer switching without page reload or full map recreation
   const handleLayerSelect = useCallback(
     (newLayerId: MapLayerId) => {
       setSessionLayer(newLayerId);
+      sessionLayerRef.current = newLayerId;
       if (onLayerChange) {
         onLayerChange(newLayerId);
       }
@@ -112,53 +237,65 @@ export const MapView: React.FC<MapViewProps> = ({
       const map = mapRef.current;
       if (!map) return;
 
-      const targetLayer =
-        MAP_LAYERS.find((l) => l.id === newLayerId) || MAP_LAYERS[0];
-      const rasterSource = map.getSource("raster-tiles") as
-        maplibregl.RasterTileSource | undefined;
+      const layers = getMapLayers(mapLanguage);
+      const targetLayer = layers.find((l) => l.id === newLayerId) || layers[0];
 
-      if (rasterSource && "setTiles" in rasterSource) {
-        // MapLibre raster setTiles
-        (
-          rasterSource as unknown as { setTiles: (tiles: string[]) => void }
-        ).setTiles(targetLayer.tiles);
+      if (targetLayer.type === "vector" && targetLayer.styleUrl) {
+        map.setStyle(targetLayer.styleUrl);
+      } else {
+        const rasterSource = map.isStyleLoaded()
+          ? (map.getSource("raster-tiles") as
+              maplibregl.RasterTileSource | undefined)
+          : undefined;
+
+        if (rasterSource && "setTiles" in rasterSource) {
+          (
+            rasterSource as unknown as { setTiles: (tiles: string[]) => void }
+          ).setTiles(targetLayer.tiles);
+          updateGeoJSONSource(map, newLayerId);
+        } else {
+          map.setStyle(createRasterStyle(targetLayer));
+        }
       }
-
-      // Re-project markers in memory for the active layer
-      updateGeoJSONSource(map, newLayerId);
     },
-    [onLayerChange, updateGeoJSONSource],
+    [onLayerChange, updateGeoJSONSource, mapLanguage],
   );
+
+  // Dynamically update raster tiles when mapLanguage or sessionLayer changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const layers = getMapLayers(mapLanguage);
+    const targetLayer = layers.find((l) => l.id === sessionLayer) || layers[0];
+    if (targetLayer.type === "vector" || !targetLayer.tiles?.length) return;
+
+    const rasterSource = map.getSource("raster-tiles") as
+      maplibregl.RasterTileSource | undefined;
+
+    if (rasterSource && "setTiles" in rasterSource) {
+      (
+        rasterSource as unknown as { setTiles: (tiles: string[]) => void }
+      ).setTiles(targetLayer.tiles);
+    }
+  }, [mapLanguage, sessionLayer]);
 
   // Map initialization
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
+    const layers = getMapLayers(mapLanguage);
     const initialLayerConfig =
-      MAP_LAYERS.find((l) => l.id === sessionLayer) || MAP_LAYERS[0];
+      layers.find((l) => l.id === sessionLayer) || layers[0];
+
+    const initialStyle: string | maplibregl.StyleSpecification =
+      initialLayerConfig.type === "vector" && initialLayerConfig.styleUrl
+        ? initialLayerConfig.styleUrl
+        : createRasterStyle(initialLayerConfig);
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: {
-        version: 8,
-        sources: {
-          "raster-tiles": {
-            type: "raster",
-            tiles: initialLayerConfig.tiles,
-            tileSize: 256,
-            attribution: initialLayerConfig.attribution,
-          },
-        },
-        layers: [
-          {
-            id: "raster-layer",
-            type: "raster",
-            source: "raster-tiles",
-            minzoom: 0,
-            maxzoom: initialLayerConfig.maxZoom,
-          },
-        ],
-      },
+      style: initialStyle,
       center: initialCenter,
       zoom: initialZoom,
     });
@@ -167,74 +304,11 @@ export const MapView: React.FC<MapViewProps> = ({
     map.addControl(new maplibregl.NavigationControl(), "top-left");
 
     map.on("load", () => {
-      // Add GeoJSON POI source with cluster configuration
-      map.addSource("pois", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
-      });
+      ensurePOILayers(map, sessionLayerRef.current);
+    });
 
-      // Cluster circles layer
-      map.addLayer({
-        id: "clusters",
-        type: "circle",
-        source: "pois",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": [
-            "step",
-            ["get", "point_count"],
-            "#3b82f6", // blue
-            10,
-            "#10b981", // green
-            30,
-            "#f59e0b", // amber
-          ],
-          "circle-radius": ["step", ["get", "point_count"], 18, 10, 24, 30, 30],
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
-        },
-      });
-
-      // Cluster count labels
-      map.addLayer({
-        id: "cluster-count",
-        type: "symbol",
-        source: "pois",
-        filter: ["has", "point_count"],
-        layout: {
-          "text-field": "{point_count_abbreviated}",
-          "text-size": 12,
-        },
-        paint: {
-          "text-color": "#ffffff",
-        },
-      });
-
-      // Individual unclustered POI pins
-      map.addLayer({
-        id: "unclustered-point",
-        type: "circle",
-        source: "pois",
-        filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-color": [
-            "match",
-            ["get", "visit_state"],
-            "visited_return",
-            "#10b981", // Emerald green
-            "visited_do_not_return",
-            "#f59e0b", // Amber
-            /* 'not_visited' or default */
-            "#2563eb", // Royal blue
-          ],
-          "circle-radius": 8,
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
-        },
-      });
-
-      // Populate initial GeoJSON data
-      updateGeoJSONSource(map, sessionLayer);
+    map.on("styledata", () => {
+      ensurePOILayers(map, sessionLayerRef.current);
     });
 
     // Handle pin drop with reverse Newton numerical iteration
@@ -244,11 +318,11 @@ export const MapView: React.FC<MapViewProps> = ({
 
         // If active layer is shifted within China bbox, invert to canonical WGS-84
         if (isInChinaBBox(lng, lat)) {
-          if (sessionLayer === "amap") {
+          if (sessionLayerRef.current === "amap") {
             const canonical = gcj02_to_wgs84(lng, lat);
             lng = canonical.lng;
             lat = canonical.lat;
-          } else if (sessionLayer === "baidu") {
+          } else if (sessionLayerRef.current === "baidu") {
             const canonical = bd09_to_wgs84(lng, lat);
             lng = canonical.lng;
             lat = canonical.lat;
@@ -259,44 +333,47 @@ export const MapView: React.FC<MapViewProps> = ({
         return;
       }
 
-      // Check if click was on an unclustered POI pin
-      const features = map.queryRenderedFeatures(e.point, {
-        layers: ["unclustered-point"],
-      });
+      if (!map.isStyleLoaded()) return;
 
-      if (features.length > 0 && onPOIClick) {
-        const poiData = features[0].properties as POIMapFeature;
-        onPOIClick(poiData);
+      // Expand cluster on click
+      if (map.getLayer?.("clusters")) {
+        const clusterFeatures = map.queryRenderedFeatures(e.point, {
+          layers: ["clusters"],
+        });
+        if (clusterFeatures.length > 0) {
+          const point = clusterFeatures[0].geometry as GeoJSON.Point;
+          map.easeTo({
+            center: point.coordinates as [number, number],
+            zoom: map.getZoom() + 2,
+          });
+          return;
+        }
+      }
+
+      // Check if click was on an unclustered POI pin
+      if (map.getLayer?.("unclustered-point")) {
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: ["unclustered-point"],
+        });
+
+        if (features.length > 0 && onPOIClick) {
+          const poiData = features[0].properties as POIMapFeature;
+          onPOIClick(poiData);
+        }
       }
     });
 
-    // Expand cluster on click
-    map.on("click", "clusters", (e) => {
+    // Cursor pointer style on hover
+    map.on("mousemove", (e) => {
+      if (!map.isStyleLoaded()) return;
+      const queryLayers = ["clusters", "unclustered-point"].filter((l) =>
+        Boolean(map.getLayer?.(l)),
+      );
+      if (!queryLayers.length) return;
       const features = map.queryRenderedFeatures(e.point, {
-        layers: ["clusters"],
+        layers: queryLayers,
       });
-      if (!features.length) return;
-
-      const point = features[0].geometry as GeoJSON.Point;
-
-      map.easeTo({
-        center: point.coordinates as [number, number],
-        zoom: map.getZoom() + 2,
-      });
-    });
-
-    // Cursor pointer style on markers
-    map.on("mouseenter", "clusters", () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", "clusters", () => {
-      map.getCanvas().style.cursor = "";
-    });
-    map.on("mouseenter", "unclustered-point", () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", "unclustered-point", () => {
-      map.getCanvas().style.cursor = "";
+      map.getCanvas().style.cursor = features.length > 0 ? "pointer" : "";
     });
 
     // Viewport motion debouncing logic
@@ -404,6 +481,7 @@ export const MapView: React.FC<MapViewProps> = ({
         <MapLayerSwitcher
           activeLayer={sessionLayer}
           defaultLayer={defaultLayer}
+          language={mapLanguage}
           onLayerChange={handleLayerSelect}
           onSaveAsDefault={onSaveDefaultLayer}
         />

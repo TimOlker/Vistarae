@@ -31,7 +31,16 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
     setIsSubmitting(true);
     try {
       await authService.register(email, password, fullName);
-      showToast("Confirmation code sent to your email!", "info");
+      const isLocal =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1");
+      showToast(
+        isLocal
+          ? "Local dev mode: No email sent. Enter 123456 to verify."
+          : "Confirmation code sent to your email!",
+        "info"
+      );
       setStep("CONFIRM");
     } catch (err: unknown) {
       const errorObj = err as {
@@ -63,6 +72,11 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  const isLocalEnv =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
 
   return (
     <div
@@ -97,6 +111,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
           <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
             {step === "REGISTER"
               ? "Start capturing scenic overlooks, trails, and travel dreams"
+              : isLocalEnv
+              ? "Local dev mode active — enter verification code below"
               : `Enter the 6-digit confirmation code sent to ${email}`}
           </p>
         </div>
@@ -242,17 +258,78 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             onSubmit={handleConfirm}
             style={{ display: "flex", flexDirection: "column", gap: "16px" }}
           >
-            <div>
-              <label
+            {isLocalEnv && (
+              <div
                 style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background: "rgba(37, 99, 235, 0.08)",
+                  border: "1px solid rgba(37, 99, 235, 0.2)",
                   fontSize: "12px",
-                  fontWeight: 600,
-                  display: "block",
+                  color: "var(--text-secondary)",
+                  lineHeight: "1.4",
+                }}
+              >
+                <span style={{ fontSize: "14px" }}>💡</span>
+                <div>
+                  <strong style={{ color: "var(--accent, #2563eb)" }}>
+                    Local Dev Mode:
+                  </strong>{" "}
+                  No external email provider is configured. Enter{" "}
+                  <code
+                    style={{
+                      fontWeight: 700,
+                      color: "var(--accent, #2563eb)",
+                      background: "rgba(37, 99, 235, 0.12)",
+                      padding: "1px 4px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    123456
+                  </code>{" "}
+                  (or any 6 digits) to activate your account.
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   marginBottom: "6px",
                 }}
               >
-                Confirmation Code
-              </label>
+                <label
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Confirmation Code
+                </label>
+                {isLocalEnv && (
+                  <button
+                    type="button"
+                    onClick={() => setCode("123456")}
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--accent, #2563eb)",
+                      fontWeight: 600,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Auto-fill 123456
+                  </button>
+                )}
+              </div>
               <div style={{ position: "relative" }}>
                 <KeyRound
                   size={16}

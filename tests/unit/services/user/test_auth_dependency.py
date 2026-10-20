@@ -74,6 +74,39 @@ class TestLocalMockBypass:
         assert user.is_active is True
 
     @pytest.mark.asyncio
+    async def test_mock_bearer_token_authentication_success(
+        self, mock_session: AsyncMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Returns User entity when authenticating via Authorization: Bearer mock-access-token-{uuid}."""
+        monkeypatch.setenv("STAGE", "local")
+        test_id = uuid.uuid4()
+        test_sub = str(uuid.uuid4())
+        now = datetime.now(UTC)
+
+        fake_row = UserTable(
+            id=test_id,
+            cognito_sub=test_sub,
+            email="traveler@example.com",
+            full_name="Local Traveler",
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+        )
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = fake_row
+        mock_session.execute.return_value = mock_result
+
+        user = await get_current_user(
+            authorization=f"Bearer mock-access-token-{test_sub}",
+            session=mock_session,
+        )
+
+        assert user.id == test_id
+        assert user.email == "traveler@example.com"
+        assert user.cognito_sub == test_sub
+        assert user.is_active is True
+
+    @pytest.mark.asyncio
     async def test_mock_user_auto_provisioning(
         self, mock_session: AsyncMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -12,6 +12,7 @@ import { Navbar } from "./components/common/Navbar";
 import { AdminRoute } from "./components/common/AdminRoute";
 
 import { HomePage, INITIAL_DEMO_POIS } from "./pages/HomePage";
+import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -31,8 +32,36 @@ import type { POIMapFeature } from "./types/map";
 
 const AppContent: React.FC = () => {
   const { user, logout } = useAuth();
-  const [currentView, setCurrentView] = useState<string>("home");
+
+  const getViewFromPath = (): string => {
+    if (typeof window === "undefined") return "home";
+    const path = window.location.pathname.replace(/^\/+/, "");
+    return path || "home";
+  };
+
+  const [currentView, setCurrentView] = useState<string>(() =>
+    getViewFromPath(),
+  );
   const [resetEmail, setResetEmail] = useState<string>("");
+
+  const navigateTo = React.useCallback((view: string) => {
+    setCurrentView(view);
+    const targetPath = view === "home" ? "/" : `/${view}`;
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== targetPath
+    ) {
+      window.history.pushState(null, "", targetPath);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getViewFromPath());
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // POI state
   const [pois, setPois] = useState<POIMapFeature[]>(INITIAL_DEMO_POIS);
@@ -107,13 +136,25 @@ const AppContent: React.FC = () => {
     >
       <Navbar
         currentView={currentView}
-        onNavigate={setCurrentView}
+        onNavigate={navigateTo}
         user={user}
-        onOpenAddPOI={() => setIsAddPOIModalOpen(true)}
-        onOpenUploadCSV={() => setIsCSVUploadOpen(true)}
+        onOpenAddPOI={() => {
+          if (!user) {
+            navigateTo("login");
+            return;
+          }
+          setIsAddPOIModalOpen(true);
+        }}
+        onOpenUploadCSV={() => {
+          if (!user) {
+            navigateTo("login");
+            return;
+          }
+          setIsCSVUploadOpen(true);
+        }}
         onLogout={async () => {
           await logout();
-          setCurrentView("home");
+          navigateTo("home");
         }}
       />
 
@@ -121,27 +162,34 @@ const AppContent: React.FC = () => {
 
       {/* Main View Router */}
       <div style={{ flex: 1, position: "relative", overflow: "auto" }}>
-        {currentView === "home" && (
-          <HomePage
-            pois={pois}
-            onUpdatePois={setPois}
-            isPickingLocation={isPickingLocation}
-            onLocationPicked={handleLocationPicked}
-          />
-        )}
+        {currentView === "home" &&
+          (user ? (
+            <HomePage
+              pois={pois}
+              onUpdatePois={setPois}
+              isPickingLocation={isPickingLocation}
+              onLocationPicked={handleLocationPicked}
+            />
+          ) : (
+            <LandingPage
+              onNavigateLogin={() => navigateTo("login")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateTerms={() => navigateTo("terms")}
+            />
+          ))}
 
         {currentView === "login" && (
           <LoginPage
-            onSuccess={() => setCurrentView("home")}
-            onNavigateSignUp={() => setCurrentView("signup")}
-            onNavigateForgotPassword={() => setCurrentView("forgot-password")}
+            onSuccess={() => navigateTo("home")}
+            onNavigateSignUp={() => navigateTo("signup")}
+            onNavigateForgotPassword={() => navigateTo("forgot-password")}
           />
         )}
 
         {currentView === "signup" && (
           <SignUpPage
-            onSuccess={() => setCurrentView("login")}
-            onNavigateLogin={() => setCurrentView("login")}
+            onSuccess={() => navigateTo("login")}
+            onNavigateLogin={() => navigateTo("login")}
           />
         )}
 
@@ -149,40 +197,79 @@ const AppContent: React.FC = () => {
           <ForgotPasswordPage
             onCodeSent={(email) => {
               setResetEmail(email);
-              setCurrentView("reset-password");
+              navigateTo("reset-password");
             }}
-            onNavigateLogin={() => setCurrentView("login")}
+            onNavigateLogin={() => navigateTo("login")}
           />
         )}
 
         {currentView === "reset-password" && (
           <ResetPasswordPage
             email={resetEmail}
-            onSuccess={() => setCurrentView("login")}
+            onSuccess={() => navigateTo("login")}
           />
         )}
 
-        {currentView === "profile" && (
-          <ProfilePage onAccountDeleted={() => setCurrentView("home")} />
-        )}
+        {currentView === "profile" &&
+          (user ? (
+            <ProfilePage onAccountDeleted={() => navigateTo("home")} />
+          ) : (
+            <LoginPage
+              onSuccess={() => navigateTo("profile")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateForgotPassword={() => navigateTo("forgot-password")}
+            />
+          ))}
 
-        {currentView === "settings" && <SettingsPage initialTab="account" />}
-        {currentView === "settings/account" && (
-          <SettingsPage initialTab="account" />
-        )}
-        {currentView === "settings/poi" && <SettingsPage initialTab="poi" />}
-        {currentView === "settings/planner" && (
-          <SettingsPage initialTab="planner" />
-        )}
+        {currentView === "settings" &&
+          (user ? (
+            <SettingsPage initialTab="account" />
+          ) : (
+            <LoginPage
+              onSuccess={() => navigateTo("settings")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateForgotPassword={() => navigateTo("forgot-password")}
+            />
+          ))}
+        {currentView === "settings/account" &&
+          (user ? (
+            <SettingsPage initialTab="account" />
+          ) : (
+            <LoginPage
+              onSuccess={() => navigateTo("settings/account")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateForgotPassword={() => navigateTo("forgot-password")}
+            />
+          ))}
+        {currentView === "settings/poi" &&
+          (user ? (
+            <SettingsPage initialTab="poi" />
+          ) : (
+            <LoginPage
+              onSuccess={() => navigateTo("settings/poi")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateForgotPassword={() => navigateTo("forgot-password")}
+            />
+          ))}
+        {currentView === "settings/planner" &&
+          (user ? (
+            <SettingsPage initialTab="planner" />
+          ) : (
+            <LoginPage
+              onSuccess={() => navigateTo("settings/planner")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateForgotPassword={() => navigateTo("forgot-password")}
+            />
+          ))}
 
         {currentView === "admin" && (
-          <AdminRoute onUnauthorizedRedirect={() => setCurrentView("home")}>
+          <AdminRoute onUnauthorizedRedirect={() => navigateTo("home")}>
             <AdminDashboardPage />
           </AdminRoute>
         )}
 
         {currentView === "terms" && (
-          <TermsPage onNavigateHome={() => setCurrentView("home")} />
+          <TermsPage onNavigateHome={() => navigateTo("home")} />
         )}
       </div>
 

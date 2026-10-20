@@ -77,6 +77,45 @@ class TestCognitoIdentityProvider:
             assert explicit._client_id == "client-exp"
             assert explicit._region == "us-west-2"
 
+    def test_init_fast_fail_in_production_missing_pool_id(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Asserts initialization raises RuntimeError when COGNITO_USER_POOL_ID is missing in production."""
+        monkeypatch.setenv("STAGE", "production")
+        monkeypatch.delenv("COGNITO_USER_POOL_ID", raising=False)
+        monkeypatch.setenv("COGNITO_CLIENT_ID", "client-123")
+
+        with patch("boto3.client"), pytest.raises(
+            RuntimeError, match="Fast-fail startup error: Cognito configuration missing COGNITO_USER_POOL_ID"
+        ):
+            CognitoIdentityProvider()
+
+    def test_init_fast_fail_in_staging_missing_client_id(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Asserts initialization raises RuntimeError when COGNITO_CLIENT_ID is missing in staging."""
+        monkeypatch.setenv("STAGE", "staging")
+        monkeypatch.setenv("COGNITO_USER_POOL_ID", "pool-123")
+        monkeypatch.delenv("COGNITO_CLIENT_ID", raising=False)
+
+        with patch("boto3.client"), pytest.raises(
+            RuntimeError, match="Fast-fail startup error: Cognito configuration missing COGNITO_CLIENT_ID"
+        ):
+            CognitoIdentityProvider()
+
+    def test_init_success_in_production_with_valid_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Asserts initialization succeeds in production when both required parameters are provided."""
+        monkeypatch.setenv("STAGE", "production")
+        monkeypatch.setenv("COGNITO_USER_POOL_ID", "us-east-1_abcdef123")
+        monkeypatch.setenv("COGNITO_CLIENT_ID", "appclient123456")
+
+        with patch("boto3.client"):
+            provider = CognitoIdentityProvider()
+            assert provider._user_pool_id == "us-east-1_abcdef123"
+            assert provider._client_id == "appclient123456"
+
     def test_get_jwks_caching(self) -> None:
         """Asserts JWKS is retrieved via requests.get and cached."""
         _JWKS_CACHE.clear()

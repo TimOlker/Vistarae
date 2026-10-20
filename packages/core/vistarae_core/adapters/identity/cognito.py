@@ -46,17 +46,39 @@ class CognitoIdentityProvider:
         user_pool_id: str | None = None,
         client_id: str | None = None,
         region: str | None = None,
+        validate_config: bool = True,
     ) -> None:
         """Initializes the Cognito adapter from environment or explicit parameters.
+
+        Fast-fails early if required Cognito provisioning information is missing
+        when STAGE is not 'local'.
 
         Args:
             user_pool_id: AWS Cognito User Pool ID (defaults to COGNITO_USER_POOL_ID env var).
             client_id: Cognito App Client ID (defaults to COGNITO_CLIENT_ID env var).
             region: AWS region (defaults to AWS_REGION env var or 'us-east-1').
+            validate_config: Whether to enforce provisioning checks for non-local stages.
+
+        Raises:
+            RuntimeError: If STAGE is not 'local' and user_pool_id or client_id is missing.
         """
         self._user_pool_id = user_pool_id or os.environ.get("COGNITO_USER_POOL_ID", "")
         self._client_id = client_id or os.environ.get("COGNITO_CLIENT_ID", "")
         self._region = region or os.environ.get("AWS_REGION", "us-east-1")
+
+        stage = os.environ.get("STAGE", os.environ.get("APP_ENV", "local")).lower()
+        if validate_config and stage in ("staging", "prod", "production"):
+            missing: list[str] = []
+            if not self._user_pool_id:
+                missing.append("COGNITO_USER_POOL_ID")
+            if not self._client_id:
+                missing.append("COGNITO_CLIENT_ID")
+            if missing:
+                raise RuntimeError(
+                    f"Fast-fail startup error: Cognito configuration missing {', '.join(missing)} "
+                    f"for STAGE='{stage}'. Ensure these environment variables are provisioned."
+                )
+
         self._jwks_url = (
             f"https://cognito-idp.{self._region}.amazonaws.com/"
             f"{self._user_pool_id}/.well-known/jwks.json"

@@ -150,4 +150,46 @@ describe("apiClient and W3C Tracing", () => {
       expect(apiErr.problem.detail).toContain("502");
     }
   });
+
+  it("aborts and throws 504 Request Timeout when server hangs beyond timeoutMs", async () => {
+    globalThis.fetch = vi.fn().mockImplementation((_url, init) => {
+      return new Promise((_resolve, reject) => {
+        if (init?.signal) {
+          init.signal.addEventListener("abort", () => {
+            const err = new Error("The operation was aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }
+      });
+    });
+
+    try {
+      await apiFetch("/api/hanging-endpoint", { timeoutMs: 50 });
+      expect.fail("Should have thrown ApiError on timeout");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.problem.status).toBe(504);
+      expect(apiErr.problem.title).toBe("Request Timeout");
+      expect(apiErr.problem.detail).toContain("did not respond");
+    }
+  });
+
+  it("maps unexpected network failures to 503 Network Error", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(new TypeError("Failed to fetch"));
+
+    try {
+      await apiFetch("/api/unreachable-endpoint");
+      expect.fail("Should have thrown ApiError on network error");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.problem.status).toBe(503);
+      expect(apiErr.problem.title).toBe("Network Error");
+      expect(apiErr.problem.detail).toContain("Failed to fetch");
+    }
+  });
 });
