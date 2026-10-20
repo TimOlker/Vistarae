@@ -1,0 +1,341 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Asynchronous Ingestion & Batch Processing API
+  version: 1.0.0
+  description: API endpoints for bulk CSV upload, asynchronous job progress tracking, and duplicate triage.
+servers:
+  - url: /api/ingest
+    description: Ingestion Service Base Path
+paths:
+  /csv:
+    post:
+      summary: Upload CSV for Asynchronous Ingestion
+      operationId: upload_csv
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: list_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional list ID to associate with all imported POIs
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file payload (max 2MB, max 2,000 rows)
+      responses:
+        '202':
+          description: CSV accepted and enqueued for asynchronous background processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestUploadResponse'
+        '413':
+          description: File size exceeds 2MB limit
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '415':
+          description: Unsupported MIME type
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Unprocessable CSV (row limit exceeded, invalid headers, or corrupted encoding)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /jobs/{job_id}:
+    get:
+      summary: Get Ingestion Job Progress & Duplicate Candidates
+      operationId: get_job_progress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the ingestion job
+      responses:
+        '200':
+          description: Current job progress metrics and pending review duplicates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestJobProgressResponse'
+        '404':
+          description: Job not found or does not belong to the authenticated user
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /jobs/{job_id}/triage:
+    post:
+      summary: Submit Duplicate Triage Decisions
+      operationId: submit_duplicate_triage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID of the ingestion job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageRequest'
+      responses:
+        '200':
+          description: Triage decisions applied successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                  committed_count:
+                    type: integer
+                  rejected_count:
+                    type: integer
+                  remaining_pending_count:
+                    type: integer
+                  job_status:
+                    type: string
+                    enum: [PENDING, PROCESSING, COMPLETED, PARTIAL_SUCCESS, FAILED]
+        '404':
+          description: Job not found or does not belong to the authenticated user
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /health/ready:
+    get:
+      summary: Dependency Readiness Health Probe
+      operationId: health_ready
+      description: Verifies SQS GetQueueAttributes and PostgreSQL SELECT 1 connectivity
+      responses:
+        '200':
+          description: All dependencies ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+                  sqs:
+                    type: string
+                    example: connected
+                  database:
+                    type: string
+                    example: connected
+        '503':
+          description: One or more dependencies unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unready
+
+  /health/live:
+    get:
+      summary: ASGI Liveness Health Probe
+      operationId: health_live
+      description: Pure process liveness probe with zero network or database I/O
+      responses:
+        '200':
+          description: ASGI process responsive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: alive
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    IngestUploadResponse:
+      type: object
+      required:
+        - job_id
+        - job_status
+        - total_rows
+        - message
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        job_status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, PARTIAL_SUCCESS, FAILED]
+        total_rows:
+          type: integer
+        message:
+          type: string
+
+    DuplicateItemResponse:
+      type: object
+      required:
+        - row_number
+        - raw_name
+        - candidate_poi_id
+        - match_type
+        - similarity_score
+        - distance_meters
+        - triage_status
+        - staged_poi_data
+      properties:
+        row_number:
+          type: integer
+        raw_name:
+          type: string
+        candidate_poi_id:
+          type: string
+          format: uuid
+        match_type:
+          type: string
+        similarity_score:
+          type: number
+          format: float
+        distance_meters:
+          type: number
+          format: float
+        triage_status:
+          type: string
+          enum: [PENDING_REVIEW, COMMITTED, REJECTED]
+        staged_poi_data:
+          type: object
+
+    IngestJobProgressResponse:
+      type: object
+      required:
+        - id
+        - job_status
+        - total_rows
+        - processed_rows
+        - percent_complete
+        - duplicates_pending_count
+        - duplicate_items
+        - error_summary
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, PARTIAL_SUCCESS, FAILED]
+        total_rows:
+          type: integer
+        processed_rows:
+          type: integer
+        percent_complete:
+          type: number
+          format: float
+        duplicates_pending_count:
+          type: integer
+        duplicate_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DuplicateItemResponse'
+        error_summary:
+          type: array
+          items:
+            type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TriageDecisionItem:
+      type: object
+      required:
+        - row_number
+        - decision
+      properties:
+        row_number:
+          type: integer
+        decision:
+          type: string
+          enum: [COMMITTED, REJECTED]
+
+    TriageRequest:
+      type: object
+      required:
+        - decisions
+      properties:
+        decisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriageDecisionItem'
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string

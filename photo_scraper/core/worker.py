@@ -1,20 +1,48 @@
-"""Multi-worker photo scraping and location cataloging engine."""
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
 
+"""Multi-worker photo scraping and location cataloging engine (T-043).
+
+Traverses photo directories, extracts EXIF coordinates and timestamps,
+invokes Gemini Flash-Lite structured POI inference, interactively triages
+uncertain locations (or marks NEEDS_REVIEW), and exports sanitized CSVs.
+"""
+
+from __future__ import annotations
+
+import csv
 import json
 import logging
 import re
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Any
+
+from vistarae_core.schemas.ingest import PhotoPOIInference
 
 from photo_scraper.core.cache import PersistentCache, flush_all_caches
 from photo_scraper.core.config import settings
 from photo_scraper.core.db import ScraperDatabase
 from photo_scraper.core.exif import SUPPORTED_EXTENSIONS, extract_image_metadata
 from photo_scraper.core.geocoder import GeocodedLocation, ScraperGeocoder
-from photo_scraper.core.llm_parser import GeminiPathParser
+from photo_scraper.core.llm_parser import GENERIC_CATEGORIES, GeminiPathParser
 from photo_scraper.core.path_parser import (
     add_skip_over,
     is_path_excluded,
@@ -24,11 +52,88 @@ from photo_scraper.core.path_parser import (
 
 logger = logging.getLogger("vistarae.photo_scraper.worker")
 
-RESULT_SKIP  = "skip "
-RESULT_NEW   = "new  "
-RESULT_DUP   = "dup  "
-RESULT_ERR   = "err  "
-RESULT_NONE  = "none "
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def sanitize_csv_field(val: Any) -> str:
+    """Neutralizes spreadsheet formula injection prefixes."""
+    if val is None:
+        return ""
+    s = str(val)
+    if s.startswith(FORMULA_PREFIXES):
+        return f"'{s}"
+    return s
+
+
+@dataclass
+class ScrapedPOIRow:
+    """Formatted Point-of-Interest record ready for ingestion CSV export."""
+
+    name: str
+    description: str
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    visited_date: str | None = None
+    tags: str | None = None
+    triage_status: str = "APPROVED"
+
+
+def write_ingestion_csv(rows: list[ScrapedPOIRow], output_path: Path | str) -> int:
+    """Writes list of ScrapedPOIRow objects to a canonical Vistarae ingestion CSV.
+
+    Args:
+        rows: Extracted and triaged POI rows.
+        output_path: Target CSV file path.
+
+    Returns:
+        Number of rows written.
+    """
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    headers = [
+        "name",
+        "description",
+        "address",
+        "city",
+        "state",
+        "country",
+        "latitude",
+        "longitude",
+        "visited_date",
+        "tags",
+        "triage_status",
+    ]
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        for r in rows:
+            writer.writerow(
+                [
+                    sanitize_csv_field(r.name),
+                    sanitize_csv_field(r.description),
+                    sanitize_csv_field(r.address),
+                    sanitize_csv_field(r.city),
+                    sanitize_csv_field(r.state),
+                    sanitize_csv_field(r.country),
+                    r.latitude if r.latitude is not None else "",
+                    r.longitude if r.longitude is not None else "",
+                    sanitize_csv_field(r.visited_date),
+                    sanitize_csv_field(r.tags),
+                    sanitize_csv_field(r.triage_status),
+                ]
+            )
+    return len(rows)
+
+
+RESULT_SKIP = "skip "
+RESULT_NEW = "new  "
+RESULT_DUP = "dup  "
+RESULT_ERR = "err  "
+RESULT_NONE = "none "
 RESULT_EMPTY = "empty"
 
 @dataclass
@@ -103,8 +208,15 @@ class PhotoScraperEngine:
     ):
         self.cache = cache or PersistentCache(settings.CACHE_FILE_PATH)
         self.geocoder = geocoder or ScraperGeocoder(self.cache)
-        self.db = db if dry_run else (db or ScraperDatabase())
         self.gemini_parser = gemini_parser or GeminiPathParser()
+        if dry_run or db is not None:
+            self.db = db
+        else:
+            try:
+                self.db = ScraperDatabase()
+            except Exception as exc:
+                logger.debug(f"ScraperDatabase not available: {exc}")
+                self.db = None
         self.dry_run = dry_run
         self.user_email = user_email or settings.target_db_user
         self.stats = ScraperStats()
@@ -181,7 +293,7 @@ class PhotoScraperEngine:
         else:
             logger.info(f"Processed folder ({result}): {folder}")
 
-    def process_folder_exe(self, folder: Path, root_path: Path, cache_info: dict | None = None, found_info: dict | None = None) -> str:
+    def process_folder_exe(self, folder: Path, root_path: Path, cache_info: dict | None = None, found_info: dict | None = None) -> str:  # noqa: C901
         """Processes a single leaf folder containing photos."""
         cache_info = cache_info or {}
         # Find all images in folder (not recursive in subfolders)
@@ -609,3 +721,161 @@ class PhotoScraperEngine:
             self.stats.write_unmapped_log(settings.UNMAPPED_LOG_PATH)
 
         return self.stats
+
+    def scan_and_export(  # noqa: C901
+        self,
+        photo_dir: Path | str,
+        output_csv: Path | str,
+        non_interactive: bool = False,
+        max_folders: int = 0,
+        exclude_patterns: list[str] | None = None,
+    ) -> list[ScrapedPOIRow]:
+        """Scans directories, performs AI POI inference, interactively triages, and writes CSV.
+
+        Args:
+            photo_dir: Directory containing photo libraries.
+            output_csv: Destination CSV path.
+            non_interactive: If True or non-TTY, marks uncertain POIs as NEEDS_REVIEW without prompting.
+            max_folders: Optional limit on folders to scan (0 = unlimited).
+            exclude_patterns: Glob patterns to exclude.
+
+        Returns:
+            List of generated ScrapedPOIRow items.
+        """
+        root_path = Path(photo_dir)
+        patterns = list(settings.EXCLUSION_PATTERNS)
+        if exclude_patterns:
+            patterns.extend(exclude_patterns)
+
+        scraped_rows: list[ScrapedPOIRow] = []
+        folders_processed = 0
+
+        # Traverse directory hierarchy
+        for current_dir, dirnames, filenames in root_path.walk():
+            if is_path_excluded(current_dir, patterns):
+                dirnames.clear()
+                continue
+
+            # Check for image files in current_dir
+            image_files = [
+                current_dir / fn
+                for fn in sorted(filenames)
+                if Path(fn).suffix.lower() in SUPPORTED_EXTENSIONS
+            ]
+            if not image_files:
+                continue
+
+            if is_skip_folder(current_dir.name, self.skip_over):
+                continue
+
+            # Extract EXIF metadata from available images
+            exif_lat: float | None = None
+            exif_lon: float | None = None
+            visited_date: str | None = None
+            first_img_name = image_files[0].name
+
+            for img_path in image_files:
+                meta = extract_image_metadata(img_path)
+                if exif_lat is None and meta.latitude is not None:
+                    exif_lat = meta.latitude
+                    exif_lon = meta.longitude
+                if visited_date is None and meta.date_taken is not None:
+                    visited_date = meta.date_taken.isoformat()
+                if exif_lat is not None and visited_date is not None:
+                    break
+
+            # Infer POI using Gemini parser or fallback heuristics
+            inference: PhotoPOIInference | None = None
+            if self.gemini_parser and self.gemini_parser.is_configured():
+                inference = self.gemini_parser.infer_poi(
+                    folder_path=current_dir,
+                    file_name=first_img_name,
+                    exif_lat=exif_lat,
+                    exif_lon=exif_lon,
+                    date_taken=visited_date,
+                )
+
+            if inference is None:
+                parsed = parse_directory_path(current_dir, root_path, skip_over=self.skip_over)
+                site_name = parsed.site or parsed.cleaned_name or current_dir.name
+                inference = PhotoPOIInference(
+                    name=site_name,
+                    description=f"Extracted from {current_dir.name}",
+                    city=parsed.city,
+                    state=parsed.state,
+                    country=parsed.country,
+                    confidence_score=0.5,
+                    is_uncertain=True,
+                )
+
+            # Determine uncertainty
+            is_uncertain = (
+                inference.is_uncertain
+                or inference.confidence_score < 0.70
+                or inference.name.strip().lower() in GENERIC_CATEGORIES
+            )
+
+            triage_status = "APPROVED"
+            is_tty = hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
+
+            if is_uncertain:
+                if non_interactive or not is_tty:
+                    triage_status = "NEEDS_REVIEW"
+                else:
+                    # Interactive prompt per schema
+                    print("\n[UNCERTAIN POI DETECTED]")
+                    print(f"Folder: {current_dir}")
+                    print(f"File:   {first_img_name}")
+                    print(
+                        f"EXIF:   Lat: {exif_lat}, Lon: {exif_lon} (Taken: {visited_date or 'N/A'})"
+                    )
+                    print(
+                        f"Inferred: {inference.name} (Confidence: {inference.confidence_score:.2f})"
+                    )
+                    print("Reason: Generic or low confidence establishment detected.\n")
+                    print("Options:")
+                    print("  [c] Confirm and keep as inferred")
+                    print("  [e] Edit POI name and details")
+                    print("  [s] Skip this POI")
+                    choice = input("Enter choice [c/e/s]: ").strip().lower()
+                    if choice == "s":
+                        continue
+                    elif choice == "e":
+                        new_name = input(f"Enter POI name [{inference.name}]: ").strip()
+                        new_desc = input(f"Enter description [{inference.description}]: ").strip()
+                        inference = PhotoPOIInference(
+                            name=new_name or inference.name,
+                            description=new_desc or inference.description,
+                            city=inference.city,
+                            state=inference.state,
+                            country=inference.country,
+                            confidence_score=1.0,
+                            is_uncertain=False,
+                        )
+                        triage_status = "APPROVED"
+                    else:
+                        triage_status = "APPROVED"
+
+            scraped_rows.append(
+                ScrapedPOIRow(
+                    name=inference.name,
+                    description=inference.description,
+                    address=None,
+                    city=inference.city,
+                    state=inference.state,
+                    country=inference.country,
+                    latitude=exif_lat,
+                    longitude=exif_lon,
+                    visited_date=visited_date,
+                    tags="photo_scraper,exif",
+                    triage_status=triage_status,
+                )
+            )
+
+            folders_processed += 1
+            if max_folders > 0 and folders_processed >= max_folders:
+                break
+
+        # Write to destination CSV
+        write_ingestion_csv(scraped_rows, output_csv)
+        return scraped_rows
