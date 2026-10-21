@@ -29,6 +29,9 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+_CORE_PATH = _REPO_ROOT / "packages" / "core"
+if str(_CORE_PATH) not in sys.path:
+    sys.path.insert(0, str(_CORE_PATH))
 
 from services.local_gateway import app  # noqa: E402
 

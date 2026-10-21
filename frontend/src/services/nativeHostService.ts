@@ -40,7 +40,7 @@ export async function openLocalFolder(
 ): Promise<NativeHostResult> {
   const targetExtensionId =
     extensionId ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VISTARAE_EXTENSION_ID) ||
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_VISTARAE_EXTENSION_ID) ||
     DEFAULT_EXTENSION_ID;
 
   // Check if Chrome extension runtime API is present in browser

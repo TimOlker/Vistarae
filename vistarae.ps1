@@ -107,9 +107,9 @@ switch ($Command) {
         Invoke-PythonTool "ruff" @("check", ".")
     }
     "run" {
-        Write-Host "Starting Vistarae local gateway on http://localhost:8030..." -ForegroundColor Cyan
+        Write-Host "Starting Vistarae local gateway on http://localhost:8000..." -ForegroundColor Cyan
         $env:STAGE = "local"
-        Invoke-PythonTool "uvicorn" @("services.local_gateway:app", "--reload", "--port", "8030")
+        Invoke-PythonTool "uvicorn" @("services.local_gateway:app", "--reload", "--port", "8000")
     }
     "scrape" {
         Write-Host "Running Vistarae Photo Scraper..." -ForegroundColor Cyan

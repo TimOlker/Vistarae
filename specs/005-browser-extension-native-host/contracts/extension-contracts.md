@@ -10,6 +10,7 @@
 ## 1. External Connectable Contract (SPA $\rightarrow$ Extension)
 
 Declared via `manifest.json`:
+
 ```json
 "externally_connectable": {
   "matches": [
@@ -24,6 +25,7 @@ The Vistarae Single-Page Application (SPA) sends messages directly to the backgr
 ### 1.1 Action: `open_folder`
 
 #### Request Payload
+
 ```typescript
 interface OpenFolderRequest {
   action: "open_folder";
@@ -33,6 +35,7 @@ interface OpenFolderRequest {
 ```
 
 #### Success Response
+
 ```typescript
 interface OpenFolderSuccessResponse {
   success: true;
@@ -44,6 +47,7 @@ interface OpenFolderSuccessResponse {
 ```
 
 #### Error Response (RFC 7807 ProblemDetails format)
+
 ```typescript
 interface OpenFolderErrorResponse {
   success: false;
@@ -58,6 +62,7 @@ interface OpenFolderErrorResponse {
 ```
 
 #### Example Usage in SPA
+
 ```typescript
 export async function openLocalFolder(path: string): Promise<boolean> {
   const EXTENSION_ID = import.meta.env.VITE_VISTARAE_EXTENSION_ID;
@@ -67,14 +72,21 @@ export async function openLocalFolder(path: string): Promise<boolean> {
   }
 
   return new Promise((resolve) => {
-    chrome.runtime.sendMessage(EXTENSION_ID, { action: "open_folder", path }, (response) => {
-      if (chrome.runtime.lastError || !response?.success) {
-        showSetupToast(response?.error?.detail || "Run python scripts/register_native_host.py to register folder opener.");
-        resolve(false);
-      } else {
-        resolve(true);
-      }
-    });
+    chrome.runtime.sendMessage(
+      EXTENSION_ID,
+      { action: "open_folder", path },
+      (response) => {
+        if (chrome.runtime.lastError || !response?.success) {
+          showSetupToast(
+            response?.error?.detail ||
+              "Run python scripts/register_native_host.py to register folder opener.",
+          );
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      },
+    );
   });
 }
 ```
@@ -87,30 +99,33 @@ Communication occurs over `chrome.runtime.sendMessage` and `chrome.tabs.sendMess
 
 ### 2.1 Action Catalog
 
-| Action | Sender | Receiver | Payload | Response | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `TRIGGER_CAPTURE` | Service Worker | Content Script | `{ text?: string, url?: string }` | `{ success: boolean }` | Awakens Shadow DOM overlay on active tab |
-| `EXTRACT_AND_CHECK` | Content Script | Service Worker | `CapturePayload` | `ExtractAndCheckResponse` | Dispatches raw text to Gemini and PostGIS dedup |
-| `SAVE_POI` | Content Script | Service Worker | `CreatePoiPayload` | `{ success: boolean, poi?: POI }` | Commits POI to database with idempotency key |
-| `GET_AUTH` | Content Script | Service Worker | `{}` | `{ isAuthenticated: boolean, user: User \| null }` | Inquires current login session state |
-| `LOGIN` | Content Script | Service Worker | `{ email, password }` | `{ success: boolean, user?: User, error?: string }` | In-page authentication against backend |
-| `REGISTER` | Content Script | Service Worker | `{ email, password, full_name }` | `{ success: boolean, user?: User, error?: string }` | In-page account creation |
-| `GET_LISTS` | Content Script | Service Worker | `{}` | `{ success: boolean, lists: List[] }` | Retrieves user's travel lists for dropdown |
-| `CREATE_LIST` | Content Script | Service Worker | `{ name, description }` | `{ success: boolean, list: List }` | Creates list inline without modal close |
-| `NATIVE_OPEN_FOLDER`| POI Explorer | Service Worker | `{ path: string }` | `NativeHostResponse` | Triggers native messaging host from Explorer |
+| Action               | Sender         | Receiver       | Payload                           | Response                                            | Description                                     |
+| :------------------- | :------------- | :------------- | :-------------------------------- | :-------------------------------------------------- | :---------------------------------------------- |
+| `TRIGGER_CAPTURE`    | Service Worker | Content Script | `{ text?: string, url?: string }` | `{ success: boolean }`                              | Awakens Shadow DOM overlay on active tab        |
+| `EXTRACT_AND_CHECK`  | Content Script | Service Worker | `CapturePayload`                  | `ExtractAndCheckResponse`                           | Dispatches raw text to Gemini and PostGIS dedup |
+| `SAVE_POI`           | Content Script | Service Worker | `CreatePoiPayload`                | `{ success: boolean, poi?: POI }`                   | Commits POI to database with idempotency key    |
+| `GET_AUTH`           | Content Script | Service Worker | `{}`                              | `{ isAuthenticated: boolean, user: User \| null }`  | Inquires current login session state            |
+| `LOGIN`              | Content Script | Service Worker | `{ email, password }`             | `{ success: boolean, user?: User, error?: string }` | In-page authentication against backend          |
+| `REGISTER`           | Content Script | Service Worker | `{ email, password, full_name }`  | `{ success: boolean, user?: User, error?: string }` | In-page account creation                        |
+| `GET_LISTS`          | Content Script | Service Worker | `{}`                              | `{ success: boolean, lists: List[] }`               | Retrieves user's travel lists for dropdown      |
+| `CREATE_LIST`        | Content Script | Service Worker | `{ name, description }`           | `{ success: boolean, list: List }`                  | Creates list inline without modal close         |
+| `NATIVE_OPEN_FOLDER` | POI Explorer   | Service Worker | `{ path: string }`                | `NativeHostResponse`                                | Triggers native messaging host from Explorer    |
 
 ---
 
 ## 3. Backend API Gateway Contracts
 
 All requests initiated by the service worker attach:
+
 ```http
 traceparent: 00-{trace_id}-{client_span_id}-01
 X-Source: extension
 X-Destination: backend
 Authorization: Bearer <auth_token>
 ```
+
 All mutating requests (`POST`, `PUT`, `DELETE`) also attach:
+
 ```http
 Idempotency-Key: <uuidv4>
 ```
@@ -118,6 +133,7 @@ Idempotency-Key: <uuidv4>
 ### 3.1 Extraction & Deduplication Endpoint: `POST /api/pois/extract-and-check`
 
 #### Request Payload
+
 ```json
 {
   "text": "Glacier Point is an overlook with a commanding view of Yosemite Valley, Half Dome, and Yosemite Falls, located on the south wall of Yosemite Valley at an elevation of 7,214 feet.",
@@ -127,6 +143,7 @@ Idempotency-Key: <uuidv4>
 ```
 
 #### Response (200 OK)
+
 ```json
 {
   "candidate": {
@@ -188,6 +205,7 @@ X-Amz-Target: AWSCognitoIdentityProviderService.InitiateAuth
 ```
 
 #### Success Response (200 OK)
+
 ```json
 {
   "AuthenticationResult": {

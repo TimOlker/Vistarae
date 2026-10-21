@@ -10,6 +10,7 @@
 ## 1. Executive Research Summary
 
 Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The primary architectural challenges span:
+
 1. **Manifest V3 Ephemeral Service Worker Lifecycle & Concurrency**: Service workers in Chrome Manifest V3 do not run persistently; they are terminated when idle (~30 seconds) and awakened by events. Multiple asynchronous requests occurring concurrently during token expiration (`exp - 300s`) can trigger parallel refresh requests unless serialized by an in-flight promise mutex.
 2. **In-Page Isolation via Open Shadow DOM**: Host websites possess wildly varied, aggressive global CSS styles (`* { color: red !important; }`, CSS resets, high z-indexes). True visual isolation demands an encapsulated Shadow DOM container (`<vistarae-capture-root>`) with scoped stylesheets and `all: initial` resets.
 3. **OOP Scraper Registry**: Specialized parsers are required for high-value travel platforms (Google Maps, Roadtrippers, TripAdvisor) alongside a generic OpenGraph/DOM fallback.
@@ -31,8 +32,8 @@ Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The prim
   - If the service worker is terminated while idle, memory is freed cleanly; the next wakeup reads the persistent tokens from `chrome.storage.local` and executes a fresh check.
   - Transient network failures retain the refresh token and emit an RFC 7807 error, while permanent 400/401 errors clear storage and present the in-page login form.
 - **Alternatives Considered**:
-  - *Queue-and-Drain Serialization*: Overly complex; introduces artificial delays for non-mutating calls.
-  - *Periodic Chrome Alarms (e.g. every 45 min)*: Unreliable because alarms can be throttled when the browser is suspended or laptops enter sleep mode, leading to stale tokens during sudden user activity.
+  - _Queue-and-Drain Serialization_: Overly complex; introduces artificial delays for non-mutating calls.
+  - _Periodic Chrome Alarms (e.g. every 45 min)_: Unreliable because alarms can be throttled when the browser is suspended or laptops enter sleep mode, leading to stale tokens during sudden user activity.
 
 ---
 
@@ -45,8 +46,8 @@ Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The prim
   - The maximum 32-bit signed integer z-index (`2147483647`) guarantees that the capture overlay sits atop modals, sticky headers, or full-screen canvas elements on host sites.
   - Dynamic injection: If a user triggers capture on a tab loaded prior to extension install/reload, the background worker catches `"Receiving end does not exist"` and calls `chrome.scripting.executeScript({ target: { tabId }, files: ["content/content_script.js"] })` before re-dispatching the message.
 - **Alternatives Considered**:
-  - *`<iframe>` Injection*: Heavyweight; creates separate browsing contexts with cross-origin sandbox restrictions, blocking keyboard focus traps, selection access, and dark mode synchronization.
-  - *Direct DOM Injection with Prefix Classes*: Susceptible to global CSS leakage (e.g., `* { box-sizing: border-box !important; color: red !important; }`), causing visual breakage.
+  - _`<iframe>` Injection_: Heavyweight; creates separate browsing contexts with cross-origin sandbox restrictions, blocking keyboard focus traps, selection access, and dark mode synchronization.
+  - _Direct DOM Injection with Prefix Classes_: Susceptible to global CSS leakage (e.g., `* { box-sizing: border-box !important; color: red !important; }`), causing visual breakage.
 
 ---
 
@@ -63,7 +64,7 @@ Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The prim
   - Allows adding new platform scrapers (e.g. AllTrails, Atlas Obscura) in the future without modifying core capture orchestration.
   - Enables fallback to generic AI entity extraction when site-specific DOM selectors change or fail.
 - **Alternatives Considered**:
-  - *Monolithic procedural parser*: Hard to maintain; selector changes on one site risk breaking extraction on other sites.
+  - _Monolithic procedural parser_: Hard to maintain; selector changes on one site risk breaking extraction on other sites.
 
 ---
 
@@ -94,7 +95,7 @@ Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The prim
   - Pipe reads in Windows can deliver chunks smaller than the requested size. An accumulation loop guarantees exact frame boundary retrieval.
   - Google Chrome redirects anything written to `sys.stderr` to the browser's console/error log without disrupting the native messaging protocol on `sys.stdout`.
 - **Alternatives Considered**:
-  - *Direct `os.read(0, n)`*: Viable, but standard library `sys.stdin.buffer` with `msvcrt.setmode` is more idiomatic across Python platforms while retaining buffering control.
+  - _Direct `os.read(0, n)`_: Viable, but standard library `sys.stdin.buffer` with `msvcrt.setmode` is more idiomatic across Python platforms while retaining buffering control.
 
 ---
 
@@ -113,8 +114,8 @@ Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The prim
   - In Windows, accessing an untrusted external UNC path automatically triggers SMB negotiation, transmitting the logged-in user's NetNTLMv2 challenge-response hash to the remote server (NTLM capture / reflection attack).
   - Slow or offline network shares can cause `os.path.exists()` to hang for 30–60 seconds, which would freeze the Chrome Native Messaging channel.
 - **Alternatives Considered**:
-  - *Disallow all UNC shares*: Breaks valid traveler workflows who store photo libraries on local NAS devices (`\\synology.local\photos`).
-  - *Unrestricted UNC*: Severe security risk allowing NTLM credential harvesting from malicious websites.
+  - _Disallow all UNC shares_: Breaks valid traveler workflows who store photo libraries on local NAS devices (`\\synology.local\photos`).
+  - _Unrestricted UNC_: Severe security risk allowing NTLM credential harvesting from malicious websites.
 
 ---
 
@@ -142,4 +143,4 @@ Phase 5 introduces the desktop bridge and web capture tier of Vistarae. The prim
   - Writing to `HKCU` (HKEY_CURRENT_USER) on Windows and the user's home config directory on macOS/Linux requires zero administrator/root elevation (UAC prompt), enabling instant setup in developer environments and standard user profiles.
   - Manifest includes `"allowed_origins": ["chrome-extension://<EXTENSION_ID>/"]` to prevent unauthorized extensions from accessing the local folder opener.
 - **Alternatives Considered**:
-  - *System-wide registration (`HKLM` / `/Library/...`)*: Requires administrator privileges and breaks on restricted enterprise machines.
+  - _System-wide registration (`HKLM` / `/Library/...`)_: Requires administrator privileges and breaks on restricted enterprise machines.

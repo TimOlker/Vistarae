@@ -1,0 +1,454 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Vistarae Serverless Production Infrastructure in us-east-2.
+  Includes Private S3 SPA with CloudFront OAC, spa-router.js CloudFront Function,
+  HTTP API Gateway proxying 6 domain Lambdas on Python 3.12 arm64 with 1% X-Ray sampling,
+  SQS Ingestion Queue + DLQ, and 4-tier SpendKillSwitch at $15.00 ceiling.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [local, dev, staging, prod]
+    Description: Deployment target environment stage.
+
+  NeonDatabaseSecretArn:
+    Type: String
+    Default: arn:aws:secretsmanager:us-east-2:123456789012:secret:vistarae/database-url
+    Description: ARN of the AWS Secrets Manager secret storing the Neon database connection URL.
+
+  DeveloperAlertEmail:
+    Type: String
+    Default: tim@vistarae.com
+    Description: Email address subscribed to SNS critical infrastructure and spend alerts.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - arm64
+    Timeout: 15
+    Tracing: Active
+    Environment:
+      Variables:
+        STAGE: !Ref Environment
+        DATABASE_SECRET_ARN: !Ref NeonDatabaseSecretArn
+        AWS_ACCOUNT_ID: !Sub "${AWS::AccountId}"
+
+Resources:
+  # ============================================================================
+  # 1. Edge & SPA Storage: Private S3 Bucket + CloudFront OAC
+  # ============================================================================
+  VistaraeSpaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "vistarae-spa-${Environment}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  VistaraeOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "vistarae-oac-${Environment}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  VistaraeSpaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VistaraeSpaBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${VistaraeSpaBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${VistaraeDistribution}"
+
+  # ============================================================================
+  # 2. Viewer Request CloudFront Function for SPA Routing
+  # ============================================================================
+  SpaRouterFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "vistarae-spa-router-${Environment}"
+      AutoPublish: true
+      FunctionConfig:
+        Comment: "Transparently rewrites extensionless SPA routes to /index.html"
+        Runtime: cloudfront-js-1.0
+      FunctionCode: |
+        function handler(event) {
+            var request = event.request;
+            var uri = request.uri;
+            if (!uri.includes('.') && !uri.startsWith('/api/')) {
+                request.uri = '/index.html';
+            }
+            return request;
+        }
+
+  # ============================================================================
+  # 3. HTTP API Gateway ($default Stage)
+  # ============================================================================
+  VistaraeHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Sub "vistarae-http-api-${Environment}"
+      Description: "High-throughput HTTP API Gateway for Vistarae domain microservices"
+
+  # ============================================================================
+  # 4. Amazon CloudFront CDN Distribution
+  # ============================================================================
+  VistaraeDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "Vistarae SPA and API Gateway CDN Distribution (${Environment})"
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: S3SpaOrigin
+            DomainName: !GetAtt VistaraeSpaBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt VistaraeOac.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: ApiGatewayOrigin
+            DomainName: !Sub "${VistaraeHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        DefaultCacheBehavior:
+          TargetOriginId: S3SpaOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRouterFunction.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: "/api/*"
+            TargetOriginId: ApiGatewayOrigin
+            ViewerProtocolPolicy: https-only
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - POST
+              - PATCH
+              - DELETE
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+
+  # ============================================================================
+  # 5. AWS X-Ray Custom 1% Sampling Rule (Free Tier Invariant)
+  # ============================================================================
+  XRaySamplingRule:
+    Type: AWS::XRay::SamplingRule
+    Properties:
+      SamplingRule:
+        RuleName: !Sub "vistarae-1pct-sampling-${Environment}"
+        Description: "Strict 1% X-Ray active tracing rule guaranteeing AWS free tier compliance"
+        Priority: 1000
+        FixedRate: 0.01
+        ReservoirSize: 0
+        Host: "*"
+        HTTPMethod: "*"
+        URLPath: "*"
+        ServiceName: "*"
+        ServiceType: "*"
+        ResourceARN: "*"
+
+  # ============================================================================
+  # 6. Asynchronous Ingestion SQS Queue & Dead-Letter Queue (DLQ)
+  # ============================================================================
+  IngestDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "vistarae-ingest-dlq-${Environment}"
+      MessageRetentionPeriod: 1209600 # 14 days
+
+  IngestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "vistarae-ingest-${Environment}"
+      VisibilityTimeout: 180 # 6x worker 30s timeout
+      ReceiveMessageWaitTimeSeconds: 20 # Long polling
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt IngestDeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # ============================================================================
+  # 7. Alert Notification Topics (AWS Budgets & Developer Alarms)
+  # ============================================================================
+  SpendAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "vistarae-spend-alert-${Environment}"
+
+  DeveloperAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "vistarae-dev-alerts-${Environment}"
+      Subscription:
+        - Endpoint: !Ref DeveloperAlertEmail
+          Protocol: email
+
+  # ============================================================================
+  # 8. CloudWatch Free-Tier Monitoring (<10 Alarms Invariant)
+  # ============================================================================
+  ApplicationErrorMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/vistarae-poi-${Environment}"
+      FilterPattern: '{ $.level = "ERROR" }'
+      MetricTransformations:
+        - MetricName: ApplicationErrorCount
+          MetricNamespace: Vistarae/Errors
+          MetricValue: "1"
+
+  ApplicationErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "vistarae-app-error-surge-${Environment}"
+      AlarmDescription: "Triggers when application error count reaches or exceeds 5 in a 5-minute window"
+      MetricName: ApplicationErrorCount
+      Namespace: Vistarae/Errors
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref DeveloperAlertTopic
+
+  DlqMessageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "vistarae-sqs-dlq-depth-${Environment}"
+      AlarmDescription: "Triggers when one or more messages land in the ingest dead-letter queue"
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt IngestDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref DeveloperAlertTopic
+
+  # ============================================================================
+  # 9. Six Domain Lambda Functions
+  # ============================================================================
+  PoiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "vistarae-poi-${Environment}"
+      Handler: services.poi.main.lambda_handler
+      MemorySize: 1024
+      Timeout: 15
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref NeonDatabaseSecretArn
+        - AWSXRayDaemonWriteAccess
+      Events:
+        PoiProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/pois/{proxy+}
+            Method: ANY
+        PoiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/pois
+            Method: ANY
+        ItineraryProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/itineraries/{proxy+}
+            Method: ANY
+        ItineraryRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/itineraries
+            Method: ANY
+
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "vistarae-user-${Environment}"
+      Handler: services.user.main.lambda_handler
+      MemorySize: 256
+      Timeout: 10
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref NeonDatabaseSecretArn
+        - AWSXRayDaemonWriteAccess
+      Events:
+        UsersProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/users/{proxy+}
+            Method: ANY
+        AuthProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/auth/{proxy+}
+            Method: ANY
+
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "vistarae-ingest-${Environment}"
+      Handler: services.ingest.main.lambda_handler
+      MemorySize: 256
+      Timeout: 15
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt IngestQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref NeonDatabaseSecretArn
+        - AWSXRayDaemonWriteAccess
+      Events:
+        IngestProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/ingest/{proxy+}
+            Method: ANY
+
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "vistarae-admin-${Environment}"
+      Handler: services.admin.main.lambda_handler
+      MemorySize: 256
+      Timeout: 10
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref NeonDatabaseSecretArn
+        - AWSXRayDaemonWriteAccess
+      Events:
+        AdminProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VistaraeHttpApi
+            Path: /api/admin/{proxy+}
+            Method: ANY
+
+  BatchIngestWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "vistarae-worker-${Environment}"
+      Handler: services.worker.main.lambda_handler
+      MemorySize: 512
+      Timeout: 30
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt IngestQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref NeonDatabaseSecretArn
+        - AWSXRayDaemonWriteAccess
+      Events:
+        BatchIngestEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt IngestQueue.Arn
+            BatchSize: 10
+            ScalingConfig:
+              MaximumConcurrency: 2
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  SpendKillSwitch:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "vistarae-spend-killswitch-${Environment}"
+      Handler: services.admin.handlers.killswitch.lambda_handler
+      MemorySize: 128
+      Timeout: 10
+      Environment:
+        Variables:
+          API_GATEWAY_ID: !Ref VistaraeHttpApi
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref NeonDatabaseSecretArn
+        - AWSXRayDaemonWriteAccess
+        - Statement:
+            - Sid: ManageLambdaExecutionCapacity
+              Effect: Allow
+              Action:
+                - lambda:PutFunctionConcurrency
+                - lambda:DeleteFunctionConcurrency
+                - lambda:UpdateEventSourceMapping
+                - lambda:ListEventSourceMappings
+              Resource: "*"
+            - Sid: ThrottleApiGatewayStage
+              Effect: Allow
+              Action:
+                - apigateway:PATCH
+                - apigateway:PUT
+                - apigateway:GET
+              Resource: !Sub "arn:aws:apigateway:${AWS::Region}::/apis/${VistaraeHttpApi}/*"
+      Events:
+        BudgetAlertNotification:
+          Type: SNS
+          Properties:
+            Topic: !Ref SpendAlertTopic
+
+Outputs:
+  CloudFrontDistributionId:
+    Description: Amazon CloudFront CDN Distribution ID
+    Value: !Ref VistaraeDistribution
+
+  CloudFrontDomainName:
+    Description: Amazon CloudFront Public HTTPS Domain
+    Value: !GetAtt VistaraeDistribution.DomainName
+
+  HttpApiEndpoint:
+    Description: API Gateway HTTP API Endpoint URL
+    Value: !Sub "https://${VistaraeHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+
+  SpaBucketName:
+    Description: Private S3 SPA Bucket Name
+    Value: !Ref VistaraeSpaBucket
+
+  IngestQueueUrl:
+    Description: Primary Ingestion SQS Queue URL
+    Value: !Ref IngestQueue
+
+  SpendAlertTopicArn:
+    Description: SNS Topic ARN for AWS Budgets $15.00 spend notification
+    Value: !Ref SpendAlertTopic

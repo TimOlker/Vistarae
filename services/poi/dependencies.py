@@ -26,6 +26,7 @@ Provides dependency injection for:
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,11 +36,13 @@ from vistarae_core.adapters.embedding.mock import MockEmbeddingAdapter
 from vistarae_core.adapters.geocoding.mapbox import MapboxGeocodingAdapter
 from vistarae_core.adapters.geocoding.mock import MockGeocodingAdapter
 from vistarae_core.adapters.repositories.geocache_repo import SqlAlchemyGeocodingCacheRepository
+from vistarae_core.adapters.repositories.itinerary_repo import SqlAlchemyItineraryRepository
 from vistarae_core.adapters.repositories.list_repo import SqlAlchemyListRepository
 from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
 from vistarae_core.adapters.repositories.tag_repo import SqlAlchemyTagRepository
 from vistarae_core.ports.embedding import IEmbeddingPort
 from vistarae_core.ports.geocoding import IGeocodingPort
+from vistarae_core.ports.itinerary_repo import IItineraryRepository
 from vistarae_core.ports.repositories import (
     IGeocodingCacheRepository,
     IListRepository,
@@ -98,12 +101,31 @@ def get_embedding_port() -> IEmbeddingPort:
     return GeminiEmbeddingAdapter(api_key=gemini_key)
 
 
+def get_itinerary_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> IItineraryRepository:
+    """Dependency that provides an active Itinerary repository instance."""
+    return SqlAlchemyItineraryRepository(session)
+
+
+def get_planner_service(
+    itinerary_repo: IItineraryRepository = Depends(get_itinerary_repo),
+    embedding_port: IEmbeddingPort = Depends(get_embedding_port),
+) -> Any:
+    """Dependency that provides an active PlannerService instance."""
+    from services.poi.services.planner import PlannerService
+
+    return PlannerService(itinerary_repo=itinerary_repo, embedding_port=embedding_port)
+
+
 __all__ = [
     "get_current_user",
     "get_embedding_port",
     "get_geocache_repo",
     "get_geocoding_port",
+    "get_itinerary_repo",
     "get_list_repo",
+    "get_planner_service",
     "get_poi_repo",
     "get_tag_repo",
 ]

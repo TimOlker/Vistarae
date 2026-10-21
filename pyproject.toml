@@ -100,7 +100,7 @@ exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C901"]
-ignore = ["B008", "E501", "UP042"]
+ignore = ["B008", "E501", "UP042", "UP038"]
 mccabe = { max-complexity = 15 }
 
 [tool.coverage.run]

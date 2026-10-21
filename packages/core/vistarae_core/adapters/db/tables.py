@@ -26,7 +26,7 @@ Implements Constitution Principle 3 & 4:
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any
 
@@ -35,6 +35,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -43,6 +44,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     UniqueConstraint,
     func,
     text,
@@ -616,4 +618,196 @@ class IngestJobTable(Base):
         ),
         Index("idx_ingest_jobs_user_created", "user_id", text("created_at DESC")),
         Index("idx_ingest_jobs_id_user", "id", "user_id"),
+    )
+
+
+class ItineraryTable(Base):
+    """Itinerary container table owned by tenant user."""
+
+    __tablename__ = "itineraries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    destination: Mapped[str] = mapped_column(String(255), nullable=False)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    currency: Mapped[str] = mapped_column(
+        String(3), server_default="USD", default="USD", nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), server_default="draft", default="draft", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    days: Mapped[list[ItineraryDayTable]] = relationship(
+        "ItineraryDayTable",
+        back_populates="itinerary",
+        cascade="all, delete-orphan",
+        order_by="ItineraryDayTable.day_number",
+    )
+
+    __table_args__ = (
+        CheckConstraint("end_date >= start_date", name="ck_itineraries_dates"),
+        CheckConstraint("budget_cents IS NULL OR budget_cents >= 0", name="ck_itineraries_budget"),
+        CheckConstraint(
+            "status IN ('draft', 'confirmed', 'archived')", name="ck_itineraries_status"
+        ),
+        Index("idx_itineraries_user_id", "user_id"),
+        Index("idx_itineraries_user_status", "user_id", "status"),
+    )
+
+
+class ItineraryDayTable(Base):
+    """Daily schedule breakdown within an itinerary."""
+
+    __tablename__ = "itinerary_days"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    itinerary_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("itineraries.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    day_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    calendar_date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_cost_cents: Mapped[int] = mapped_column(
+        Integer, server_default=text("0"), default=0, nullable=False
+    )
+
+    itinerary: Mapped[ItineraryTable] = relationship("ItineraryTable", back_populates="days")
+    items: Mapped[list[ItineraryItemTable]] = relationship(
+        "ItineraryItemTable",
+        back_populates="day",
+        cascade="all, delete-orphan",
+        order_by="ItineraryItemTable.order_index",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("itinerary_id", "day_number", name="uq_itinerary_days_day_num"),
+        CheckConstraint("day_number > 0", name="ck_itinerary_days_positive"),
+        Index("idx_itinerary_days_itinerary_id", "itinerary_id"),
+    )
+
+
+class ItineraryItemTable(Base):
+    """Scheduled activity item or POI reference within an itinerary day."""
+
+    __tablename__ = "itinerary_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    itinerary_day_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("itinerary_days.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    poi_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pois.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    is_backup_for_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("itinerary_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(
+        String(64), server_default="attraction", default="attraction", nullable=False
+    )
+    source_type: Mapped[str] = mapped_column(
+        String(32), server_default="USER_SAVED", default="USER_SAVED", nullable=False
+    )
+    geom: Mapped[Any] = mapped_column(
+        Geography(
+            geometry_type="POINT",
+            srid=4326,
+            from_text="ST_GeogFromText",
+            name="geography",
+            nullable=False,
+        ),
+        nullable=False,
+    )
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    duration_hours: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2), server_default="1.00", default=Decimal("1.00"), nullable=False
+    )
+    cost_cents: Mapped[int] = mapped_column(
+        Integer, server_default=text("0"), default=0, nullable=False
+    )
+    travel_time_prev_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    travel_distance_prev_meters: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    day: Mapped[ItineraryDayTable] = relationship("ItineraryDayTable", back_populates="items")
+    poi: Mapped[POITable | None] = relationship("POITable")
+
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('USER_SAVED', 'AI_RECOMMENDED', 'MANUAL')",
+            name="ck_itinerary_items_source",
+        ),
+        CheckConstraint(
+            "duration_hours >= 0.25 AND duration_hours <= 12.00",
+            name="ck_itinerary_items_duration",
+        ),
+        CheckConstraint("cost_cents >= 0", name="ck_itinerary_items_cost"),
+        Index("idx_itinerary_items_day_order", "itinerary_day_id", "order_index"),
+        Index("idx_itinerary_items_poi_id", "poi_id"),
+        Index("idx_itinerary_items_backup", "is_backup_for_id"),
+        Index("idx_itinerary_items_geom", "geom", postgresql_using="gist"),
+    )
+
+
+class SystemSettingsTable(Base):
+    """Runtime system configurations and killswitch flags."""
+
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True, nullable=False)
+    value: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, server_default=text("'{}'::jsonb"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
     )

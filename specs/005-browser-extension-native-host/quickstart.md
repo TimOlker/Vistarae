@@ -36,11 +36,13 @@ python scripts/register_native_host.py --extension-id <YOUR_EXTENSION_ID>
 ```
 
 On Windows, the script will:
+
 1. Generate `native_host/run_dispatcher.bat` invoking `python -u native_host/folder_dispatcher.py`.
 2. Generate `native_host/com.vistarae.folder_opener.json` with the absolute path to the `.bat` launcher.
 3. Register the manifest path in the Windows Registry under `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.vistarae.folder_opener`.
 
 To verify host registration without Chrome:
+
 ```powershell
 python tests/unit/native_host/test_folder_dispatcher.py
 ```

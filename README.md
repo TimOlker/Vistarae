@@ -218,8 +218,56 @@ _(Detailed guide: [Chrome Extension & Native Host Guide](docs/extension_native_h
 
 ---
 
+## ☁️ Serverless Infrastructure & CloudFront Deployment (Phase 6)
+
+Vistarae provisions an enterprise, zero-idle-cost serverless architecture in AWS `us-east-2` via AWS SAM (`template.yaml`):
+
+```
+                                  +---------------------------+
+                                  |    CloudFront Distribution|
+                                  |    (Viewer TLS 1.3 / OAC) |
+                                  +-------------+-------------+
+                                                |
+                       +------------------------+-----------------------+
+                       |                                                |
+          Path: /* (Default Cache Behavior)                Path: /api/* (API Cache Behavior)
+                       |                                                |
+          +------------v------------+                      +------------v------------+
+          | CloudFront Function     |                      | API Gateway HTTP API    |
+          | (spa-router.js)         |                      | ($default stage)        |
+          +------------+------------+                      +------------+------------+
+                       |                                                |
+          +------------v------------+                 +-----------------+-----------------+
+          | Private S3 SPA Bucket   |                 |                                   |
+          | (All Public Access OFF) |          +------v------+                     +------v------+
+          +-------------------------+          | PoiFunction | ...                 | AdminFunction
+                                               | (fastapi)   |                     | (killswitch)|
+                                               +------+------+                     +-------------+
+                                                      |
+                                         +------------v------------+
+                                         | Neon Serverless PostGIS |
+                                         | (PostgreSQL 16 + pgvector)
+                                         +-------------------------+
+```
+
+### Deployed Endpoints & Routing
+
+- **Frontend SPA**: `https://${CLOUDFRONT_DOMAIN}/`
+  - Routes rewritten via `cloudfront/spa-router.js` to `/index.html` for client-side deep linking (`/planner`, `/trips/:id`, `/pois`).
+  - Immutable asset caching: `public, max-age=31536000, immutable` for `/assets/*`.
+  - Non-cached HTML entrypoint: `public, max-age=0, must-revalidate` for `/index.html`.
+- **API Gateway HTTP API**: `https://${CLOUDFRONT_DOMAIN}/api/*`
+  - Proxied via CloudFront origin request policy `AllViewerExceptHostHeader` with `CachingDisabled`.
+  - `/api/itineraries/generate`: Natural language prompt to day-by-day RAG itinerary synthesis.
+  - `/api/itineraries`: List user itineraries, create manual trip, retrieve details, update, and delete.
+  - `/api/itineraries/{id}/items/reorder`: Interactive drag-and-drop item timeline updates.
+  - `/api/health/ready`: Non-recurring deployment readiness probe (safe for Neon scale-to-zero).
+- **Automated Spend Killswitch**: 4-tier cascading shutdown triggered at $15.00 AWS Budgets alert via SNS. Emergency restoration executed via `python scripts/reset_killswitch.py`.
+
+---
+
 ## 🔗 Downstream Systems (Future Scope)
 
 1. **Photo Cataloging**: Embedding IPTC/EXIF location metadata into images based on GPS/time matching.
-2. **Trip Planning**: Clustering POIs into daily itineraries using physical effort, duration, indoor/outdoor tags, and access points.
-3. **Map Sharing**: Exporting GeoJSON layers with custom pins to Google My Maps, Leaflet, or Mapbox.
+2. **Offline Mobile Sync**: Syncing Trip Planner schedules and route maps to offline PWA storage.
+3. **Collaborative Planning**: Multi-traveler concurrent WebSocket itinerary voting and edits.

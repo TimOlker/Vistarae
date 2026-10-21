@@ -19,6 +19,7 @@ Communication between Google Chrome and `native_host/folder_dispatcher.py` occur
 ```
 
 ### 1.1 Invariant Rules
+
 1. **Unbuffered Streams**: All reads occur on `sys.stdin.buffer`; all writes occur on `sys.stdout.buffer` followed immediately by `flush()`.
 2. **Windows Binary Mode**: On Windows (`sys.platform == 'win32'`), `folder_dispatcher.py` explicitly executes:
    ```python
@@ -47,6 +48,7 @@ Communication between Google Chrome and `native_host/folder_dispatcher.py` occur
 ### 2.1 Action: `open_folder`
 
 #### Request JSON
+
 ```json
 {
   "action": "open_folder",
@@ -55,6 +57,7 @@ Communication between Google Chrome and `native_host/folder_dispatcher.py` occur
 ```
 
 Or with `file:///` URI:
+
 ```json
 {
   "action": "open_folder",
@@ -63,6 +66,7 @@ Or with `file:///` URI:
 ```
 
 Or with private UNC network share:
+
 ```json
 {
   "action": "open_folder",
@@ -73,6 +77,7 @@ Or with private UNC network share:
 ### 2.2 Action: `ping`
 
 #### Request JSON
+
 ```json
 {
   "action": "ping"
@@ -86,6 +91,7 @@ Or with private UNC network share:
 ### 3.1 Success Responses
 
 #### Open Folder Success
+
 ```json
 {
   "status": "ok",
@@ -95,6 +101,7 @@ Or with private UNC network share:
 ```
 
 #### Ping Success
+
 ```json
 {
   "status": "ok",
@@ -114,15 +121,15 @@ Or with private UNC network share:
 }
 ```
 
-| Error Code | HTTP/App Mapping | Trigger Condition |
-| :--- | :--- | :--- |
-| `ILLEGAL_CHARACTERS` | 400 Bad Request | Input path contains shell metacharacters (`;`, `&`, `|`, `` ` ``, `$`, `>`, `<`, `\n`, `\r`) |
-| `NULL_BYTE_DETECTED` | 400 Bad Request | Input path contains a null byte (`\0`) |
-| `UNTRUSTED_NETWORK_HOST` | 403 Forbidden | UNC share target is not in the private subnet allowlist (`localhost`, `127.0.0.1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `.local`) |
-| `PATH_NOT_FOUND` | 404 Not Found | Canonicalized local directory or UNC share does not exist on disk |
-| `NETWORK_TIMEOUT` | 504 Gateway Timeout | UNC network share reachability probe timed out after 1.0 second |
-| `MALFORMED_JSON` | 400 Bad Request | Stdio payload could not be decoded as valid UTF-8 JSON |
-| `EXECUTION_FAILED` | 500 Internal Error | Operating system failed to spawn the native file manager process |
+| Error Code               | HTTP/App Mapping    | Trigger Condition                                                                                                                             |
+| :----------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `ILLEGAL_CHARACTERS`     | 400 Bad Request     | Input path contains shell metacharacters (`;`, `&`, `                                                                                         | `, `` ` ``, `$`, `>`, `<`, `\n`, `\r`) |
+| `NULL_BYTE_DETECTED`     | 400 Bad Request     | Input path contains a null byte (`\0`)                                                                                                        |
+| `UNTRUSTED_NETWORK_HOST` | 403 Forbidden       | UNC share target is not in the private subnet allowlist (`localhost`, `127.0.0.1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `.local`) |
+| `PATH_NOT_FOUND`         | 404 Not Found       | Canonicalized local directory or UNC share does not exist on disk                                                                             |
+| `NETWORK_TIMEOUT`        | 504 Gateway Timeout | UNC network share reachability probe timed out after 1.0 second                                                                               |
+| `MALFORMED_JSON`         | 400 Bad Request     | Stdio payload could not be decoded as valid UTF-8 JSON                                                                                        |
+| `EXECUTION_FAILED`       | 500 Internal Error  | Operating system failed to spawn the native file manager process                                                                              |
 
 ---
 
@@ -130,8 +137,8 @@ Or with private UNC network share:
 
 When spawning the file manager, `folder_dispatcher.py` uses argument vectors strictly without `shell=True`:
 
-| Operating System | API / Command | Argument Vector |
-| :--- | :--- | :--- |
-| **Windows** | `os.startfile` or `subprocess.Popen` | `["explorer.exe", target_dir]` |
-| **macOS** | `subprocess.Popen` | `["open", target_dir]` |
-| **Linux** | `subprocess.Popen` | `["xdg-open", target_dir]` |
+| Operating System | API / Command                        | Argument Vector                |
+| :--------------- | :----------------------------------- | :----------------------------- |
+| **Windows**      | `os.startfile` or `subprocess.Popen` | `["explorer.exe", target_dir]` |
+| **macOS**        | `subprocess.Popen`                   | `["open", target_dir]`         |
+| **Linux**        | `subprocess.Popen`                   | `["xdg-open", target_dir]`     |

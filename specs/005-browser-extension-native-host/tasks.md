@@ -4,7 +4,7 @@
 **Date**: 2026-10-20  
 **Spec Reference**: [specs/005-browser-extension-native-host/spec.md](file:///d:/Coding/Vistarae/specs/005-browser-extension-native-host/spec.md)  
 **Plan Reference**: [specs/005-browser-extension-native-host/plan.md](file:///d:/Coding/Vistarae/specs/005-browser-extension-native-host/plan.md)  
-**Constitution**: [.specify/memory/constitution.md](file:///d:/Coding/Vistarae/.specify/memory/constitution.md)  
+**Constitution**: [.specify/memory/constitution.md](file:///d:/Coding/Vistarae/.specify/memory/constitution.md)
 
 ---
 

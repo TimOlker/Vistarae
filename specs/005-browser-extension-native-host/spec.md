@@ -13,6 +13,7 @@
 ## 1. Executive Summary & Context
 
 Phase 5 (`005-browser-extension-native-host`) delivers the unified web capture engine and native desktop integration bridge for Vistarae travelers:
+
 1. **Manifest V3 Chrome Extension (`extension/`)**:
    - **Scoped Permissions & External Connectability**: Declares `"nativeMessaging"`, tightly scoped host permissions targeting AWS Cognito endpoints, CloudFront, and the API Gateway origin, alongside `"externally_connectable": { "matches": ["https://*.cloudfront.net/*", "http://localhost:5173/*"] }` to enable bidirectional communication between the Vistarae Single-Page Application (SPA) and the extension.
    - **Silent Token Refresh & Single-Flight Mutex**: Persists Access, ID, and `refresh_token` credentials securely in `chrome.storage.local`. Pre-flight checks inspect the JWT `exp` claim before every capture or API request. If expired or within 5 minutes of expiration, the service worker silently invokes AWS Cognito `InitiateAuth` (`REFRESH_TOKEN_AUTH`) via the public App Client ID. Concurrent requests share an in-memory `refreshPromise` (single-flight mutex) to eliminate parallel refresh race conditions. All mutation requests attach a unique `Idempotency-Key` (UUIDv4) and W3C `traceparent` headers.
@@ -30,6 +31,7 @@ Phase 5 (`005-browser-extension-native-host`) delivers the unified web capture e
 ## Clarifications
 
 ### Session 2026-10-20
+
 - Q: How does the SPA communicate with the Chrome Extension to open local folders? → A: Option A (Externally Connectable Messaging): The extension manifest specifies `"externally_connectable": { "matches": ["https://*.cloudfront.net/*", "http://localhost:5173/*"] }`. The SPA invokes `chrome.runtime.sendMessage(EXTENSION_ID, { action: "open_folder", path: directory_path })`. The background service worker intercepts via `chrome.runtime.onMessageExternal` and calls `chrome.runtime.sendNativeMessage('com.vistarae.folder_opener', ...)`. If uninstalled or missing, the SPA renders an actionable setup toast.
 - Q: How should token expiration be managed during capture workflows? → A: Option A (Pre-flight Silent Refresh): The extension inspects the `exp` claim of the cached JWT. If `Date.now() / 1000 >= exp - 300` (within 5 minutes of expiration), the service worker silently calls Cognito `InitiateAuth` (`REFRESH_TOKEN_AUTH`) via the public App Client ID to refresh credentials before sending the request. If the refresh token is revoked, it triggers an in-page login modal inside the Shadow DOM.
 - Q: How are specialized scrapers organized in the content script layer? → A: Option A (OOP Parser Hierarchy): An abstract `BasePoiParser` defines contract methods `canParse(url, document)` and `parse(document, selection)`. Concrete subclasses (`GoogleMapsParser`, `RoadtrippersParser`, `TripAdvisorParser`) implement site-specific DOM/JSON-LD traversal, while a `GenericSelectionParser` handles general web pages.
@@ -40,7 +42,7 @@ Phase 5 (`005-browser-extension-native-host`) delivers the unified web capture e
 
 ---
 
-## 2. User Scenarios & Testing *(mandatory)*
+## 2. User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - In-Page Web POI Capture & OOP Specialized Scrapers (Priority: P1)
 
@@ -160,7 +162,7 @@ A traveler opens the full-tab POI Explorer (`browser/browser.html`) from the ext
 
 ---
 
-## 3. Requirements *(mandatory)*
+## 3. Requirements _(mandatory)_
 
 ### Chrome Extension Core, Auth & Scraper Requirements (`REQ-EXT-xxx`)
 
@@ -323,6 +325,7 @@ Chrome Native Messaging frames stdio with 32-bit (4-byte) integers in native byt
 ```
 
 #### Binary Pack / Unpack Invariant (`folder_dispatcher.py`)
+
 ```python
 # Windows stdio mode initialization:
 if sys.platform == "win32":
@@ -357,7 +360,7 @@ sys.stdout.buffer.flush()
 
 ---
 
-## 5. Success Criteria *(mandatory)*
+## 5. Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

@@ -30,6 +30,7 @@ Implements Constitution Principles 2 & 3 and Operational Invariant 2:
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -82,6 +83,10 @@ def _extract_wgs84_point(geom: Any) -> WGS84Point:
     except Exception as err:
         if hasattr(geom, "x") and hasattr(geom, "y"):
             return WGS84Point(lon=float(geom.x), lat=float(geom.y))
+        geom_str = getattr(geom, "data", None) or str(geom)
+        m = re.search(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", str(geom_str), re.IGNORECASE)
+        if m:
+            return WGS84Point(lon=float(m.group(1)), lat=float(m.group(2)))
         raise ValueError(f"Unable to extract WGS84Point from {geom}") from err
 
 
