@@ -1871,6 +1871,525 @@
         }
       }
     },
+    "/api/itineraries": {
+      "get": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "List Itineraries",
+        "description": "Lists all travel itineraries belonging to the authenticated user.",
+        "operationId": "list_itineraries_api_itineraries_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItinerarySummary"
+                  },
+                  "title": "Response List Itineraries Api Itineraries Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "Create Itinerary",
+        "description": "Manually creates a new travel itinerary.",
+        "operationId": "create_itinerary_api_itineraries_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItineraryCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/itineraries/generate": {
+      "post": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "Generate Itinerary",
+        "description": "Generates an AI-synthesized itinerary using hybrid PostGIS + pgvector RAG.",
+        "operationId": "generate_itinerary_api_itineraries_generate_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItineraryGenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/itineraries/{itinerary_id}": {
+      "get": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "Get Itinerary",
+        "description": "Retrieves full details of a specific itinerary.",
+        "operationId": "get_itinerary_api_itineraries__itinerary_id__get",
+        "parameters": [
+          {
+            "name": "itinerary_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Itinerary Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "Update Itinerary",
+        "description": "Updates itinerary title, dates, budget, or status.",
+        "operationId": "update_itinerary_api_itineraries__itinerary_id__put",
+        "parameters": [
+          {
+            "name": "itinerary_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Itinerary Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItineraryUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "Delete Itinerary",
+        "description": "Deletes an itinerary and all its child days and items.",
+        "operationId": "delete_itinerary_api_itineraries__itinerary_id__delete",
+        "parameters": [
+          {
+            "name": "itinerary_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Itinerary Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/itineraries/{itinerary_id}/items/reorder": {
+      "put": {
+        "tags": ["itineraries", "itineraries"],
+        "summary": "Reorder Itinerary Items",
+        "description": "Batch reorders scheduled items across days and time slots.",
+        "operationId": "reorder_itinerary_items_api_itineraries__itinerary_id__items_reorder_put",
+        "parameters": [
+          {
+            "name": "itinerary_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Itinerary Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItineraryItemReorderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/csv": {
       "post": {
         "tags": ["ingest", "ingest"],
@@ -2249,6 +2768,32 @@
         "title": "BulkTagsRequest",
         "description": "Request payload for bulk tag association or disassociation."
       },
+      "CircuitBreakerWarning": {
+        "properties": {
+          "day_number": {
+            "type": "integer",
+            "title": "Day Number"
+          },
+          "total_active_hours": {
+            "type": "string",
+            "title": "Total Active Hours"
+          },
+          "threshold_hours": {
+            "type": "string",
+            "title": "Threshold Hours",
+            "default": "10.00"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["day_number", "total_active_hours", "message"],
+        "title": "CircuitBreakerWarning",
+        "description": "Warning emitted when active daily exploration exceeds circuit breaker threshold."
+      },
       "ConfirmSignUpRequest": {
         "properties": {
           "email": {
@@ -2535,6 +3080,899 @@
         "title": "IngestUploadResponse",
         "description": "Response returned upon accepting a bulk CSV upload."
       },
+      "ItineraryCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Destination"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Cents"
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "default": "USD"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ItineraryDayCreate"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["title", "destination", "start_date", "end_date"],
+        "title": "ItineraryCreate",
+        "description": "Manual itinerary creation payload."
+      },
+      "ItineraryDayCreate": {
+        "properties": {
+          "day_number": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Day Number"
+          },
+          "calendar_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Calendar Date"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "target_budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Budget Cents"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItineraryItemCreate"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["day_number", "calendar_date"],
+        "title": "ItineraryDayCreate",
+        "description": "Payload to create an itinerary day with items."
+      },
+      "ItineraryDayResponse": {
+        "properties": {
+          "day_number": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Day Number"
+          },
+          "calendar_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Calendar Date"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "target_budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Budget Cents"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "itinerary_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Itinerary Id"
+          },
+          "total_cost_cents": {
+            "type": "integer",
+            "title": "Total Cost Cents",
+            "default": 0
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItineraryItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["day_number", "calendar_date", "id", "itinerary_id"],
+        "title": "ItineraryDayResponse",
+        "description": "Response payload for an itinerary day with populated items."
+      },
+      "ItineraryGenerateRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Prompt"
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 2,
+            "title": "Destination"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Cents"
+          },
+          "currency": {
+            "type": "string",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "default": "USD"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["prompt", "destination", "start_date", "end_date"],
+        "title": "ItineraryGenerateRequest",
+        "description": "Request payload for AI natural language prompt + PostGIS pgvector RAG itinerary generation."
+      },
+      "ItineraryItemCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Title"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Category",
+            "default": "attraction"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/ItineraryItemSource",
+            "default": "USER_SAVED"
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude"
+          },
+          "order_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Order Index"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "duration_hours": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 12.0,
+                "minimum": 0.25
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Duration Hours",
+            "default": "1.00"
+          },
+          "cost_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Cost Cents",
+            "default": 0
+          },
+          "travel_time_prev_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Time Prev Minutes"
+          },
+          "travel_distance_prev_meters": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Distance Prev Meters"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poi Id"
+          },
+          "is_backup_for_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Backup For Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["title", "latitude", "longitude", "order_index"],
+        "title": "ItineraryItemCreate",
+        "description": "Payload to create an itinerary item."
+      },
+      "ItineraryItemReorderItem": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Id"
+          },
+          "itinerary_day_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Itinerary Day Id"
+          },
+          "order_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Order Index"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["item_id", "itinerary_day_id", "order_index"],
+        "title": "ItineraryItemReorderItem",
+        "description": "Single item position specification in batch reorder."
+      },
+      "ItineraryItemReorderRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItineraryItemReorderItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items"],
+        "title": "ItineraryItemReorderRequest",
+        "description": "Batch reorder request across days and time slots."
+      },
+      "ItineraryItemResponse": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Title"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Category",
+            "default": "attraction"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/ItineraryItemSource",
+            "default": "USER_SAVED"
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude"
+          },
+          "order_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Order Index"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "duration_hours": {
+            "type": "string",
+            "title": "Duration Hours",
+            "default": "1.00"
+          },
+          "cost_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Cost Cents",
+            "default": 0
+          },
+          "travel_time_prev_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Time Prev Minutes"
+          },
+          "travel_distance_prev_meters": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Distance Prev Meters"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poi Id"
+          },
+          "is_backup_for_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Backup For Id"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "itinerary_day_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Itinerary Day Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "latitude",
+          "longitude",
+          "order_index",
+          "id",
+          "itinerary_day_id"
+        ],
+        "title": "ItineraryItemResponse",
+        "description": "Response payload for a persisted itinerary item."
+      },
+      "ItineraryItemSource": {
+        "type": "string",
+        "enum": ["USER_SAVED", "AI_RECOMMENDED", "MANUAL"],
+        "title": "ItineraryItemSource",
+        "description": "Source classification for scheduled itinerary items."
+      },
+      "ItineraryResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItineraryStatus"
+          },
+          "total_estimated_cost_cents": {
+            "type": "integer",
+            "title": "Total Estimated Cost Cents"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ItineraryDayResponse"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "advisories": {
+            "items": {
+              "$ref": "#/components/schemas/MissingMealAdvisory"
+            },
+            "type": "array",
+            "title": "Advisories"
+          },
+          "circuit_breaker_warnings": {
+            "items": {
+              "$ref": "#/components/schemas/CircuitBreakerWarning"
+            },
+            "type": "array",
+            "title": "Circuit Breaker Warnings"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "destination",
+          "start_date",
+          "end_date",
+          "budget_cents",
+          "currency",
+          "status",
+          "total_estimated_cost_cents",
+          "days"
+        ],
+        "title": "ItineraryResponse",
+        "description": "Complete detail response for an itinerary with days, items, and smart advisories."
+      },
+      "ItineraryStatus": {
+        "type": "string",
+        "enum": ["draft", "confirmed", "archived"],
+        "title": "ItineraryStatus",
+        "description": "Itinerary state transition status."
+      },
+      "ItinerarySummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ItineraryStatus"
+          },
+          "total_estimated_cost_cents": {
+            "type": "integer",
+            "title": "Total Estimated Cost Cents"
+          },
+          "total_days": {
+            "type": "integer",
+            "title": "Total Days"
+          },
+          "total_activities": {
+            "type": "integer",
+            "title": "Total Activities"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "destination",
+          "start_date",
+          "end_date",
+          "budget_cents",
+          "currency",
+          "status",
+          "total_estimated_cost_cents",
+          "total_days",
+          "total_activities",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ItinerarySummary",
+        "description": "High-level summary of an itinerary for listing views."
+      },
+      "ItineraryUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "budget_cents": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3,
+                "minLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItineraryStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ItineraryUpdate",
+        "description": "Payload for updating itinerary metadata."
+      },
       "ListCreateRequest": {
         "properties": {
           "title": {
@@ -2772,6 +4210,89 @@
         "required": ["logged_out", "message"],
         "title": "LogoutResponse",
         "description": "Acknowledgement of successful logout."
+      },
+      "MissingMealAdvisory": {
+        "properties": {
+          "day_number": {
+            "type": "integer",
+            "title": "Day Number"
+          },
+          "meal_type": {
+            "type": "string",
+            "title": "Meal Type"
+          },
+          "gap_start": {
+            "type": "string",
+            "format": "time",
+            "title": "Gap Start"
+          },
+          "gap_end": {
+            "type": "string",
+            "format": "time",
+            "title": "Gap End"
+          },
+          "suggested_poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Poi Id"
+          },
+          "suggested_poi_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Poi Title"
+          },
+          "suggested_poi_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Poi Address"
+          },
+          "suggested_poi_lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Poi Lat"
+          },
+          "suggested_poi_lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Poi Lng"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["day_number", "meal_type", "gap_start", "gap_end"],
+        "title": "MissingMealAdvisory",
+        "description": "Advisory emitted when lunch or dinner window lacks a meal."
       },
       "POICreateRequest": {
         "properties": {

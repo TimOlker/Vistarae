@@ -1,0 +1,540 @@
+openapi: 3.1.0
+info:
+  title: Vistarae AI Trip Planner API
+  version: 1.0.0
+  description: API contracts for AI Itinerary Generation, Day-by-Day Scheduling, Drag-and-Drop Reordering, and PDF Export.
+servers:
+  - url: /api
+    description: Proxied API Gateway endpoint
+paths:
+  /itineraries:
+    get:
+      summary: List user itineraries
+      operationId: listItineraries
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user itineraries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItinerarySummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create an itinerary manually
+      operationId: createItinerary
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItineraryCreate'
+      responses:
+        '201':
+          description: Itinerary created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /itineraries/generate:
+    post:
+      summary: Generate an itinerary from natural language prompt and PostGIS + pgvector RAG
+      operationId: generateItinerary
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItineraryGenerateRequest'
+      responses:
+        '201':
+          description: Generated itinerary draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /itineraries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get full itinerary details with days, items, and warnings
+      operationId: getItinerary
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Itinerary details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Update itinerary metadata
+      operationId: updateItinerary
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItineraryUpdate'
+      responses:
+        '200':
+          description: Itinerary updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete itinerary and all associated days and items
+      operationId: deleteItinerary
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Itinerary deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /itineraries/{id}/items/reorder:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Batch reorder itinerary items across days and time slots
+      operationId: reorderItineraryItems
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItineraryItemReorderRequest'
+      responses:
+        '200':
+          description: Items reordered and transit times recalculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryResponse'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ItinerarySummary:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - destination
+        - start_date
+        - end_date
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        destination:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        budget_cents:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          default: USD
+        status:
+          type: string
+          enum: [draft, confirmed, archived]
+        total_estimated_cost_cents:
+          type: integer
+
+    ItineraryGenerateRequest:
+      type: object
+      required:
+        - prompt
+        - destination
+        - start_date
+        - end_date
+      properties:
+        prompt:
+          type: string
+          minLength: 3
+          maxLength: 1000
+        destination:
+          type: string
+          minLength: 2
+          maxLength: 255
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        budget_cents:
+          type: integer
+          nullable: true
+          minimum: 0
+        currency:
+          type: string
+          default: USD
+
+    ItineraryCreate:
+      type: object
+      required:
+        - title
+        - destination
+        - start_date
+        - end_date
+      properties:
+        title:
+          type: string
+        destination:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        budget_cents:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          default: USD
+
+    ItineraryUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        destination:
+          type: string
+        budget_cents:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [draft, confirmed, archived]
+
+    ItineraryItemReorderItem:
+      type: object
+      required:
+        - item_id
+        - itinerary_day_id
+        - order_index
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        itinerary_day_id:
+          type: string
+          format: uuid
+        order_index:
+          type: integer
+          minimum: 0
+        start_time:
+          type: string
+          nullable: true
+        end_time:
+          type: string
+          nullable: true
+
+    ItineraryItemReorderRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryItemReorderItem'
+
+    ItineraryItemResponse:
+      type: object
+      required:
+        - id
+        - itinerary_day_id
+        - title
+        - category
+        - source_type
+        - latitude
+        - longitude
+        - order_index
+        - duration_hours
+        - cost_cents
+      properties:
+        id:
+          type: string
+          format: uuid
+        itinerary_day_id:
+          type: string
+          format: uuid
+        poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_backup_for_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        category:
+          type: string
+        source_type:
+          type: string
+          enum: [USER_SAVED, AI_RECOMMENDED, MANUAL]
+        latitude:
+          type: number
+        longitude:
+          type: number
+        order_index:
+          type: integer
+        start_time:
+          type: string
+          nullable: true
+        end_time:
+          type: string
+          nullable: true
+        duration_hours:
+          type: number
+        cost_cents:
+          type: integer
+        travel_time_prev_minutes:
+          type: integer
+          nullable: true
+        travel_distance_prev_meters:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ItineraryDayResponse:
+      type: object
+      required:
+        - id
+        - itinerary_id
+        - day_number
+        - calendar_date
+        - total_cost_cents
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        itinerary_id:
+          type: string
+          format: uuid
+        day_number:
+          type: integer
+        calendar_date:
+          type: string
+          format: date
+        notes:
+          type: string
+          nullable: true
+        target_budget_cents:
+          type: integer
+          nullable: true
+        total_cost_cents:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryItemResponse'
+
+    MissingMealAdvisory:
+      type: object
+      required:
+        - day_number
+        - meal_type
+        - gap_start
+        - gap_end
+      properties:
+        day_number:
+          type: integer
+        meal_type:
+          type: string
+          enum: [lunch, dinner]
+        gap_start:
+          type: string
+        gap_end:
+          type: string
+        suggested_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        suggested_poi_title:
+          type: string
+          nullable: true
+
+    CircuitBreakerWarning:
+      type: object
+      required:
+        - day_number
+        - total_active_hours
+        - threshold_hours
+        - message
+      properties:
+        day_number:
+          type: integer
+        total_active_hours:
+          type: number
+        threshold_hours:
+          type: number
+          default: 10.00
+        message:
+          type: string
+
+    ItineraryResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - destination
+        - start_date
+        - end_date
+        - status
+        - total_estimated_cost_cents
+        - days
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        destination:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        budget_cents:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [draft, confirmed, archived]
+        total_estimated_cost_cents:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryDayResponse'
+        advisories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingMealAdvisory'
+        circuit_breaker_warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CircuitBreakerWarning'
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFound:
+      description: Not Found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    UnprocessableEntity:
+      description: Validation Error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'

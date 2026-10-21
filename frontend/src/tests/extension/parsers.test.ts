@@ -16,7 +16,6 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  BasePoiParser,
   findParserForUrl,
   parserRegistry,
 } from "../../../../extension/content/parsers/BasePoiParser.js";

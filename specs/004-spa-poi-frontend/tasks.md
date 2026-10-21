@@ -179,7 +179,7 @@
 - [x] T-041 [P] Verify standardized copyright header banner (`// Copyright (c) 2026 Vistarae. All rights reserved.`, `SPDX-License-Identifier: Apache-2.0`) across all `.ts` and `.tsx` source and test files using pre-commit verification [Constitution Principle 1]
 - [x] T-042 [P] Verify code quality, ESLint, TypeScript strict checking (`tsc --noEmit`), and Prettier formatting across the entire `frontend/` directory [Constitution Principle 1]
 - [x] T-043 Execute the full Vitest automated test suite (`npm run test:unit`) ensuring 100% pass rate across coordinates, EXIF reader, triage storage, API client, and UI components [Plan §3, Quickstart §3]
-- [ ] T-044 Execute end-to-end manual validation of all 6 scenarios in [quickstart.md](file:///d:/Coding/Vistarae/specs/004-spa-poi-frontend/quickstart.md) against the running local ASGI gateway and PostGIS infrastructure [Quickstart §2]
+- [x] T-044 Execute end-to-end manual validation of all 6 scenarios in [quickstart.md](file:///d:/Coding/Vistarae/specs/004-spa-poi-frontend/quickstart.md) against the running local ASGI gateway and PostGIS infrastructure [Quickstart §2]
 
 ---
 

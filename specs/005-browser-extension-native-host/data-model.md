@@ -29,10 +29,10 @@ export interface StoredAuthSession {
 }
 
 export interface UserProfileSummary {
-  id: string;               // UUIDv4
-  email: string;            // User email
-  full_name: string;        // Full name
-  tier: "LOW" | "HIGH";     // User quota tier
+  id: string; // UUIDv4
+  email: string; // User email
+  full_name: string; // Full name
+  tier: "LOW" | "HIGH"; // User quota tier
 }
 ```
 
@@ -123,7 +123,14 @@ export interface ExtractedPoiData {
   description: string | null;
 
   /** Category classification */
-  category: "viewpoint" | "trail" | "historic" | "museum" | "food" | "park" | "other";
+  category:
+    | "viewpoint"
+    | "trail"
+    | "historic"
+    | "museum"
+    | "food"
+    | "park"
+    | "other";
 
   /** Street address */
   address: string | null;
@@ -189,7 +196,7 @@ export interface DeduplicationResult {
 }
 
 export interface ExistingPoiSummary {
-  id: string;               // UUIDv4
+  id: string; // UUIDv4
   name: string;
   address: string | null;
   city: string | null;
@@ -294,10 +301,8 @@ File: `native_host/com.vistarae.folder_opener.json`
   "description": "Vistarae Local Folder Opener Native Host",
   "path": "D:\\Coding\\Vistarae\\native_host\\run_dispatcher.bat",
   "type": "stdio",
-  "allowed_origins": [
-    "chrome-extension://<EXTENSION_ID>/"
-  ]
+  "allowed_origins": ["chrome-extension://<EXTENSION_ID>/"]
 }
 ```
 
-*(On macOS and Linux, the `"path"` points directly to `/path/to/folder_dispatcher.py` marked executable via `chmod +x`).*
+_(On macOS and Linux, the `"path"` points directly to `/path/to/folder_dispatcher.py` marked executable via `chmod +x`)._

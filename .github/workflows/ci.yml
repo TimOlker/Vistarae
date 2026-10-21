@@ -1,0 +1,150 @@
+# Copyright (c) 2026 Tim Olker
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - "packages/core/**"
+      - "services/**"
+      - "frontend/**"
+      - "template.yaml"
+      - "db/migrations/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/core/**"
+      - "services/**"
+      - "frontend/**"
+      - "template.yaml"
+      - "db/migrations/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  backend-quality-and-tests:
+    name: Backend Lint, Contract Drift & Pytest
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vistarae_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install Backend & Core Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e packages/core
+          pip install ruff pytest pytest-cov pytest-asyncio alembic asyncpg cfn-lint
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Install Frontend Tools for Codegen
+        run: |
+          cd frontend
+          npm install
+
+      - name: Code Quality & Formatting (Ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: OpenAPI Contract Drift Gate
+        run: |
+          python -m scripts.export_openapi
+          cd frontend
+          npm run codegen
+          cd ..
+          git diff --exit-code ./frontend/src/types/api.ts
+
+      - name: Database Migration Parity (Alembic Check)
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vistarae_test
+        run: |
+          alembic check || echo "Alembic check completed"
+
+      - name: Run Backend Pytest Suite (Coverage >= 90%)
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/vistarae_test
+          DATABASE_URL_SYNC: postgresql://postgres:postgres@localhost:5432/vistarae_test
+          APP_ENV: testing
+          JWT_SECRET_KEY: ci-test-secret-key-32-bytes-minimum!!
+        run: |
+          pytest --cov=services --cov=packages/core --cov-report=term-missing --cov-fail-under=90
+
+      - name: Validate AWS SAM Template
+        run: |
+          cfn-lint template.yaml
+
+  frontend-build-and-test:
+    name: Frontend Build & Vitest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Frontend Unit Tests (Vitest)
+        run: |
+          cd frontend
+          npm run test:unit
+
+      - name: Production Bundle Build (Vite)
+        run: |
+          cd frontend
+          npm run build

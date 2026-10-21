@@ -23,6 +23,9 @@ from vistarae_core.adapters.repositories.idempotency_repo import (
     SqlAlchemyIdempotencyRepository,
 )
 from vistarae_core.adapters.repositories.ingest_repo import IngestJobRepository
+from vistarae_core.adapters.repositories.itinerary_repo import (
+    SqlAlchemyItineraryRepository,
+)
 from vistarae_core.adapters.repositories.list_repo import SqlAlchemyListRepository
 from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
 from vistarae_core.adapters.repositories.quota_repo import SqlAlchemyQuotaRepository
@@ -33,6 +36,7 @@ __all__ = [
     "IngestJobRepository",
     "SqlAlchemyGeocodingCacheRepository",
     "SqlAlchemyIdempotencyRepository",
+    "SqlAlchemyItineraryRepository",
     "SqlAlchemyListRepository",
     "SqlAlchemyPOIRepository",
     "SqlAlchemyQuotaRepository",

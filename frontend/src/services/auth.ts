@@ -1,3 +1,19 @@
+// Copyright (c) 2026 Tim Olker
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright (c) 2026 Vistarae. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -21,6 +37,48 @@ export interface AuthTokens {
 
 const TOKEN_KEY = "vistarae_auth_token";
 const USER_KEY = "vistarae_user_profile";
+
+function normalizeUserSession(raw: unknown): UserSession {
+  const data = raw as {
+    user?: {
+      id: string;
+      email: string;
+      full_name?: string | null;
+      is_admin?: boolean;
+      created_at?: string;
+    };
+    quotas?: {
+      tier?: string;
+    };
+    id?: string;
+    email?: string;
+    full_name?: string | null;
+    is_admin?: boolean;
+    tier?: string;
+    created_at?: string;
+  };
+
+  if (data?.user) {
+    const tier = (data.quotas?.tier || "LOW").toUpperCase();
+    return {
+      id: data.user.id,
+      email: data.user.email,
+      full_name: data.user.full_name || "",
+      is_admin: data.user.is_admin ?? (tier === "ADMIN" || data.user.email.includes("admin")),
+      tier,
+      created_at: data.user.created_at,
+    };
+  }
+
+  return {
+    id: data?.id || "",
+    email: data?.email || "",
+    full_name: data?.full_name || "",
+    is_admin: Boolean(data?.is_admin),
+    tier: (data?.tier || "LOW").toUpperCase(),
+    created_at: data?.created_at,
+  };
+}
 
 export const authService = {
   getStoredToken(): string | null {
@@ -76,7 +134,8 @@ export const authService = {
     });
 
     localStorage.setItem(TOKEN_KEY, tokens.access_token);
-    const user = await apiFetch<UserSession>("/api/users/me");
+    const rawUser = await apiFetch<unknown>("/api/users/me");
+    const user = normalizeUserSession(rawUser);
     authService.setSession(tokens, user);
     return { tokens, user };
   },
@@ -112,7 +171,8 @@ export const authService = {
   },
 
   async fetchCurrentUser(): Promise<UserSession> {
-    const user = await apiFetch<UserSession>("/api/users/me");
+    const rawUser = await apiFetch<unknown>("/api/users/me");
+    const user = normalizeUserSession(rawUser);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     return user;
   },

@@ -9,6 +9,7 @@
 ## 1. Summary
 
 Phase 5 delivers the web capture interface and native desktop integration tier for the Vistarae platform:
+
 1. **Manifest V3 Chrome Extension (`extension/`)**:
    - Manifest V3 architecture with `"nativeMessaging"`, scoped host permissions for Cognito and CloudFront/API Gateway origins, and `"externally_connectable": { "matches": ["https://*.cloudfront.net/*", "http://localhost:5173/*"] }` for SPA web app communication.
    - Secure token storage (`chrome.storage.local`) with pre-flight `exp` claim checks and a single-flight mutex (`refreshPromise`) silently renewing tokens via AWS Cognito `InitiateAuth` (`REFRESH_TOKEN_AUTH`), eliminating multi-tab race conditions.
@@ -57,19 +58,19 @@ Phase 5 delivers the web capture interface and native desktop integration tier f
 
 ## 3. Constitution Check
 
-*GATE: Verified prior to research and re-evaluated post-design against `.specify/memory/constitution.md`.*
+_GATE: Verified prior to research and re-evaluated post-design against `.specify/memory/constitution.md`._
 
-| Constitutional Invariant | Status | Compliance Detail |
-| :--- | :---: | :--- |
-| **1. File Header & Pre-Commit** | **PASS** | Every `.py` file starts with `# Copyright (c) 2026 Tim Olker...` and `.js` file with `// Copyright (c) 2026 Tim Olker...` under Apache-2.0. Pre-commit validates `ruff check`, `ruff format`, `prettier`, and `check-copyright-header`. Max nesting $\le 3$, cognitive complexity $\le 15$. |
-| **2. Monorepo & Ports/Adapters** | **PASS** | `native_host/` and `scripts/` are standalone Python modules with zero circular imports. `extension/` communicates with backend exclusively over REST via `services.local_gateway` or CloudFront API Gateway. |
-| **3. Database & Tenancy** | **PASS** | Extension and native host have no direct database connections. Extension authenticates via Cognito JWT Bearer tokens to FastAPI gateway. All backend queries enforce tenant isolation `WHERE user_id = :current_user_id`. |
-| **4. Alembic & Environment** | **PASS** | No database schema modifications or migrations required for Phase 5. |
-| **5. API Contract & Validation** | **PASS** | Outbound requests match OpenAPI specifications (`/api/pois/extract-and-check`, `/api/pois`, `/api/auth/login`, `/api/auth/register`). All error handling maps RFC 7807 `ProblemDetails`. |
-| **6. Middleware & Security** | **PASS** | All mutating operations (`POST`, `PUT`, `DELETE`) supply UUIDv4 `Idempotency-Key` headers. CORS configured for extension origins. Native host rejects shell metacharacters and non-private UNC paths. |
-| **7. Observability & Tracing** | **PASS** | Service worker generates W3C `traceparent` headers (`00-{trace_id}-{client_span_id}-01`) and sets `X-Source: extension`, `X-Destination: backend`. Directional microservice message tags (`MSG ->|  `, `MSG <-|  `, `MSG   |->`, `MSG   |<-`). |
-| **8. PyTest & SDD Governance** | **PASS** | Unit tests cover `folder_dispatcher.py` and `register_native_host.py` with $\ge 90\%$ branch and line coverage (`--cov-fail-under=90`). Implementation plan strictly derived from ratified `spec.md`. |
-| **Operational & Infrastructure 3** | **PASS** | Native host (`com.vistarae.folder_opener`) communicates over unbuffered standard I/O using 4-byte native endian integer framing (`struct.unpack('=I', ...)`, `struct.pack('=I', ...)`). Rejects shell metacharacters (`;`, `&`, `|`, `` ` ``, `$`, `>`, `<`). |
+| Constitutional Invariant           |  Status  | Compliance Detail                                                                                                                                                                                                                                                                           |
+| :--------------------------------- | :------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ------- | --------- | ----- |
+| **1. File Header & Pre-Commit**    | **PASS** | Every `.py` file starts with `# Copyright (c) 2026 Tim Olker...` and `.js` file with `// Copyright (c) 2026 Tim Olker...` under Apache-2.0. Pre-commit validates `ruff check`, `ruff format`, `prettier`, and `check-copyright-header`. Max nesting $\le 3$, cognitive complexity $\le 15$. |
+| **2. Monorepo & Ports/Adapters**   | **PASS** | `native_host/` and `scripts/` are standalone Python modules with zero circular imports. `extension/` communicates with backend exclusively over REST via `services.local_gateway` or CloudFront API Gateway.                                                                                |
+| **3. Database & Tenancy**          | **PASS** | Extension and native host have no direct database connections. Extension authenticates via Cognito JWT Bearer tokens to FastAPI gateway. All backend queries enforce tenant isolation `WHERE user_id = :current_user_id`.                                                                   |
+| **4. Alembic & Environment**       | **PASS** | No database schema modifications or migrations required for Phase 5.                                                                                                                                                                                                                        |
+| **5. API Contract & Validation**   | **PASS** | Outbound requests match OpenAPI specifications (`/api/pois/extract-and-check`, `/api/pois`, `/api/auth/login`, `/api/auth/register`). All error handling maps RFC 7807 `ProblemDetails`.                                                                                                    |
+| **6. Middleware & Security**       | **PASS** | All mutating operations (`POST`, `PUT`, `DELETE`) supply UUIDv4 `Idempotency-Key` headers. CORS configured for extension origins. Native host rejects shell metacharacters and non-private UNC paths.                                                                                       |
+| **7. Observability & Tracing**     | **PASS** | Service worker generates W3C `traceparent` headers (`00-{trace_id}-{client_span_id}-01`) and sets `X-Source: extension`, `X-Destination: backend`. Directional microservice message tags (`MSG ->                                                                                           | `, `MSG <-                  | `, `MSG | ->`, `MSG | <-`). |
+| **8. PyTest & SDD Governance**     | **PASS** | Unit tests cover `folder_dispatcher.py` and `register_native_host.py` with $\ge 90\%$ branch and line coverage (`--cov-fail-under=90`). Implementation plan strictly derived from ratified `spec.md`.                                                                                       |
+| **Operational & Infrastructure 3** | **PASS** | Native host (`com.vistarae.folder_opener`) communicates over unbuffered standard I/O using 4-byte native endian integer framing (`struct.unpack('=I', ...)`, `struct.pack('=I', ...)`). Rejects shell metacharacters (`;`, `&`, `                                                           | `, `` ` ``, `$`, `>`, `<`). |
 
 ---
 
@@ -140,8 +141,8 @@ tests/
 
 > **No constitutional violations detected. All components adhere strictly to project principles.**
 
-| Design Element | Why Needed | Alternative Rejected |
-| :--- | :--- | :--- |
-| **`msvcrt.setmode` on Windows** | Suppresses CRLF byte expansion on binary stdio streams | Direct text-mode Python stdio fails on byte `0x0A` (`\n`), corrupting length prefixes and terminating native host |
-| **Single-Flight Token Mutex** | Prevents concurrent Cognito refresh calls from multiple tabs near expiration | Uncoordinated refresh causes race condition errors (`InvalidParameterException`) and invalidates rotated refresh tokens |
-| **User-Level Registry / Host Path** | Installs without administrator or root privileges | System-wide registration (`HKLM`) triggers UAC prompts and fails on non-admin developer/traveler accounts |
+| Design Element                      | Why Needed                                                                   | Alternative Rejected                                                                                                    |
+| :---------------------------------- | :--------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **`msvcrt.setmode` on Windows**     | Suppresses CRLF byte expansion on binary stdio streams                       | Direct text-mode Python stdio fails on byte `0x0A` (`\n`), corrupting length prefixes and terminating native host       |
+| **Single-Flight Token Mutex**       | Prevents concurrent Cognito refresh calls from multiple tabs near expiration | Uncoordinated refresh causes race condition errors (`InvalidParameterException`) and invalidates rotated refresh tokens |
+| **User-Level Registry / Host Path** | Installs without administrator or root privileges                            | System-wide registration (`HKLM`) triggers UAC prompts and fails on non-admin developer/traveler accounts               |

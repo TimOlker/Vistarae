@@ -18,9 +18,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseJwtPayload,
   getValidAccessToken,
-  executeCognitoRefresh,
-  clearTokens,
-  saveTokens,
 } from "../../../../extension/background/auth.js";
 
 describe("Extension Auth & Silent Refresh Middleware", () => {

@@ -134,3 +134,34 @@ textarea {
 .slide-up {
   animation: slideUp var(--transition-normal) forwards;
 }
+
+/* Print Stylesheet (REQ-PLAN-016) */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  nav,
+  header,
+  button,
+  .no-print,
+  [data-testid="toast-banner"] {
+    display: none !important;
+  }
+
+  .itinerary-print-day {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 24px !important;
+  }
+
+  .itinerary-print-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+}
