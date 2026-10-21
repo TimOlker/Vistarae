@@ -16,24 +16,24 @@
 
 /**
  * CloudFront Function: Viewer Request SPA Router
- * 
+ *
  * Intercepts incoming viewer requests on CloudFront.
  * Rewrites extensionless client-side SPA routes (e.g., /trips, /settings, /planner)
  * internally to /index.html before fetching from private S3 Origin Access Control (OAC),
  * while preserving static fingerprinted assets (/assets/*, .js, .css, images) and /api/* calls.
  */
 function handler(event) {
-    var request = event.request;
-    var uri = request.uri;
+  var request = event.request;
+  var uri = request.uri;
 
-    // Check if the request is an extensionless path and not an API call
-    if (!uri.includes('.') && !uri.startsWith('/api/')) {
-        request.uri = '/index.html';
-    }
+  // Check if the request is an extensionless path and not an API call
+  if (!uri.includes(".") && !uri.startsWith("/api/")) {
+    request.uri = "/index.html";
+  }
 
-    return request;
+  return request;
 }
 
-if (typeof module !== 'undefined') {
-    module.exports = { handler: handler };
+if (typeof module !== "undefined") {
+  module.exports = { handler: handler };
 }

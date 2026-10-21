@@ -29,16 +29,17 @@ Viewer Request: https://*.cloudfront.net/*
 ```
 
 ### Edge Function Logic (`spa-router.js`)
+
 ```javascript
 function handler(event) {
-    var request = event.request;
-    var uri = request.uri;
-    
-    // Check if the request is an extensionless SPA path and not an API call
-    if (!uri.includes('.') && !uri.startsWith('/api/')) {
-        request.uri = '/index.html';
-    }
-    return request;
+  var request = event.request;
+  var uri = request.uri;
+
+  // Check if the request is an extensionless SPA path and not an API call
+  if (!uri.includes(".") && !uri.startsWith("/api/")) {
+    request.uri = "/index.html";
+  }
+  return request;
 }
 ```
 
@@ -46,16 +47,17 @@ function handler(event) {
 
 ## 2. Domain Lambda Matrix & Least-Privilege IAM Policies
 
-| Lambda Logical ID | Memory | Timeout | Runtime / Arch | Trigger / Routing | IAM Policy Grants |
-| :--- | :---: | :---: | :---: | :--- | :--- |
-| **PoiFunction** | 512–1024MB | 15s | Python 3.12 / arm64 | HTTP API `/api/pois/*`, `/api/itineraries/*` | Neon Secret Read, X-Ray Write |
-| **UserFunction** | 256MB | 10s | Python 3.12 / arm64 | HTTP API `/api/users/*`, `/api/auth/*` | Neon Secret Read, Cognito Verify, X-Ray Write |
-| **IngestFunction** | 256MB | 15s | Python 3.12 / arm64 | HTTP API `/api/ingest/*` | `sqs:SendMessage` on IngestQueue, Neon Secret Read, X-Ray Write |
-| **AdminFunction** | 256MB | 10s | Python 3.12 / arm64 | HTTP API `/api/admin/*` | Neon Secret Read, X-Ray Write |
-| **BatchIngestWorker** | 512MB | 30s | Python 3.12 / arm64 | SQS EventSourceMapping (`BatchSize: 10`, `MaximumConcurrency: 2`) | `sqs:ReceiveMessage`, `sqs:DeleteMessage`, `sqs:GetQueueAttributes` on IngestQueue, Neon Secret Read, X-Ray Write |
-| **SpendKillSwitch** | 128MB | 10s | Python 3.12 / arm64 | SNS Topic `SpendAlertTopic` (AWS Budgets $15.00) | `lambda:PutFunctionConcurrency`, `lambda:UpdateEventSourceMapping`, `apigateway:PATCH`/`apigateway:UpdateStage`, Neon Secret Read, X-Ray Write |
+| Lambda Logical ID     |   Memory   | Timeout |   Runtime / Arch    | Trigger / Routing                                                 | IAM Policy Grants                                                                                                                              |
+| :-------------------- | :--------: | :-----: | :-----------------: | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PoiFunction**       | 512–1024MB |   15s   | Python 3.12 / arm64 | HTTP API `/api/pois/*`, `/api/itineraries/*`                      | Neon Secret Read, X-Ray Write                                                                                                                  |
+| **UserFunction**      |   256MB    |   10s   | Python 3.12 / arm64 | HTTP API `/api/users/*`, `/api/auth/*`                            | Neon Secret Read, Cognito Verify, X-Ray Write                                                                                                  |
+| **IngestFunction**    |   256MB    |   15s   | Python 3.12 / arm64 | HTTP API `/api/ingest/*`                                          | `sqs:SendMessage` on IngestQueue, Neon Secret Read, X-Ray Write                                                                                |
+| **AdminFunction**     |   256MB    |   10s   | Python 3.12 / arm64 | HTTP API `/api/admin/*`                                           | Neon Secret Read, X-Ray Write                                                                                                                  |
+| **BatchIngestWorker** |   512MB    |   30s   | Python 3.12 / arm64 | SQS EventSourceMapping (`BatchSize: 10`, `MaximumConcurrency: 2`) | `sqs:ReceiveMessage`, `sqs:DeleteMessage`, `sqs:GetQueueAttributes` on IngestQueue, Neon Secret Read, X-Ray Write                              |
+| **SpendKillSwitch**   |   128MB    |   10s   | Python 3.12 / arm64 | SNS Topic `SpendAlertTopic` (AWS Budgets $15.00)                  | `lambda:PutFunctionConcurrency`, `lambda:UpdateEventSourceMapping`, `apigateway:PATCH`/`apigateway:UpdateStage`, Neon Secret Read, X-Ray Write |
 
 ### SpendKillSwitch SNS Event Contract
+
 ```json
 {
   "Records": [

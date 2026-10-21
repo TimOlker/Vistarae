@@ -294,7 +294,7 @@ stateDiagram-v2
 stateDiagram-v2
     [*] --> NormalOperation: Stage deployed ($0-$14.99)
     NormalOperation --> ShutdownTriggered: AWS Budgets $15.00 SNS Alert
-    
+
     state ShutdownTriggered {
         [*] --> Tier1_ThrottleApiGateway: RateLimit=0, BurstLimit=0
         Tier1_ThrottleApiGateway --> Tier2_DisableSqsWorker: EventSourceMapping Enabled=false
