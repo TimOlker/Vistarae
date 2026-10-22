@@ -5,11 +5,12 @@
 **Created**: 2026-10-20  
 **Status**: Draft  
 **Target Systems**:
+
 - AI Trip Planner & Itinerary Engine: `services/poi` (new routes `/api/itineraries/*`), Google Gemini (`text-embedding-004`, Flash-Lite / 1.5 Flash), PostGIS + pgvector RAG query engine, Day-by-Day/Hour-by-Hour drag-and-drop UI (`@hello-pangea/dnd`), Mapbox/Leaflet macro and daily route visualization, Client-side/CSS Print PDF generation engine
 - AWS SAM Infrastructure: `template.yaml` in `us-east-2`, private S3 SPA bucket + CloudFront OAC + CloudFront Function SPA routing (`spa-router.js`), HTTP API Gateway (`{api-id}.execute-api.us-east-2.amazonaws.com`), 6 Lambdas (`PoiFunction`, `UserFunction`, `IngestFunction`, `AdminFunction`, `BatchIngestWorker`, `SpendKillSwitch`), X-Ray Active Tracing with 1% custom sampling rule, SQS + DLQ + CloudWatch alarms (<10 free tier limit)
 - GitHub Actions CI/CD: `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, Keyless OIDC (`GitHubActionsDeployerRole`, `repo:timolker/vistarae:*`), path filtering, Docker PostGIS container (`postgis/postgis:16-3.4`), `pytest --cov=src --cov-fail-under=90`, `alembic check`, OpenAPI TypeScript drift gate (`git diff --exit-code ./frontend/src/types/api.ts`), `sam local start-api` / `sam validate`, direct Neon SSL migration (`?sslmode=require`), S3 sync with cache control, CloudFront invalidation, post-deploy single `/health/ready` check.
 
-**Input**: User description: "/speckit.specify Create the specification for Phase 6 (006-trip-planner-aws-cicd) using strict EARS syntax (REQ-PLAN-xxx, REQ-SAM-xxx, REQ-CICD-xxx). Scope to cover: 1. AI Trip Planner Mode: Hybrid PostGIS + pgvector RAG Query (Pre-filter by tenant and spatial proximity using idx_pois_user_geom then order by cosine distance), Day-by-Day / Hour-by-Hour Itinerary UI & Engine (drag-and-drop, multi-day POI distribution across recommended_visit_days, over-planning circuit breakers, travel/activity/idle time and cost budgeting, missing meal alerts, hotel/weather backups, AI POI import into manager, macro/daily route maps, PDF export). 2. AWS SAM Infrastructure (template.yaml in us-east-2): Private S3 SPA bucket fronted by CloudFront OAC, extensionless SPA rewriting function, /api/* HTTP API behavior, 6 domain lambdas with least-privilege IAM and X-Ray 1% sampling, SQS & DLQ, CloudWatch error metric and DLQ alarms (<10 free tier limit), SpendKillSwitch at $15.00 budget. 3. GitHub Actions OIDC CI/CD (.github/workflows/): Keyless OIDC, path-filtered jobs, Docker PostGIS for pytest cov>=90%, alembic check, OpenAPI TS drift gate, sam validate/local start-api, direct Neon URL for alembic upgrade head, S3 sync with immutable/no-cache headers, CloudFront invalidation, single post-deploy health check."
+**Input**: User description: "/speckit.specify Create the specification for Phase 6 (006-trip-planner-aws-cicd) using strict EARS syntax (REQ-PLAN-xxx, REQ-SAM-xxx, REQ-CICD-xxx). Scope to cover: 1. AI Trip Planner Mode: Hybrid PostGIS + pgvector RAG Query (Pre-filter by tenant and spatial proximity using idx_pois_user_geom then order by cosine distance), Day-by-Day / Hour-by-Hour Itinerary UI & Engine (drag-and-drop, multi-day POI distribution across recommended_visit_days, over-planning circuit breakers, travel/activity/idle time and cost budgeting, missing meal alerts, hotel/weather backups, AI POI import into manager, macro/daily route maps, PDF export). 2. AWS SAM Infrastructure (template.yaml in us-east-2): Private S3 SPA bucket fronted by CloudFront OAC, extensionless SPA rewriting function, /api/\* HTTP API behavior, 6 domain lambdas with least-privilege IAM and X-Ray 1% sampling, SQS & DLQ, CloudWatch error metric and DLQ alarms (<10 free tier limit), SpendKillSwitch at $15.00 budget. 3. GitHub Actions OIDC CI/CD (.github/workflows/): Keyless OIDC, path-filtered jobs, Docker PostGIS for pytest cov>=90%, alembic check, OpenAPI TS drift gate, sam validate/local start-api, direct Neon URL for alembic upgrade head, S3 sync with immutable/no-cache headers, CloudFront invalidation, single post-deploy health check."
 
 ---
 
@@ -18,12 +19,14 @@
 Phase 6 (`006-trip-planner-aws-cicd`) transitions Vistarae from an exploratory point-of-interest capture tool into an end-to-end intelligent travel planning engine, backed by production-grade, zero-cost serverless AWS infrastructure and automated CI/CD:
 
 1. **AI Trip Planner Mode & Itinerary Engine (`services/poi/` & `frontend/`)**:
+
    - **Hybrid PostGIS + pgvector RAG Query Pipeline**: Leverages Google Gemini `text-embedding-004` (768-dimensional embeddings) to power contextual semantic discovery. Queries apply strict tenant isolation and spatial bounding in PostgreSQL/PostGIS using the existing composite GiST index `idx_pois_user_geom` (`WHERE user_id = :user_id AND ST_DWithin(geom, :route_geom, :radius_meters)`), then rank candidates via HNSW cosine distance (`ORDER BY embedding <=> :query_vec LIMIT :k`).
    - **Day-by-Day / Hour-by-Hour Interactive Itinerary Planner**: An interactive drag-and-drop itinerary board where travelers organize activities across daily timelines. The planner intelligently distributes multi-day attractions (`recommended_visit_days > 1`) across sequential days without triggering daily over-planning circuit breakers (limiting active daily exploration to 8–10 hours).
    - **Smart Calculations & Advisory Engine**: Automatically computes transit times and distances between consecutive waypoints, tracks active exploration vs. idle buffers, aggregates line-item and daily expenses against user-defined trip budgets, detects meal intervals (11:30–14:00 lunch, 17:30–20:30 dinner) to flag missing meals with nearby restaurant recommendations or pack-lunch advisories, and suggests day-boundary lodging and indoor weather contingency backups.
    - **Cartographic Visualization, POI Import & PDF Export**: Provides synchronized dual-map visualization (a macro trip polyline overview and zoomed daily route legs), 1-click importing of AI-recommended POIs into the traveler's permanent POI collection (with spatial deduplication check), and clean vector-ready PDF export via print stylesheets.
 
 2. **AWS SAM Serverless Infrastructure (`template.yaml` in `us-east-2`)**:
+
    - **Private Static S3 SPA Bucket & CloudFront OAC**: Private S3 hosting protected by Origin Access Control (OAC), restricting access exclusively to CloudFront. A lightweight Viewer Request CloudFront Function (`spa-router.js`) transparently rewrites extensionless single-page app routes (e.g. `/trips`, `/settings`) to `/index.html` while preserving direct S3 fetches for fingerprinted assets (`/assets/*`).
    - **API Gateway HTTP API (`/api/*`)**: High-throughput, low-cost HTTP API (`$default` stage) fronted by CloudFront's `/api/*` cache behavior with `CachingDisabled` and `AllViewerExceptHostHeader`, routing directly to domain Lambdas.
    - **6 Domain Lambdas with Least-Privilege IAM & Distributed Tracing**:
@@ -48,6 +51,7 @@ Phase 6 (`006-trip-planner-aws-cicd`) transitions Vistarae from an exploratory p
 ## 2. Clarifications & Key Design Decisions
 
 ### Session 2026-10-20
+
 - **Q1: How should multi-day POIs (`recommended_visit_days > 1`) be handled when added to an itinerary?**
   - **A: Interactive User Prompt on Day Shortage (User Ratified)**: If an attraction specifies `recommended_visit_days = N` (e.g. 2 or 3 days) and the itinerary contains at least `N` available days, the engine divides the visit into `N` consecutive daily segments (e.g. "Day 1: Lower Loop", "Day 2: Upper Loop"), each allocating a balanced portion of recommended exploration hours without tripping the 8–10 hour daily over-planning circuit breaker. If the remaining available days in the itinerary are fewer than `recommended_visit_days`, the system rejects silent truncation and prompts the traveler with an actionable modal dialog: "Not enough days available for full visit (requires N days). Please extend the trip duration or remove scheduled events to make room."
 - **Q2: How is the itinerary exported to PDF?**
@@ -66,7 +70,7 @@ Phase 6 (`006-trip-planner-aws-cicd`) transitions Vistarae from an exploratory p
 
 ---
 
-## 3. User Scenarios & Testing *(mandatory)*
+## 3. User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Natural Language Travel Prompt to Hybrid RAG Itinerary (Priority: P1)
 
@@ -139,7 +143,7 @@ An engineer deploys Vistarae to AWS region `us-east-2` using `sam build` and `sa
 
 ### User Story 5 - Automated Spend Protection Kill Switch & CloudWatch Alarms (Priority: P2)
 
-An unexpected external traffic spike or malicious script sends thousands of requests to the Vistarae API. As monthly projected costs cross $15.00, AWS Budgets dispatches an SNS notification to the `SpendKillSwitch` Lambda. The Lambda executes immediately in a cascading sequence: it throttles the API Gateway `$default` stage to 0 requests/sec, sets an emergency killswitch flag in Neon DB, and attempts setting `ReservedConcurrentExecutions: 0` on domain Lambdas (safely handling account concurrency floor limits). Meanwhile, CloudWatch alarms monitor Lambda errors via a single Metric Filter (`{ $.level = "ERROR" }`) and SQS DLQ messages (`ApproximateNumberOfMessagesVisible >= 1`), notifying the developer via SNS while keeping total active alarms under 10.
+An unexpected external traffic spike or malicious script sends thousands of requests to the Vistarae API. As monthly projected costs cross $15.00, AWS Budgets dispatches an SNS notification to the `SpendKillSwitch` Lambda. The Lambda executes immediately in a cascading sequence: it throttles the API Gateway `$default`stage to 0 requests/sec, sets an emergency killswitch flag in Neon DB, and attempts setting`ReservedConcurrentExecutions: 0` on domain Lambdas (safely handling account concurrency floor limits). Meanwhile, CloudWatch alarms monitor Lambda errors via a single Metric Filter (`{ $.level = "ERROR" }`) and SQS DLQ messages (`ApproximateNumberOfMessagesVisible >= 1`), notifying the developer via SNS while keeping total active alarms under 10.
 
 **Why this priority**: Guarantees zero unexpected cloud costs by shutting down compute before exceeding budget, protecting personal finances.
 
@@ -147,7 +151,7 @@ An unexpected external traffic spike or malicious script sends thousands of requ
 
 **Acceptance Scenarios**:
 
-1. **Given** an AWS Budgets threshold breach ($15.00), **When** SNS triggers `SpendKillSwitch`, **Then** the function immediately throttles the API Gateway `$default` stage to `RateLimit: 0` and `BurstLimit: 0`.
+1. **Given** an AWS Budgets threshold breach ($15.00), **When** SNS triggers `SpendKillSwitch`, **Then** the function immediately throttles the API Gateway `$default`stage to`RateLimit: 0`and`BurstLimit: 0`.
 2. **Given** `SpendKillSwitch` execution, **When** updating database state, **Then** the function sets `killswitch_active = true` in Neon DB `system_settings` to immediately halt background workers and cause middleware to return 503 Service Unavailable.
 3. **Given** `SpendKillSwitch` execution, **When** adjusting Lambda execution capacity, **Then** the function attempts setting `ReservedConcurrentExecutions: 0` across domain Lambdas as best-effort, catching any account-level concurrency floor exceptions without failing the shutdown.
 4. **Given** application errors logged with level `"ERROR"`, **When** evaluated by the single Metric Filter `{ $.level = "ERROR" }`, **Then** CloudWatch increments `Vistarae/Errors/ApplicationErrorCount` and alarms if threshold is exceeded.
@@ -187,7 +191,7 @@ A developer opens a pull request on the `main` branch. GitHub Actions triggers t
 
 ---
 
-## 4. Requirements *(mandatory)*
+## 4. Requirements _(mandatory)_
 
 ### 4.1 AI Trip Planner & Itinerary Engine (`REQ-PLAN-xxx`)
 
@@ -232,7 +236,7 @@ A developer opens a pull request on the `main` branch. GitHub Actions triggers t
 - **REQ-SAM-014 (Ubiquitous):** `AdminFunction` shall be allocated 256MB memory with a 10-second timeout, handling `/api/admin/*`.
 - **REQ-SAM-015 (Ubiquitous):** `BatchIngestWorker` shall be allocated 512MB memory with a 30-second timeout, triggered by SQS with `BatchSize: 10`, `ScalingConfig: { MaximumConcurrency: 2 }`, and `ReportBatchItemFailures: true`.
 - **REQ-SAM-016 (Ubiquitous):** `SpendKillSwitch` shall be allocated 128MB memory with a 10-second timeout, triggered by an SNS topic linked to AWS Budgets.
-- **REQ-SAM-017 (Event-Driven):** When AWS Budgets sends an alert at the $15.00 threshold to SNS, `SpendKillSwitch` shall execute a multi-tier shutdown: first throttling the API Gateway `$default` stage to `RateLimit: 0` and `BurstLimit: 0`, second disabling the SQS EventSourceMapping for `BatchIngestWorker` (`Enabled: false`), third setting `killswitch_active = true` in Neon DB `system_settings` to halt background workers and middleware, and fourth attempting to set `ReservedConcurrentExecutions: 0` across domain Lambdas as best-effort if account-level unreserved concurrency floor constraints (e.g. 10 or 100 limit) permit.
+- **REQ-SAM-017 (Event-Driven):** When AWS Budgets sends an alert at the $15.00 threshold to SNS, `SpendKillSwitch` shall execute a multi-tier shutdown: first throttling the API Gateway `$default`stage to`RateLimit: 0`and`BurstLimit: 0`, second disabling the SQS EventSourceMapping for `BatchIngestWorker` (`Enabled: false`), third setting `killswitch_active = true`in Neon DB`system_settings`to halt background workers and middleware, and fourth attempting to set`ReservedConcurrentExecutions: 0` across domain Lambdas as best-effort if account-level unreserved concurrency floor constraints (e.g. 10 or 100 limit) permit.
 - **REQ-SAM-018 (Ubiquitous):** Every Lambda function shall declare least-privilege IAM policies, restricting SQS access strictly to the ingest queue and secrets access to the application secret ARN.
 - **REQ-SAM-019 (Ubiquitous):** All application Lambdas shall enable AWS X-Ray active tracing (`Tracing: Active`) under a custom `AWS::XRay::SamplingRule` configured with `ReservoirSize: 0` and `FixedRate: 0.01` (1% sampling).
 - **REQ-SAM-020 (Ubiquitous):** The primary SQS queue (`AWS::SQS::Queue`) shall configure `VisibilityTimeout: 180` seconds and `ReceiveMessageWaitTimeSeconds: 20` seconds.
@@ -330,7 +334,7 @@ flowchart TD
     User([Browser Client]) -->|HTTPS| CF[CloudFront Distribution *.cloudfront.net]
     CF -->|Default * + CloudFront Function spa-router.js| S3[(Private S3 Bucket SPA Assets)]
     CF -->|Path /api/* + CachingDisabled| APIGW[API Gateway HTTP API us-east-2]
-    
+
     APIGW -->|/api/pois/* & /api/itineraries/*| PoiL[PoiFunction 512-1024MB]
     APIGW -->|/api/users/* & /api/auth/*| UserL[UserFunction 256MB]
     APIGW -->|/api/ingest/*| IngestL[IngestFunction 256MB]
@@ -349,7 +353,7 @@ flowchart TD
 
 ---
 
-## 6. Success Criteria *(mandatory)*
+## 6. Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 

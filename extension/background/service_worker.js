@@ -48,12 +48,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 /**
- * Handles extension toolbar icon click.
+ * Handles extension toolbar icon click (opens the Vistarae POI Browser).
  */
 chrome.action.onClicked.addListener((tab) => {
-  if (tab?.id) {
-    triggerCaptureOnTab(tab.id);
-  }
+  chrome.tabs.create({ url: chrome.runtime.getURL("browser/browser.html") });
 });
 
 /**
@@ -97,14 +95,7 @@ export async function triggerCaptureOnTab(tabId, payload = {}) {
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
-          files: [
-            "content/parsers/BasePoiParser.js",
-            "content/parsers/GoogleMapsParser.js",
-            "content/parsers/RoadtrippersParser.js",
-            "content/parsers/TripAdvisorParser.js",
-            "content/parsers/GenericSelectionParser.js",
-            "content/content_script.js",
-          ],
+          files: ["content/content_loader.js"],
         });
         setTimeout(async () => {
           await chrome.tabs.sendMessage(tabId, {
