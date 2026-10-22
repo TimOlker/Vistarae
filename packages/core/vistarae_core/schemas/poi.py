@@ -28,7 +28,12 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from vistarae_core.domain.value_objects import EnrichmentStatus, VisitState
+from vistarae_core.domain.value_objects import (
+    AddressRecord,
+    EnrichmentStatus,
+    SourceType,
+    VisitState,
+)
 from vistarae_core.schemas.base import StrictBaseModel
 
 
@@ -79,6 +84,9 @@ class POIResponse(StrictBaseModel):
     id: UUID = Field(..., description="Unique POI identifier")
     user_id: UUID = Field(..., description="Owning tenant UUID")
     parent_poi_id: UUID | None = Field(default=None, description="Parent macro-site POI UUID")
+    parent_poi_name: str | None = Field(
+        default=None, description="Resolved parent macro-site POI canonical name"
+    )
     name: str = Field(..., description="POI canonical name")
     description: str | None = Field(default=None, description="Rich description or markdown")
     address: str | None = Field(default=None, description="Geocoded street address")
@@ -90,6 +98,9 @@ class POIResponse(StrictBaseModel):
     countries: list[str] = Field(
         default_factory=list,
         description="Sovereign nations spanned by POI",
+    )
+    addresses: list[AddressRecord] = Field(
+        default_factory=list, description="Array of structured international address records"
     )
     official_url: str | None = Field(default=None, description="Official entity website")
     wiki_url: str | None = Field(default=None, description="Wikipedia or Wikidata reference")
@@ -106,11 +117,24 @@ class POIResponse(StrictBaseModel):
     visited_dates: list[date | str] = Field(
         default_factory=list, description="Dates on which the POI was visited"
     )
+    want_to_visit_again: bool = Field(
+        default=False, description="Flag indicating future travel intent"
+    )
+    already_visited: bool = Field(
+        default=False, description="True if visited_dates contains one or more entries"
+    )
+    visit_pending: bool = Field(
+        default=True, description="True if unvisited or want_to_visit_again is True"
+    )
+    source_type: str = Field(
+        default="Manual", description="Origin provenance (Web, CSV, Manual, Photo)"
+    )
+    source_value: str | None = Field(default=None, description="Provenance origin details")
     rating: int | None = Field(default=None, ge=0, le=5, description="User rating (1-5)")
     estimated_cost: float | None = Field(default=None, description="Estimated activity cost")
     pricing_unit: str | None = Field(default=None, max_length=16, description="Currency or unit")
     recommended_duration_hours: float | None = Field(
-        default=None, ge=0.25, le=12.0, description="Duration in hours"
+        default=None, ge=0.1, le=24.0, description="Duration in hours"
     )
     recommended_visit_days: int = Field(default=1, description="Recommended days to spend at POI")
     enrichment_status: EnrichmentStatus = Field(
@@ -118,12 +142,31 @@ class POIResponse(StrictBaseModel):
     )
     lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude in degrees (WGS-84)")
     lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude in degrees (WGS-84)")
+    longitude: float | None = Field(
+        default=None, description="Longitude in degrees (alias for lon)"
+    )
+    latitude: float | None = Field(default=None, description="Latitude in degrees (alias for lat)")
     similarity_score: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Semantic vector cosine similarity score"
     )
     tags: list[TagResponse] = Field(default_factory=list, description="Attached tags")
     created_at: datetime = Field(..., description="Record creation timestamp")
     updated_at: datetime = Field(..., description="Record last modification timestamp")
+
+    @model_validator(mode="after")
+    def sync_aliases_and_lifecycle(self) -> POIResponse:
+        """Synchronizes latitude/longitude aliases and deterministic visit lifecycle."""
+        lat = self.lat if self.latitude is None else self.latitude
+        lon = self.lon if self.longitude is None else self.longitude
+        has_visited = len(self.visited_dates) > 0
+        already_visited = has_visited
+        visit_pending = (not has_visited) or bool(self.want_to_visit_again)
+
+        object.__setattr__(self, "latitude", lat)
+        object.__setattr__(self, "longitude", lon)
+        object.__setattr__(self, "already_visited", already_visited)
+        object.__setattr__(self, "visit_pending", visit_pending)
+        return self
 
 
 class SharedListResponse(StrictBaseModel):
@@ -195,7 +238,12 @@ class POIUpdateRequest(StrictBaseModel):
         default=None, min_length=1, max_length=255, description="POI canonical name"
     )
     parent_poi_id: UUID | None = Field(default=None, description="Optional macro-site parent UUID")
-    description: str | None = Field(default=None, description="Rich description or markdown")
+    description: str | None = Field(
+        default=None, max_length=10000, description="Rich description or markdown"
+    )
+    addresses: list[AddressRecord] | None = Field(
+        default=None, description="Structured international address records"
+    )
     address: str | None = Field(default=None, max_length=500, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
     states: list[str] | None = Field(
@@ -210,22 +258,41 @@ class POIUpdateRequest(StrictBaseModel):
     country: str | None = Field(
         default=None, description="Optional convenience alias for single-country updates"
     )
-    official_url: str | None = Field(default=None, description="Official website URL")
-    wiki_url: str | None = Field(default=None, description="Wikipedia URL")
+    latitude: float | None = Field(
+        default=None, ge=-90.0, le=90.0, description="Updated latitude in degrees"
+    )
+    longitude: float | None = Field(
+        default=None, ge=-180.0, le=180.0, description="Updated longitude in degrees"
+    )
+    recommended_duration_hours: float | None = Field(
+        default=None, ge=0.1, le=24.0, description="Recommended duration in hours"
+    )
+    recommended_visit_days: int | None = Field(
+        default=None, ge=1, le=365, description="Recommended days to spend at POI"
+    )
+    source_type: SourceType | str | None = Field(
+        default=None, description="Provenance source type (Web, CSV, Manual, Photo)"
+    )
+    source_value: str | None = Field(
+        default=None, max_length=1000, description="Provenance source value"
+    )
+    official_url: str | None = Field(
+        default=None, max_length=2000, description="Official website URL"
+    )
+    wiki_url: str | None = Field(default=None, max_length=2000, description="Wikipedia URL")
+    directory_paths: list[str] | None = Field(
+        default=None, description="Associated local file directory paths"
+    )
     image_urls: list[str] | None = Field(default=None, description="Image URLs")
-    visit_state: VisitState | None = Field(default=None, description="Visit tracking state")
     visited_dates: list[date | str] | None = Field(
         default=None, description="Array of ISO-8601 visit dates"
     )
+    want_to_visit_again: bool | None = Field(default=None, description="Future travel intent")
+    visit_state: VisitState | None = Field(default=None, description="Visit tracking state")
     rating: int | None = Field(default=None, ge=0, le=5, description="User rating (1-5)")
+    tags: list[str] | None = Field(default=None, description="Attached taxonomy tags")
     estimated_cost: float | None = Field(default=None, description="Estimated activity cost")
     pricing_unit: str | None = Field(default=None, max_length=16, description="Pricing unit")
-    recommended_duration_hours: float | None = Field(
-        default=None, ge=0.25, le=12.0, description="Recommended duration in hours"
-    )
-    recommended_visit_days: int | None = Field(
-        default=None, description="Recommended days to spend at POI"
-    )
 
     @model_validator(mode="after")
     def populate_state_and_country_arrays(self) -> POIUpdateRequest:
@@ -235,6 +302,9 @@ class POIUpdateRequest(StrictBaseModel):
         if self.country is not None and self.countries is None:
             self.countries = [self.country]
         return self
+
+
+POIReadResponse = POIResponse
 
 
 class POIListResponse(StrictBaseModel):
@@ -261,6 +331,31 @@ class DedupCheckResponse(StrictBaseModel):
     matches: list[PotentialDuplicateItem] = Field(
         default_factory=list, description="Candidate duplicate POIs"
     )
+
+
+class ParentPOICandidate(StrictBaseModel):
+    """Candidate parent POI item for hierarchical typeahead."""
+
+    id: UUID = Field(..., description="Unique POI identifier")
+    name: str = Field(..., description="POI canonical name")
+    location_summary: str | None = Field(
+        default=None, description="Human-readable city/state/country summary"
+    )
+
+
+class ReverseGeocodeResponse(StrictBaseModel):
+    """Response payload for reverse geocoding."""
+
+    street: str | None = Field(default=None, max_length=255, description="Street address")
+    city: str | None = Field(default=None, max_length=100, description="City or municipality")
+    state_province: str | None = Field(
+        default=None, max_length=100, description="State or province"
+    )
+    country: str = Field(
+        ..., min_length=2, max_length=100, description="Normalized English country name"
+    )
+    postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
+    cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
 
 
 class POIMergeRequest(StrictBaseModel):

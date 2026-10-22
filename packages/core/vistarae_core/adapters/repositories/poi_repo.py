@@ -29,6 +29,7 @@ Implements Constitution Principles 2 & 3 and Operational Invariant 2:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from datetime import date
@@ -63,6 +64,7 @@ from vistarae_core.domain.exceptions import (
     TagLimitExceededError,
 )
 from vistarae_core.domain.value_objects import (
+    AddressRecord,
     BoundingBox,
     EnrichmentStatus,
     MergeResolutionRule,
@@ -90,19 +92,31 @@ def _extract_wgs84_point(geom: Any) -> WGS84Point:
         raise ValueError(f"Unable to extract WGS84Point from {geom}") from err
 
 
-def _row_to_poi(row: POITable) -> POI:
+def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
     """Maps a POITable ORM row to pure POI domain entity."""
+    addresses: list[AddressRecord] = []
+    raw_addrs = getattr(row, "addresses", None)
+    if raw_addrs:
+        for addr in raw_addrs:
+            if isinstance(addr, dict):
+                with contextlib.suppress(Exception):
+                    addresses.append(AddressRecord(**addr))
+            elif isinstance(addr, AddressRecord):
+                addresses.append(addr)
+
     return POI(
         id=row.id,
         user_id=row.user_id,
         name=row.name,
         geom=_extract_wgs84_point(row.geom),
         parent_poi_id=row.parent_poi_id,
+        parent_poi_name=parent_name,
         description=row.description,
         address=row.address,
         city=row.city,
         states=list(row.states) if row.states else [],
         countries=list(row.countries) if row.countries else [],
+        addresses=addresses,
         official_url=row.official_url,
         wiki_url=row.wiki_url,
         image_urls=list(row.image_urls) if row.image_urls else [],
@@ -110,6 +124,11 @@ def _row_to_poi(row: POITable) -> POI:
         creation_metadata=dict(row.creation_metadata) if row.creation_metadata else {},
         visit_state=VisitState(row.visit_state),
         visited_dates=list(row.visited_dates) if row.visited_dates else [],
+        want_to_visit_again=getattr(row, "want_to_visit_again", False),
+        already_visited=getattr(row, "already_visited", False),
+        visit_pending=getattr(row, "visit_pending", True),
+        source_type=getattr(row, "source_type", "Manual"),
+        source_value=getattr(row, "source_value", None),
         rating=row.rating,
         estimated_cost=row.estimated_cost,
         pricing_unit=row.pricing_unit,
@@ -138,6 +157,15 @@ class SqlAlchemyPOIRepository(IPOIRepository):
     async def create(self, poi: POI) -> POI:
         """Creates a new POI record for the tenant."""
         geom_wkt = WKTElement(f"POINT({poi.geom.lon} {poi.geom.lat})", srid=4326)
+        serialized_addresses = (
+            [
+                addr.model_dump() if hasattr(addr, "model_dump") else dict(addr)
+                for addr in poi.addresses
+            ]
+            if poi.addresses
+            else []
+        )
+
         row = POITable(
             id=poi.id,
             user_id=poi.user_id,
@@ -148,19 +176,31 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             city=poi.city,
             states=poi.states,
             countries=poi.countries,
+            addresses=serialized_addresses,
+            source_type=poi.source_type.value
+            if hasattr(poi.source_type, "value")
+            else str(poi.source_type),
+            source_value=poi.source_value,
             official_url=poi.official_url,
             wiki_url=poi.wiki_url,
             image_urls=poi.image_urls,
             directory_paths=poi.directory_paths,
             creation_metadata=poi.creation_metadata,
-            visit_state=poi.visit_state.value,
+            visit_state=poi.visit_state.value
+            if hasattr(poi.visit_state, "value")
+            else str(poi.visit_state),
             visited_dates=poi.visited_dates,
+            want_to_visit_again=poi.want_to_visit_again,
+            already_visited=poi.already_visited,
+            visit_pending=poi.visit_pending,
             rating=poi.rating,
             estimated_cost=poi.estimated_cost,
             pricing_unit=poi.pricing_unit,
             recommended_duration_hours=poi.recommended_duration_hours,
             recommended_visit_days=poi.recommended_visit_days,
-            enrichment_status=poi.enrichment_status.value,
+            enrichment_status=poi.enrichment_status.value
+            if hasattr(poi.enrichment_status, "value")
+            else str(poi.enrichment_status),
             geom=geom_wkt,
             region_geom=poi.region_geom,
             embedding=poi.embedding,
@@ -168,10 +208,10 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         )
         self._session.add(row)
         await self._session.flush()
-        return _row_to_poi(row)
+        return _row_to_poi(row, parent_name=poi.parent_poi_name)
 
     async def get_by_id(self, poi_id: UUID, user_id: UUID) -> POI | None:
-        """Retrieves a POI by ID scoped to tenant."""
+        """Retrieves a POI by ID scoped to tenant with resolved parent name."""
         stmt = select(POITable).where(
             POITable.id == poi_id,
             POITable.user_id == user_id,
@@ -180,7 +220,17 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row = result.scalar_one_or_none()
         if row is None:
             return None
-        return _row_to_poi(row)
+
+        parent_name: str | None = None
+        if row.parent_poi_id is not None:
+            p_stmt = select(POITable.name).where(
+                POITable.id == row.parent_poi_id,
+                POITable.user_id == user_id,
+            )
+            p_res = await self._session.execute(p_stmt)
+            parent_name = p_res.scalar_one_or_none()
+
+        return _row_to_poi(row, parent_name=parent_name)
 
     async def update(self, poi: POI) -> POI:
         """Updates an existing POI record."""
@@ -194,6 +244,15 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             raise POINotFoundError(str(poi.id))
 
         geom_wkt = WKTElement(f"POINT({poi.geom.lon} {poi.geom.lat})", srid=4326)
+        serialized_addresses = (
+            [
+                addr.model_dump() if hasattr(addr, "model_dump") else dict(addr)
+                for addr in poi.addresses
+            ]
+            if poi.addresses
+            else []
+        )
+
         row.name = poi.name
         row.parent_poi_id = poi.parent_poi_id
         row.description = poi.description
@@ -201,26 +260,40 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row.city = poi.city
         row.states = poi.states
         row.countries = poi.countries
+        row.addresses = serialized_addresses
+        row.source_type = (
+            poi.source_type.value if hasattr(poi.source_type, "value") else str(poi.source_type)
+        )
+        row.source_value = poi.source_value
         row.official_url = poi.official_url
         row.wiki_url = poi.wiki_url
         row.image_urls = poi.image_urls
         row.directory_paths = poi.directory_paths
         row.creation_metadata = poi.creation_metadata
-        row.visit_state = poi.visit_state.value
+        row.visit_state = (
+            poi.visit_state.value if hasattr(poi.visit_state, "value") else str(poi.visit_state)
+        )
         row.visited_dates = poi.visited_dates
+        row.want_to_visit_again = poi.want_to_visit_again
+        row.already_visited = poi.already_visited
+        row.visit_pending = poi.visit_pending
         row.rating = poi.rating
         row.estimated_cost = poi.estimated_cost
         row.pricing_unit = poi.pricing_unit
         row.recommended_duration_hours = poi.recommended_duration_hours
         row.recommended_visit_days = poi.recommended_visit_days
-        row.enrichment_status = poi.enrichment_status.value
+        row.enrichment_status = (
+            poi.enrichment_status.value
+            if hasattr(poi.enrichment_status, "value")
+            else str(poi.enrichment_status)
+        )
         row.geom = geom_wkt
         row.region_geom = poi.region_geom
         row.embedding = poi.embedding
         row.embedding_md5 = poi.embedding_md5
 
         await self._session.flush()
-        return _row_to_poi(row)
+        return _row_to_poi(row, parent_name=poi.parent_poi_name)
 
     async def delete(self, poi_id: UUID, user_id: UUID) -> bool:
         """Deletes a POI by ID scoped to tenant."""

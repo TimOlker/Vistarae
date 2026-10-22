@@ -437,3 +437,52 @@ class TestPOIRepositoryBulkOperations:
         repo = SqlAlchemyPOIRepository(session)
         count = await repo.bulk_detach_lists(uuid.uuid4(), [uuid.uuid4()], [uuid.uuid4()])
         assert count == 2
+
+    @pytest.mark.asyncio
+    async def test_assert_no_cycle_helpers(self) -> None:
+        """Tests assert_no_cycle helper method branches."""
+        session = AsyncMock()
+        service = HierarchyService(session)
+        poi_id = uuid.uuid4()
+
+        # 1. None parent
+        await service.assert_no_cycle(poi_id, None)
+
+        # 2. Self parent
+        with pytest.raises(CyclicHierarchyError):
+            await service.assert_no_cycle(poi_id, poi_id)
+
+        # 3. User ID provided
+        cursor = MagicMock()
+        cursor.first.return_value = None
+        session.execute.return_value = cursor
+        user_id = uuid.uuid4()
+        parent_id = uuid.uuid4()
+        await service.assert_no_cycle(poi_id, parent_id, user_id=user_id)
+
+    @pytest.mark.asyncio
+    async def test_get_candidate_parents_with_search(self) -> None:
+        """Tests get_candidate_parents with search query and exclusion."""
+        session = AsyncMock()
+        service = HierarchyService(session)
+        user_id = uuid.uuid4()
+        poi_id = uuid.uuid4()
+
+        cand_id = uuid.uuid4()
+        cand_row = (
+            cand_id,
+            "Yellowstone National Park",
+            "Yellowstone",
+            [{"city": "Yellowstone", "state_province": "Wyoming", "country": "United States"}],
+        )
+
+        cursor = MagicMock()
+        cursor.all.return_value = [cand_row]
+
+        session.execute.return_value = cursor
+        candidates = await service.get_candidate_parents(
+            user_id, exclude_poi_id=poi_id, query="yellow"
+        )
+        assert len(candidates) == 1
+        assert candidates[0]["name"] == "Yellowstone National Park"
+        assert candidates[0]["location_summary"] == "Yellowstone, Wyoming, United States"

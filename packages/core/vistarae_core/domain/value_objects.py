@@ -26,6 +26,42 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from uuid import UUID
 
+from pydantic import Field, field_validator
+
+from vistarae_core.domain.base import StrictBaseModel
+
+
+class SourceType(StrEnum):
+    """Source provenance of POI discovery or capture."""
+
+    WEB = "Web"
+    CSV = "CSV"
+    MANUAL = "Manual"
+    PHOTO = "Photo"
+
+
+class AddressRecord(StrictBaseModel):
+    """Immutable structured address value object representing a geographic location."""
+
+    street: str | None = Field(None, max_length=255, description="Street address line")
+    city: str | None = Field(None, max_length=100, description="Municipality or locality")
+    state_province: str | None = Field(
+        None, max_length=100, description="Normalized state/province"
+    )
+    country: str = Field(
+        ..., min_length=2, max_length=100, description="Normalized English standard country name"
+    )
+    postal_code: str | None = Field(None, max_length=32, description="Postal or ZIP code")
+
+    @field_validator("country")
+    @classmethod
+    def validate_country(cls, v: str) -> str:
+        """Validates country name or code is non-empty after stripping."""
+        val = v.strip()
+        if len(val) < 2:
+            raise ValueError("Country name or code must be at least 2 characters")
+        return val
+
 
 class UserTier(StrEnum):
     """Governance tier for user quotas and rate limiting."""

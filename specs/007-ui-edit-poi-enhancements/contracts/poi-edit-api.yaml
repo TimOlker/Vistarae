@@ -1,0 +1,514 @@
+openapi: 3.1.0
+info:
+  title: Vistarae POI Editor & Merge API
+  version: 1.0.0
+  description: Endpoints powering the POI Editor enhancements, Location Finder reverse geocoding, hierarchical parenting, and atomic merge workflow.
+
+servers:
+  - url: /api/pois
+    description: POI Domain Service
+
+paths:
+  /{poi_id}:
+    patch:
+      summary: Update POI with rich metadata and addresses
+      operationId: updatePOI
+      parameters:
+        - name: poi_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POIUpdateRequest'
+      responses:
+        '200':
+          description: POI successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIReadResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '422':
+          $ref: '#/components/responses/ValidationProblem'
+
+  /check-duplicate:
+    post:
+      summary: Check for duplicate POI collisions prior to save
+      operationId: checkDuplicatePOI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateCheckRequest'
+      responses:
+        '200':
+          description: Duplicate collision evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateCheckResponse'
+        '422':
+          $ref: '#/components/responses/ValidationProblem'
+
+  /merge:
+    post:
+      summary: Atomically merge a source POI into a target POI and delete source
+      operationId: mergePOIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POIMergeRequest'
+      responses:
+        '200':
+          description: POI merge completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIMergeResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundProblem'
+        '409':
+          $ref: '#/components/responses/ConflictProblem'
+        '422':
+          $ref: '#/components/responses/ValidationProblem'
+
+  /parents:
+    get:
+      summary: Query candidate parent POIs for typeahead selection
+      operationId: getParentPOICandidates
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional prefix or substring query to filter POI names
+        - name: exclude_poi_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: ID of active POI to exclude self and descendants from candidate list
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of candidate parent POIs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ParentPOICandidate'
+
+  /geocode/reverse:
+    get:
+      summary: Cached reverse geocoding via PostGIS geocache and Nominatim
+      operationId: reverseGeocode
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+      responses:
+        '200':
+          description: Resolved address components
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReverseGeocodeResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitProblem'
+        '502':
+          $ref: '#/components/responses/GatewayProblem'
+
+components:
+  schemas:
+    AddressRecord:
+      type: object
+      required:
+        - country
+      properties:
+        street:
+          type: string
+          maxLength: 255
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+        state_province:
+          type: string
+          maxLength: 100
+          nullable: true
+        country:
+          type: string
+          minLength: 2
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+          nullable: true
+
+    POIUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 10000
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRecord'
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        recommended_duration_hours:
+          type: number
+          minimum: 0.1
+          maximum: 24.0
+          nullable: true
+        recommended_visit_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+        source_type:
+          type: string
+          enum: [Web, CSV, Manual, Photo]
+        source_value:
+          type: string
+          maxLength: 1000
+          nullable: true
+        official_url:
+          type: string
+          maxLength: 2000
+          nullable: true
+        wiki_url:
+          type: string
+          maxLength: 2000
+          nullable: true
+        directory_paths:
+          type: array
+          items:
+            type: string
+        image_urls:
+          type: array
+          items:
+            type: string
+        visited_dates:
+          type: array
+          items:
+            type: string
+            format: date
+        want_to_visit_again:
+          type: boolean
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+
+    POIReadResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - addresses
+        - directory_paths
+        - image_urls
+        - visited_dates
+        - already_visited
+        - visit_pending
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        parent_poi_name:
+          type: string
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRecord'
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        recommended_duration_hours:
+          type: number
+          nullable: true
+        recommended_visit_days:
+          type: integer
+        source_type:
+          type: string
+        source_value:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        wiki_url:
+          type: string
+          nullable: true
+        directory_paths:
+          type: array
+          items:
+            type: string
+        image_urls:
+          type: array
+          items:
+            type: string
+        visited_dates:
+          type: array
+          items:
+            type: string
+            format: date
+        want_to_visit_again:
+          type: boolean
+        already_visited:
+          type: boolean
+        visit_pending:
+          type: boolean
+        rating:
+          type: integer
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ParentPOICandidate:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        location_summary:
+          type: string
+          nullable: true
+
+    POIMergeRequest:
+      type: object
+      required:
+        - source_poi_id
+        - target_poi_id
+        - selected_scalars
+        - selected_sets
+      properties:
+        source_poi_id:
+          type: string
+          format: uuid
+        target_poi_id:
+          type: string
+          format: uuid
+        selected_scalars:
+          type: object
+        selected_sets:
+          type: object
+
+    POIMergeResponse:
+      type: object
+      required:
+        - target_poi
+        - deleted_source_poi_id
+        - reparented_itinerary_items_count
+        - reparented_list_memberships_count
+        - reparented_child_pois_count
+      properties:
+        target_poi:
+          $ref: '#/components/schemas/POIReadResponse'
+        deleted_source_poi_id:
+          type: string
+          format: uuid
+        reparented_itinerary_items_count:
+          type: integer
+        reparented_list_memberships_count:
+          type: integer
+        reparented_child_pois_count:
+          type: integer
+
+    DuplicateCheckRequest:
+      type: object
+      required:
+        - name
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        exclude_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    DuplicateCheckResponse:
+      type: object
+      required:
+        - is_duplicate
+      properties:
+        is_duplicate:
+          type: boolean
+        candidate:
+          type: object
+          nullable: true
+          properties:
+            poi_id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            distance_meters:
+              type: number
+            name_similarity:
+              type: number
+            poi:
+              $ref: '#/components/schemas/POIReadResponse'
+
+    ReverseGeocodeResponse:
+      type: object
+      required:
+        - country
+      properties:
+        street:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state_province:
+          type: string
+          nullable: true
+        country:
+          type: string
+        postal_code:
+          type: string
+          nullable: true
+        cached:
+          type: boolean
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+
+  responses:
+    NotFoundProblem:
+      description: Entity not found or tenant boundary violation
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ValidationProblem:
+      description: Schema validation error or cycle hierarchy violation
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ConflictProblem:
+      description: Concurrent modification or state conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    RateLimitProblem:
+      description: Nominatim rate limit exceeded
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    GatewayProblem:
+      description: Upstream geocoding service error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'

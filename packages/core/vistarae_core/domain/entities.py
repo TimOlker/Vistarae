@@ -28,11 +28,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from vistarae_core.domain.value_objects import (
+    AddressRecord,
     DuplicateTriageStatus,
     EnrichmentStatus,
     IdempotencyStatus,
     IngestJobStatus,
     PacingMode,
+    SourceType,
     ThemeMode,
     TransitSpeedMode,
     UserTier,
@@ -143,11 +145,13 @@ class POI:
     name: str
     geom: WGS84Point
     parent_poi_id: UUID | None = None
+    parent_poi_name: str | None = None
     description: str | None = None
     address: str | None = None
     city: str | None = None
     states: list[str] = field(default_factory=list)
     countries: list[str] = field(default_factory=list)
+    addresses: list[AddressRecord] = field(default_factory=list)
     official_url: str | None = None
     wiki_url: str | None = None
     image_urls: list[str] = field(default_factory=list)
@@ -155,6 +159,11 @@ class POI:
     creation_metadata: dict[str, Any] = field(default_factory=dict)
     visit_state: VisitState = VisitState.NOT_VISITED
     visited_dates: list[str] = field(default_factory=list)
+    want_to_visit_again: bool = False
+    already_visited: bool = False
+    visit_pending: bool = True
+    source_type: SourceType | str = SourceType.MANUAL
+    source_value: str | None = None
     rating: int | None = None
     estimated_cost: Decimal | None = None
     pricing_unit: str | None = None
@@ -166,6 +175,17 @@ class POI:
     embedding_md5: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def __post_init__(self) -> None:
+        """Enforces deterministic visit lifecycle calculation per REQ-EDIT-011."""
+        has_visited = len(self.visited_dates) > 0
+        self.already_visited = has_visited
+        self.visit_pending = (not has_visited) or bool(self.want_to_visit_again)
+        if isinstance(self.source_type, str):
+            try:
+                self.source_type = SourceType(self.source_type)
+            except ValueError:
+                self.source_type = SourceType.MANUAL
 
 
 @dataclass

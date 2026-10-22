@@ -49,6 +49,7 @@ from vistarae_core.domain.exceptions import (
     TenantNotFoundError,
 )
 from vistarae_core.domain.value_objects import (
+    AddressRecord,
     BoundingBox,
     DeduplicationPreset,
     DuplicateTriageStatus,
@@ -57,6 +58,7 @@ from vistarae_core.domain.value_objects import (
     IngestJobStatus,
     MergeResolutionRule,
     PacingMode,
+    SourceType,
     ThemeMode,
     TransitSpeedMode,
     UserTier,
@@ -66,6 +68,7 @@ from vistarae_core.domain.value_objects import (
 
 __all__ = [
     "AccountDisabledError",
+    "AddressRecord",
     "BoundingBox",
     "CyclicHierarchyError",
     "DeduplicationPreset",
@@ -94,6 +97,7 @@ __all__ = [
     "PotentialDuplicateMatch",
     "QuotaExceededError",
     "RowLimitExceededError",
+    "SourceType",
     "TagEntity",
     "TagLimitExceededError",
     "TenantNotFoundError",

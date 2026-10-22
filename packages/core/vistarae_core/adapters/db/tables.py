@@ -66,7 +66,7 @@ class UserTable(Base):
         server_default=func.gen_random_uuid(),
         default=uuid.uuid4,
     )
-    cognito_sub: Mapped[str] = mapped_column(String(256), unique=True, nullable=False)
+    cognito_sub: Mapped[str] = mapped_column(String(256), nullable=False)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -106,7 +106,7 @@ class UserTable(Base):
     )
 
     __table_args__ = (
-        Index("idx_users_cognito_sub", "cognito_sub"),
+        Index("idx_users_cognito_sub", "cognito_sub", unique=True),
         Index("idx_users_email", "email"),
     )
 
@@ -318,6 +318,19 @@ class POITable(Base):
         default=list,
         server_default=text("'[]'::jsonb"),
     )
+    addresses: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
+    source_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="Manual",
+        server_default=text("'Manual'"),
+    )
+    source_value: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     official_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     wiki_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_urls: Mapped[list[str]] = mapped_column(
@@ -349,6 +362,24 @@ class POITable(Base):
         nullable=False,
         default=list,
         server_default=text("'[]'::jsonb"),
+    )
+    want_to_visit_again: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("FALSE"),
+    )
+    already_visited: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("FALSE"),
+    )
+    visit_pending: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("TRUE"),
     )
     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
@@ -415,7 +446,18 @@ class POITable(Base):
             "enrichment_status IN ('SUCCESS', 'PARTIAL', 'FAILED')",
             name="ck_pois_enrichment",
         ),
+        CheckConstraint(
+            "parent_poi_id IS NULL OR parent_poi_id != id",
+            name="chk_pois_parent_not_self",
+        ),
         Index("idx_pois_parent_poi_id", "parent_poi_id"),
+        Index("idx_pois_user_parent", "user_id", "parent_poi_id"),
+        Index(
+            "idx_pois_addresses_path",
+            "addresses",
+            postgresql_using="gin",
+            postgresql_ops={"addresses": "jsonb_path_ops"},
+        ),
         Index("idx_pois_states_gin", "states", postgresql_using="gin"),
         Index("idx_pois_countries_gin", "countries", postgresql_using="gin"),
         Index("idx_pois_user_geom", "user_id", "geom", postgresql_using="gist"),
@@ -758,6 +800,7 @@ class ItineraryItemTable(Base):
             srid=4326,
             from_text="ST_GeogFromText",
             name="geography",
+            spatial_index=False,
             nullable=False,
         ),
         nullable=False,
