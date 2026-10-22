@@ -60,7 +60,10 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
     return `$${(cents / 100).toFixed(2)}`;
   };
 
-  const formatTimeSlot = (start?: string | null, end?: string | null): string => {
+  const formatTimeSlot = (
+    start?: string | null,
+    end?: string | null,
+  ): string => {
     if (!start && !end) return "";
     const clean = (t: string) => t.slice(0, 5);
     if (start && end) return `${clean(start)} - ${clean(end)}`;
@@ -105,7 +108,8 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
               <Navigation size={12} />
               <span>
                 {item.travel_time_prev_minutes} min (
-                {formatDistance(item.travel_distance_prev_meters)}) from previous
+                {formatDistance(item.travel_distance_prev_meters)}) from
+                previous
               </span>
             </div>
           ) : null}
@@ -124,7 +128,8 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
               boxShadow: snapshot.isDragging
                 ? "var(--shadow-lg)"
                 : "var(--shadow-sm)",
-              transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
+              transition:
+                "border-color var(--transition-fast), box-shadow var(--transition-fast)",
             }}
           >
             {/* Drag Handle */}
@@ -166,7 +171,9 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                 </h4>
 
                 {/* Source Badge & 1-Click Import Button */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
                   {item.source_type === "AI_RECOMMENDED" && !imported ? (
                     <>
                       <span
@@ -256,7 +263,13 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                 }}
               >
                 {item.start_time ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
                     <Clock size={12} />
                     {formatTimeSlot(item.start_time, item.end_time)}
                   </span>
@@ -266,7 +279,13 @@ export const ItineraryItemCard: React.FC<ItineraryItemCardProps> = ({
                   <span>{item.duration_hours}h duration</span>
                 ) : null}
 
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "2px",
+                  }}
+                >
                   <DollarSign size={12} />
                   {formatCost(item.cost_cents)}
                 </span>

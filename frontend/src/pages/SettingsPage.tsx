@@ -21,6 +21,7 @@ import React, { useState, useEffect } from "react";
 import { usePreferences } from "../context/PreferencesContext";
 import { useToast } from "../context/ToastContext";
 import { Palette, Map, Calendar, Save } from "lucide-react";
+import { ThemeSwitcher } from "../components/common/ThemeSwitcher";
 
 export type SettingsTab = "account" | "poi" | "planner";
 
@@ -200,27 +201,36 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
             >
               Interface Theme
             </label>
-            <select
-              value={uiForm.theme}
-              onChange={(e) =>
-                setUiForm((prev) => ({
-                  ...prev,
-                  theme: e.target.value as "light" | "dark" | "system",
-                }))
-              }
+            <div
               style={{
-                padding: "8px 12px",
-                borderRadius: "var(--radius-md, 8px)",
-                border: "1px solid var(--border-color, #e2e8f0)",
-                background: "var(--bg-surface)",
-                color: "var(--text-primary)",
-                fontSize: "13px",
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "14px",
               }}
             >
-              <option value="light">Light Mode</option>
-              <option value="dark">Dark Mode</option>
-              <option value="system">System (OS Preference)</option>
-            </select>
+              <ThemeSwitcher
+                value={uiForm.theme}
+                onChange={(mode) =>
+                  setUiForm((prev) => ({
+                    ...prev,
+                    theme: mode,
+                  }))
+                }
+              />
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-muted, #64748b)",
+                }}
+              >
+                {uiForm.theme === "system"
+                  ? "Follows your operating system's appearance automatically."
+                  : uiForm.theme === "dark"
+                    ? "Dark mode active across all maps, tables, and dialogs."
+                    : "Light mode active across all maps, tables, and dialogs."}
+              </span>
+            </div>
           </div>
 
           <div>
@@ -549,7 +559,9 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
                 setPlannerForm((prev) => ({
                   ...prev,
                   pacing_mode: e.target.value as
-                    "RELAXED" | "BALANCED" | "PACKED",
+                    | "RELAXED"
+                    | "BALANCED"
+                    | "PACKED",
                 }))
               }
               style={{

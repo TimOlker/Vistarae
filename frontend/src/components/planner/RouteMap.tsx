@@ -57,13 +57,14 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
 
-  const [internalSelectedDayId, setInternalSelectedDayId] = useState<string | null>(
-    controlledSelectedDayId ?? null
-  );
+  const [internalSelectedDayId, setInternalSelectedDayId] = useState<
+    string | null
+  >(controlledSelectedDayId ?? null);
 
-  const selectedDayId = controlledSelectedDayId !== undefined
-    ? controlledSelectedDayId
-    : internalSelectedDayId;
+  const selectedDayId =
+    controlledSelectedDayId !== undefined
+      ? controlledSelectedDayId
+      : internalSelectedDayId;
 
   const handleDaySelect = (dayId: string | null) => {
     setInternalSelectedDayId(dayId);
@@ -84,14 +85,22 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const activeItems = useMemo(() => {
     if (activeDay) {
       return (activeDay.items ?? [])
-        .filter((it) => typeof (it.latitude ?? (it as any).lat) === "number" && typeof (it.longitude ?? (it as any).lng) === "number")
+        .filter(
+          (it) =>
+            typeof (it.latitude ?? (it as any).lat) === "number" &&
+            typeof (it.longitude ?? (it as any).lng) === "number",
+        )
         .sort((a, b) => a.order_index - b.order_index);
     }
     // Macro mode: collect all items across all days
     const allItems: { item: ItineraryItemResponse; dayIndex: number }[] = [];
     days.forEach((day, dIdx) => {
       (day.items ?? [])
-        .filter((it) => typeof (it.latitude ?? (it as any).lat) === "number" && typeof (it.longitude ?? (it as any).lng) === "number")
+        .filter(
+          (it) =>
+            typeof (it.latitude ?? (it as any).lat) === "number" &&
+            typeof (it.longitude ?? (it as any).lng) === "number",
+        )
         .sort((a, b) => a.order_index - b.order_index)
         .forEach((it) => {
           allItems.push({ item: it, dayIndex: dIdx });
@@ -156,7 +165,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     markersRef.current = [];
 
     // Helper to add GeoJSON line source/layer
-    const updateRouteLine = (coordinates: [number, number][], color: string) => {
+    const updateRouteLine = (
+      coordinates: [number, number][],
+      color: string,
+    ) => {
       const sourceId = "itinerary-route-source";
       const layerId = "itinerary-route-layer";
 
@@ -206,7 +218,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     if (isDailyMode) {
       // Daily leg mode: numbered sequence pins (1, 2, 3...)
       const items = activeItems as ItineraryItemResponse[];
-      const dayColor = DAY_COLORS[days.findIndex((d) => d.id === activeDay.id) % DAY_COLORS.length];
+      const dayColor =
+        DAY_COLORS[
+          days.findIndex((d) => d.id === activeDay.id) % DAY_COLORS.length
+        ];
 
       items.forEach((item, idx) => {
         const lng = item.longitude ?? (item as any).lng;
@@ -235,20 +250,31 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           if (onSelectItem) onSelectItem(item);
         };
 
-        const timeStr = item.start_time && item.end_time
-          ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
-          : "";
+        const timeStr =
+          item.start_time && item.end_time
+            ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
+            : "";
 
         const transitInfo = item.travel_time_prev_minutes
           ? `<div style="color: #2563eb; font-size: 11px; margin-top: 4px;">
-              Transit: ${item.travel_time_prev_minutes}m (${item.travel_distance_prev_meters ? (item.travel_distance_prev_meters / 1000).toFixed(1) + 'km' : ''})
+              Transit: ${item.travel_time_prev_minutes}m (${
+                item.travel_distance_prev_meters
+                  ? (item.travel_distance_prev_meters / 1000).toFixed(1) + "km"
+                  : ""
+              })
             </div>`
           : "";
 
         const popup = new maplibregl.Popup({ offset: 15 }).setHTML(`
           <div style="font-family: inherit; font-size: 13px; padding: 4px;">
-            <div style="font-weight: 700; color: #0f172a;">${idx + 1}. ${item.title}</div>
-            ${timeStr ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">${timeStr}</div>` : ""}
+            <div style="font-weight: 700; color: #0f172a;">${idx + 1}. ${
+              item.title
+            }</div>
+            ${
+              timeStr
+                ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">${timeStr}</div>`
+                : ""
+            }
             ${transitInfo}
           </div>
         `);
@@ -266,7 +292,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       }
     } else {
       // Macro mode: color-coded day markers and overall connecting route
-      const itemsWithDay = activeItems as { item: ItineraryItemResponse; dayIndex: number }[];
+      const itemsWithDay = activeItems as {
+        item: ItineraryItemResponse;
+        dayIndex: number;
+      }[];
 
       itemsWithDay.forEach(({ item, dayIndex }) => {
         const lng = item.longitude ?? (item as any).lng;
@@ -296,14 +325,21 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           if (onSelectItem) onSelectItem(item);
         };
 
-        const timeStr = item.start_time && item.end_time
-          ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
-          : "";
+        const timeStr =
+          item.start_time && item.end_time
+            ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
+            : "";
 
         const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`
           <div style="font-family: inherit; font-size: 13px; padding: 4px;">
-            <div style="font-weight: 700; color: #0f172a;">Day ${dayIndex + 1}: ${item.title}</div>
-            ${timeStr ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">${timeStr}</div>` : ""}
+            <div style="font-weight: 700; color: #0f172a;">Day ${
+              dayIndex + 1
+            }: ${item.title}</div>
+            ${
+              timeStr
+                ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">${timeStr}</div>`
+                : ""
+            }
           </div>
         `);
 
@@ -366,13 +402,26 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <Layers size={16} color="var(--accent, #2563eb)" />
-          <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-primary, #0f172a)" }}>
+          <span
+            style={{
+              fontSize: "14px",
+              fontWeight: 700,
+              color: "var(--text-primary, #0f172a)",
+            }}
+          >
             Route Navigator
           </span>
         </div>
 
         {/* Day selection tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            flexWrap: "wrap",
+          }}
+        >
           <button
             type="button"
             data-testid="route-filter-all"
@@ -384,9 +433,18 @@ export const RouteMap: React.FC<RouteMapProps> = ({
               fontWeight: 600,
               cursor: "pointer",
               border: "1px solid",
-              borderColor: selectedDayId === null ? "var(--accent, #2563eb)" : "var(--border-color, #e2e8f0)",
-              background: selectedDayId === null ? "var(--accent-light, #eff6ff)" : "transparent",
-              color: selectedDayId === null ? "var(--accent, #2563eb)" : "var(--text-secondary, #475569)",
+              borderColor:
+                selectedDayId === null
+                  ? "var(--accent, #2563eb)"
+                  : "var(--border-color, #e2e8f0)",
+              background:
+                selectedDayId === null
+                  ? "var(--accent-light, #eff6ff)"
+                  : "transparent",
+              color:
+                selectedDayId === null
+                  ? "var(--accent, #2563eb)"
+                  : "var(--text-secondary, #475569)",
             }}
           >
             All Days (Macro)
@@ -411,9 +469,13 @@ export const RouteMap: React.FC<RouteMapProps> = ({
                   fontWeight: 600,
                   cursor: "pointer",
                   border: "1px solid",
-                  borderColor: isSelected ? dayColor : "var(--border-color, #e2e8f0)",
+                  borderColor: isSelected
+                    ? dayColor
+                    : "var(--border-color, #e2e8f0)",
                   background: isSelected ? `${dayColor}18` : "transparent",
-                  color: isSelected ? dayColor : "var(--text-secondary, #475569)",
+                  color: isSelected
+                    ? dayColor
+                    : "var(--text-secondary, #475569)",
                 }}
               >
                 <span

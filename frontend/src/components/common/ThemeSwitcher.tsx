@@ -21,8 +21,24 @@ import React from "react";
 import { useTheme, type ThemeMode } from "../../context/ThemeContext";
 import { Sun, Moon, Laptop } from "lucide-react";
 
-export const ThemeSwitcher: React.FC = () => {
+export interface ThemeSwitcherProps {
+  value?: ThemeMode;
+  onChange?: (mode: ThemeMode) => void;
+}
+
+export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({
+  value,
+  onChange,
+}) => {
   const { theme, setTheme } = useTheme();
+  const currentMode = value !== undefined ? value : theme;
+
+  const handleSelect = (mode: ThemeMode) => {
+    setTheme(mode);
+    if (onChange) {
+      onChange(mode);
+    }
+  };
 
   const options: Array<{
     mode: ThemeMode;
@@ -47,12 +63,12 @@ export const ThemeSwitcher: React.FC = () => {
       }}
     >
       {options.map((opt) => {
-        const isActive = theme === opt.mode;
+        const isActive = currentMode === opt.mode;
         return (
           <button
             key={opt.mode}
             type="button"
-            onClick={() => setTheme(opt.mode)}
+            onClick={() => handleSelect(opt.mode)}
             title={`Switch to ${opt.label} mode`}
             style={{
               display: "flex",

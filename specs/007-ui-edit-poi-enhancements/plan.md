@@ -22,7 +22,7 @@ Phase 7 delivers a comprehensive, intelligent POI Curation Studio within the Vis
 **Project Type**: Monorepo Web Application (FastAPI backend microservices, shared `packages/core` workspace package, React SPA frontend)  
 **Performance Goals**: Location Finder modal load & coordinate selection $< 15$s, POI merge transaction $< 500$ms, parent POI typeahead filtering $< 100$ms for 1,000 items, reverse geocoding within 1 req/sec rate limit  
 **Constraints**: Zero PostgreSQL RLS (`WHERE user_id = :current_user_id` on all queries), OSM Nominatim 1 req/sec throttling with custom User-Agent, Pydantic `extra="forbid"`, RFC 7807 / RFC 9457 `ProblemDetails` error formatting  
-**Scale/Scope**: Multi-address trans-boundary support, DAG hierarchy nesting without cycles, dual-column diff-only visual merge workspace, pre-save duplicate interception  
+**Scale/Scope**: Multi-address trans-boundary support, DAG hierarchy nesting without cycles, dual-column diff-only visual merge workspace, pre-save duplicate interception
 
 ---
 
@@ -30,16 +30,16 @@ Phase 7 delivers a comprehensive, intelligent POI Curation Studio within the Vis
 
 _GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design._
 
-| Principle / Rule | Compliance Status | Implementation Detail |
-| :--- | :--- | :--- |
-| **1. File Header & Docstrings** | PASS | All new `.py`, `.ts`, `.tsx`, and `.sql` files mandate Apache-2.0 copyright headers and Google-style docstrings. |
-| **2. Ports & Adapters Architecture** | PASS | Domain entities, value objects (`AddressRecord`, `SourceType`), and schemas reside in `packages/core/vistarae_core/`. No infrastructure leakage into domain models. |
-| **3. Tenancy Invariants (No RLS)** | PASS | All queries enforce `WHERE user_id = :current_user_id`. No PostgreSQL Row-Level Security enabled. |
-| **4. Alembic & Environment Isolation** | PASS | Migration `0005_poi_edit_enhancements.py` provides fully reversible `downgrade()` dropping added columns and indexes. Zero native PostgreSQL enum types. |
-| **5. API Contracts & Pydantic v2** | PASS | OpenAPI 3.1 contract documented in [poi-edit-api.yaml](./contracts/poi-edit-api.yaml). All schemas subclass `StrictBaseModel` with `extra="forbid"`. All errors return RFC 7807 `ProblemDetails`. |
-| **6. Middleware & Rate Limiting** | PASS | Nominatim geocache enforces 1 req/sec rate limit. Frontend uses debounced forward queries ($\ge 500$ms). |
-| **7. Observability & Tracing** | PASS | Cross-boundary directional tags (`MSG: -->|`, `MSG: <--|`) and W3C `traceparent` headers supported across all POI service handlers. |
-| **8. PyTest Governance (90% Coverage)** | PASS | Unit tests mirrored 1:1 in `tests/unit/services/poi/` and `tests/unit/packages/core/` with `--cov-fail-under=90`. |
+| Principle / Rule                        | Compliance Status | Implementation Detail                                                                                                                                                                             |
+| :-------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | --------------------------------------------------------------------------- |
+| **1. File Header & Docstrings**         | PASS              | All new `.py`, `.ts`, `.tsx`, and `.sql` files mandate Apache-2.0 copyright headers and Google-style docstrings.                                                                                  |
+| **2. Ports & Adapters Architecture**    | PASS              | Domain entities, value objects (`AddressRecord`, `SourceType`), and schemas reside in `packages/core/vistarae_core/`. No infrastructure leakage into domain models.                               |
+| **3. Tenancy Invariants (No RLS)**      | PASS              | All queries enforce `WHERE user_id = :current_user_id`. No PostgreSQL Row-Level Security enabled.                                                                                                 |
+| **4. Alembic & Environment Isolation**  | PASS              | Migration `0005_poi_edit_enhancements.py` provides fully reversible `downgrade()` dropping added columns and indexes. Zero native PostgreSQL enum types.                                          |
+| **5. API Contracts & Pydantic v2**      | PASS              | OpenAPI 3.1 contract documented in [poi-edit-api.yaml](./contracts/poi-edit-api.yaml). All schemas subclass `StrictBaseModel` with `extra="forbid"`. All errors return RFC 7807 `ProblemDetails`. |
+| **6. Middleware & Rate Limiting**       | PASS              | Nominatim geocache enforces 1 req/sec rate limit. Frontend uses debounced forward queries ($\ge 500$ms).                                                                                          |
+| **7. Observability & Tracing**          | PASS              | Cross-boundary directional tags (`MSG: -->                                                                                                                                                        | `, `MSG: <-- | `) and W3C `traceparent` headers supported across all POI service handlers. |
+| **8. PyTest Governance (90% Coverage)** | PASS              | Unit tests mirrored 1:1 in `tests/unit/services/poi/` and `tests/unit/packages/core/` with `--cov-fail-under=90`.                                                                                 |
 
 ---
 

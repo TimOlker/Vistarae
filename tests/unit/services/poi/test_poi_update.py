@@ -504,6 +504,54 @@ class TestPoiRichUpdateRoute:
         assert mock_poi_repo.bulk_detach_tags.called
         assert mock_poi_repo.bulk_attach_tags.called
 
+    def test_patch_tags_empty_current_tags(
+        self,
+        client: TestClient,
+        sample_poi: POI,
+        mock_poi_repo: AsyncMock,
+        mock_tag_repo: AsyncMock,
+    ) -> None:
+        """Asserts attaching tags when POI currently has no tags (no detach needed)."""
+        mock_poi_repo.get_by_id.return_value = sample_poi
+        mock_poi_repo.update.side_effect = lambda p: p
+        mock_tag_repo.get_tags_for_poi.return_value = []
+        mock_tag_repo.get_or_create.side_effect = lambda uid, name: TagEntity(
+            id=uuid4(), user_id=uid, name=name
+        )
+        mock_poi_repo.bulk_detach_tags.reset_mock()
+        mock_poi_repo.bulk_attach_tags.reset_mock()
+
+        resp = client.patch(
+            f"/api/pois/{sample_poi.id}",
+            json={"tags": ["new-tag"]},
+        )
+        assert resp.status_code == 200
+        assert not mock_poi_repo.bulk_detach_tags.called
+        assert mock_poi_repo.bulk_attach_tags.called
+
+    def test_patch_tags_detach_all(
+        self,
+        client: TestClient,
+        sample_poi: POI,
+        mock_poi_repo: AsyncMock,
+        mock_tag_repo: AsyncMock,
+    ) -> None:
+        """Asserts clearing all tags detaches existing tags without attaching new ones."""
+        mock_poi_repo.get_by_id.return_value = sample_poi
+        mock_poi_repo.update.side_effect = lambda p: p
+        existing_tag = TagEntity(id=uuid4(), user_id=sample_poi.user_id, name="old-tag")
+        mock_tag_repo.get_tags_for_poi.return_value = [existing_tag]
+        mock_poi_repo.bulk_detach_tags.reset_mock()
+        mock_poi_repo.bulk_attach_tags.reset_mock()
+
+        resp = client.patch(
+            f"/api/pois/{sample_poi.id}",
+            json={"tags": []},
+        )
+        assert resp.status_code == 200
+        assert mock_poi_repo.bulk_detach_tags.called
+        assert not mock_poi_repo.bulk_attach_tags.called
+
     def test_patch_tags_over_limit_raises_422(
         self,
         client: TestClient,
@@ -521,3 +569,60 @@ class TestPoiRichUpdateRoute:
         )
         assert resp.status_code == 422
         assert resp.headers["content-type"] == "application/problem+json"
+
+    def test_patch_poi_not_found(
+        self,
+        client: TestClient,
+        mock_poi_repo: AsyncMock,
+    ) -> None:
+        """Asserts updating non-existent POI raises 404."""
+        mock_poi_repo.get_by_id.return_value = None
+        resp = client.patch(f"/api/pois/{uuid4()}", json={"name": "New Name"})
+        assert resp.status_code == 404
+
+    def test_patch_poi_coordinates_single(
+        self,
+        client: TestClient,
+        sample_poi: POI,
+        mock_poi_repo: AsyncMock,
+    ) -> None:
+        """Asserts updating single latitude or longitude updates geometry properly."""
+        mock_poi_repo.get_by_id.return_value = sample_poi
+        mock_poi_repo.update.side_effect = lambda p: p
+
+        # latitude only
+        resp_lat = client.patch(f"/api/pois/{sample_poi.id}", json={"latitude": 42.0})
+        assert resp_lat.status_code == 200
+        assert sample_poi.geom.lat == 42.0
+
+        # longitude only
+        resp_lon = client.patch(f"/api/pois/{sample_poi.id}", json={"longitude": -118.0})
+        assert resp_lon.status_code == 200
+        assert sample_poi.geom.lon == -118.0
+
+    def test_patch_poi_addresses_extract_state_and_country(
+        self,
+        client: TestClient,
+        sample_poi: POI,
+        mock_poi_repo: AsyncMock,
+    ) -> None:
+        """Asserts updating addresses without passing states/countries populates them from addresses."""
+        mock_poi_repo.get_by_id.return_value = sample_poi
+        mock_poi_repo.update.side_effect = lambda p: p
+
+        resp = client.patch(
+            f"/api/pois/{sample_poi.id}",
+            json={
+                "addresses": [
+                    {
+                        "street": "123 Temple Way",
+                        "city": "Kyoto",
+                        "state_province": "Kyoto Prefecture",
+                        "country": "Japan",
+                    }
+                ]
+            },
+        )
+        assert resp.status_code == 200
+        assert "Kyoto Prefecture" in sample_poi.states
+        assert "Japan" in sample_poi.countries

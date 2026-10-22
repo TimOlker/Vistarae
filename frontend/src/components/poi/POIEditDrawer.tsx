@@ -106,7 +106,6 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   const [visitedDates, setVisitedDates] = useState<string[]>([]);
   const [newVisitDate, setNewVisitDate] = useState<string>("");
   const [wantToVisitAgain, setWantToVisitAgain] = useState<boolean>(false);
-  const [visitState, setVisitState] = useState<VisitState>("not_visited");
 
   // Initial coordinates for change detection (FR-012, FR-013)
   const [initialLat, setInitialLat] = useState<number>(0);
@@ -162,12 +161,29 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     const baselineLat = poi.canonical_lat ?? poi.lat ?? 0;
     const baselineLon = poi.canonical_lng ?? poi.lon ?? 0;
     setName(poi.name || "");
+    setDescription(poi.description || "");
     setLat(baselineLat);
     setLon(baselineLon);
     setInitialLat(baselineLat);
     setInitialLon(baselineLon);
-    setVisitState(poi.visit_state || "not_visited");
     setRating(poi.rating || 0);
+    setParentPoiId(poi.parent_poi_id || null);
+    setOfficialUrl(poi.official_url || "");
+    setWikiUrl(poi.wiki_url || "");
+    if (poi.addresses && poi.addresses.length > 0) {
+      setAddresses(poi.addresses);
+    } else if (poi.address) {
+      setAddresses([
+        {
+          street: poi.address,
+          city: poi.city || "",
+          state_province: poi.state || "",
+          country: poi.country || "",
+        },
+      ]);
+    } else {
+      setAddresses([]);
+    }
     setTagsInput(
       Array.isArray(poi.tags)
         ? poi.tags
@@ -176,8 +192,33 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         : "",
     );
 
+    // Baseline visit lifecycle tracking
+    const rawVisitedDates =
+      Array.isArray(poi.visited_dates) && poi.visited_dates.length > 0
+        ? poi.visited_dates.map(String).sort()
+        : poi.visit_state === "visited_return" ||
+          poi.visit_state === "visited_do_not_return" ||
+          poi.already_visited
+          ? ["2024-06-01"]
+          : [];
+    setVisitedDates(rawVisitedDates);
+
+    const initialWantAgain =
+      poi.want_to_visit_again !== undefined && poi.want_to_visit_again !== null
+        ? Boolean(poi.want_to_visit_again)
+        : poi.visit_state === "visited_return";
+    setWantToVisitAgain(initialWantAgain);
+
     // Fetch full rich record from backend
     const loadFullPOI = async () => {
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          poi.id,
+        );
+      if (!isUuid) {
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setErrorMessage(null);
       try {
@@ -207,7 +248,6 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         setImageUrls(fullData.image_urls || []);
         setVisitedDates((fullData.visited_dates || []).map(String).sort());
         setWantToVisitAgain(Boolean(fullData.want_to_visit_again));
-        setVisitState((fullData.visit_state as VisitState) || "not_visited");
         setRating(fullData.rating || 0);
         if (fullData.tags) {
           setTagsInput(
@@ -310,6 +350,14 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       .map((t) => t.trim().toLowerCase())
       .filter(Boolean);
 
+    const isVisited = visitedDates.length > 0;
+    const isPending = !isVisited || wantToVisitAgain;
+    const derivedVisitState: VisitState = isVisited
+      ? wantToVisitAgain
+        ? "visited_return"
+        : "visited_do_not_return"
+      : "not_visited";
+
     return {
       ...poi,
       name: name.trim(),
@@ -338,7 +386,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       image_urls: imageUrls,
       visited_dates: visitedDates,
       want_to_visit_again: wantToVisitAgain,
-      visit_state: visitState,
+      already_visited: isVisited,
+      visit_pending: isPending,
+      visit_state: derivedVisitState,
       tags: parsedTags,
     };
   };
@@ -455,6 +505,17 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         tags: parsedTags,
       };
 
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          poi.id,
+        );
+      if (!isUuid) {
+        onSave(getCurrentDraft(activeAddresses));
+        setIsSaving(false);
+        onClose();
+        return;
+      }
+
       const updated = await apiFetch<any>(`/api/pois/${poi.id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
@@ -466,6 +527,14 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         ? updated.tags.map((t: any) => (typeof t === "string" ? t : t.name))
         : parsedTags;
 
+      const isVisited = visitedDates.length > 0;
+      const isPending = !isVisited || wantToVisitAgain;
+      const derivedVisitState: VisitState = isVisited
+        ? wantToVisitAgain
+          ? "visited_return"
+          : "visited_do_not_return"
+        : "not_visited";
+
       // Synchronize with parent app state
       onSave({
         ...poi,
@@ -474,7 +543,11 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         canonical_lng: finalLng,
         render_lat: finalLat,
         render_lng: finalLng,
-        visit_state: updated.visit_state || visitState,
+        visit_state: updated.visit_state || derivedVisitState,
+        already_visited: updated.already_visited ?? isVisited,
+        visit_pending: updated.visit_pending ?? isPending,
+        want_to_visit_again: updated.want_to_visit_again ?? wantToVisitAgain,
+        visited_dates: updated.visited_dates ?? visitedDates,
         rating: updated.rating,
         tags: finalTags,
         description: updated.description,

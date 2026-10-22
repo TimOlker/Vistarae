@@ -14,15 +14,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2026 Vistarae. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { BoundingBox, MapLayerId, POIMapFeature } from "../types/map";
+import type { LayoutMode } from "../types/layout";
+import type {
+  FilterRule,
+  PinColorScheme,
+  QueryGroup,
+  TableConfig,
+} from "../types/filter";
+import { ViewModeControl } from "../components/layout/ViewModeControl";
 import { MapView } from "../components/map/MapView";
 import { POITable } from "../components/poi/POITable";
 import { POIEditDrawer } from "../components/poi/POIEditDrawer";
+import { FilterBar } from "../components/filter/FilterBar";
+import {
+  BulkOperationsModal,
+  type BulkEditOperationType,
+} from "../components/bulk/BulkOperationsModal";
 import { usePreferences } from "../context/PreferencesContext";
+import * as filterRuleService from "../services/filterRuleService";
+import * as bulkService from "../services/bulkService";
+import { apiFetch } from "../services/api";
+import { evaluateQueryTree } from "../utils/filterEvaluator";
+import { computePoiPinColor } from "../utils/pinColor";
 
 // Seed demonstration POIs across mainland China and international destinations
 export const INITIAL_DEMO_POIS: POIMapFeature[] = [
@@ -34,6 +49,10 @@ export const INITIAL_DEMO_POIS: POIMapFeature[] = [
     render_lng: 116.397458,
     render_lat: 39.909187,
     visit_state: "visited_return",
+    already_visited: true,
+    want_to_visit_again: true,
+    visit_pending: true,
+    visited_dates: ["2024-05-18"],
     rating: 5,
     tags: ["historic", "plaza", "landmark"],
     city: "Beijing",
@@ -47,6 +66,10 @@ export const INITIAL_DEMO_POIS: POIMapFeature[] = [
     render_lng: 116.397027,
     render_lat: 39.917865,
     visit_state: "visited_return",
+    already_visited: true,
+    want_to_visit_again: true,
+    visit_pending: true,
+    visited_dates: ["2024-05-19"],
     rating: 5,
     tags: ["unesco", "palace", "history"],
     city: "Beijing",
@@ -60,6 +83,10 @@ export const INITIAL_DEMO_POIS: POIMapFeature[] = [
     render_lng: 121.505676,
     render_lat: 31.233519,
     visit_state: "visited_return",
+    already_visited: true,
+    want_to_visit_again: true,
+    visit_pending: true,
+    visited_dates: ["2024-06-01"],
     rating: 5,
     tags: ["skyscraper", "architecture", "viewpoint"],
     city: "Shanghai",
@@ -73,6 +100,10 @@ export const INITIAL_DEMO_POIS: POIMapFeature[] = [
     render_lng: 121.4905,
     render_lat: 31.2415,
     visit_state: "visited_return",
+    already_visited: true,
+    want_to_visit_again: true,
+    visit_pending: true,
+    visited_dates: ["2024-06-02"],
     rating: 4,
     tags: ["waterfront", "colonial", "nightview"],
     city: "Shanghai",
@@ -86,6 +117,10 @@ export const INITIAL_DEMO_POIS: POIMapFeature[] = [
     render_lng: 2.2945,
     render_lat: 48.8584,
     visit_state: "not_visited",
+    already_visited: false,
+    want_to_visit_again: false,
+    visit_pending: true,
+    visited_dates: [],
     rating: null,
     tags: ["monument", "romantic"],
     city: "Paris",
@@ -122,12 +157,13 @@ export const HomePage: React.FC<HomePageProps> = ({
     [propsOnUpdatePois],
   );
 
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("split");
   const [activeLayer, setActiveLayer] = useState<MapLayerId>(
     (poi.default_map_layer as MapLayerId) || "osm",
   );
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const [isViewportFilterActive, setIsViewportFilterActive] =
-    useState<boolean>(false);
+    useState<boolean>(true);
   const [visibleViewportPois, setVisibleViewportPois] =
     useState<POIMapFeature[]>(INITIAL_DEMO_POIS);
   const [currentBbox, setCurrentBbox] = useState<BoundingBox | null>(null);
@@ -135,6 +171,242 @@ export const HomePage: React.FC<HomePageProps> = ({
   // Detail drawer state
   const [drawerPoi, setDrawerPoi] = useState<POIMapFeature | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // User Story 2: Filter rules, table config, pin color scheme
+  const [queryGroup, setQueryGroup] = useState<QueryGroup>({
+    id: "root",
+    conjunction: "AND",
+    rules: [],
+  });
+  const [activeFilterGroup, setActiveFilterGroup] = useState<QueryGroup | null>(
+    null,
+  );
+  const [tableConfig, setTableConfig] = useState<TableConfig>({
+    visible_columns: ["name", "city", "rating", "visit_state", "tags"],
+    column_order: [
+      "name",
+      "city",
+      "state",
+      "country",
+      "rating",
+      "visit_state",
+      "tags",
+    ],
+    sort: {
+      column: "name",
+      direction: "asc",
+    },
+  });
+  const [pinColorScheme, setPinColorScheme] = useState<PinColorScheme>({
+    mode: "uniform",
+    default_color: "#2563EB",
+    palette: {},
+    rule_mappings: [],
+  });
+  const [savedRules, setSavedRules] = useState<FilterRule[]>([]);
+  const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+  const [serverFilteredPois, setServerFilteredPois] = useState<
+    POIMapFeature[] | null
+  >(null);
+
+  // User Story 3: Multi-select & Bulk operations
+  const [multiSelectMode, setMultiSelectMode] = useState<boolean>(false);
+  const [selectedPoiIds, setSelectedPoiIds] = useState<string[]>([]);
+  const [bulkModalOpen, setBulkModalOpen] = useState<boolean>(false);
+  const [bulkModalMode, setBulkModalMode] = useState<"edit" | "delete">("edit");
+  const [bulkNotification, setBulkNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  // Dismiss notification automatically after 4 seconds
+  useEffect(() => {
+    if (!bulkNotification) return;
+    const timer = setTimeout(() => {
+      setBulkNotification(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [bulkNotification]);
+
+  // Load saved rules on mount
+  useEffect(() => {
+    let isMounted = true;
+    if (typeof filterRuleService.listFilterRules === "function") {
+      filterRuleService
+        .listFilterRules()
+        .then((res) => {
+          if (isMounted) {
+            setSavedRules(Array.isArray(res) ? res : res?.items || []);
+          }
+        })
+        .catch((err) => {
+          console.warn("Could not load filter rules:", err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load POIs from backend if available
+  useEffect(() => {
+    let isMounted = true;
+    apiFetch<{ items: any[]; total: number }>("/api/pois?limit=200")
+      .then((res) => {
+        if (
+          isMounted &&
+          res &&
+          Array.isArray(res.items) &&
+          res.items.length > 0
+        ) {
+          const mapped: POIMapFeature[] = res.items.map((item) => ({
+            id: String(item.id),
+            name: item.name,
+            canonical_lng: item.lon,
+            canonical_lat: item.lat,
+            render_lng: item.lon,
+            render_lat: item.lat,
+            visit_state: (item.visit_state as any) || "not_visited",
+            tags: (item.tags || []).map((t: any) =>
+              typeof t === "string" ? t : t.name,
+            ),
+            rating: item.rating,
+            address: item.address,
+            city: item.city,
+            state: item.state,
+            country: item.country,
+            addresses:
+              item.addresses ||
+              (item.address
+                ? [
+                    {
+                      address: item.address,
+                      city: item.city,
+                      state: item.state,
+                      country: item.country,
+                      is_primary: true,
+                    },
+                  ]
+                : []),
+            image_urls: item.image_urls || [],
+            parent_poi_id: item.parent_poi_id ? String(item.parent_poi_id) : null,
+            already_visited: item.already_visited,
+            visit_pending: item.visit_pending,
+            want_to_visit_again: item.want_to_visit_again,
+            visited_dates: item.visited_dates || [],
+            description: item.description,
+            official_url: item.official_url,
+            wiki_url: item.wiki_url,
+          }));
+          setPois(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch POIs from backend, using demo POIs:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [setPois]);
+
+  // Handle saved rule actions
+  const handleSelectRule = (rule: FilterRule | null) => {
+    if (!rule) {
+      setActiveRuleId(null);
+      return;
+    }
+    setActiveRuleId(rule.id);
+    setQueryGroup(rule.query_tree);
+    setActiveFilterGroup(rule.query_tree);
+    if (rule.table_config) {
+      setTableConfig(rule.table_config);
+    }
+    if (rule.pin_color_scheme) {
+      setPinColorScheme(rule.pin_color_scheme);
+    }
+  };
+
+  const handleSaveRule = async (name: string, isOverwrite: boolean) => {
+    if (isOverwrite && activeRuleId) {
+      const updated = await filterRuleService.updateFilterRule(activeRuleId, {
+        name,
+        query_tree: queryGroup,
+        table_config: tableConfig,
+        pin_color_scheme: pinColorScheme,
+      });
+      setSavedRules(savedRules.map((r) => (r.id === updated.id ? updated : r)));
+    } else {
+      const created = await filterRuleService.createFilterRule({
+        name,
+        query_tree: queryGroup,
+        table_config: tableConfig,
+        pin_color_scheme: pinColorScheme,
+      });
+      setSavedRules([...savedRules, created]);
+      setActiveRuleId(created.id);
+    }
+  };
+
+  const handleDeleteRule = async (id: string) => {
+    await filterRuleService.deleteFilterRule(id);
+    setSavedRules(savedRules.filter((r) => r.id !== id));
+    if (activeRuleId === id) {
+      setActiveRuleId(null);
+    }
+  };
+
+  // Hybrid Filter Execution (REQ-MAIN-010)
+  const handleApplyFilter = useCallback(async () => {
+    setActiveFilterGroup(queryGroup);
+
+    // If dataset >= 1,000 POIs, delegate query to backend PostGIS endpoint
+    if (pois.length >= 1000) {
+      try {
+        const bboxParam = currentBbox
+          ? `${currentBbox.minLng},${currentBbox.minLat},${currentBbox.maxLng},${currentBbox.maxLat}`
+          : undefined;
+        const results = await filterRuleService.queryPois(
+          queryGroup,
+          bboxParam,
+        );
+        setServerFilteredPois(results.items);
+      } catch (err) {
+        console.error("Hybrid filter query failed:", err);
+      }
+    } else {
+      setServerFilteredPois(null);
+    }
+  }, [queryGroup, pois.length, currentBbox]);
+
+  const handleClearFilter = useCallback(() => {
+    const emptyGroup: QueryGroup = {
+      id: "root",
+      conjunction: "AND",
+      rules: [],
+    };
+    setQueryGroup(emptyGroup);
+    setActiveFilterGroup(null);
+    setServerFilteredPois(null);
+  }, []);
+
+  // Filtered POIs
+  const filteredPois = useMemo(() => {
+    if (!activeFilterGroup || activeFilterGroup.rules.length === 0) {
+      return pois;
+    }
+    if (pois.length >= 1000 && serverFilteredPois !== null) {
+      return serverFilteredPois;
+    }
+    return pois.filter((p) => evaluateQueryTree(p, activeFilterGroup));
+  }, [pois, activeFilterGroup, serverFilteredPois]);
+
+  // Dynamic pin color scheme calculation
+  const colorizedPois = useMemo(() => {
+    return filteredPois.map((p) => ({
+      ...p,
+      pin_color: computePoiPinColor(p, pinColorScheme),
+    }));
+  }, [filteredPois, pinColorScheme]);
 
   // Handle viewport changes from MapView
   const handleViewportChange = useCallback(
@@ -165,13 +437,14 @@ export const HomePage: React.FC<HomePageProps> = ({
     [setPois],
   );
 
-  // Filter table rows based on viewport toggle
+  // Filter table rows based on viewport toggle and active filters
   const displayedTablePois = useMemo(() => {
     if (!isViewportFilterActive) {
-      return pois;
+      return colorizedPois;
     }
-    return visibleViewportPois;
-  }, [isViewportFilterActive, pois, visibleViewportPois]);
+    const visibleIds = new Set(visibleViewportPois.map((v) => v.id));
+    return colorizedPois.filter((p) => visibleIds.has(p.id));
+  }, [isViewportFilterActive, colorizedPois, visibleViewportPois]);
 
   const handleSelectPOI = (poi: POIMapFeature) => {
     setSelectedPoiId(poi.id);
@@ -195,6 +468,140 @@ export const HomePage: React.FC<HomePageProps> = ({
     if (selectedPoiId === id) setSelectedPoiId(null);
   };
 
+  // Multi-select & Bulk Operation Handlers (US3 / REQ-MAIN-022 to REQ-MAIN-035)
+  const handleToggleMultiSelectMode = useCallback(() => {
+    setMultiSelectMode((prev) => {
+      if (prev) {
+        setSelectedPoiIds([]);
+      }
+      return !prev;
+    });
+  }, []);
+
+  const handleToggleSelectPoi = useCallback((id: string) => {
+    setSelectedPoiIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    const allSelected = displayedTablePois.every((p) =>
+      selectedPoiIds.includes(p.id),
+    );
+    if (allSelected) {
+      setSelectedPoiIds([]);
+    } else {
+      setSelectedPoiIds(displayedTablePois.map((p) => p.id));
+    }
+  }, [displayedTablePois, selectedPoiIds]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedPoiIds([]);
+  }, []);
+
+  const handleOpenBulkEdit = useCallback(() => {
+    setBulkModalMode("edit");
+    setBulkModalOpen(true);
+  }, []);
+
+  const handleOpenBulkDelete = useCallback(() => {
+    setBulkModalMode("delete");
+    setBulkModalOpen(true);
+  }, []);
+
+  const handleConfirmBulkEdit = useCallback(
+    async (action: BulkEditOperationType, payload: any) => {
+      try {
+        const res = await bulkService.bulkEditPois(
+          selectedPoiIds,
+          action,
+          payload,
+        );
+
+        // Optimistically apply edits locally
+        const targetIds = new Set(selectedPoiIds);
+        const updatedPois = pois.map((p) => {
+          if (!targetIds.has(p.id)) return p;
+          const updated = { ...p };
+
+          if (action === "set_rating") {
+            updated.rating = payload.rating;
+          } else if (action === "add_visit_date") {
+            updated.already_visited = true;
+            if (updated.want_to_visit_again) {
+              updated.visit_state = "visited_return";
+              updated.visit_pending = true;
+            } else {
+              updated.visit_state = "visited_do_not_return";
+              updated.visit_pending = false;
+            }
+          } else if (action === "set_visit_again") {
+            updated.want_to_visit_again = payload.want_to_visit_again;
+            if (updated.already_visited) {
+              updated.visit_state = payload.want_to_visit_again
+                ? "visited_return"
+                : "visited_do_not_return";
+              updated.visit_pending = payload.want_to_visit_again;
+            }
+          } else if (action === "add_tag") {
+            const currentTags = updated.tags || [];
+            if (!currentTags.includes(payload.tag_name)) {
+              updated.tags = [...currentTags, payload.tag_name];
+            }
+          } else if (action === "remove_tag") {
+            updated.tags = (updated.tags || []).filter(
+              (t) => t !== payload.tag_name,
+            );
+          } else if (action === "update_address") {
+            const addr = payload.address || {};
+            if (addr.city !== undefined) updated.city = addr.city || undefined;
+            if (addr.country !== undefined)
+              updated.country = addr.country || undefined;
+          }
+
+          return updated;
+        });
+
+        setPois(updatedPois);
+        setSelectedPoiIds([]);
+        setBulkNotification({
+          message: `Successfully updated ${res.modified_count} POI${
+            res.modified_count === 1 ? "" : "s"
+          }.`,
+          type: "success",
+        });
+      } catch (err: any) {
+        setBulkNotification({
+          message: err.message || "Bulk edit failed.",
+          type: "error",
+        });
+        throw err;
+      }
+    },
+    [pois, selectedPoiIds, setPois],
+  );
+
+  const handleConfirmBulkDelete = useCallback(async () => {
+    try {
+      const res = await bulkService.bulkDeletePois(selectedPoiIds);
+      const targetIds = new Set(selectedPoiIds);
+      setPois(pois.filter((p) => !targetIds.has(p.id)));
+      setSelectedPoiIds([]);
+      setBulkNotification({
+        message: `Successfully deleted ${res.deleted_count} POI${
+          res.deleted_count === 1 ? "" : "s"
+        }.`,
+        type: "success",
+      });
+    } catch (err: any) {
+      setBulkNotification({
+        message: err.message || "Bulk delete failed.",
+        type: "error",
+      });
+      throw err;
+    }
+  }, [pois, selectedPoiIds, setPois]);
+
   return (
     <div
       className="home-page-layout"
@@ -207,7 +614,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         background: "var(--bg-primary, #f8fafc)",
       }}
     >
-      {/* Sub-bar: Exploration status and coordinates */}
+      {/* Sub-bar: Exploration status, layout control, and coordinates */}
       <div
         style={{
           display: "flex",
@@ -235,20 +642,24 @@ export const HomePage: React.FC<HomePageProps> = ({
           </span>
         </div>
 
-        {isPickingLocation && (
-          <div
-            style={{
-              padding: "2px 10px",
-              borderRadius: "9999px",
-              background: "#fef3c7",
-              color: "#b45309",
-              fontWeight: 700,
-              animation: "pulse 1.5s infinite",
-            }}
-          >
-            🎯 Pin Drop Mode: Click anywhere on the map to place location
-          </div>
-        )}
+        {/* Center: View Mode Segmented Control */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <ViewModeControl mode={layoutMode} onChange={setLayoutMode} />
+          {isPickingLocation && (
+            <div
+              style={{
+                padding: "2px 10px",
+                borderRadius: "9999px",
+                background: "#fef3c7",
+                color: "#b45309",
+                fontWeight: 700,
+                animation: "pulse 1.5s infinite",
+              }}
+            >
+              🎯 Pin Drop Mode: Click anywhere on the map to place location
+            </div>
+          )}
+        </div>
 
         <div
           style={{
@@ -268,6 +679,57 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </div>
 
+      {/* Bulk operation notification banner */}
+      {bulkNotification && (
+        <div
+          role="status"
+          data-testid="bulk-notification-banner"
+          style={{
+            padding: "8px 20px",
+            backgroundColor:
+              bulkNotification.type === "success" ? "#DCFCE7" : "#FEE2E2",
+            color: bulkNotification.type === "success" ? "#166534" : "#991B1B",
+            fontSize: "13px",
+            fontWeight: 600,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "1px solid rgba(0,0,0,0.06)",
+          }}
+        >
+          <span>{bulkNotification.message}</span>
+          <button
+            onClick={() => setBulkNotification(null)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontWeight: 700,
+              color: "inherit",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Visual Filter Bar & View Profile Manager */}
+      <FilterBar
+        queryGroup={queryGroup}
+        onQueryGroupChange={setQueryGroup}
+        onApplyFilter={handleApplyFilter}
+        onClearFilter={handleClearFilter}
+        savedRules={savedRules}
+        activeRuleId={activeRuleId}
+        onSelectRule={handleSelectRule}
+        onSaveRule={handleSaveRule}
+        onDeleteRule={handleDeleteRule}
+        tableConfig={tableConfig}
+        onTableConfigChange={setTableConfig}
+        pinColorScheme={pinColorScheme}
+        onPinColorSchemeChange={setPinColorScheme}
+      />
+
       {/* Main Content: Split Map & Table */}
       <main
         style={{
@@ -275,23 +737,33 @@ export const HomePage: React.FC<HomePageProps> = ({
           flex: 1,
           overflow: "hidden",
           padding: "12px 16px",
-          gap: "16px",
+          gap: layoutMode === "split" ? "16px" : "0px",
         }}
       >
         {/* Left Side: Interactive Map */}
-        <div style={{ flex: 1.4, height: "100%", position: "relative" }}>
+        <div
+          data-testid="map-container"
+          style={{
+            display: layoutMode === "table_only" ? "none" : "flex",
+            flex: layoutMode === "map_only" ? 1 : 1.4,
+            width: layoutMode === "map_only" ? "100%" : undefined,
+            height: "100%",
+            position: "relative",
+            minWidth: 0,
+            transition: "flex 0.15s ease",
+          }}
+        >
           <MapView
-            pois={pois}
-            totalPoiCount={pois.length}
+            pois={colorizedPois}
+            totalPoiCount={colorizedPois.length}
             activeLayer={activeLayer}
             defaultLayer={(poi.default_map_layer as MapLayerId) || "osm"}
             mapLanguage={poi.map_language || "local"}
             selectedPoiId={selectedPoiId}
+            layoutMode={layoutMode}
             onLayerChange={setActiveLayer}
-            onPOIClick={(poi) => {
-              handleSelectPOI(poi);
-              handleEditPOI(poi);
-            }}
+            onPOIClick={handleSelectPOI}
+            onEditPOI={handleEditPOI}
             onViewportChange={handleViewportChange}
             onFetchServerViewport={handleFetchServerViewport}
             isPinDropMode={isPickingLocation}
@@ -300,7 +772,18 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
 
         {/* Right Side: Synchronized POI Table */}
-        <div style={{ flex: 1.0, height: "100%" }}>
+        <div
+          data-testid="table-container"
+          style={{
+            display: layoutMode === "map_only" ? "none" : "flex",
+            flex: layoutMode === "table_only" ? 1 : 1.0,
+            width: layoutMode === "table_only" ? "100%" : undefined,
+            height: "100%",
+            minWidth: 0,
+            flexDirection: "column",
+            transition: "flex 0.15s ease",
+          }}
+        >
           <POITable
             pois={displayedTablePois}
             selectedPoiId={selectedPoiId}
@@ -308,6 +791,15 @@ export const HomePage: React.FC<HomePageProps> = ({
             onToggleViewportFilter={setIsViewportFilterActive}
             onSelectPOI={handleSelectPOI}
             onEditPOI={handleEditPOI}
+            tableConfig={tableConfig}
+            multiSelectMode={multiSelectMode}
+            onToggleMultiSelectMode={handleToggleMultiSelectMode}
+            selectedPoiIds={selectedPoiIds}
+            onToggleSelectPoi={handleToggleSelectPoi}
+            onToggleSelectAll={handleToggleSelectAll}
+            onOpenBulkEdit={handleOpenBulkEdit}
+            onOpenBulkDelete={handleOpenBulkDelete}
+            onDeselectAll={handleDeselectAll}
           />
         </div>
       </main>
@@ -319,6 +811,16 @@ export const HomePage: React.FC<HomePageProps> = ({
         onClose={() => setIsDrawerOpen(false)}
         onSave={handleSaveDrawerPOI}
         onDelete={handleDeleteDrawerPOI}
+      />
+
+      {/* Bulk Operations Modal */}
+      <BulkOperationsModal
+        isOpen={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        selectedPoiIds={selectedPoiIds}
+        mode={bulkModalMode}
+        onConfirmEdit={handleConfirmBulkEdit}
+        onConfirmDelete={handleConfirmBulkDelete}
       />
     </div>
   );

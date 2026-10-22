@@ -32,9 +32,9 @@ from __future__ import annotations
 import contextlib
 import json
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from geoalchemy2 import Geography, Geometry
 from geoalchemy2.elements import WKTElement
@@ -51,9 +51,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vistarae_core.adapters.db.tables import (
+    ListTable,
     POIListTable,
     POITable,
     POITagTable,
+    TagTable,
 )
 from vistarae_core.domain.entities import (
     POI,
@@ -72,6 +74,7 @@ from vistarae_core.domain.value_objects import (
     WGS84Point,
 )
 from vistarae_core.ports.repositories import IPOIRepository
+from vistarae_core.services.address_normalizer import AddressNormalizer
 from vistarae_core.services.hierarchy import HierarchyService
 
 
@@ -314,6 +317,252 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         )
         result = await self._session.execute(stmt)
         return result.rowcount or 0
+
+    async def bulk_edit(  # noqa: C901
+        self,
+        user_id: UUID,
+        poi_ids: list[UUID],
+        action: str,
+        payload: dict[str, Any],
+    ) -> int:
+        """Applies batch mutations across selected POIs atomically in a single transaction (T-027 / REQ-MAIN-027 to REQ-MAIN-035).
+
+        Supports:
+        - set_rating (REQ-MAIN-027)
+        - add_visit_date with lifecycle calculation (REQ-MAIN-028)
+        - set_visit_again with lifecycle calculation (REQ-MAIN-029)
+        - add_tag and remove_tag (REQ-MAIN-030, REQ-MAIN-031)
+        - add_to_list and remove_from_list (REQ-MAIN-032)
+        - update_address strictly modifying addresses[0] and preserving secondary addresses (REQ-MAIN-033)
+        """
+        if not poi_ids:
+            return 0
+
+        # Query all target POIs owned by user
+        stmt = select(POITable).where(
+            POITable.id.in_(poi_ids),
+            POITable.user_id == user_id,
+        )
+        res = await self._session.execute(stmt)
+        pois = list(res.scalars().all())
+        if not pois:
+            return 0
+
+        now = datetime.now(UTC)
+
+        # 1. Rating
+        if action == "set_rating":
+            rating_val = payload.get("rating")
+            for poi in pois:
+                poi.rating = rating_val
+                poi.updated_at = now
+            await self._session.flush()
+            return len(pois)
+
+        # 2. Add Visit Date
+        elif action == "add_visit_date":
+            visit_date_raw = payload.get("visit_date")
+            if not visit_date_raw:
+                return 0
+            vdate_str = str(visit_date_raw)
+            for poi in pois:
+                existing_dates = list(poi.visited_dates or [])
+                if vdate_str not in existing_dates:
+                    existing_dates.append(vdate_str)
+                    existing_dates.sort()
+                    poi.visited_dates = existing_dates
+                poi.already_visited = True
+                if poi.want_to_visit_again is True:
+                    poi.visit_state = VisitState.VISITED_RETURN.value
+                    poi.visit_pending = True
+                else:
+                    poi.visit_state = VisitState.VISITED_DO_NOT_RETURN.value
+                    poi.visit_pending = False
+                poi.updated_at = now
+            await self._session.flush()
+            return len(pois)
+
+        # 3. Set Visit Again
+        elif action == "set_visit_again":
+            want_again = payload.get("want_to_visit_again")
+            for poi in pois:
+                poi.want_to_visit_again = want_again
+                if poi.already_visited:
+                    if want_again is True:
+                        poi.visit_state = VisitState.VISITED_RETURN.value
+                        poi.visit_pending = True
+                    else:
+                        poi.visit_state = VisitState.VISITED_DO_NOT_RETURN.value
+                        poi.visit_pending = False
+                else:
+                    poi.visit_state = VisitState.NOT_VISITED.value
+                    poi.visit_pending = True
+                poi.updated_at = now
+            await self._session.flush()
+            return len(pois)
+
+        # 4. Add Tag
+        elif action == "add_tag":
+            tag_name = (payload.get("tag_name") or "").strip()
+            if not tag_name:
+                return 0
+            # Resolve or create tag
+            tag_stmt = select(TagTable).where(
+                TagTable.user_id == user_id,
+                func.lower(TagTable.name) == tag_name.lower(),
+            )
+            tag = (await self._session.execute(tag_stmt)).scalar_one_or_none()
+            if not tag:
+                tag = TagTable(id=uuid4(), user_id=user_id, name=tag_name)
+                self._session.add(tag)
+                await self._session.flush()
+
+            modified = 0
+            for poi in pois:
+                count_stmt = select(func.count(POITagTable.tag_id)).where(
+                    POITagTable.poi_id == poi.id
+                )
+                cur_count = (await self._session.execute(count_stmt)).scalar() or 0
+                exists_stmt = select(POITagTable).where(
+                    POITagTable.poi_id == poi.id,
+                    POITagTable.tag_id == tag.id,
+                )
+                if not (await self._session.execute(exists_stmt)).scalar_one_or_none():
+                    if cur_count >= 30:
+                        raise TagLimitExceededError(cur_count + 1, 30)
+                    self._session.add(POITagTable(poi_id=poi.id, tag_id=tag.id))
+                    poi.updated_at = now
+                    modified += 1
+            await self._session.flush()
+            return modified
+
+        # 5. Remove Tag
+        elif action == "remove_tag":
+            tag_name = (payload.get("tag_name") or "").strip()
+            if not tag_name:
+                return 0
+            tag_stmt = select(TagTable).where(
+                TagTable.user_id == user_id,
+                func.lower(TagTable.name) == tag_name.lower(),
+            )
+            tag = (await self._session.execute(tag_stmt)).scalar_one_or_none()
+            if not tag:
+                return 0
+            del_stmt = delete(POITagTable).where(
+                POITagTable.poi_id.in_([p.id for p in pois]),
+                POITagTable.tag_id == tag.id,
+            )
+            del_res = await self._session.execute(del_stmt)
+            for poi in pois:
+                poi.updated_at = now
+            await self._session.flush()
+            return del_res.rowcount or 0
+
+        # 6. Add to List
+        elif action == "add_to_list":
+            list_id_raw = payload.get("list_id")
+            if not list_id_raw:
+                return 0
+            list_uuid = UUID(str(list_id_raw)) if not isinstance(list_id_raw, UUID) else list_id_raw
+            list_stmt = select(ListTable).where(
+                ListTable.id == list_uuid,
+                ListTable.user_id == user_id,
+            )
+            target_list = (await self._session.execute(list_stmt)).scalar_one_or_none()
+            if not target_list:
+                return 0
+
+            modified = 0
+            for poi in pois:
+                exists_stmt = select(POIListTable).where(
+                    POIListTable.poi_id == poi.id,
+                    POIListTable.list_id == list_uuid,
+                )
+                if not (await self._session.execute(exists_stmt)).scalar_one_or_none():
+                    self._session.add(POIListTable(poi_id=poi.id, list_id=list_uuid))
+                    poi.updated_at = now
+                    modified += 1
+            await self._session.flush()
+            return modified
+
+        # 7. Remove from List
+        elif action == "remove_from_list":
+            list_id_raw = payload.get("list_id")
+            if not list_id_raw:
+                return 0
+            list_uuid = UUID(str(list_id_raw)) if not isinstance(list_id_raw, UUID) else list_id_raw
+            del_stmt = delete(POIListTable).where(
+                POIListTable.poi_id.in_([p.id for p in pois]),
+                POIListTable.list_id == list_uuid,
+            )
+            del_res = await self._session.execute(del_stmt)
+            for poi in pois:
+                poi.updated_at = now
+            await self._session.flush()
+            return del_res.rowcount or 0
+
+        # 8. Update Address
+        elif action == "update_address":
+            addr_data = payload.get("address") or {}
+            if hasattr(addr_data, "model_dump"):
+                addr_data = addr_data.model_dump()
+
+            city = addr_data.get("city")
+            state_prov = addr_data.get("state_province")
+            country = addr_data.get("country")
+            clear_fields = set(addr_data.get("clear_fields") or [])
+
+            norm_country = AddressNormalizer.normalize_country(country) if country else None
+            norm_state = (
+                AddressNormalizer.normalize_state_province(
+                    state_prov, country=norm_country or "Unknown"
+                )
+                if state_prov
+                else None
+            )
+            norm_city = city.strip() if city else None
+
+            for poi in pois:
+                addresses = list(poi.addresses or [])
+                if not addresses:
+                    primary = {
+                        "city": None if "city" in clear_fields else norm_city,
+                        "state_province": None if "state_province" in clear_fields else norm_state,
+                        "country": None
+                        if "country" in clear_fields
+                        else (norm_country or "Unknown"),
+                    }
+                    addresses = [primary]
+                else:
+                    primary = dict(addresses[0])
+                    if "city" in clear_fields:
+                        primary["city"] = None
+                    elif norm_city is not None:
+                        primary["city"] = norm_city
+
+                    if "state_province" in clear_fields:
+                        primary["state_province"] = None
+                    elif norm_state is not None:
+                        primary["state_province"] = norm_state
+
+                    if "country" in clear_fields:
+                        primary["country"] = None
+                    elif norm_country is not None:
+                        primary["country"] = norm_country
+
+                    addresses[0] = primary
+
+                poi.addresses = addresses
+                new_states = [a.get("state_province") for a in addresses if a.get("state_province")]
+                new_countries = [a.get("country") for a in addresses if a.get("country")]
+                poi.states = list(dict.fromkeys(new_states))
+                poi.countries = list(dict.fromkeys(new_countries))
+                poi.updated_at = now
+
+            await self._session.flush()
+            return len(pois)
+
+        return 0
 
     async def list_pois(
         self,
@@ -670,3 +919,24 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         )
         res = await self._session.execute(stmt)
         return res.rowcount or 0
+
+    async def query_pois_by_predicate(
+        self,
+        predicate: Any,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[POI], int]:
+        """Queries POIs matching an arbitrary compiled AST predicate with pagination."""
+        count_stmt = select(func.count()).select_from(POITable).where(predicate)
+        total = (await self._session.execute(count_stmt)).scalar_one() or 0
+
+        stmt = (
+            select(POITable)
+            .where(predicate)
+            .order_by(POITable.name.asc())
+            .limit(limit)
+            .offset(offset)
+        )
+        res = await self._session.execute(stmt)
+        pois = [_row_to_poi(r) for r in res.scalars().all()]
+        return pois, total

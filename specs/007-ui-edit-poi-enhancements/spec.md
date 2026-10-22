@@ -5,49 +5,59 @@
 **Created**: 2026-10-21  
 **Status**: Draft  
 **Target Systems**:
+
 - POI Management Frontend: `frontend/src/components/poi/` (POI Editor modal/page, `LocationFinderModal`, `POIMergeModal`, Parent POI typeahead selector), Map layer integration, Form state management
 - POI Backend Domain & Persistence: `services/poi/` (`/api/pois/*` update, merge, reverse geocode, parent lookup, and duplicate detection endpoints), `packages/core/vistarae_core/` (entity models, Pydantic v2 schemas, repositories, address normalization engine)
 - Database: PostgreSQL 16+ / PostGIS / Alembic migrations for multi-address JSONB support, visit flags, parent hierarchy relations, and rich metadata
 
 **Input**: User description:
+
 > "/speckit.specify Create the specification for Phase 7 (007-ui-edit-poi-enhancements) using strict EARS syntax. This covers the edit POI page.
 > Scope to cover:
+>
 > 1. Additional Fields to include for each POI entry and include into the DB:
->   - multiline free form description (this is a good source to parse for AI search)
->   - address (note multiple addresses can be entered for a POI for example Iguazu falls stretches across two countries, Yellowstone national park stretches across multiple US states).
->     - street address (if available)
->     - State/Province (use normalization rules before saving: standardize on official spelling / capitalization, use the English version of the name).
->     - Country (use normalization rules before saving: standardize on official spelling / capitalization, use the English version of the name) (required).
->     - zip code
->   - one or more photo folders on the local machine
->   - one or more URLs to an image for the POI
->   - estimated visit time (hours)
->   - estimated visit time (days)
->   - POI parent name - if an item has a parent list the POI name of the item (this is a drop down that lists all POIs, can type and it filters the records down)
->   - POI parent id - ID of the POI based on what was selected
->   - source type, 'source value' - source type can be from the 'Web', the 'source value' is the URL of the website, if the source type is 'CSV' and the 'source value' is the directory (if provided), if the 'source value', if the 'source type' is 'Manual' then leave the 'source value' blank. If the 'source type' is 'Photo' the 'source value' is the image that was uploaded.
->   - Official Website is a field that holds the website's official website (if found)
->   - Wikipedia Website is a field that holds the Wikipedia entry (if found)
->   - Photo Folders - is a list of folders associated with the POI
->   - list of dates visited: displayed in chronological order, ability to delete a specific date, ability to add a new date with a date picker. Checkbox that determines if the POI wants to be visited again. (If no date visited is present, set 'already visited' flag to False; if one or more dates populated, set 'already visited' flag to True. If multiple dates are populated and visit again checkbox is set, or no dates are populated, set 'visit pending' flag to True. If multiple dates are populated and visit again checkbox is not set, set 'visit pending' flag to False).
+>
+> - multiline free form description (this is a good source to parse for AI search)
+> - address (note multiple addresses can be entered for a POI for example Iguazu falls stretches across two countries, Yellowstone national park stretches across multiple US states).
+>   - street address (if available)
+>   - State/Province (use normalization rules before saving: standardize on official spelling / capitalization, use the English version of the name).
+>   - Country (use normalization rules before saving: standardize on official spelling / capitalization, use the English version of the name) (required).
+>   - zip code
+> - one or more photo folders on the local machine
+> - one or more URLs to an image for the POI
+> - estimated visit time (hours)
+> - estimated visit time (days)
+> - POI parent name - if an item has a parent list the POI name of the item (this is a drop down that lists all POIs, can type and it filters the records down)
+> - POI parent id - ID of the POI based on what was selected
+> - source type, 'source value' - source type can be from the 'Web', the 'source value' is the URL of the website, if the source type is 'CSV' and the 'source value' is the directory (if provided), if the 'source value', if the 'source type' is 'Manual' then leave the 'source value' blank. If the 'source type' is 'Photo' the 'source value' is the image that was uploaded.
+> - Official Website is a field that holds the website's official website (if found)
+> - Wikipedia Website is a field that holds the Wikipedia entry (if found)
+> - Photo Folders - is a list of folders associated with the POI
+> - list of dates visited: displayed in chronological order, ability to delete a specific date, ability to add a new date with a date picker. Checkbox that determines if the POI wants to be visited again. (If no date visited is present, set 'already visited' flag to False; if one or more dates populated, set 'already visited' flag to True. If multiple dates are populated and visit again checkbox is set, or no dates are populated, set 'visit pending' flag to True. If multiple dates are populated and visit again checkbox is not set, set 'visit pending' flag to False).
+>
 > 2. Latitude/Longitude Finder - select a new location (lat/long):
->   - When triggered from POI editor, brings up a new view with map (pan, zoom in/out, multiple layers).
->   - Center map on previous location if lat/long already provided.
->   - Text input box + search button to search destination. Zoom level corresponds to query scope (e.g., 'Paris, France' zooms to city; 'Mount Rushmore' zooms to monument). Plot first X matches (configurable). If more matches found, display warning to be more specific (e.g. searching 'McDonalds' prompts user to add location). Warning if empty input or no matches.
->   - Click on map to set a pin showing exact lat/long.
->   - 'Cancel' button closes without changing POI.
->   - 'Apply' button sets selected lat/long in draft (not saved to DB until POI is saved) and uses API to determine address (city/town, state/province, country).
+>
+> - When triggered from POI editor, brings up a new view with map (pan, zoom in/out, multiple layers).
+> - Center map on previous location if lat/long already provided.
+> - Text input box + search button to search destination. Zoom level corresponds to query scope (e.g., 'Paris, France' zooms to city; 'Mount Rushmore' zooms to monument). Plot first X matches (configurable). If more matches found, display warning to be more specific (e.g. searching 'McDonalds' prompts user to add location). Warning if empty input or no matches.
+> - Click on map to set a pin showing exact lat/long.
+> - 'Cancel' button closes without changing POI.
+> - 'Apply' button sets selected lat/long in draft (not saved to DB until POI is saved) and uses API to determine address (city/town, state/province, country).
+>
 > 3. POI Merge:
->   - On POI edit page, a 'merge into / merge from' brings up a new view. Merges selected POI into a second POI, then deletes the first selected POI.
->   - Toggle 'Show all fields' (default disabled -> only show fields where values differ; enabled -> show all fields).
->   - Single-value fields: radio button to pick value from either POI.
->   - Multi-value fields: checkboxes for each value, saving all checked items from both POIs (de-duplicated).
+>
+> - On POI edit page, a 'merge into / merge from' brings up a new view. Merges selected POI into a second POI, then deletes the first selected POI.
+> - Toggle 'Show all fields' (default disabled -> only show fields where values differ; enabled -> show all fields).
+> - Single-value fields: radio button to pick value from either POI.
+> - Multi-value fields: checkboxes for each value, saving all checked items from both POIs (de-duplicated).
+>
 > 4. Saving changes:
->   - If lat/long has changed (including first population), populate street address, city, state/province, country using intelligence.
->   - Duplicate check: Standardize POI name and use lat/long to check duplicates. If potential duplicate detected, prompt user with merge logic:
->     a) Create a new POI entry as requested
->     b) Merge the draft data with the existing POI using selected values
->     c) Cancel (no create or update)"
+>
+> - If lat/long has changed (including first population), populate street address, city, state/province, country using intelligence.
+> - Duplicate check: Standardize POI name and use lat/long to check duplicates. If potential duplicate detected, prompt user with merge logic:
+>   a) Create a new POI entry as requested
+>   b) Merge the draft data with the existing POI using selected values
+>   c) Cancel (no create or update)"
 
 ---
 
@@ -56,17 +66,20 @@
 Phase 7 (`007-ui-edit-poi-enhancements`) advances the Vistarae point-of-interest management lifecycle by elevating the POI editor drawer into a full-featured, intelligent POI Curation Studio. The feature delivers:
 
 1. **Rich POI Metadata, Multi-Address Modeling & Hierarchical Parenting**:
+
    - Expands POI attributes to capture multiline semantic descriptions (for future RAG vectorization), multiple international address records per POI (handling trans-boundary sites such as Iguazu Falls or multi-state entities like Yellowstone), local photo folders, gallery image URLs, estimated visit durations (decimal hours and integer days), structured provenance tracking (`Web`, `CSV`, `Manual`, `Photo`), official and Wikipedia links, and granular visited date tracking.
    - Introduces **Hierarchical POI Parenting** (`parent_poi_id`, `parent_poi_name`), enabling travelers to model nested attraction structures (e.g., nesting "Old Faithful" under "Yellowstone National Park", or "Eiffel Tower Summit" under "Eiffel Tower"). The UI provides a searchable typeahead dropdown filtering the traveler's existing POI library, with strict cycle and self-parenting prevention.
    - Computes deterministic visit lifecycle state flags (`already_visited`, `visit_pending`) based on chronological visit dates and traveler return intent (`want_to_visit_again`).
    - Normalizes state/province and country entries against international standards (standardizing on official English names and ISO 3166-1/ISO 3166-2 references).
 
 2. **Interactive Latitude/Longitude Map Finder**:
+
    - A dedicated modal map workspace supporting multi-layer basemaps (satellite, terrain, street), click-to-pin coordinate selection, and dynamic forward geocoding with adaptive zoom (broad regional zoom for cities like "Paris, France" vs. tight focal zoom for specific landmarks like "Mount Rushmore").
    - Result pagination with configurable display thresholds ($X$) and proactive query refinement warnings when high-cardinality brand matches (e.g., "McDonalds") occur.
    - Non-destructive draft application with automatic reverse-geocoding resolution upon clicking "Apply".
 
 3. **Field-by-Field POI Comparison & Atomic Merge**:
+
    - An interactive visual merge workspace enabling travelers to combine two duplicate or overlapping POIs.
    - An intelligent "Show all fields" toggle (defaulting to a compact diff-only mode showing only diverging attributes).
    - Radio button resolution for scalar fields (name, description, duration, rating, parent POI, primary links) and multi-select checkbox aggregation for set-based fields (tags, lists, addresses, photo directories, visited dates), culminating in atomic target POI update and source POI deletion.

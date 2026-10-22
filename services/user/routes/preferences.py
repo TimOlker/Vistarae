@@ -117,6 +117,20 @@ async def get_preferences(
     return _build_response(prefs)
 
 
+@router.get(
+    "/me/preferences/ui",
+    response_model=UIPreferencesResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_ui_preferences(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> UIPreferencesResponse:
+    """Returns Account/UI sub-domain preferences."""
+    prefs = await _get_prefs(session, current_user.id)
+    return _build_response(prefs).ui
+
+
 @router.patch(
     "/me/preferences/ui",
     response_model=UIPreferencesResponse,
@@ -151,6 +165,20 @@ async def patch_ui_preferences(
     return _build_response(prefs).ui
 
 
+@router.get(
+    "/me/preferences/poi",
+    response_model=POIPreferencesResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_poi_preferences(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> POIPreferencesResponse:
+    """Returns POI Mode sub-domain preferences."""
+    prefs = await _get_prefs(session, current_user.id)
+    return _build_response(prefs).poi
+
+
 @router.patch(
     "/me/preferences/poi",
     response_model=POIPreferencesResponse,
@@ -181,6 +209,20 @@ async def patch_poi_preferences(
 
     prefs = await _get_prefs(session, current_user.id)
     return _build_response(prefs).poi
+
+
+@router.get(
+    "/me/preferences/planner",
+    response_model=PlannerPreferencesResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_planner_preferences(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> PlannerPreferencesResponse:
+    """Returns Planner Mode sub-domain preferences."""
+    prefs = await _get_prefs(session, current_user.id)
+    return _build_response(prefs).planner
 
 
 @router.patch(

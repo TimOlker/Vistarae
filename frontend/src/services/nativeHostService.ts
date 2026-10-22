@@ -24,7 +24,7 @@ export interface NativeHostResult {
 /**
  * Default Extension ID for Vistarae Chrome Extension (can be customized via VITE_VISTARAE_EXTENSION_ID)
  */
-export const DEFAULT_EXTENSION_ID = 'ekafkcbddmcmflnbgnlkaebpllpnjggk';
+export const DEFAULT_EXTENSION_ID = "ekafkcbddmcmflnbgnlkaebpllpnjggk";
 
 /**
  * Requests the Chrome Extension to open a local directory or private UNC share via native messaging.
@@ -36,11 +36,12 @@ export const DEFAULT_EXTENSION_ID = 'ekafkcbddmcmflnbgnlkaebpllpnjggk';
  */
 export async function openLocalFolder(
   path: string,
-  extensionId?: string
+  extensionId?: string,
 ): Promise<NativeHostResult> {
   const targetExtensionId =
     extensionId ||
-    (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_VISTARAE_EXTENSION_ID) ||
+    (typeof import.meta !== "undefined" &&
+      (import.meta as any).env?.VITE_VISTARAE_EXTENSION_ID) ||
     DEFAULT_EXTENSION_ID;
 
   // Check if Chrome extension runtime API is present in browser
@@ -48,8 +49,9 @@ export async function openLocalFolder(
   if (!chromeRuntime || !chromeRuntime.sendMessage) {
     return {
       success: false,
-      code: 'EXTENSION_NOT_INSTALLED',
-      toastMessage: 'Vistarae Extension required for local folder opening. Click to install.',
+      code: "EXTENSION_NOT_INSTALLED",
+      toastMessage:
+        "Vistarae Extension required for local folder opening. Click to install.",
     };
   }
 
@@ -57,14 +59,15 @@ export async function openLocalFolder(
     try {
       chromeRuntime.sendMessage(
         targetExtensionId,
-        { action: 'open_folder', path },
+        { action: "open_folder", path },
         (response: any) => {
           const lastError = chromeRuntime.lastError;
           if (lastError) {
             resolve({
               success: false,
-              code: 'EXTENSION_COMMUNICATION_FAILED',
-              toastMessage: 'Vistarae Extension required for local folder opening. Click to install.',
+              code: "EXTENSION_COMMUNICATION_FAILED",
+              toastMessage:
+                "Vistarae Extension required for local folder opening. Click to install.",
               error: lastError.message,
             });
             return;
@@ -77,26 +80,27 @@ export async function openLocalFolder(
             });
           } else {
             const err = response?.error;
-            let toast = err?.detail || 'Failed to open local folder.';
-            if (err?.type === 'native_host_not_found') {
-              toast = 'Run python scripts/register_native_host.py to register folder opener.';
+            let toast = err?.detail || "Failed to open local folder.";
+            if (err?.type === "native_host_not_found") {
+              toast =
+                "Run python scripts/register_native_host.py to register folder opener.";
             }
 
             resolve({
               success: false,
-              code: err?.code || err?.type || 'NATIVE_HOST_ERROR',
+              code: err?.code || err?.type || "NATIVE_HOST_ERROR",
               error: err?.detail,
               toastMessage: toast,
             });
           }
-        }
+        },
       );
     } catch (err: any) {
       resolve({
         success: false,
-        code: 'DISPATCH_EXCEPTION',
+        code: "DISPATCH_EXCEPTION",
         error: err.message,
-        toastMessage: 'Error communicating with Vistarae Chrome Extension.',
+        toastMessage: "Error communicating with Vistarae Chrome Extension.",
       });
     }
   });

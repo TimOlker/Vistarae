@@ -282,3 +282,17 @@ class IngestRowMessage:
     absolute_row_number: int
     row_data: dict[str, str]
     target_list_id: UUID | None = None
+
+
+@dataclass
+class FilterRuleEntity:
+    """Domain aggregate representing a traveler's saved search and view configuration."""
+
+    id: UUID
+    user_id: UUID
+    name: str
+    query_tree: dict[str, Any]
+    table_config: dict[str, Any]
+    pin_color_scheme: dict[str, Any]
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))

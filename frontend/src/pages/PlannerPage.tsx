@@ -44,7 +44,9 @@ interface PlannerPageProps {
   onNavigateToTrip: (itineraryId: string) => void;
 }
 
-export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) => {
+export const PlannerPage: React.FC<PlannerPageProps> = ({
+  onNavigateToTrip,
+}) => {
   const { showToast } = useToast();
   const [itineraries, setItineraries] = useState<ItinerarySummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,9 +109,12 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
       return;
     }
 
-    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const diffDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     if (diffDays > 30) {
-      setFormError(`Trip duration cannot exceed 30 days (selected ${diffDays} days).`);
+      setFormError(
+        `Trip duration cannot exceed 30 days (selected ${diffDays} days).`,
+      );
       return;
     }
 
@@ -122,7 +127,9 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
       start_date: startDate,
       end_date: endDate,
       budget_cents: budgetCents,
-      prompt: prompt.trim() || `Explore top highlights and sights in ${destination.trim()}`,
+      prompt:
+        prompt.trim() ||
+        `Explore top highlights and sights in ${destination.trim()}`,
       currency: "USD",
     };
 
@@ -145,7 +152,8 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this itinerary?")) return;
+    if (!window.confirm("Are you sure you want to delete this itinerary?"))
+      return;
 
     try {
       await itineraryService.deleteItinerary(id);
@@ -182,14 +190,33 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "6px",
+            }}
+          >
             <Compass size={24} color="var(--accent, #2563eb)" />
-            <h1 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.02em" }}>
+            <h1
+              style={{
+                fontSize: "28px",
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+              }}
+            >
               AI Trip Planner
             </h1>
           </div>
-          <p style={{ color: "var(--text-secondary, #475569)", fontSize: "14px" }}>
-            Synthesize your saved POIs into executable day-by-day itineraries with smart routes and budgeting.
+          <p
+            style={{
+              color: "var(--text-secondary, #475569)",
+              fontSize: "14px",
+            }}
+          >
+            Synthesize your saved POIs into executable day-by-day itineraries
+            with smart routes and budgeting.
           </p>
         </div>
 
@@ -258,11 +285,21 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
           >
             <Sparkles size={28} />
           </div>
-          <h2 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>
+          <h2
+            style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}
+          >
             No itineraries planned yet
           </h2>
-          <p style={{ color: "var(--text-secondary, #475569)", fontSize: "14px", maxWidth: "420px", margin: "0 auto 20px" }}>
-            Prompt Gemini to craft an optimized schedule from your saved places, or explore a new destination corridor.
+          <p
+            style={{
+              color: "var(--text-secondary, #475569)",
+              fontSize: "14px",
+              maxWidth: "420px",
+              margin: "0 auto 20px",
+            }}
+          >
+            Prompt Gemini to craft an optimized schedule from your saved places,
+            or explore a new destination corridor.
           </p>
           <button
             type="button"
@@ -310,7 +347,8 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1))";
+                e.currentTarget.style.boxShadow =
+                  "var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1))";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "none";
@@ -318,8 +356,21 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
               }}
             >
               <div>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
-                  <h3 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-primary, #0f172a)" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 700,
+                      color: "var(--text-primary, #0f172a)",
+                    }}
+                  >
                     {it.title}
                   </h3>
                   <button
@@ -332,20 +383,46 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
                       borderRadius: "4px",
                       color: "var(--text-muted, #94a3b8)",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger, #ef4444)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted, #94a3b8)")}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "var(--danger, #ef4444)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color =
+                        "var(--text-muted, #94a3b8)")
+                    }
                   >
                     <Trash2 size={16} />
                   </button>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "12px", fontSize: "13px", color: "var(--text-secondary, #475569)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    marginTop: "12px",
+                    fontSize: "13px",
+                    color: "var(--text-secondary, #475569)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
                     <MapPin size={14} color="var(--accent, #2563eb)" />
                     <span>{it.destination}</span>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
                     <Calendar size={14} color="var(--accent, #2563eb)" />
                     <span>
                       {it.start_date} &ndash; {it.end_date}
@@ -353,10 +430,17 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
                   </div>
 
                   {it.budget_cents ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
                       <DollarSign size={14} color="var(--accent, #2563eb)" />
                       <span>
-                        Budget: {formatCost(it.budget_cents)} | Est: {formatCost(it.total_estimated_cost_cents)}
+                        Budget: {formatCost(it.budget_cents)} | Est:{" "}
+                        {formatCost(it.total_estimated_cost_cents)}
                       </span>
                     </div>
                   ) : null}
@@ -422,7 +506,9 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
               }}
             >
               <Sparkles size={18} color="var(--accent, #2563eb)" />
-              <h2 style={{ fontSize: "16px", fontWeight: 700 }}>Synthesize Trip with Gemini AI</h2>
+              <h2 style={{ fontSize: "16px", fontWeight: 700 }}>
+                Synthesize Trip with Gemini AI
+              </h2>
             </div>
 
             {/* Modal Body Form */}
@@ -451,7 +537,13 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
               <div style={{ marginBottom: "14px" }}>
                 <label
                   htmlFor="dest-input"
-                  style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-secondary, #475569)", marginBottom: "4px" }}
+                  style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary, #475569)",
+                    marginBottom: "4px",
+                  }}
                 >
                   Destination Corridor *
                 </label>
@@ -474,11 +566,24 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                  marginBottom: "14px",
+                }}
+              >
                 <div>
                   <label
                     htmlFor="start-date-input"
-                    style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-secondary, #475569)", marginBottom: "4px" }}
+                    style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--text-secondary, #475569)",
+                      marginBottom: "4px",
+                    }}
                   >
                     Start Date *
                   </label>
@@ -503,7 +608,13 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
                 <div>
                   <label
                     htmlFor="end-date-input"
-                    style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-secondary, #475569)", marginBottom: "4px" }}
+                    style={{
+                      display: "block",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "var(--text-secondary, #475569)",
+                      marginBottom: "4px",
+                    }}
                   >
                     End Date (max 30 days) *
                   </label>
@@ -529,7 +640,13 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
               <div style={{ marginBottom: "14px" }}>
                 <label
                   htmlFor="budget-input"
-                  style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-secondary, #475569)", marginBottom: "4px" }}
+                  style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary, #475569)",
+                    marginBottom: "4px",
+                  }}
                 >
                   Budget ($ USD, optional)
                 </label>
@@ -556,7 +673,13 @@ export const PlannerPage: React.FC<PlannerPageProps> = ({ onNavigateToTrip }) =>
               <div style={{ marginBottom: "20px" }}>
                 <label
                   htmlFor="prompt-input"
-                  style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-secondary, #475569)", marginBottom: "4px" }}
+                  style={{
+                    display: "block",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary, #475569)",
+                    marginBottom: "4px",
+                  }}
                 >
                   Travel Style &amp; Preferences
                 </label>

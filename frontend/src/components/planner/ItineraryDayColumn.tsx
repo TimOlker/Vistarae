@@ -38,12 +38,14 @@ export const ItineraryDayColumn: React.FC<ItineraryDayColumnProps> = ({
   onImportPoi,
   onPackLunch,
 }) => {
-  const dayAdvisories = advisories.filter((a) => a.day_number === day.day_number);
+  const dayAdvisories = advisories.filter(
+    (a) => a.day_number === day.day_number,
+  );
 
   // Compute total active duration for the day
   const totalDuration = (day.items || []).reduce(
     (sum, item) => sum + (parseFloat(item.duration_hours || "0") || 0),
-    0
+    0,
   );
   const isOverplanned = totalDuration > 10.0;
 
@@ -118,12 +120,21 @@ export const ItineraryDayColumn: React.FC<ItineraryDayColumnProps> = ({
             }}
           >
             {formatCost(day.total_cost_cents)}
-            {day.target_budget_cents ? ` / ${formatCost(day.target_budget_cents)}` : ""}
+            {day.target_budget_cents
+              ? ` / ${formatCost(day.target_budget_cents)}`
+              : ""}
           </span>
         </div>
 
         {/* Duration & Circuit Breaker Badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.75rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "0.75rem",
+          }}
+        >
           <span
             style={{
               display: "inline-flex",

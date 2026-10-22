@@ -134,6 +134,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="traveler@example.com"

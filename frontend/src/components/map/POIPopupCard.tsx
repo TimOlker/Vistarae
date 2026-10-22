@@ -14,14 +14,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2026 Vistarae. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-import React from "react";
+import React, { useState } from "react";
 import type { POIMapFeature } from "../../types/map";
-import { X, Star, MapPin, Tag } from "lucide-react";
+import { X, Star, MapPin, Tag, Edit3 } from "lucide-react";
 
-interface POIPopupCardProps {
+export interface POIPopupCardProps {
   poi: POIMapFeature;
   onClose: () => void;
   onEdit?: (poi: POIMapFeature) => void;
@@ -32,64 +29,152 @@ export const POIPopupCard: React.FC<POIPopupCardProps> = ({
   onClose,
   onEdit,
 }) => {
+  const [imageError, setImageError] = useState(false);
+  const hasMultipleAddresses =
+    Array.isArray(poi.addresses) && poi.addresses.length > 1;
+  const addressCount = poi.addresses?.length || 1;
+  const thumbnailUrl =
+    poi.image_urls && poi.image_urls.length > 0 && !imageError
+      ? poi.image_urls[0]
+      : null;
+
+  const renderStars = () => {
+    if (!poi.rating) {
+      return (
+        <span
+          data-testid="unrated-indicator"
+          style={{
+            fontSize: "11px",
+            color: "var(--text-muted, #94a3b8)",
+            fontWeight: 500,
+          }}
+        >
+          Unrated
+        </span>
+      );
+    }
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            size={12}
+            fill={star <= poi.rating! ? "#f59e0b" : "none"}
+            color={star <= poi.rating! ? "#f59e0b" : "#D1D5DB"}
+          />
+        ))}
+        <span
+          style={{
+            fontSize: "11px",
+            fontWeight: 700,
+            marginLeft: "3px",
+            color: "#B45309",
+          }}
+        >
+          {poi.rating.toFixed(1)}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div
       className="poi-popup-card slide-up"
+      data-testid="poi-popup-card"
       style={{
         width: "280px",
         padding: "14px",
         background: "var(--bg-surface, #ffffff)",
         color: "var(--text-primary, #0f172a)",
         borderRadius: "var(--radius-md, 10px)",
-        boxShadow: "var(--shadow-lg)",
+        boxShadow:
+          "0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
         border: "1px solid var(--border-color, #e2e8f0)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
       }}
     >
+      {/* Header Row: Title & Close Button */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
           gap: "8px",
-          marginBottom: "8px",
         }}
       >
-        <h4 style={{ fontSize: "15px", fontWeight: 700, lineHeight: 1.2 }}>
+        <h4
+          data-testid="poi-popup-title"
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            fontWeight: 700,
+            lineHeight: 1.3,
+            color: "#111827",
+          }}
+        >
           {poi.name}
         </h4>
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close"
+          data-testid="close-popup-btn"
           style={{
+            background: "none",
+            border: "none",
             padding: "2px",
             color: "var(--text-muted, #94a3b8)",
             cursor: "pointer",
+            borderRadius: "4px",
           }}
         >
           <X size={16} />
         </button>
       </div>
 
+      {/* Thumbnail preview if valid image exists */}
+      {thumbnailUrl && (
+        <div
+          style={{
+            width: "100%",
+            height: "110px",
+            borderRadius: "6px",
+            overflow: "hidden",
+            backgroundColor: "#F3F4F6",
+          }}
+        >
+          <img
+            src={thumbnailUrl}
+            alt={poi.name}
+            data-testid="poi-popup-thumbnail"
+            onError={() => setImageError(true)}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Rating & Visit Status */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "8px",
-          marginBottom: "8px",
+          justifyContent: "space-between",
           fontSize: "12px",
         }}
       >
-        {poi.rating && (
-          <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-            <Star size={13} fill="#f59e0b" color="#f59e0b" />
-            <span style={{ fontWeight: 600 }}>{poi.rating.toFixed(1)}</span>
-          </div>
-        )}
+        {renderStars()}
         <span
           style={{
-            fontSize: "11px",
+            fontSize: "10px",
             fontWeight: 600,
-            padding: "1px 6px",
+            padding: "2px 6px",
             borderRadius: "4px",
             background:
               poi.visit_state === "visited_return"
@@ -103,45 +188,68 @@ export const POIPopupCard: React.FC<POIPopupCardProps> = ({
                 : poi.visit_state === "visited_do_not_return"
                   ? "#b45309"
                   : "#1d4ed8",
+            textTransform: "capitalize",
           }}
         >
-          {poi.visit_state.replace(/_/g, " ")}
+          {(poi.visit_state || "not_visited").replace(/_/g, " ")}
         </span>
       </div>
 
-      {(poi.city || poi.address) && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "12px",
-            color: "var(--text-secondary, #475569)",
-            marginBottom: "8px",
-          }}
-        >
-          <MapPin size={13} style={{ flexShrink: 0 }} />
-          <span>{poi.city || poi.address}</span>
+      {/* Address info: formatted or multiple locations badge */}
+      {hasMultipleAddresses ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <MapPin size={13} style={{ flexShrink: 0, color: "#2563EB" }} />
+          <span
+            data-testid="multi-location-badge"
+            style={{
+              padding: "2px 6px",
+              borderRadius: "4px",
+              backgroundColor: "#EFF6FF",
+              color: "#1D4ED8",
+              fontSize: "11px",
+              fontWeight: 600,
+            }}
+          >
+            Multiple Locations ({addressCount})
+          </span>
         </div>
+      ) : (
+        (poi.city || poi.address || poi.country) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12px",
+              color: "var(--text-secondary, #475569)",
+            }}
+          >
+            <MapPin size={13} style={{ flexShrink: 0, color: "#6B7280" }} />
+            <span data-testid="single-address-summary">
+              {[poi.city, poi.state, poi.country].filter(Boolean).join(", ") ||
+                poi.address}
+            </span>
+          </div>
+        )
       )}
 
-      {poi.tags.length > 0 && (
+      {/* Tags */}
+      {poi.tags && poi.tags.length > 0 && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "4px",
             flexWrap: "wrap",
-            marginBottom: "10px",
           }}
         >
-          <Tag size={12} color="var(--text-muted)" />
-          {poi.tags.map((t) => (
+          <Tag size={11} color="var(--text-muted, #94a3b8)" />
+          {poi.tags.slice(0, 3).map((t) => (
             <span
               key={t}
               style={{
                 fontSize: "10px",
-                padding: "2px 5px",
+                padding: "1px 5px",
                 borderRadius: "4px",
                 background: "var(--bg-hover, #f1f5f9)",
                 color: "var(--text-secondary, #475569)",
@@ -153,22 +261,31 @@ export const POIPopupCard: React.FC<POIPopupCardProps> = ({
         </div>
       )}
 
+      {/* Edit POI Action Button */}
       {onEdit && (
         <button
           type="button"
           onClick={() => onEdit(poi)}
+          data-testid="popup-edit-poi-btn"
           style={{
             width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
             padding: "6px 12px",
-            borderRadius: "var(--radius-sm, 6px)",
-            background: "var(--accent, #2563eb)",
+            borderRadius: "6px",
+            background: "#2563EB",
             color: "#ffffff",
             fontSize: "12px",
             fontWeight: 600,
-            textAlign: "center",
+            border: "none",
+            cursor: "pointer",
+            marginTop: "2px",
           }}
         >
-          Edit Details
+          <Edit3 size={13} />
+          <span>Edit POI</span>
         </button>
       )}
     </div>

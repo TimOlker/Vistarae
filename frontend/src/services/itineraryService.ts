@@ -24,13 +24,18 @@ import type { components } from "../types/api";
 
 export type ItinerarySummary = components["schemas"]["ItinerarySummary"];
 export type ItineraryResponse = components["schemas"]["ItineraryResponse"];
-export type ItineraryDayResponse = components["schemas"]["ItineraryDayResponse"];
-export type ItineraryItemResponse = components["schemas"]["ItineraryItemResponse"];
+export type ItineraryDayResponse =
+  components["schemas"]["ItineraryDayResponse"];
+export type ItineraryItemResponse =
+  components["schemas"]["ItineraryItemResponse"];
 export type ItineraryCreate = components["schemas"]["ItineraryCreate"];
 export type ItineraryUpdate = components["schemas"]["ItineraryUpdate"];
-export type ItineraryGenerateRequest = components["schemas"]["ItineraryGenerateRequest"];
-export type ItineraryItemReorderRequest = components["schemas"]["ItineraryItemReorderRequest"];
-export type CircuitBreakerWarning = components["schemas"]["CircuitBreakerWarning"];
+export type ItineraryGenerateRequest =
+  components["schemas"]["ItineraryGenerateRequest"];
+export type ItineraryItemReorderRequest =
+  components["schemas"]["ItineraryItemReorderRequest"];
+export type CircuitBreakerWarning =
+  components["schemas"]["CircuitBreakerWarning"];
 export type MissingMealAdvisory = components["schemas"]["MissingMealAdvisory"];
 
 export interface ImportPoiRequest {
@@ -74,7 +79,9 @@ export const itineraryService = {
   /**
    * Synthesizes an itinerary draft using hybrid PostGIS + pgvector RAG.
    */
-  async generateItinerary(payload: ItineraryGenerateRequest): Promise<ItineraryResponse> {
+  async generateItinerary(
+    payload: ItineraryGenerateRequest,
+  ): Promise<ItineraryResponse> {
     return apiFetch<ItineraryResponse>("/api/itineraries/generate", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -84,7 +91,10 @@ export const itineraryService = {
   /**
    * Updates itinerary metadata (title, dates, budget, status).
    */
-  async updateItinerary(id: string, payload: ItineraryUpdate): Promise<ItineraryResponse> {
+  async updateItinerary(
+    id: string,
+    payload: ItineraryUpdate,
+  ): Promise<ItineraryResponse> {
     return apiFetch<ItineraryResponse>(`/api/itineraries/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
@@ -105,7 +115,7 @@ export const itineraryService = {
    */
   async reorderItems(
     id: string,
-    payload: ItineraryItemReorderRequest
+    payload: ItineraryItemReorderRequest,
   ): Promise<ItineraryResponse> {
     return apiFetch<ItineraryResponse>(`/api/itineraries/${id}/items/reorder`, {
       method: "PUT",
@@ -116,7 +126,9 @@ export const itineraryService = {
   /**
    * Imports an AI-recommended or manual itinerary POI into the user's permanent POI collection.
    */
-  async importPoiToSaved(poi: ImportPoiRequest): Promise<{ id: string; name: string }> {
+  async importPoiToSaved(
+    poi: ImportPoiRequest,
+  ): Promise<{ id: string; name: string }> {
     return apiFetch<{ id: string; name: string }>("/api/pois", {
       method: "POST",
       body: JSON.stringify({

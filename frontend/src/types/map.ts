@@ -30,7 +30,9 @@ export interface BoundingBox {
 }
 
 export type VisitState =
-  "not_visited" | "visited_do_not_return" | "visited_return";
+  | "not_visited"
+  | "visited_do_not_return"
+  | "visited_return";
 
 export type MapLayerId =
   | "osm"
@@ -61,9 +63,21 @@ export interface POIMapFeature {
   render_lat: number; // Projected for rendering if shifted layer is active
   render_lng: number; // Projected for rendering if shifted layer is active
   visit_state: VisitState;
-  rating: number | null;
   tags: string[];
   address?: string;
   city?: string;
+  state?: string;
   country?: string;
+  addresses?: any[];
+  image_urls?: string[];
+  pin_color?: string;
+  rating?: number | null;
+  parent_poi_id?: string | null;
+  already_visited?: boolean;
+  visit_pending?: boolean;
+  want_to_visit_again?: boolean | null;
+  visited_dates?: string[];
+  description?: string;
+  official_url?: string;
+  wiki_url?: string;
 }

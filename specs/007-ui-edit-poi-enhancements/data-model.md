@@ -33,16 +33,16 @@ ALTER TABLE pois
     ADD COLUMN IF NOT EXISTS visit_pending BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- GIN Index for rapid JSONB address path lookups
-CREATE INDEX IF NOT EXISTS idx_pois_addresses_path 
+CREATE INDEX IF NOT EXISTS idx_pois_addresses_path
     ON pois USING gin (addresses jsonb_path_ops);
 
 -- B-Tree Index for hierarchical parent lookups under tenant isolation
-CREATE INDEX IF NOT EXISTS idx_pois_user_parent 
+CREATE INDEX IF NOT EXISTS idx_pois_user_parent
     ON pois (user_id, parent_poi_id);
 
 -- Check constraint preventing self-referencing parent
-ALTER TABLE pois 
-    ADD CONSTRAINT chk_pois_parent_not_self 
+ALTER TABLE pois
+    ADD CONSTRAINT chk_pois_parent_not_self
     CHECK (parent_poi_id IS NULL OR parent_poi_id != id);
 
 -- Data Backfill: Migrate legacy states and countries arrays into addresses JSONB
@@ -64,7 +64,7 @@ SET addresses = (
     FULL OUTER JOIN jsonb_array_elements_text(COALESCE(pois.countries, '[]'::jsonb)) WITH ORDINALITY AS c(elem, ord)
         ON s.ord = c.ord
 )
-WHERE jsonb_array_length(addresses) = 0 
+WHERE jsonb_array_length(addresses) = 0
   AND (jsonb_array_length(COALESCE(states, '[]'::jsonb)) > 0 OR jsonb_array_length(COALESCE(countries, '[]'::jsonb)) > 0);
 ```
 
@@ -180,7 +180,7 @@ class POI(StrictBaseModel):
         """Compute deterministic visit flags based on visited dates and return intent."""
         # Sort visited dates chronologically
         self.visited_dates.sort()
-        
+
         has_visited = len(self.visited_dates) > 0
         self.already_visited = has_visited
 
@@ -188,7 +188,7 @@ class POI(StrictBaseModel):
             self.visit_pending = True
         else:
             self.visit_pending = bool(self.want_to_visit_again)
-            
+
         return self
 ```
 

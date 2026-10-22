@@ -55,7 +55,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
         isLocal
           ? "Local dev mode: No email sent. Enter 123456 to verify."
           : "Confirmation code sent to your email!",
-        "info"
+        "info",
       );
       setStep("CONFIRM");
     } catch (err: unknown) {
@@ -128,8 +128,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             {step === "REGISTER"
               ? "Start capturing scenic overlooks, trails, and travel dreams"
               : isLocalEnv
-              ? "Local dev mode active — enter verification code below"
-              : `Enter the 6-digit confirmation code sent to ${email}`}
+                ? "Local dev mode active — enter verification code below"
+                : `Enter the 6-digit confirmation code sent to ${email}`}
           </p>
         </div>
 
@@ -158,6 +158,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 <input
                   type="text"
                   required
+                  autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Jane Traveler"
@@ -194,6 +195,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 <input
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="traveler@example.com"
@@ -231,6 +233,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                   type="password"
                   required
                   minLength={8}
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
@@ -355,6 +358,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 <input
                   type="text"
                   required
+                  autoComplete="one-time-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="123456"

@@ -43,12 +43,13 @@ export const ItineraryBoard: React.FC<ItineraryBoardProps> = ({
 }) => {
   const notifyUpdated = onItineraryUpdated || onUpdateItinerary || (() => {});
 
-  const [activeWarning, setActiveWarning] = useState<CircuitBreakerWarning | null>(
-    () =>
-      itinerary.circuit_breaker_warnings && itinerary.circuit_breaker_warnings.length > 0
+  const [activeWarning, setActiveWarning] =
+    useState<CircuitBreakerWarning | null>(() =>
+      itinerary.circuit_breaker_warnings &&
+      itinerary.circuit_breaker_warnings.length > 0
         ? itinerary.circuit_breaker_warnings[0]
-        : null
-  );
+        : null,
+    );
 
   const days = itinerary.days || [];
   const advisories = itinerary.advisories || [];
@@ -134,7 +135,7 @@ export const ItineraryBoard: React.FC<ItineraryBoardProps> = ({
 
       const serverUpdated = await itineraryService.reorderItems(
         itinerary.id,
-        reorderPayload
+        reorderPayload,
       );
       notifyUpdated(serverUpdated);
     } catch {
@@ -179,9 +180,9 @@ export const ItineraryBoard: React.FC<ItineraryBoardProps> = ({
           <AlertTriangle size={18} color="var(--warning, #f59e0b)" />
           <span>
             <strong>Over-planning Alert:</strong> Day{" "}
-            {overplannedDays.map((d) => d.day_number).join(", ")} exceeds 10 hours
-            of active daily exploration. Consider redistributing activities across days
-            to prevent travel fatigue.
+            {overplannedDays.map((d) => d.day_number).join(", ")} exceeds 10
+            hours of active daily exploration. Consider redistributing
+            activities across days to prevent travel fatigue.
           </span>
         </div>
       ) : null}
@@ -211,7 +212,9 @@ export const ItineraryBoard: React.FC<ItineraryBoardProps> = ({
       </DragDropContext>
 
       {/* Day Shortage Modal */}
-      {activeWarning && activeWarning.threshold_hours && parseFloat(activeWarning.threshold_hours) > 0 ? (
+      {activeWarning &&
+      activeWarning.threshold_hours &&
+      parseFloat(activeWarning.threshold_hours) > 0 ? (
         <DayShortageModal
           warning={activeWarning}
           isOpen={Boolean(activeWarning)}

@@ -142,9 +142,24 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
           borderBottom: "2px solid #0f172a",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "8px",
+          }}
+        >
           <span style={{ fontSize: "20px" }}>🧭</span>
-          <span style={{ fontSize: "14px", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: "#64748b" }}>
+          <span
+            style={{
+              fontSize: "14px",
+              fontWeight: 800,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: "#64748b",
+            }}
+          >
             Vistarae Travel Itinerary
           </span>
         </div>
@@ -180,7 +195,8 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <Calendar size={15} color="#2563eb" />
             <span>
-              {itinerary.start_date} &ndash; {itinerary.end_date} ({days.length} {days.length === 1 ? "day" : "days"})
+              {itinerary.start_date} &ndash; {itinerary.end_date} ({days.length}{" "}
+              {days.length === 1 ? "day" : "days"})
             </span>
           </div>
 
@@ -188,7 +204,8 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <DollarSign size={15} color="#2563eb" />
               <span>
-                Budget: {formatCost(itinerary.budget_cents)} | Est: {formatCost(itinerary.total_estimated_cost_cents)}
+                Budget: {formatCost(itinerary.budget_cents)} | Est:{" "}
+                {formatCost(itinerary.total_estimated_cost_cents)}
               </span>
             </div>
           ) : null}
@@ -198,10 +215,12 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
       {/* Daily Breakdown */}
       <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
         {days.map((day) => {
-          const items = (day.items ?? []).sort((a, b) => a.order_index - b.order_index);
+          const items = (day.items ?? []).sort(
+            (a, b) => a.order_index - b.order_index,
+          );
           const durationHours = items.reduce(
             (sum, item) => sum + (parseFloat(item.duration_hours || "0") || 0),
-            0
+            0,
           );
 
           return (
@@ -228,18 +247,45 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
                 }}
               >
                 <div>
-                  <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a" }}>
+                  <h2
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                    }}
+                  >
                     Day {day.day_number}
                     {day.calendar_date ? (
-                      <span style={{ fontSize: "14px", fontWeight: 500, color: "#64748b", marginLeft: "8px" }}>
+                      <span
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: 500,
+                          color: "#64748b",
+                          marginLeft: "8px",
+                        }}
+                      >
                         ({day.calendar_date})
                       </span>
                     ) : null}
                   </h2>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "12px", color: "#475569" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    fontSize: "12px",
+                    color: "#475569",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
                     <Clock size={14} color="#64748b" />
                     <span>{formatDuration(durationHours)} exploration</span>
                   </div>
@@ -251,11 +297,24 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
 
               {/* Items List */}
               {items.length === 0 ? (
-                <div style={{ fontSize: "13px", color: "#94a3b8", fontStyle: "italic", padding: "8px 0" }}>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    color: "#94a3b8",
+                    fontStyle: "italic",
+                    padding: "8px 0",
+                  }}
+                >
                   No activities scheduled for this day.
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                  }}
+                >
                   {items.map((item, idx) => (
                     <div
                       key={item.id}
@@ -286,7 +345,9 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
                           <span>
                             {item.travel_time_prev_minutes} min transit
                             {item.travel_distance_prev_meters
-                              ? ` (${(item.travel_distance_prev_meters / 1000).toFixed(1)} km)`
+                              ? ` (${(
+                                  item.travel_distance_prev_meters / 1000
+                                ).toFixed(1)} km)`
                               : ""}
                           </span>
                         </div>
@@ -301,7 +362,13 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
                         }}
                       >
                         <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
                             <span
                               style={{
                                 display: "inline-flex",
@@ -318,13 +385,26 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
                             >
                               {idx + 1}
                             </span>
-                            <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a" }}>
+                            <h3
+                              style={{
+                                fontSize: "15px",
+                                fontWeight: 700,
+                                color: "#0f172a",
+                              }}
+                            >
                               {item.title}
                             </h3>
                           </div>
 
                           {item.notes ? (
-                            <p style={{ fontSize: "12px", color: "#475569", marginTop: "4px", marginLeft: "28px" }}>
+                            <p
+                              style={{
+                                fontSize: "12px",
+                                color: "#475569",
+                                marginTop: "4px",
+                                marginLeft: "28px",
+                              }}
+                            >
                               {item.notes}
                             </p>
                           ) : null}
@@ -347,13 +427,28 @@ export const PrintExportView: React.FC<PrintExportViewProps> = ({
                           ) : null}
                         </div>
 
-                        <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <div
+                          style={{ textAlign: "right", whiteSpace: "nowrap" }}
+                        >
                           {item.start_time && item.end_time ? (
-                            <div style={{ fontSize: "12px", fontWeight: 600, color: "#0f172a" }}>
-                              {item.start_time.slice(0, 5)} &ndash; {item.end_time.slice(0, 5)}
+                            <div
+                              style={{
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                color: "#0f172a",
+                              }}
+                            >
+                              {item.start_time.slice(0, 5)} &ndash;{" "}
+                              {item.end_time.slice(0, 5)}
                             </div>
                           ) : null}
-                          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "#64748b",
+                              marginTop: "2px",
+                            }}
+                          >
                             {formatCost(item.cost_cents)}
                           </div>
                         </div>

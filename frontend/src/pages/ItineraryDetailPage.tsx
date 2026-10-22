@@ -57,7 +57,9 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
   const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"board" | "map" | "export">("board");
+  const [activeTab, setActiveTab] = useState<"board" | "map" | "export">(
+    "board",
+  );
 
   const loadItinerary = useCallback(async () => {
     try {
@@ -67,7 +69,8 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
       setItinerary(data);
     } catch (err: unknown) {
       console.error("Failed to load itinerary:", err);
-      const msg = err instanceof Error ? err.message : "Failed to load itinerary.";
+      const msg =
+        err instanceof Error ? err.message : "Failed to load itinerary.";
       setError(msg);
       showToast(msg, "error");
     } finally {
@@ -136,12 +139,23 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
           border: "1px solid var(--border-color, #e2e8f0)",
         }}
       >
-        <AlertCircle size={36} color="var(--danger, #ef4444)" style={{ margin: "0 auto 16px" }} />
+        <AlertCircle
+          size={36}
+          color="var(--danger, #ef4444)"
+          style={{ margin: "0 auto 16px" }}
+        />
         <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>
           Itinerary Not Found
         </h2>
-        <p style={{ color: "var(--text-secondary, #475569)", fontSize: "14px", marginBottom: "24px" }}>
-          {error || "The requested itinerary could not be located or you lack access permissions."}
+        <p
+          style={{
+            color: "var(--text-secondary, #475569)",
+            fontSize: "14px",
+            marginBottom: "24px",
+          }}
+        >
+          {error ||
+            "The requested itinerary could not be located or you lack access permissions."}
         </p>
         <button
           type="button"
@@ -228,19 +242,35 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
             >
               {itinerary.title}
             </h1>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "12px", color: "var(--text-secondary, #475569)", marginTop: "2px" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                fontSize: "12px",
+                color: "var(--text-secondary, #475569)",
+                marginTop: "2px",
+              }}
+            >
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
                 <MapPin size={12} color="var(--accent, #2563eb)" />
                 {itinerary.destination}
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
                 <Calendar size={12} color="var(--accent, #2563eb)" />
                 {itinerary.start_date} &ndash; {itinerary.end_date}
               </span>
               {itinerary.budget_cents ? (
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
                   <DollarSign size={12} color="var(--accent, #2563eb)" />
-                  Budget: {formatCost(itinerary.budget_cents)} (Est: {formatCost(itinerary.total_estimated_cost_cents)})
+                  Budget: {formatCost(itinerary.budget_cents)} (Est:{" "}
+                  {formatCost(itinerary.total_estimated_cost_cents)})
                 </span>
               ) : null}
             </div>
@@ -272,9 +302,16 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
                 fontSize: "12px",
                 fontWeight: 600,
                 cursor: "pointer",
-                background: activeTab === "board" ? "var(--bg-surface, #ffffff)" : "transparent",
-                color: activeTab === "board" ? "var(--accent, #2563eb)" : "var(--text-secondary, #475569)",
-                boxShadow: activeTab === "board" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                background:
+                  activeTab === "board"
+                    ? "var(--bg-surface, #ffffff)"
+                    : "transparent",
+                color:
+                  activeTab === "board"
+                    ? "var(--accent, #2563eb)"
+                    : "var(--text-secondary, #475569)",
+                boxShadow:
+                  activeTab === "board" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
               }}
             >
               <Columns size={14} />
@@ -294,9 +331,16 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
                 fontSize: "12px",
                 fontWeight: 600,
                 cursor: "pointer",
-                background: activeTab === "map" ? "var(--bg-surface, #ffffff)" : "transparent",
-                color: activeTab === "map" ? "var(--accent, #2563eb)" : "var(--text-secondary, #475569)",
-                boxShadow: activeTab === "map" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                background:
+                  activeTab === "map"
+                    ? "var(--bg-surface, #ffffff)"
+                    : "transparent",
+                color:
+                  activeTab === "map"
+                    ? "var(--accent, #2563eb)"
+                    : "var(--text-secondary, #475569)",
+                boxShadow:
+                  activeTab === "map" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
               }}
             >
               <MapIcon size={14} />
@@ -329,7 +373,14 @@ export const ItineraryDetailPage: React.FC<ItineraryDetailPageProps> = ({
       </div>
 
       {/* Main Tab Content */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {activeTab === "board" && (
           <ItineraryBoard
             itinerary={itinerary}

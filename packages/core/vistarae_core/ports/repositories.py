@@ -28,6 +28,7 @@ from uuid import UUID
 
 from vistarae_core.domain.entities import (
     POI,
+    FilterRuleEntity,
     GeocodingCacheEntry,
     IdempotencyRecord,
     IngestJob,
@@ -359,6 +360,26 @@ class IPOIRepository(Protocol):
         """
         ...
 
+    async def bulk_edit(
+        self,
+        user_id: UUID,
+        poi_ids: list[UUID],
+        action: str,
+        payload: dict[str, Any],
+    ) -> int:
+        """Applies batch mutations across selected POIs atomically in a single transaction.
+
+        Args:
+            user_id: Tenant UUID.
+            poi_ids: List of target POI UUIDs (max 500).
+            action: Action identifier (set_rating, add_visit_date, update_address, etc.).
+            payload: Parameters for the bulk action.
+
+        Returns:
+            Number of modified POI records.
+        """
+        ...
+
     async def list_pois(
         self,
         user_id: UUID,
@@ -501,6 +522,24 @@ class IPOIRepository(Protocol):
 
         Returns:
             Count of removed associations.
+        """
+        ...
+
+    async def query_pois_by_predicate(
+        self,
+        predicate: Any,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[POI], int]:
+        """Queries POIs matching an arbitrary compiled AST predicate with pagination.
+
+        Args:
+            predicate: Compiled SQLAlchemy boolean expression.
+            limit: Maximum records to return.
+            offset: Record offset.
+
+        Returns:
+            Tuple of (list of POIs, total count).
         """
         ...
 
@@ -838,5 +877,78 @@ class IIngestJobRepository(Protocol):
 
         Returns:
             Updated IngestJob entity or None.
+        """
+        ...
+
+
+class IFilterRuleRepository(Protocol):
+    """Persistence contract for user-persisted search filter rules."""
+
+    async def list_by_user(self, user_id: UUID) -> list[FilterRuleEntity]:
+        """Lists all filter rules owned by tenant.
+
+        Args:
+            user_id: Tenant UUID.
+
+        Returns:
+            List of FilterRuleEntity instances.
+        """
+        ...
+
+    async def get_by_id(self, rule_id: UUID, user_id: UUID) -> FilterRuleEntity | None:
+        """Retrieves a single filter rule by ID scoped to tenant.
+
+        Args:
+            rule_id: Rule UUID.
+            user_id: Tenant UUID.
+
+        Returns:
+            FilterRuleEntity or None if not found.
+        """
+        ...
+
+    async def get_by_name(self, name: str, user_id: UUID) -> FilterRuleEntity | None:
+        """Retrieves a filter rule by name scoped to tenant.
+
+        Args:
+            name: Rule name string.
+            user_id: Tenant UUID.
+
+        Returns:
+            FilterRuleEntity or None if not found.
+        """
+        ...
+
+    async def create(self, rule: FilterRuleEntity) -> FilterRuleEntity:
+        """Inserts a new filter rule record.
+
+        Args:
+            rule: FilterRuleEntity to persist.
+
+        Returns:
+            Persisted FilterRuleEntity with timestamps.
+        """
+        ...
+
+    async def update(self, rule: FilterRuleEntity) -> FilterRuleEntity:
+        """Updates/overwrites an existing filter rule record.
+
+        Args:
+            rule: FilterRuleEntity with updated properties.
+
+        Returns:
+            Updated FilterRuleEntity.
+        """
+        ...
+
+    async def delete(self, rule_id: UUID, user_id: UUID) -> bool:
+        """Deletes a filter rule record scoped to tenant.
+
+        Args:
+            rule_id: Rule UUID.
+            user_id: Tenant UUID.
+
+        Returns:
+            True if deleted, False if not found.
         """
         ...

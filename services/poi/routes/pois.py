@@ -50,6 +50,7 @@ from vistarae_core.ports.repositories import IPOIRepository, ITagRepository
 from vistarae_core.schemas.poi import (
     POICreateRequest,
     POIListResponse,
+    POIQueryRequest,
     POIResponse,
     POIUpdateRequest,
     TagResponse,
@@ -68,6 +69,7 @@ from services.poi.dependencies import (
     get_poi_repo,
     get_tag_repo,
 )
+from services.poi.services.filter_evaluator import FilterQueryTranslator
 
 router = APIRouter(tags=["pois"])
 
@@ -451,3 +453,36 @@ async def delete_poi(
     deleted = await poi_repo.delete(poi_id, current_user.id)
     if not deleted:
         raise POINotFoundError(str(poi_id))
+
+
+@router.post("/pois/query", response_model=POIListResponse)
+async def query_pois(
+    request: POIQueryRequest,
+    current_user: User = Depends(get_current_user),
+    poi_repo: IPOIRepository = Depends(get_poi_repo),
+    tag_repo: ITagRepository = Depends(get_tag_repo),
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> POIListResponse:
+    """Evaluates a structured query tree AST against tenant POIs with optional bounding box."""
+    predicate = FilterQueryTranslator.compile(
+        query_tree=request.query_tree,
+        user_id=current_user.id,
+        bbox=request.bbox,
+    )
+    pois, total = await poi_repo.query_pois_by_predicate(
+        predicate=predicate,
+        limit=limit,
+        offset=offset,
+    )
+    items: list[POIResponse] = []
+    for p in pois:
+        tags = await tag_repo.get_tags_for_poi(p.id)
+        items.append(_poi_to_response(p, tags))
+
+    return POIListResponse(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
