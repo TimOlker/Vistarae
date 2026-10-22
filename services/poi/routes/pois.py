@@ -54,6 +54,7 @@ from vistarae_core.schemas.poi import (
     POIUpdateRequest,
     TagResponse,
 )
+from vistarae_core.services.address_normalizer import AddressNormalizer
 from vistarae_core.services.embedding_sanitizer import (
     build_composite_text,
     compute_embedding_md5,
@@ -77,8 +78,10 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         id=poi.id,
         user_id=poi.user_id,
         parent_poi_id=poi.parent_poi_id,
+        parent_poi_name=getattr(poi, "parent_poi_name", None),
         name=poi.name,
         description=poi.description,
+        addresses=poi.addresses or [],
         address=poi.address,
         city=poi.city,
         states=poi.states,
@@ -90,6 +93,11 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         creation_metadata=poi.creation_metadata,
         visit_state=poi.visit_state,
         visited_dates=poi.visited_dates,
+        want_to_visit_again=poi.want_to_visit_again,
+        already_visited=poi.already_visited,
+        visit_pending=poi.visit_pending,
+        source_type=poi.source_type,
+        source_value=poi.source_value,
         rating=poi.rating,
         estimated_cost=poi.estimated_cost,
         pricing_unit=poi.pricing_unit,
@@ -314,8 +322,12 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:
         "official_url",
         "wiki_url",
         "image_urls",
+        "directory_paths",
         "visit_state",
         "visited_dates",
+        "want_to_visit_again",
+        "source_type",
+        "source_value",
         "rating",
         "estimated_cost",
         "pricing_unit",
@@ -326,6 +338,27 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:
         val = getattr(req, field, None)
         if val is not None:
             setattr(poi, field, val)
+
+    # Coordinate update
+    if req.latitude is not None and req.longitude is not None:
+        poi.geom = WGS84Point(lat=req.latitude, lon=req.longitude)
+    elif req.latitude is not None:
+        poi.geom = WGS84Point(lat=req.latitude, lon=poi.geom.lon)
+    elif req.longitude is not None:
+        poi.geom = WGS84Point(lat=poi.geom.lat, lon=req.longitude)
+
+    # Address normalization if addresses provided
+    if req.addresses is not None:
+        normalized = AddressNormalizer.normalize_addresses(req.addresses)
+        poi.addresses = normalized
+        if req.states is None:
+            extracted_states = [a.state_province for a in normalized if a.state_province]
+            if extracted_states:
+                poi.states = list(dict.fromkeys(extracted_states))
+        if req.countries is None:
+            extracted_countries = [a.country for a in normalized if a.country]
+            if extracted_countries:
+                poi.countries = list(dict.fromkeys(extracted_countries))
 
 
 @router.patch("/pois/{poi_id}", response_model=POIResponse)
@@ -343,21 +376,50 @@ async def update_poi(
     if poi is None:
         raise POINotFoundError(str(poi_id))
 
-    # Cycle detection on parent change
-    if req.parent_poi_id is not None:
-        if req.parent_poi_id == poi_id:
-            raise CyclicHierarchyError(
-                poi_id=str(poi_id), proposed_parent_id=str(req.parent_poi_id)
+    # Cycle detection and validation on parent change
+    if "parent_poi_id" in req.model_fields_set:
+        if req.parent_poi_id is not None:
+            if req.parent_poi_id == poi_id:
+                raise CyclicHierarchyError(
+                    poi_id=str(poi_id), proposed_parent_id=str(req.parent_poi_id)
+                )
+            parent = await poi_repo.get_by_id(req.parent_poi_id, current_user.id)
+            if parent is None:
+                raise POINotFoundError(f"Parent POI {req.parent_poi_id} not found")
+            hierarchy_service = HierarchyService(session)
+            await hierarchy_service.validate_no_cycle(
+                user_id=current_user.id,
+                poi_id=poi_id,
+                proposed_parent_id=req.parent_poi_id,
             )
-        hierarchy_service = HierarchyService(session)
-        await hierarchy_service.assert_no_cycle(poi_id, req.parent_poi_id)
-        poi.parent_poi_id = req.parent_poi_id
+            poi.parent_poi_id = req.parent_poi_id
+        else:
+            poi.parent_poi_id = None
 
-    # Update simple scalar fields if provided
+    # Update simple scalar fields, coordinates, and addresses
     _apply_poi_updates(poi, req)
 
-    # Re-compute embedding if text changed
+    # Tags reconciliation if tags provided
     current_tags = await tag_repo.get_tags_for_poi(poi_id)
+    if req.tags is not None:
+        unique_names = sorted(list({name.strip().lower() for name in req.tags if name.strip()}))
+        if len(unique_names) > 30:
+            raise TagLimitExceededError(len(unique_names), 30)
+
+        resolved_tags: list[TagEntity] = []
+        for name in unique_names:
+            tag = await tag_repo.get_or_create(current_user.id, name)
+            resolved_tags.append(tag)
+
+        if current_tags:
+            await poi_repo.bulk_detach_tags(current_user.id, [poi_id], [t.id for t in current_tags])
+        if resolved_tags:
+            await poi_repo.bulk_attach_tags(
+                current_user.id, [poi_id], [t.id for t in resolved_tags]
+            )
+        current_tags = resolved_tags
+
+    # Re-compute embedding if text changed
     sorted_tag_names = sorted([t.name for t in current_tags])
     sanitized_text = build_composite_text(
         name=poi.name,

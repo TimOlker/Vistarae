@@ -20,17 +20,6 @@ Enforces Constitution Principle 5: extra='forbid', validate_assignment=True,
 and str_strip_whitespace=True.
 """
 
-from __future__ import annotations
+from vistarae_core.domain.base import StrictBaseModel
 
-from pydantic import BaseModel, ConfigDict
-
-
-class StrictBaseModel(BaseModel):
-    """Immutable boundary model forbidding unmapped fields and stripping whitespace."""
-
-    model_config = ConfigDict(
-        extra="forbid",
-        validate_assignment=True,
-        str_strip_whitespace=True,
-        populate_by_name=True,
-    )
+__all__ = ["StrictBaseModel"]

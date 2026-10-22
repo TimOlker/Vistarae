@@ -91,9 +91,7 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
-    "extractor_scripts",
     "photo_scraper",
-    "backend",
     "specs",
     ".specify",
 ]

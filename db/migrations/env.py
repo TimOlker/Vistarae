@@ -119,6 +119,57 @@ POSTGIS_EXTENSION_TABLES = {
     "zip_state_loc",
 }
 
+UNMAPPED_STANDALONE_TABLES = {
+    "scanned_paths",
+    "poi_access_points",
+    "poi_list_memberships",
+    "user_tags",
+    "geocache",
+}
+
+UNMAPPED_LEGACY_COLUMNS = {
+    "lists": {"is_trip"},
+    "users": {"hashed_password"},
+    "pois": {
+        "visited",
+        "cost_tier",
+        "source_url",
+        "name_aliases",
+        "raw_selected_text",
+        "phone_number",
+        "iptc_province_state",
+        "geofence_radius_ft",
+        "category_tags",
+        "visit_date",
+        "visit_again",
+        "hours_seasonality",
+        "physical_effort",
+        "primary_image_url",
+        "indoor_outdoor",
+        "google_place_id",
+        "location",
+        "iptc_world_region",
+        "visit_dates",
+        "personal_rating",
+        "poi_type",
+        "estimated_duration",
+        "booking_lead_time",
+        "iptc_city",
+        "website_official",
+        "iptc_zip_code",
+        "alternate_image_urls",
+        "iptc_country_code",
+        "best_time_to_visit",
+        "iptc_sublocation",
+    },
+}
+
+UNMAPPED_LEGACY_INDEXES = {
+    "idx_pois_location",
+    "idx_pois_parent_id",
+    "idx_pois_user_id",
+}
+
 
 def include_object(
     object_: object,
@@ -127,9 +178,9 @@ def include_object(
     reflected: bool,
     compare_to: object | None,
 ) -> bool:
-    """Filters out PostGIS/Tiger/Topology extension tables from migration diffs."""
+    """Filters out PostGIS extension tables and prototype objects from migration diffs."""
     if type_ == "table":
-        if name in POSTGIS_EXTENSION_TABLES:
+        if name in POSTGIS_EXTENSION_TABLES or name in UNMAPPED_STANDALONE_TABLES:
             return False
         if name and (
             name.startswith("tiger")
@@ -139,16 +190,28 @@ def include_object(
             or "lookup" in name
         ):
             return False
+    elif type_ == "column" and reflected and compare_to is None:
+        table_name = getattr(getattr(object_, "table", None), "name", None)
+        if table_name in UNMAPPED_LEGACY_COLUMNS and name in UNMAPPED_LEGACY_COLUMNS[table_name]:
+            return False
     elif type_ == "index":
         table_name = getattr(getattr(object_, "table", None), "name", None)
-        if table_name and (
+        if (
             table_name in POSTGIS_EXTENSION_TABLES
-            or table_name.startswith("tiger")
-            or table_name.startswith("topology")
-            or table_name.startswith("pagc")
-            or table_name.endswith("_lookup")
-            or "lookup" in table_name
+            or table_name in UNMAPPED_STANDALONE_TABLES
+            or (
+                table_name
+                and (
+                    table_name.startswith("tiger")
+                    or table_name.startswith("topology")
+                    or table_name.startswith("pagc")
+                    or table_name.endswith("_lookup")
+                    or "lookup" in table_name
+                )
+            )
         ):
+            return False
+        if reflected and compare_to is None and name in UNMAPPED_LEGACY_INDEXES:
             return False
     return True
 

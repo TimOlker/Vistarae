@@ -45,8 +45,12 @@ from vistarae_core.middleware.errors import add_problem_details_handlers
 
 from services.poi.routes import bulk as bulk_routes
 from services.poi.routes import dedup as dedup_routes
+from services.poi.routes import duplicate as duplicate_routes
+from services.poi.routes import geocode as geocode_routes
+from services.poi.routes import hierarchy as hierarchy_routes
 from services.poi.routes import itineraries as itinerary_routes
 from services.poi.routes import lists as list_routes
+from services.poi.routes import merge as merge_routes
 from services.poi.routes import pois as poi_routes
 from services.poi.routes import tags as tag_routes
 
@@ -124,6 +128,10 @@ app.include_router(dedup_routes.router)
 app.include_router(bulk_routes.router)
 app.include_router(list_routes.router)
 app.include_router(tag_routes.router)
+app.include_router(hierarchy_routes.router)
+app.include_router(geocode_routes.router)
+app.include_router(merge_routes.router)
+app.include_router(duplicate_routes.router)
 app.include_router(poi_routes.router)
 app.include_router(itinerary_routes.router)
 
@@ -132,6 +140,10 @@ app.include_router(dedup_routes.router, prefix="/api")
 app.include_router(bulk_routes.router, prefix="/api")
 app.include_router(list_routes.router, prefix="/api")
 app.include_router(tag_routes.router, prefix="/api")
+app.include_router(hierarchy_routes.router, prefix="/api")
+app.include_router(geocode_routes.router, prefix="/api")
+app.include_router(merge_routes.router, prefix="/api")
+app.include_router(duplicate_routes.router, prefix="/api")
 app.include_router(poi_routes.router, prefix="/api")
 app.include_router(itinerary_routes.router, prefix="/api")
 
@@ -156,9 +168,13 @@ __all__ = [
     "app",
     "bulk_routes",
     "dedup_routes",
+    "duplicate_routes",
+    "geocode_routes",
+    "hierarchy_routes",
     "itinerary_routes",
     "lambda_handler",
     "list_routes",
+    "merge_routes",
     "poi_routes",
     "tag_routes",
 ]

@@ -27,14 +27,11 @@ from fastapi import APIRouter, Depends, Query
 from vistarae_core.domain.entities import User
 from vistarae_core.domain.value_objects import (
     DeduplicationPreset,
-    MergeResolutionRule,
     WGS84Point,
 )
 from vistarae_core.ports.repositories import IPOIRepository, ITagRepository
 from vistarae_core.schemas.poi import (
     DedupCheckResponse,
-    POIMergeRequest,
-    POIResponse,
     PotentialDuplicateItem,
 )
 
@@ -82,23 +79,3 @@ async def check_duplicates(
     ]
 
     return DedupCheckResponse(matches=items)
-
-
-@router.post("/pois/merge", response_model=POIResponse)
-async def merge_pois(
-    req: POIMergeRequest,
-    current_user: User = Depends(get_current_user),
-    poi_repo: IPOIRepository = Depends(get_poi_repo),
-    tag_repo: ITagRepository = Depends(get_tag_repo),
-) -> POIResponse:
-    """Atomically merges source POI into target POI and purges source record."""
-    rule = MergeResolutionRule(
-        target_poi_id=req.target_poi_id,
-        source_poi_id=req.source_poi_id,
-        use_source_for=req.use_source_for,
-        merge_tags=req.merge_tags,
-    )
-
-    merged = await poi_repo.merge_pois(user_id=current_user.id, rule=rule)
-    tags = await tag_repo.get_tags_for_poi(merged.id)
-    return _poi_to_response(merged, tags)

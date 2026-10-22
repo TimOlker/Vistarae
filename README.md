@@ -14,55 +14,43 @@ Vistarae extracts structured entities from highlighted text and page metadata us
 vistarae/
 ├── .github/
 │   └── workflows/
-│       ├── test-backend.yml       # Pytest, ruff linting & PostGIS container suite
-│       └── deploy-supabase.yml    # Supabase CLI migrations on push
-├── supabase/                      # Native Supabase CLI workspace
-│   ├── config.toml                # Supabase local config
-│   ├── seed.sql                   # Starter test data (Yosemite & Glacier Point)
-│   └── migrations/                # Versioned SQL migrations (DDL & PostGIS)
-│       ├── 20261001_init_postgis.sql
-│       ├── 20261002_create_pois_and_access_points.sql
-│       ├── 20261003_create_lists_and_geocache.sql
-│       └── 20261004_create_users_and_add_user_id.sql
-├── backend/                       # FastAPI Ingestion Engine
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                # FastAPI entrypoint, CORS, auth & POI routes
-│   │   ├── config.py              # Pydantic Settings (multi-env cascade)
-│   │   ├── db.py                  # SQLAlchemy asyncpg session engine
-│   │   ├── models.py              # SQLAlchemy ORM models (users, pois, lists, cache)
-│   │   ├── middleware/
-│   │   │   └── telemetry.py       # OpenTelemetry W3C trace propagation middleware
-│   │   ├── schemas/
-│   │   │   ├── auth.py            # User registration, login, and JWT schemas
-│   │   │   ├── poi.py             # Pydantic models for POI records & collision
-│   │   │   └── extraction.py      # LLM structured output schemas
-│   │   └── services/
-│   │       ├── auth.py            # Bcrypt hashing, JWT issuance & get_current_user
-│   │       ├── extraction.py      # Gemini Flash-Lite structured JSON client
-│   │       ├── geocoding.py       # Nominatim client with 1 req/s rate limit & cache
-│   │       └── deduplication.py   # PostGIS spatial radius & trigram matching (user scoped)
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── pyproject.toml
+│       ├── ci.yml                 # Monorepo CI: PostGIS, pytest >=90%, alembic check, OpenAPI drift
+│       └── deploy.yml             # Keyless OIDC CD: Neon migrations, S3 sync, CloudFront invalidation
+├── packages/
+│   └── core/                      # Shared domain library (vistarae-core)
+│       ├── vistarae_core/
+│       │   ├── domain/            # Domain entities and value objects
+│       │   ├── ports/             # Repository and adapter interfaces (Protocols)
+│       │   ├── schemas/           # Pydantic v2 strict models & boundaries
+│       │   ├── adapters/          # SQLAlchemy async repositories & PostGIS adapters
+│       │   └── middleware/        # Telemetry, Rate limiting, and Idempotency middleware
+├── services/                      # Independent domain microservices (FastAPI + Mangum)
+│   ├── poi/                       # POI management, spatial clustering & AI Trip Planner
+│   ├── user/                      # Cognito auth, user profiles & preferences
+│   ├── ingest/                    # CSV upload validation, triage & SQS dispatch
+│   ├── admin/                     # Admin metrics, tenant quotas & spend killswitch
+│   ├── worker/                    # SQS Batch Ingest worker for geocoding & deduplication
+│   └── local_gateway.py           # Unified local ASGI development gateway
+├── frontend/                      # Single-Page Application (React 18 + Vite + TypeScript)
+│   ├── src/
+│   │   ├── components/            # UI components (map, ingest, poi, planner)
+│   │   ├── pages/                 # Route pages (PlannerPage, ItineraryDetailPage, MapView)
+│   │   └── services/              # API clients and offline triage storage
 ├── extension/                     # Chrome Extension (Manifest V3)
 │   ├── manifest.json
-│   ├── background/
-│   │   ├── service_worker.js      # W3C trace injection & API dispatcher
-│   │   ├── auth.js                # Cognito silent refresh & token mutex
-│   │   └── telemetry.js           # W3C traceparent & Idempotency-Key
-│   ├── content/
-│   │   ├── content_script.js      # Selection listener & Shadow DOM modal injector
-│   │   ├── overlay.css            # Scoped CSS styles for Shadow DOM form
-│   │   └── parsers/               # Polymorphic site parsers (Maps, Roadtrippers, TripAdvisor)
-│   ├── browser/                   # Full-tab POI Explorer workstation & CSV export
-│   └── icons/                     # Vistarae compass icons (16, 48, 128)
+│   ├── background/                # Service worker, auth refresh mutex & telemetry
+│   ├── content/                   # Shadow DOM modal injector & polymorphic parsers
+│   └── browser/                   # Full-tab POI Explorer workstation & CSV export
 ├── native_host/                   # Chrome Native Messaging Host (Pure Python)
 │   ├── folder_dispatcher.py       # 4-byte framed stdio dispatcher with UNC guards
-│   ├── run_dispatcher.bat         # Windows python -u unbuffered launcher
-│   └── com.vistarae.folder_opener.json # Native messaging host manifest
-├── docker-compose.yml             # Local dev stack (FastAPI + PostGIS + Jaeger)
-├── Makefile                       # Developer orchestration shortcuts
+│   └── com.vistarae.folder_opener.json
+├── db/
+│   └── migrations/                # Alembic async database migrations (0001–0004)
+├── cloudfront/
+│   └── spa-router.js              # CloudFront Function for extensionless SPA routing
+├── template.yaml                  # AWS SAM Serverless Infrastructure (us-east-2)
+├── docker-compose.yml             # Local dev stack (PostGIS + ElasticMQ + Jaeger)
+├── Makefile                       # Developer orchestration shortcuts (uv-powered)
 ├── GEMINI.md                      # Project architectural rules & standards
 └── README.md                      # Architecture overview and operational guide
 ```
@@ -71,14 +59,16 @@ vistarae/
 
 ## ⚡ Tech Stack & Operational Guardrails
 
-- **Frontend**: Chrome Extension (Manifest V3), Vanilla JavaScript, CSS-isolated Shadow DOM.
-- **Backend**: Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy (asyncio) with asyncpg & GeoAlchemy2.
-- **Database & Geospatial Engine**: PostgreSQL 16+ with PostGIS 3.4+ and `pg_trgm` extensions.
+- **Frontend SPA**: React 18, TypeScript 5.4+, Vite, `@hello-pangea/dnd`, MapLibre GL, Lucide React.
+- **Browser Extension**: Chrome Extension (Manifest V3), Vanilla JavaScript, CSS-isolated Shadow DOM.
+- **Backend Microservices**: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.0 Async, asyncpg, GeoAlchemy2, Mangum.
+- **Cloud Infrastructure**: AWS SAM (`template.yaml` in `us-east-2`), S3 SPA with CloudFront OAC, HTTP API Gateway, 6 domain Lambdas (arm64), SQS + DLQ, and automated SpendKillSwitch ($15.00 ceiling).
+- **Database & Geospatial Engine**: PostgreSQL 16+ with PostGIS 3.4+, `btree_gist`, and `vector` (pgvector 768-dim).
   - _Development_: Local Docker container (`postgis/postgis:16-3.4`).
-  - _Production_: Supabase Free Tier (PostGIS enabled, connection via Transaction Pooler port 6543).
-- **LLM Extraction**: Google Gemini Flash-Lite via Google AI Studio (`google-genai` SDK) utilizing strict JSON schema / Pydantic structured output. Reasoning/thinking budget set to `0` for low latency and minimal token usage.
+  - _Production_: Neon Serverless PostgreSQL with PgBouncer connection pooler.
+- **LLM Extraction & Trip Planning**: Google Gemini Flash-Lite and `text-embedding-004` (768-dim embeddings) via `google-genai` SDK with strict JSON schema enforcement and zero-latency thinking budget.
 - **Deterministic Geocoding**: OpenStreetMap Nominatim API (1 req/sec rate limit, custom User-Agent `VistaraeTravelEngine/1.0`, backed by an internal PostGIS `geocache` table with SHA256 hashing).
-- **Distributed Observability**: OpenTelemetry W3C distributed tracing (`traceparent` header propagation), Jaeger tracing, and strict microservice message logging tags.
+- **Distributed Observability**: OpenTelemetry W3C distributed tracing (`traceparent` header propagation), AWS X-Ray Active Tracing (1% sampling rule), and strict microservice message logging tags.
 
 ---
 

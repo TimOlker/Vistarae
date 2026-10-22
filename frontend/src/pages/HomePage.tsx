@@ -21,7 +21,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import type { BoundingBox, MapLayerId, POIMapFeature } from "../types/map";
 import { MapView } from "../components/map/MapView";
 import { POITable } from "../components/poi/POITable";
-import { POIDetailDrawer } from "../components/poi/POIDetailDrawer";
+import { POIEditDrawer } from "../components/poi/POIEditDrawer";
 import { usePreferences } from "../context/PreferencesContext";
 
 // Seed demonstration POIs across mainland China and international destinations
@@ -312,8 +312,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </main>
 
-      {/* Detail Drawer */}
-      <POIDetailDrawer
+      {/* Enhanced Edit Drawer */}
+      <POIEditDrawer
         poi={drawerPoi}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}

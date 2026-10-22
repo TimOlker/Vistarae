@@ -28,6 +28,7 @@ Verifies:
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
@@ -180,6 +181,76 @@ class TestPOIDomainEntities:
         assert poi.recommended_visit_days == 1
         assert isinstance(poi.created_at, datetime)
         assert isinstance(poi.updated_at, datetime)
+
+    def test_poi_visit_lifecycle_computation(self) -> None:
+        """Verifies REQ-EDIT-011 visit lifecycle state computation rules."""
+        pt = WGS84Point(lon=0.0, lat=0.0)
+        # 1. Empty visited_dates, want_to_visit_again=False -> not visited, pending
+        poi1 = POI(
+            id=uuid4(),
+            user_id=uuid4(),
+            name="Test 1",
+            geom=pt,
+            visited_dates=[],
+            want_to_visit_again=False,
+        )
+        assert poi1.already_visited is False
+        assert poi1.visit_pending is True
+
+        # 2. Visited dates present, want_to_visit_again=False -> visited, NOT pending
+        poi2 = POI(
+            id=uuid4(),
+            user_id=uuid4(),
+            name="Test 2",
+            geom=pt,
+            visited_dates=["2025-01-01"],
+            want_to_visit_again=False,
+        )
+        assert poi2.already_visited is True
+        assert poi2.visit_pending is False
+
+        # 3. Visited dates present, want_to_visit_again=True -> visited, AND pending
+        poi3 = POI(
+            id=uuid4(),
+            user_id=uuid4(),
+            name="Test 3",
+            geom=pt,
+            visited_dates=["2025-01-01"],
+            want_to_visit_again=True,
+        )
+        assert poi3.already_visited is True
+        assert poi3.visit_pending is True
+
+    def test_poi_addresses_and_hierarchy(self) -> None:
+        """Verifies addresses and parent POI attributes on POI aggregate."""
+        pt = WGS84Point(lon=10.0, lat=20.0)
+        parent_id = uuid4()
+        from vistarae_core.domain.value_objects import AddressRecord, SourceType
+
+        addr = AddressRecord(city="Paris", country="France")
+        poi = POI(
+            id=uuid4(),
+            user_id=uuid4(),
+            name="Eiffel Tower Summit",
+            geom=pt,
+            parent_poi_id=parent_id,
+            parent_poi_name="Eiffel Tower",
+            addresses=[addr],
+            source_type=SourceType.WEB,
+            source_value="https://example.com/eiffel",
+            official_url="https://toureiffel.paris",
+            wiki_url="https://en.wikipedia.org/wiki/Eiffel_Tower",
+            directory_paths=["/photos/paris/eiffel"],
+            image_urls=["https://images.example.com/eiffel.jpg"],
+            recommended_duration_hours=Decimal("2.50"),
+            recommended_visit_days=1,
+        )
+        assert poi.parent_poi_id == parent_id
+        assert poi.parent_poi_name == "Eiffel Tower"
+        assert len(poi.addresses) == 1
+        assert poi.addresses[0].country == "France"
+        assert poi.source_type == SourceType.WEB
+        assert poi.source_value == "https://example.com/eiffel"
 
     def test_list_and_tag_entities(self) -> None:
         """Asserts list and tag entity creation."""
