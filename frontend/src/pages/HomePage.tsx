@@ -35,6 +35,7 @@ import {
 import { usePreferences } from "../context/PreferencesContext";
 import * as filterRuleService from "../services/filterRuleService";
 import * as bulkService from "../services/bulkService";
+import { apiFetch } from "../services/api";
 import { evaluateQueryTree } from "../utils/filterEvaluator";
 import { computePoiPinColor } from "../utils/pinColor";
 
@@ -226,6 +227,63 @@ export const HomePage: React.FC<HomePageProps> = ({
       isMounted = false;
     };
   }, []);
+
+  // Load POIs from backend if available
+  useEffect(() => {
+    let isMounted = true;
+    apiFetch<{ items: any[]; total: number }>("/api/pois?limit=200")
+      .then((res) => {
+        if (
+          isMounted &&
+          res &&
+          Array.isArray(res.items) &&
+          res.items.length > 0
+        ) {
+          const mapped: POIMapFeature[] = res.items.map((item) => ({
+            id: String(item.id),
+            name: item.name,
+            canonical_lng: item.lon,
+            canonical_lat: item.lat,
+            render_lng: item.lon,
+            render_lat: item.lat,
+            visit_state: (item.visit_state as any) || "not_visited",
+            tags: (item.tags || []).map((t: any) =>
+              typeof t === "string" ? t : t.name,
+            ),
+            rating: item.rating,
+            address: item.address,
+            city: item.city,
+            state: item.state,
+            country: item.country,
+            addresses:
+              item.addresses ||
+              (item.address
+                ? [
+                    {
+                      address: item.address,
+                      city: item.city,
+                      state: item.state,
+                      country: item.country,
+                      is_primary: true,
+                    },
+                  ]
+                : []),
+            image_urls: item.image_urls || [],
+            parent_poi_id: item.parent_poi_id ? String(item.parent_poi_id) : null,
+            already_visited: item.already_visited,
+            visit_pending: item.visit_pending,
+            want_to_visit_again: item.want_to_visit_again,
+          }));
+          setPois(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch POIs from backend, using demo POIs:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [setPois]);
 
   // Handle saved rule actions
   const handleSelectRule = (rule: FilterRule | null) => {

@@ -46,6 +46,7 @@ function createRasterStyle(
 ): maplibregl.StyleSpecification {
   return {
     version: 8,
+    glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
     sources: {
       "raster-tiles": {
         type: "raster",
@@ -259,19 +260,23 @@ export const MapView: React.FC<MapViewProps> = ({
       }
 
       if (!mapInstance.getLayer?.("cluster-count")) {
-        mapInstance.addLayer({
-          id: "cluster-count",
-          type: "symbol",
-          source: "pois",
-          filter: ["has", "point_count"],
-          layout: {
-            "text-field": "{point_count_abbreviated}",
-            "text-size": 12,
-          },
-          paint: {
-            "text-color": "#ffffff",
-          },
-        });
+        try {
+          mapInstance.addLayer({
+            id: "cluster-count",
+            type: "symbol",
+            source: "pois",
+            filter: ["has", "point_count"],
+            layout: {
+              "text-field": "{point_count_abbreviated}",
+              "text-size": 12,
+            },
+            paint: {
+              "text-color": "#ffffff",
+            },
+          });
+        } catch (err) {
+          console.warn("Could not register cluster-count text layer:", err);
+        }
       }
 
       if (!mapInstance.getLayer?.("unclustered-point")) {

@@ -130,20 +130,35 @@ export function getClustersForViewport(
     | Supercluster.PointFeature<POIMapFeature>
   > = [];
 
-  if (bbox.minLng > bbox.maxLng) {
+  if (bbox.minLng <= -180 && bbox.maxLng >= 180) {
+    features = index.getClusters(
+      [
+        -180.0,
+        Math.max(-85.0, bbox.minLat),
+        180.0,
+        Math.min(85.0, bbox.maxLat),
+      ],
+      Math.floor(zoom),
+    );
+  } else if (bbox.minLng > bbox.maxLng) {
     // Split into Western and Eastern hemisphere boxes across 180° meridian
     const west = index.getClusters(
-      [bbox.minLng, bbox.minLat, 180.0, bbox.maxLat],
+      [Math.max(-180.0, bbox.minLng), Math.max(-85.0, bbox.minLat), 180.0, Math.min(85.0, bbox.maxLat)],
       Math.floor(zoom),
     );
     const east = index.getClusters(
-      [-180.0, bbox.minLat, bbox.maxLng, bbox.maxLat],
+      [-180.0, Math.max(-85.0, bbox.minLat), Math.min(180.0, bbox.maxLng), Math.min(85.0, bbox.maxLat)],
       Math.floor(zoom),
     );
     features = [...west, ...east];
   } else {
     features = index.getClusters(
-      [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat],
+      [
+        Math.max(-180.0, bbox.minLng),
+        Math.max(-85.0, bbox.minLat),
+        Math.min(180.0, bbox.maxLng),
+        Math.min(85.0, bbox.maxLat),
+      ],
       Math.floor(zoom),
     );
   }
