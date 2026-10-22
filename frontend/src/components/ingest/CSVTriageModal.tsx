@@ -297,7 +297,9 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
                       </p>
                       <p style={{ color: "var(--text-secondary)" }}>
                         {pair.staged_poi.city ||
-                          `${pair.staged_poi.latitude.toFixed(4)}, ${pair.staged_poi.longitude.toFixed(4)}`}
+                          `${pair.staged_poi.latitude.toFixed(
+                            4,
+                          )}, ${pair.staged_poi.longitude.toFixed(4)}`}
                       </p>
                     </div>
 
@@ -330,7 +332,9 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
                       </p>
                       <p style={{ color: "var(--text-secondary)" }}>
                         {pair.existing_poi.city ||
-                          `${pair.existing_poi.latitude.toFixed(4)}, ${pair.existing_poi.longitude.toFixed(4)}`}
+                          `${pair.existing_poi.latitude.toFixed(
+                            4,
+                          )}, ${pair.existing_poi.longitude.toFixed(4)}`}
                       </p>
                     </div>
                   </div>

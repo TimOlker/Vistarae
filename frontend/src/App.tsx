@@ -283,7 +283,9 @@ const AppContent: React.FC = () => {
         {(currentView === "planner" || currentView === "trips") &&
           (user ? (
             <PlannerPage
-              onNavigateToTrip={(itineraryId) => navigateTo(`trips/${itineraryId}`)}
+              onNavigateToTrip={(itineraryId) =>
+                navigateTo(`trips/${itineraryId}`)
+              }
             />
           ) : (
             <LoginPage

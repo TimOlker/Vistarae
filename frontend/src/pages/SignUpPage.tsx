@@ -55,7 +55,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
         isLocal
           ? "Local dev mode: No email sent. Enter 123456 to verify."
           : "Confirmation code sent to your email!",
-        "info"
+        "info",
       );
       setStep("CONFIRM");
     } catch (err: unknown) {
@@ -128,8 +128,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             {step === "REGISTER"
               ? "Start capturing scenic overlooks, trails, and travel dreams"
               : isLocalEnv
-              ? "Local dev mode active — enter verification code below"
-              : `Enter the 6-digit confirmation code sent to ${email}`}
+                ? "Local dev mode active — enter verification code below"
+                : `Enter the 6-digit confirmation code sent to ${email}`}
           </p>
         </div>
 

@@ -156,7 +156,9 @@ export async function apiFetch<T = unknown>(
       title: isTimeout ? "Request Timeout" : "Network Error",
       status: isTimeout ? 504 : 503,
       detail: isTimeout
-        ? `The backend server did not respond within ${timeoutMs / 1000} seconds. Please verify the backend service is running.`
+        ? `The backend server did not respond within ${
+            timeoutMs / 1000
+          } seconds. Please verify the backend service is running.`
         : (err as Error)?.message ||
           "Failed to communicate with the backend server.",
     };

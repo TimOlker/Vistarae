@@ -109,10 +109,7 @@ const mockItinerary: ItineraryResponse = {
 describe("ItineraryBoard Component (REQ-PLAN-006, REQ-PLAN-007a, REQ-PLAN-012)", () => {
   it("renders day columns and itinerary items cleanly", () => {
     render(
-      <ItineraryBoard
-        itinerary={mockItinerary}
-        onItineraryUpdated={vi.fn()}
-      />
+      <ItineraryBoard itinerary={mockItinerary} onItineraryUpdated={vi.fn()} />,
     );
 
     // Columns
@@ -127,10 +124,7 @@ describe("ItineraryBoard Component (REQ-PLAN-006, REQ-PLAN-007a, REQ-PLAN-012)",
 
   it("renders Missing Meal advisory card during lunch gap", () => {
     render(
-      <ItineraryBoard
-        itinerary={mockItinerary}
-        onItineraryUpdated={vi.fn()}
-      />
+      <ItineraryBoard itinerary={mockItinerary} onItineraryUpdated={vi.fn()} />,
     );
 
     expect(screen.getByText(/Missing LUNCH/i)).toBeInTheDocument();
@@ -166,7 +160,8 @@ describe("ItineraryBoard Component (REQ-PLAN-006, REQ-PLAN-007a, REQ-PLAN-012)",
           day_number: 1,
           total_active_hours: "12.00",
           threshold_hours: "10.00",
-          message: "Day 1 scheduled for 12.0 hours, exceeding the 10.0 hour limit.",
+          message:
+            "Day 1 scheduled for 12.0 hours, exceeding the 10.0 hour limit.",
         },
       ],
     };
@@ -175,7 +170,7 @@ describe("ItineraryBoard Component (REQ-PLAN-006, REQ-PLAN-007a, REQ-PLAN-012)",
       <ItineraryBoard
         itinerary={overplannedItinerary}
         onItineraryUpdated={vi.fn()}
-      />
+      />,
     );
 
     const banner = screen.getByTestId("circuit-breaker-banner");
@@ -203,11 +198,13 @@ describe("ItineraryBoard Component (REQ-PLAN-006, REQ-PLAN-007a, REQ-PLAN-012)",
         itinerary={shortageItinerary}
         onItineraryUpdated={vi.fn()}
         onExtendTrip={onExtendTrip}
-      />
+      />,
     );
 
     expect(screen.getByText(/Insufficient Days/i)).toBeInTheDocument();
-    const extendBtn = screen.getByRole("button", { name: /Extend Trip Duration/i });
+    const extendBtn = screen.getByRole("button", {
+      name: /Extend Trip Duration/i,
+    });
     expect(extendBtn).toBeInTheDocument();
 
     // Click extend trip button

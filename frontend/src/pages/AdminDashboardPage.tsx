@@ -196,7 +196,9 @@ export const AdminDashboardPage: React.FC = () => {
         ),
       );
       showToast(
-        `User ${user.email} status toggled to ${newStatus ? "Active" : "Suspended"} (mock saved).`,
+        `User ${user.email} status toggled to ${
+          newStatus ? "Active" : "Suspended"
+        } (mock saved).`,
         "info",
       );
     }
@@ -635,7 +637,9 @@ export const AdminDashboardPage: React.FC = () => {
                 onClick={() => {
                   setPublicIngestionEnabled(!publicIngestionEnabled);
                   showToast(
-                    `Ingestion pipeline ${!publicIngestionEnabled ? "resumed" : "paused"}.`,
+                    `Ingestion pipeline ${
+                      !publicIngestionEnabled ? "resumed" : "paused"
+                    }.`,
                     "info",
                   );
                 }}
@@ -679,7 +683,9 @@ export const AdminDashboardPage: React.FC = () => {
                 onClick={() => {
                   setLlmFallbackActive(!llmFallbackActive);
                   showToast(
-                    `LLM engine toggled to ${!llmFallbackActive ? "Pro" : "Flash-Lite"}.`,
+                    `LLM engine toggled to ${
+                      !llmFallbackActive ? "Pro" : "Flash-Lite"
+                    }.`,
                     "info",
                   );
                 }}

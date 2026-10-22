@@ -35,6 +35,9 @@ from vistarae_core.adapters.embedding.gemini import GeminiEmbeddingAdapter
 from vistarae_core.adapters.embedding.mock import MockEmbeddingAdapter
 from vistarae_core.adapters.geocoding.mapbox import MapboxGeocodingAdapter
 from vistarae_core.adapters.geocoding.mock import MockGeocodingAdapter
+from vistarae_core.adapters.repositories.filter_rule_repo import (
+    SqlAlchemyFilterRuleRepository,
+)
 from vistarae_core.adapters.repositories.geocache_repo import SqlAlchemyGeocodingCacheRepository
 from vistarae_core.adapters.repositories.itinerary_repo import SqlAlchemyItineraryRepository
 from vistarae_core.adapters.repositories.list_repo import SqlAlchemyListRepository
@@ -44,6 +47,7 @@ from vistarae_core.ports.embedding import IEmbeddingPort
 from vistarae_core.ports.geocoding import IGeocodingPort
 from vistarae_core.ports.itinerary_repo import IItineraryRepository
 from vistarae_core.ports.repositories import (
+    IFilterRuleRepository,
     IGeocodingCacheRepository,
     IListRepository,
     IPOIRepository,
@@ -70,6 +74,13 @@ def get_list_repo(session: AsyncSession = Depends(get_db_session)) -> IListRepos
 def get_tag_repo(session: AsyncSession = Depends(get_db_session)) -> ITagRepository:
     """Dependency that provides an active Taxonomy Tag repository instance."""
     return SqlAlchemyTagRepository(session)
+
+
+def get_filter_rule_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> IFilterRuleRepository:
+    """Dependency that provides an active Filter Rule repository instance."""
+    return SqlAlchemyFilterRuleRepository(session)
 
 
 def get_geocache_repo(
@@ -121,6 +132,7 @@ def get_planner_service(
 __all__ = [
     "get_current_user",
     "get_embedding_port",
+    "get_filter_rule_repo",
     "get_geocache_repo",
     "get_geocoding_port",
     "get_itinerary_repo",

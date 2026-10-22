@@ -226,3 +226,45 @@ class DuplicateTriageStatus(StrEnum):
     PENDING_REVIEW = "PENDING_REVIEW"
     COMMITTED = "COMMITTED"
     REJECTED = "REJECTED"
+
+
+class FilterOperator(StrEnum):
+    """Comparison operators supported by the POI visual filter query builder."""
+
+    EQUALS = "equals"
+    NOT_EQUALS = "not_equals"
+    CONTAINS = "contains"
+    IS_EMPTY = "is_empty"
+    IS_NOT_EMPTY = "is_not_empty"
+    GREATER_THAN = "greater_than"
+    LESS_THAN = "less_than"
+    GREATER_THAN_OR_EQUAL = "greater_than_or_equal"
+    LESS_THAN_OR_EQUAL = "less_than_or_equal"
+    HAS_TAG = "has_tag"
+    LACKS_TAG = "lacks_tag"
+    IN_LIST = "in_list"
+    NOT_IN_LIST = "not_in_list"
+
+
+class FilterConjunction(StrEnum):
+    """Boolean conjunctions for joining query builder clauses."""
+
+    AND = "AND"
+    OR = "OR"
+
+
+class PinColorMode(StrEnum):
+    """Map pin marker coloring schemes."""
+
+    UNIFORM = "uniform"
+    RATING = "rating"
+    VISIT_STATUS = "visit_status"
+    CUSTOM = "custom"
+
+
+class SortDirection(StrEnum):
+    """Table column sorting directions."""
+
+    ASC = "asc"
+    DESC = "desc"
+    UNSORTED = "unsorted"

@@ -25,18 +25,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/POIUpdateRequest'
+              $ref: "#/components/schemas/POIUpdateRequest"
       responses:
-        '200':
+        "200":
           description: POI successfully updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIReadResponse'
-        '404':
-          $ref: '#/components/responses/NotFoundProblem'
-        '422':
-          $ref: '#/components/responses/ValidationProblem'
+                $ref: "#/components/schemas/POIReadResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+        "422":
+          $ref: "#/components/responses/ValidationProblem"
 
   /check-duplicate:
     post:
@@ -47,16 +47,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DuplicateCheckRequest'
+              $ref: "#/components/schemas/DuplicateCheckRequest"
       responses:
-        '200':
+        "200":
           description: Duplicate collision evaluation result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DuplicateCheckResponse'
-        '422':
-          $ref: '#/components/responses/ValidationProblem'
+                $ref: "#/components/schemas/DuplicateCheckResponse"
+        "422":
+          $ref: "#/components/responses/ValidationProblem"
 
   /merge:
     post:
@@ -67,20 +67,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/POIMergeRequest'
+              $ref: "#/components/schemas/POIMergeRequest"
       responses:
-        '200':
+        "200":
           description: POI merge completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/POIMergeResponse'
-        '404':
-          $ref: '#/components/responses/NotFoundProblem'
-        '409':
-          $ref: '#/components/responses/ConflictProblem'
-        '422':
-          $ref: '#/components/responses/ValidationProblem'
+                $ref: "#/components/schemas/POIMergeResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundProblem"
+        "409":
+          $ref: "#/components/responses/ConflictProblem"
+        "422":
+          $ref: "#/components/responses/ValidationProblem"
 
   /parents:
     get:
@@ -107,14 +107,14 @@ paths:
             type: integer
             default: 20
       responses:
-        '200':
+        "200":
           description: List of candidate parent POIs
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ParentPOICandidate'
+                  $ref: "#/components/schemas/ParentPOICandidate"
 
   /geocode/reverse:
     get:
@@ -136,16 +136,16 @@ paths:
             minimum: -180
             maximum: 180
       responses:
-        '200':
+        "200":
           description: Resolved address components
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReverseGeocodeResponse'
-        '429':
-          $ref: '#/components/responses/RateLimitProblem'
-        '502':
-          $ref: '#/components/responses/GatewayProblem'
+                $ref: "#/components/schemas/ReverseGeocodeResponse"
+        "429":
+          $ref: "#/components/responses/RateLimitProblem"
+        "502":
+          $ref: "#/components/responses/GatewayProblem"
 
 components:
   schemas:
@@ -192,7 +192,7 @@ components:
         addresses:
           type: array
           items:
-            $ref: '#/components/schemas/AddressRecord'
+            $ref: "#/components/schemas/AddressRecord"
         latitude:
           type: number
           minimum: -90
@@ -284,7 +284,7 @@ components:
         addresses:
           type: array
           items:
-            $ref: '#/components/schemas/AddressRecord'
+            $ref: "#/components/schemas/AddressRecord"
         latitude:
           type: number
           nullable: true
@@ -384,7 +384,7 @@ components:
         - reparented_child_pois_count
       properties:
         target_poi:
-          $ref: '#/components/schemas/POIReadResponse'
+          $ref: "#/components/schemas/POIReadResponse"
         deleted_source_poi_id:
           type: string
           format: uuid
@@ -434,7 +434,7 @@ components:
             name_similarity:
               type: number
             poi:
-              $ref: '#/components/schemas/POIReadResponse'
+              $ref: "#/components/schemas/POIReadResponse"
 
     ReverseGeocodeResponse:
       type: object
@@ -487,28 +487,28 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ValidationProblem:
       description: Schema validation error or cycle hierarchy violation
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ConflictProblem:
       description: Concurrent modification or state conflict
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     RateLimitProblem:
       description: Nominatim rate limit exceeded
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     GatewayProblem:
       description: Upstream geocoding service error
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"

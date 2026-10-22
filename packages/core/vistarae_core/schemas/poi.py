@@ -23,6 +23,7 @@ Strict validation via StrictBaseModel (extra='forbid', str_strip_whitespace=True
 from __future__ import annotations
 
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID
 
@@ -392,10 +393,66 @@ class BulkListsRequest(StrictBaseModel):
     )
 
 
+class BulkEditAction(StrEnum):
+    """Enumeration of supported bulk POI mutation actions."""
+
+    SET_RATING = "set_rating"
+    ADD_VISIT_DATE = "add_visit_date"
+    SET_VISIT_AGAIN = "set_visit_again"
+    ADD_TAG = "add_tag"
+    REMOVE_TAG = "remove_tag"
+    ADD_TO_LIST = "add_to_list"
+    REMOVE_FROM_LIST = "remove_from_list"
+    UPDATE_ADDRESS = "update_address"
+
+
+class BulkAddressUpdatePayload(StrictBaseModel):
+    """Address fields for bulk location updating."""
+
+    city: str | None = Field(default=None, max_length=100)
+    state_province: str | None = Field(default=None, max_length=100)
+    country: str | None = Field(default=None, max_length=100)
+    clear_fields: list[str] = Field(
+        default_factory=list, description="Fields explicitly cleared to null"
+    )
+
+
+class BulkEditPayload(StrictBaseModel):
+    """Context-specific parameters for bulk POI mutations."""
+
+    rating: int | None = Field(default=None, ge=0, le=5)
+    visit_date: date | None = None
+    want_to_visit_again: bool | None = None
+    tag_name: str | None = Field(default=None, max_length=50)
+    list_id: UUID | None = None
+    address: BulkAddressUpdatePayload | None = None
+
+
+class BulkEditRequest(StrictBaseModel):
+    """Request payload for atomic bulk POI editing."""
+
+    poi_ids: list[UUID] = Field(
+        ..., min_length=1, max_length=500, description="Target POI UUIDs (max 500)"
+    )
+    action: BulkEditAction = Field(..., description="Action to execute")
+    payload: BulkEditPayload = Field(..., description="Action parameters")
+
+
 class BulkDeleteRequest(StrictBaseModel):
     """Request payload for bulk deletion of POIs."""
 
-    poi_ids: list[UUID] = Field(..., min_length=1, description="Target POI UUIDs to delete")
+    poi_ids: list[UUID] = Field(
+        ..., min_length=1, max_length=500, description="Target POI UUIDs to delete (max 500)"
+    )
+
+
+class POIQueryRequest(StrictBaseModel):
+    """Request payload for evaluated query builder AST search."""
+
+    query_tree: dict[str, Any] = Field(..., description="Structured query tree AST")
+    bbox: str | None = Field(
+        default=None, description="Comma-separated minLng,minLat,maxLng,maxLat"
+    )
 
 
 class BulkOperationResponse(StrictBaseModel):

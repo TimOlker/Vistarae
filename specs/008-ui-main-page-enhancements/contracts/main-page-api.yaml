@@ -1,0 +1,534 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Main Page Enhancements API (Phase 8)
+  description: >-
+    Authoritative API contract for Phase 8 UI main page enhancements, covering
+    visual query filter rules persistence, tenant-isolated rule CRUD, atomic
+    bulk operations (max 500 ceiling), and hybrid query evaluation.
+  version: 1.0.0
+servers:
+  - url: /api
+    description: Local Gateway / CloudFront API Gateway Router
+paths:
+  /pois/filter-rules:
+    get:
+      summary: List Filter Rules
+      description: Retrieves all saved filter rules owned by the authenticated traveler.
+      operationId: list_filter_rules
+      responses:
+        "200":
+          description: Successful retrieval of tenant filter rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterRuleListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+    post:
+      summary: Create Filter Rule
+      description: Persists a new named filter rule containing query tree AST, table config, and pin color scheme.
+      operationId: create_filter_rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilterRuleCreateRequest"
+      responses:
+        "201":
+          description: Filter rule successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterRuleResponse"
+        "409":
+          description: Rule with same name already exists for tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /pois/filter-rules/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get Filter Rule
+      description: Retrieves a single saved filter rule by ID.
+      operationId: get_filter_rule
+      responses:
+        "200":
+          description: Filter rule details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterRuleResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    put:
+      summary: Update Filter Rule (Overwrite)
+      description: Updates/overwrites an existing filter rule.
+      operationId: update_filter_rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilterRuleUpdateRequest"
+      responses:
+        "200":
+          description: Filter rule successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilterRuleResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      summary: Delete Filter Rule
+      description: Deletes an existing filter rule under tenant verification.
+      operationId: delete_filter_rule
+      responses:
+        "204":
+          description: Filter rule successfully deleted.
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /pois/bulk-edit:
+    post:
+      summary: Atomic Bulk POI Edit
+      description: >-
+        Executes an atomic batch mutation (rating, visit date, visit again, tags, lists,
+        or normalized primary address fields) across up to 500 selected POIs owned by
+        the authenticated traveler in a single database transaction.
+      operationId: bulk_edit_pois
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkEditRequest"
+      responses:
+        "200":
+          description: Bulk edit operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOperationResponse"
+        "422":
+          description: Validation error or batch ceiling exceeded (>500 POIs).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /pois/bulk-delete:
+    post:
+      summary: Atomic Bulk POI Deletion
+      description: Atomically deletes up to 500 selected POIs in a single transaction.
+      operationId: bulk_delete_pois
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkDeleteRequest"
+      responses:
+        "200":
+          description: Bulk deletion completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkDeleteResponse"
+        "422":
+          description: Validation error or batch ceiling exceeded (>500 POIs).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+  /pois/query:
+    post:
+      summary: Evaluated POI Query
+      description: Evaluates a structured query tree AST against tenant POIs with optional spatial bounding box.
+      operationId: query_pois
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/POIQueryRequest"
+      responses:
+        "200":
+          description: Matching POIs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POIListResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+components:
+  schemas:
+    FilterRuleCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - query_tree
+        - table_config
+        - pin_color_scheme
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        query_tree:
+          $ref: "#/components/schemas/QueryTreeSchema"
+        table_config:
+          $ref: "#/components/schemas/TableConfigSchema"
+        pin_color_scheme:
+          $ref: "#/components/schemas/PinColorSchemeSchema"
+
+    FilterRuleUpdateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - query_tree
+        - table_config
+        - pin_color_scheme
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        query_tree:
+          $ref: "#/components/schemas/QueryTreeSchema"
+        table_config:
+          $ref: "#/components/schemas/TableConfigSchema"
+        pin_color_scheme:
+          $ref: "#/components/schemas/PinColorSchemeSchema"
+
+    FilterRuleResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user_id
+        - name
+        - query_tree
+        - table_config
+        - pin_color_scheme
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        query_tree:
+          $ref: "#/components/schemas/QueryTreeSchema"
+        table_config:
+          $ref: "#/components/schemas/TableConfigSchema"
+        pin_color_scheme:
+          $ref: "#/components/schemas/PinColorSchemeSchema"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FilterRuleListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FilterRuleResponse"
+        total:
+          type: integer
+          minimum: 0
+
+    QueryTreeSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - conjunction
+        - rules
+      properties:
+        conjunction:
+          type: string
+          enum: [AND, OR]
+        rules:
+          type: array
+          items:
+            anyOf:
+              - $ref: "#/components/schemas/RuleClauseSchema"
+              - $ref: "#/components/schemas/QueryTreeSchema"
+
+    RuleClauseSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - field
+        - operator
+      properties:
+        field:
+          type: string
+        operator:
+          type: string
+          enum:
+            - equals
+            - not_equals
+            - contains
+            - is_empty
+            - is_not_empty
+            - greater_than
+            - less_than
+            - greater_than_or_equal
+            - less_than_or_equal
+            - has_tag
+            - lacks_tag
+            - in_list
+            - not_in_list
+        value:
+          nullable: true
+
+    TableConfigSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - visible_columns
+        - column_order
+        - sort
+      properties:
+        visible_columns:
+          type: array
+          items:
+            type: string
+        column_order:
+          type: array
+          items:
+            type: string
+        sort:
+          type: object
+          additionalProperties: false
+          required:
+            - column
+            - direction
+          properties:
+            column:
+              type: string
+            direction:
+              type: string
+              enum: [asc, desc, unsorted]
+
+    PinColorSchemeSchema:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - default_color
+      properties:
+        mode:
+          type: string
+          enum: [uniform, rating, visit_status, custom]
+        default_color:
+          type: string
+          pattern: "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+        palette:
+          type: object
+          additionalProperties:
+            type: string
+        rule_mappings:
+          type: array
+          items:
+            type: object
+
+    BulkEditRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - poi_ids
+        - action
+        - payload
+      properties:
+        poi_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 500
+        action:
+          type: string
+          enum:
+            - set_rating
+            - add_visit_date
+            - set_visit_again
+            - add_tag
+            - remove_tag
+            - add_to_list
+            - remove_from_list
+            - update_address
+        payload:
+          type: object
+          additionalProperties: false
+          properties:
+            rating:
+              type: integer
+              minimum: 0
+              maximum: 5
+            visit_date:
+              type: string
+              format: date
+            want_to_visit_again:
+              type: boolean
+            tag_name:
+              type: string
+            list_id:
+              type: string
+              format: uuid
+            address:
+              type: object
+              additionalProperties: false
+              properties:
+                city:
+                  type: string
+                state_province:
+                  type: string
+                country:
+                  type: string
+                clear_fields:
+                  type: array
+                  items:
+                    type: string
+
+    BulkDeleteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - poi_ids
+      properties:
+        poi_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 500
+
+    BulkOperationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - modified_count
+      properties:
+        modified_count:
+          type: integer
+          minimum: 0
+
+    BulkDeleteResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - deleted_count
+      properties:
+        deleted_count:
+          type: integer
+          minimum: 0
+
+    POIQueryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - query_tree
+      properties:
+        query_tree:
+          $ref: "#/components/schemas/QueryTreeSchema"
+        bbox:
+          type: string
+          description: Comma-separated minLng,minLat,maxLng,maxLat
+
+    POIListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+
+  responses:
+    UnauthorizedError:
+      description: Authentication credentials missing or invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    NotFoundError:
+      description: Requested resource was not found for current tenant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    ValidationError:
+      description: Request payload failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"

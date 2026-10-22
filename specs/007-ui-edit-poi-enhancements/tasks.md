@@ -41,9 +41,11 @@
 **Independent Test**: Open the POI Editor for an existing POI, assign a parent POI from typeahead suggestions, enter multiple addresses with foreign country aliases, add visit dates, toggle "visit again", and assert normalized values, hierarchy links, and computed flags (`already_visited`, `visit_pending`) are persisted.
 
 ### Tests for User Story 1
+
 - [x] T-009 [P] [US1] Write unit tests for POI update, hierarchical parent selection, and cycle rejection in `tests/unit/services/poi/test_poi_update.py`. [REQ-EDIT-001, REQ-EDIT-012, REQ-EDIT-014]
 
 ### Implementation for User Story 1
+
 - [x] T-010 [US1] Implement recursive CTE hierarchy service in `services/poi/services/hierarchy_service.py` to validate parent POI assignments and detect cycles (`chk_pois_parent_not_self`, ancestor tree traversal). [REQ-EDIT-014]
 - [x] T-011 [US1] Implement candidate parent POI search endpoint `GET /api/pois/parents` in `services/poi/routes/hierarchy.py` with typeahead name filtering and descendant exclusion. [REQ-EDIT-012, REQ-EDIT-013]
 - [x] T-012 [US1] Implement `PATCH /api/pois/{poi_id}` endpoint in `services/poi/routes/poi.py` updating rich fields, addresses, duration, provenance, and visit dates with address normalization and RFC 7807 error handling. [REQ-EDIT-001 to REQ-EDIT-011, REQ-EDIT-013]
@@ -62,9 +64,11 @@
 **Independent Test**: Launch Location Finder, search for "Mount Rushmore", verify focal zoom (16–18), click canvas to place marker, click "Apply", and assert draft coordinates and reverse-geocoded address fields update without a database write.
 
 ### Tests for User Story 2
+
 - [x] T-016 [P] [US2] Write unit tests for reverse geocoding endpoint and PostGIS geocache in `tests/unit/services/poi/test_geocoding.py`. [REQ-LOC-009]
 
 ### Implementation for User Story 2
+
 - [x] T-017 [US2] Implement reverse geocoding service in `services/poi/services/geocode_service.py` with PostGIS `geocache` lookup, coordinate rounding (5 decimal places), and 1 req/sec rate limiting targeting OpenStreetMap Nominatim with custom User-Agent. [REQ-LOC-009]
 - [x] T-018 [US2] Implement endpoint `GET /api/pois/geocode/reverse` in `services/poi/routes/geocode.py`. [REQ-LOC-009]
 - [x] T-019 [P] [US2] Implement client-side geocoding service in `frontend/src/services/geocodeService.ts` supporting direct browser forward search with 500ms debounce and calls to `/api/pois/geocode/reverse`. [REQ-LOC-003, REQ-LOC-009]
@@ -81,9 +85,11 @@
 **Independent Test**: Initiate merge between two distinct POIs, toggle "Show all fields", select conflicting scalars via radios, union multi-value sets via checkboxes, confirm merge, and verify target POI is updated, source POI is deleted, and dependent references (`itinerary_items`, `poi_list_memberships`, `scanned_paths`, and `child_pois`) are re-parented.
 
 ### Tests for User Story 3
+
 - [x] T-021 [P] [US3] Write unit tests for atomic merge service and foreign reference re-parenting in `tests/unit/services/poi/test_poi_merge.py`. [REQ-MERGE-005, REQ-MERGE-006]
 
 ### Implementation for User Story 3
+
 - [x] T-022 [US3] Implement `POIMergeRequest` and `POIMergeResponse` schemas in `packages/core/vistarae_core/schemas/poi_merge.py`. [REQ-MERGE-003, REQ-MERGE-004]
 - [x] T-023 [US3] Implement atomic merge engine in `services/poi/services/merge_service.py` executing scalar synthesis, multi-value set de-duplication, and atomic re-parenting of `itinerary_items`, `poi_list_memberships`, `scanned_paths`, and `child_pois` before deleting source POI within a single transaction. [REQ-MERGE-003 to REQ-MERGE-006]
 - [x] T-024 [US3] Implement `POST /api/pois/merge` endpoint in `services/poi/routes/merge.py` with tenant ownership verification and RFC 7807 error responses. [REQ-MERGE-005, REQ-MERGE-006]
@@ -100,9 +106,11 @@
 **Independent Test**: Modify a POI draft to match an existing POI within 200m and name similarity $\ge 0.60$, click "Save Changes", assert collision dialog intercepts save, select "Merge", and verify draft fields populate the merge view without data loss.
 
 ### Tests for User Story 4
+
 - [x] T-026 [P] [US4] Write unit tests for pre-save duplicate check and spatial/trigram collision detection in `tests/unit/services/poi/test_poi_duplicate.py`. [REQ-SAVE-002]
 
 ### Implementation for User Story 4
+
 - [x] T-027 [US4] Implement `DuplicateCheckRequest` and `DuplicateCheckResponse` schemas in `packages/core/vistarae_core/schemas/poi_duplicate.py`. [REQ-SAVE-002]
 - [x] T-028 [US4] Implement `POST /api/pois/check-duplicate` endpoint in `services/poi/routes/duplicate.py` using PostGIS geodesic distance $\le 200$m and trigram similarity $\ge 0.60$ under tenant isolation. [REQ-SAVE-002, REQ-SAVE-004]
 - [x] T-029 [US4] Implement `DuplicateCollisionModal.tsx` in `frontend/src/components/poi/DuplicateCollisionModal.tsx` displaying conflicting POI preview and 3-way triage options ("Create as New", "Merge" launching POI Merge view with in-memory draft as source, "Cancel"). [REQ-SAVE-003]
@@ -160,12 +168,14 @@ graph TD
 ## Implementation Strategy
 
 ### MVP First (User Story 1 Only)
+
 1. Complete Phase 1: Setup (`T-001`, `T-002`).
 2. Complete Phase 2: Foundational (`T-003` to `T-008`).
 3. Complete Phase 3: User Story 1 (`T-009` to `T-015`).
 4. **Validate MVP**: Test rich editing, multi-address storage, and parent POI hierarchy independently.
 
 ### Incremental Delivery
+
 1. Phase 1 + Phase 2 $\rightarrow$ Foundations ready.
 2. Add User Story 1 $\rightarrow$ Test independently $\rightarrow$ MVP Delivered!
 3. Add User Story 2 $\rightarrow$ Map pin location selection and cached reverse geocoding enabled.

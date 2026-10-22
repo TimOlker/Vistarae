@@ -549,7 +549,9 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
                 setPlannerForm((prev) => ({
                   ...prev,
                   pacing_mode: e.target.value as
-                    "RELAXED" | "BALANCED" | "PACKED",
+                    | "RELAXED"
+                    | "BALANCED"
+                    | "PACKED",
                 }))
               }
               style={{

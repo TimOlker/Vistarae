@@ -20,7 +20,10 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { RouteMap } from "../../components/planner/RouteMap";
 import { PrintExportView } from "../../components/planner/PrintExportView";
 import { ItineraryItemCard } from "../../components/planner/ItineraryItemCard";
-import type { ItineraryResponse, ItineraryItemResponse } from "../../services/itineraryService";
+import type {
+  ItineraryResponse,
+  ItineraryItemResponse,
+} from "../../services/itineraryService";
 
 // Mock MapLibre GL
 const mockAddSource = vi.fn();
@@ -62,14 +65,18 @@ vi.mock("maplibre-gl", () => {
 
 // Mock @hello-pangea/dnd Draggable wrapper
 vi.mock("@hello-pangea/dnd", () => ({
-  Draggable: ({ children }: { children: (provided: any, snapshot: any) => React.ReactNode }) =>
+  Draggable: ({
+    children,
+  }: {
+    children: (provided: any, snapshot: any) => React.ReactNode;
+  }) =>
     children(
       {
         draggableProps: {},
         dragHandleProps: {},
         innerRef: vi.fn(),
       },
-      { isDragging: false }
+      { isDragging: false },
     ),
 }));
 
@@ -165,14 +172,22 @@ describe("RouteMap and Export Views (REQ-PLAN-014, REQ-PLAN-015, REQ-PLAN-016)",
     it("renders day selector tabs including All Days (Macro) and individual days", () => {
       render(<RouteMap itinerary={sampleItinerary} />);
 
-      expect(screen.getByTestId("route-filter-all")).toHaveTextContent("All Days (Macro)");
-      expect(screen.getByTestId("route-filter-day-1")).toHaveTextContent("Day 1");
-      expect(screen.getByTestId("route-filter-day-2")).toHaveTextContent("Day 2");
+      expect(screen.getByTestId("route-filter-all")).toHaveTextContent(
+        "All Days (Macro)",
+      );
+      expect(screen.getByTestId("route-filter-day-1")).toHaveTextContent(
+        "Day 1",
+      );
+      expect(screen.getByTestId("route-filter-day-2")).toHaveTextContent(
+        "Day 2",
+      );
     });
 
     it("toggles between macro mode and day 1 daily leg mode", () => {
       const onSelectDay = vi.fn();
-      render(<RouteMap itinerary={sampleItinerary} onSelectDay={onSelectDay} />);
+      render(
+        <RouteMap itinerary={sampleItinerary} onSelectDay={onSelectDay} />,
+      );
 
       // Click Day 1
       fireEvent.click(screen.getByTestId("route-filter-day-1"));
@@ -205,11 +220,7 @@ describe("RouteMap and Export Views (REQ-PLAN-014, REQ-PLAN-015, REQ-PLAN-016)",
       const onImportPoi = vi.fn().mockResolvedValue(undefined);
 
       render(
-        <ItineraryItemCard
-          item={aiItem}
-          index={0}
-          onImportPoi={onImportPoi}
-        />
+        <ItineraryItemCard item={aiItem} index={0} onImportPoi={onImportPoi} />,
       );
 
       // Verify AI badge and Import button
@@ -230,8 +241,12 @@ describe("RouteMap and Export Views (REQ-PLAN-014, REQ-PLAN-015, REQ-PLAN-016)",
     it("renders trip overview and all scheduled days with transit details", () => {
       render(<PrintExportView itinerary={sampleItinerary} />);
 
-      expect(screen.getByTestId("print-title")).toHaveTextContent("Pacific Northwest Explorer");
-      expect(screen.getByText("Seattle & Olympic National Park")).toBeInTheDocument();
+      expect(screen.getByTestId("print-title")).toHaveTextContent(
+        "Pacific Northwest Explorer",
+      );
+      expect(
+        screen.getByText("Seattle & Olympic National Park"),
+      ).toBeInTheDocument();
       expect(screen.getByTestId("print-day-1")).toBeInTheDocument();
       expect(screen.getByTestId("print-day-2")).toBeInTheDocument();
       expect(screen.getByText("Space Needle")).toBeInTheDocument();

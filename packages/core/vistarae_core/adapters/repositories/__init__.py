@@ -16,6 +16,9 @@
 
 """Repositories adapter package — SQLAlchemy repository implementations."""
 
+from vistarae_core.adapters.repositories.filter_rule_repo import (
+    SqlAlchemyFilterRuleRepository,
+)
 from vistarae_core.adapters.repositories.geocache_repo import (
     SqlAlchemyGeocodingCacheRepository,
 )
@@ -34,6 +37,7 @@ from vistarae_core.adapters.repositories.user_repo import SqlAlchemyUserReposito
 
 __all__ = [
     "IngestJobRepository",
+    "SqlAlchemyFilterRuleRepository",
     "SqlAlchemyGeocodingCacheRepository",
     "SqlAlchemyIdempotencyRepository",
     "SqlAlchemyItineraryRepository",

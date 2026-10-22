@@ -31,7 +31,8 @@ export const MissingMealCard: React.FC<MissingMealCardProps> = ({
 
   if (dismissed) return null;
 
-  const mealLabel = advisory.meal_type.charAt(0).toUpperCase() + advisory.meal_type.slice(1);
+  const mealLabel =
+    advisory.meal_type.charAt(0).toUpperCase() + advisory.meal_type.slice(1);
 
   return (
     <div
@@ -63,7 +64,10 @@ export const MissingMealCard: React.FC<MissingMealCardProps> = ({
           <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
             Missing {mealLabel}
             {advisory.gap_start && advisory.gap_end
-              ? ` (${advisory.gap_start.slice(0, 5)} - ${advisory.gap_end.slice(0, 5)})`
+              ? ` (${advisory.gap_start.slice(0, 5)} - ${advisory.gap_end.slice(
+                  0,
+                  5,
+                )})`
               : ""}
           </span>
           <span
@@ -78,9 +82,17 @@ export const MissingMealCard: React.FC<MissingMealCardProps> = ({
           </span>
         </div>
 
-        <p style={{ color: "var(--text-secondary)", marginBottom: "8px", lineHeight: 1.3 }}>
+        <p
+          style={{
+            color: "var(--text-secondary)",
+            marginBottom: "8px",
+            lineHeight: 1.3,
+          }}
+        >
           No meal scheduled. Suggestion:{" "}
-          <strong>{advisory.suggested_poi_title || "Nearby Local Eatery"}</strong>
+          <strong>
+            {advisory.suggested_poi_title || "Nearby Local Eatery"}
+          </strong>
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

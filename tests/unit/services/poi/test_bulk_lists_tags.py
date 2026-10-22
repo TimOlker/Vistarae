@@ -177,10 +177,19 @@ class TestCuratedListRoutes:
 
         resp = client.patch(
             f"/api/lists/{sample_list.id}",
-            json={"title": "Updated Gems"},
+            json={"title": "Updated Gems", "description": "Updated desc", "is_public": True},
         )
         assert resp.status_code == 200
         assert resp.json()["title"] == "Updated Gems"
+
+    def test_patch_list_not_found(self, client: TestClient, mock_list_repo: AsyncMock) -> None:
+        """Asserts 404 when updating non-existent or unowned list."""
+        mock_list_repo.get_by_id.return_value = None
+        resp = client.patch(
+            f"/api/lists/{uuid4()}",
+            json={"title": "Non-existent"},
+        )
+        assert resp.status_code == 404
 
     def test_delete_list(
         self, client: TestClient, sample_list: ListEntity, mock_list_repo: AsyncMock
@@ -189,6 +198,12 @@ class TestCuratedListRoutes:
         mock_list_repo.delete.return_value = True
         resp = client.delete(f"/api/lists/{sample_list.id}")
         assert resp.status_code == 204
+
+    def test_delete_list_not_found(self, client: TestClient, mock_list_repo: AsyncMock) -> None:
+        """Asserts 404 when deleting non-existent or unowned list."""
+        mock_list_repo.delete.return_value = False
+        resp = client.delete(f"/api/lists/{uuid4()}")
+        assert resp.status_code == 404
 
     def test_get_shared_list_public(
         self,
@@ -245,10 +260,14 @@ class TestTagRoutes:
         assert resp.json()["name"] == "camping"
 
     def test_delete_tag(self, client: TestClient, mock_tag_repo: AsyncMock) -> None:
-        """Asserts tag deletion returns 204 No Content."""
+        """Asserts tag deletion returns 204 No Content, or 404 if not found."""
         mock_tag_repo.delete.return_value = True
         resp = client.delete(f"/api/tags/{uuid4()}")
         assert resp.status_code == 204
+
+        mock_tag_repo.delete.return_value = False
+        resp_nf = client.delete(f"/api/tags/{uuid4()}")
+        assert resp_nf.status_code == 404
 
 
 class TestBulkOperationRoutes:

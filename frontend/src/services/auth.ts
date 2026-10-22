@@ -64,7 +64,9 @@ function normalizeUserSession(raw: unknown): UserSession {
       id: data.user.id,
       email: data.user.email,
       full_name: data.user.full_name || "",
-      is_admin: data.user.is_admin ?? (tier === "ADMIN" || data.user.email.includes("admin")),
+      is_admin:
+        data.user.is_admin ??
+        (tier === "ADMIN" || data.user.email.includes("admin")),
       tier,
       created_at: data.user.created_at,
     };

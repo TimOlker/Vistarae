@@ -118,7 +118,8 @@ export const triageStorage = {
     const db = await getDB();
     if (db) {
       const record = (await db.get(STORE_NAME, jobId)) as
-        StagedTriageJob | undefined;
+        | StagedTriageJob
+        | undefined;
       return record || null;
     }
     return memoryStore[jobId] || null;

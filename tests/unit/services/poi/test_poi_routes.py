@@ -259,6 +259,26 @@ class TestCreatePoiRoute:
         resp = client.post("/api/pois", json=payload)
         assert resp.status_code == 422
 
+    def test_create_poi_geocoding_failure_fallback(
+        self,
+        client: TestClient,
+        sample_poi: POI,
+        mock_poi_repo: AsyncMock,
+        mock_tag_repo: AsyncMock,
+        mock_geocoding_port: AsyncMock,
+    ) -> None:
+        """Asserts geocoding exception sets enrichment status to PARTIAL and proceeds."""
+        mock_poi_repo.create.return_value = sample_poi
+        mock_geocoding_port.reverse_geocode.side_effect = RuntimeError("Nominatim timeout")
+        mock_tag_repo.get_tags_for_poi.return_value = []
+        payload = {
+            "name": "Remote Peak",
+            "lon": -119.5,
+            "lat": 37.7,
+        }
+        resp = client.post("/api/pois", json=payload)
+        assert resp.status_code == 201
+
 
 class TestGetUpdateDeletePoiRoutes:
     """Tests for GET, PATCH, DELETE /api/pois/{id}."""

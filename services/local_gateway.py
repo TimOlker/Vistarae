@@ -45,6 +45,7 @@ from services.ingest.routes.upload import router as ingest_upload_router
 from services.poi.main import app as poi_app
 from services.poi.routes.bulk import router as bulk_router
 from services.poi.routes.dedup import router as dedup_router
+from services.poi.routes.filter_rules import router as filter_rules_router
 from services.poi.routes.itineraries import router as itineraries_router
 from services.poi.routes.lists import router as lists_router
 from services.poi.routes.pois import router as pois_router
@@ -134,6 +135,7 @@ gateway.include_router(bulk_router, prefix="/api", tags=["bulk"])
 gateway.include_router(lists_router, prefix="/api", tags=["lists"])
 gateway.include_router(tags_router, prefix="/api", tags=["tags"])
 gateway.include_router(pois_router, prefix="/api", tags=["pois"])
+gateway.include_router(filter_rules_router, prefix="/api", tags=["filter-rules"])
 gateway.include_router(itineraries_router, prefix="/api", tags=["itineraries"])
 gateway.include_router(ingest_upload_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_jobs_router, prefix="/api/ingest", tags=["ingest"])
