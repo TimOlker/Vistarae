@@ -69,6 +69,14 @@ const mockMapInstance = {
   getLayer: vi.fn().mockReturnValue(undefined),
   setStyle: vi.fn(),
   isStyleLoaded: vi.fn().mockReturnValue(true),
+  getStyle: vi.fn().mockReturnValue({ version: 8, sources: {}, layers: [] }),
+  once: vi.fn().mockImplementation((event: string, ...rest: unknown[]) => {
+    const handler = rest[rest.length - 1] as (...args: unknown[]) => void;
+    if (!mockMapEvents[event]) {
+      mockMapEvents[event] = [];
+    }
+    mockMapEvents[event].push(handler);
+  }),
   queryRenderedFeatures: vi.fn().mockReturnValue([]),
 };
 

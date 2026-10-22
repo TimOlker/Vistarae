@@ -18,7 +18,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React from "react";
-import { ThemeSwitcher } from "./ThemeSwitcher";
 import {
   Compass,
   Calendar,
@@ -288,10 +287,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
       </div>
 
-      {/* Right controls: ThemeSwitcher & Profile */}
+      {/* Right controls: Profile */}
       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-        <ThemeSwitcher />
-
         {user ? (
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <button

@@ -158,6 +158,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 <input
                   type="text"
                   required
+                  autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Jane Traveler"
@@ -194,6 +195,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 <input
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="traveler@example.com"
@@ -231,6 +233,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                   type="password"
                   required
                   minLength={8}
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
@@ -355,6 +358,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 <input
                   type="text"
                   required
+                  autoComplete="one-time-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="123456"

@@ -122,6 +122,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
               <input
                 type="text"
                 required
+                autoComplete="one-time-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
@@ -159,6 +160,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
                 type="password"
                 required
                 minLength={8}
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••••••"
