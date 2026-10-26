@@ -15,7 +15,7 @@
 
 param (
     [Parameter(Position=0, Mandatory=$false)]
-    [ValidateSet("sync", "up", "down", "restart", "logs", "migrate", "seed", "clean-db", "reset-db", "test", "lint", "run", "scrape", "register-protocol", "unregister-protocol", "help")]
+    [ValidateSet("sync", "up", "down", "restart", "logs", "migrate", "seed", "clean-db", "reset-db", "test", "lint", "run", "dev", "scrape", "register-protocol", "unregister-protocol", "help")]
     [string]$Command = "help",
     [Parameter(Position=1, Mandatory=$false)]
     [string]$PhotoDir = "",
@@ -111,6 +111,9 @@ switch ($Command) {
         $env:STAGE = "local"
         Invoke-PythonTool "uvicorn" @("services.local_gateway:app", "--reload", "--port", "8000")
     }
+    "dev" {
+        & "$PSScriptRoot\scripts\start-dev.ps1"
+    }
     "scrape" {
         Write-Host "Running Vistarae Photo Scraper..." -ForegroundColor Cyan
         $argsList = @()
@@ -127,6 +130,7 @@ switch ($Command) {
     }
     Default {
         Write-Host "Vistarae Windows Developer Helper (powered by uv):" -ForegroundColor Yellow
+        Write-Host "  .\vistarae.ps1 dev                 - Full local dev environment: Docker, migrations, seed, API & SPA"
         Write-Host "  .\vistarae.ps1 sync                - Sync dependencies and editable packages with uv"
         Write-Host "  .\vistarae.ps1 up                  - Start PostGIS, Jaeger, and background services"
         Write-Host "  .\vistarae.ps1 down                - Stop all running services"
@@ -138,7 +142,7 @@ switch ($Command) {
         Write-Host "  .\vistarae.ps1 reset-db            - Wipe schema and re-run all migrations from scratch"
         Write-Host "  .\vistarae.ps1 test                - Run pytest suite with coverage"
         Write-Host "  .\vistarae.ps1 lint                - Run ruff code quality checks"
-        Write-Host "  .\vistarae.ps1 run                 - Start local development gateway"
+        Write-Host "  .\vistarae.ps1 run                 - Start local development gateway (port 8000)"
         Write-Host "  .\vistarae.ps1 scrape              - Run photo scraper tool (optional: [PhotoDir])"
         Write-Host "  .\vistarae.ps1 register-protocol   - Register vistarae-folder:// protocol in Windows HKCU"
         Write-Host "  .\vistarae.ps1 unregister-protocol - Unregister vistarae-folder:// protocol from Windows"

@@ -334,6 +334,11 @@ AU_STATE_MAPPINGS: Final[dict[str, str]] = {
     "wa": "Western Australia",
 }
 
+# ── Full State/Province Names Lowercase -> Standard English Names ─────────────
+US_STATE_NAMES: Final[dict[str, str]] = {v.lower(): v for v in US_STATE_MAPPINGS.values()}
+CA_PROVINCE_NAMES: Final[dict[str, str]] = {v.lower(): v for v in CA_PROVINCE_MAPPINGS.values()}
+AU_STATE_NAMES: Final[dict[str, str]] = {v.lower(): v for v in AU_STATE_MAPPINGS.values()}
+
 
 def _title_case_english(text: str) -> str:
     """Capitalizes an English name cleanly, handling hyphens and minor words."""
@@ -401,17 +406,26 @@ class AddressNormalizer:
         lookup_key = clean.lower()
         norm_country = cls.normalize_country(country) if country else ""
 
-        # US State Check
-        if norm_country in ("United States", "") and lookup_key in US_STATE_MAPPINGS:
-            return US_STATE_MAPPINGS[lookup_key]
+        # US State Check (code or full name)
+        if norm_country in ("United States", ""):
+            if lookup_key in US_STATE_MAPPINGS:
+                return US_STATE_MAPPINGS[lookup_key]
+            if lookup_key in US_STATE_NAMES:
+                return US_STATE_NAMES[lookup_key]
 
-        # Canadian Province Check
-        if norm_country in ("Canada", "") and lookup_key in CA_PROVINCE_MAPPINGS:
-            return CA_PROVINCE_MAPPINGS[lookup_key]
+        # Canadian Province Check (code or full name)
+        if norm_country in ("Canada", ""):
+            if lookup_key in CA_PROVINCE_MAPPINGS:
+                return CA_PROVINCE_MAPPINGS[lookup_key]
+            if lookup_key in CA_PROVINCE_NAMES:
+                return CA_PROVINCE_NAMES[lookup_key]
 
-        # Australian State Check
-        if norm_country in ("Australia", "") and lookup_key in AU_STATE_MAPPINGS:
-            return AU_STATE_MAPPINGS[lookup_key]
+        # Australian State Check (code or full name)
+        if norm_country in ("Australia", ""):
+            if lookup_key in AU_STATE_MAPPINGS:
+                return AU_STATE_MAPPINGS[lookup_key]
+            if lookup_key in AU_STATE_NAMES:
+                return AU_STATE_NAMES[lookup_key]
 
         return _title_case_english(clean)
 
@@ -450,3 +464,124 @@ class AddressNormalizer:
             List of normalized AddressRecord objects.
         """
         return [cls.normalize_address(rec) for rec in records]
+
+    @classmethod
+    def _extract_divisions(cls, tokens: list[str]) -> tuple[list[str], list[str]]:
+        recognized_countries: list[str] = []
+        recognized_states: list[str] = []
+        for tok in tokens:
+            low = tok.lower()
+            if (
+                low in US_STATE_NAMES
+                or low in CA_PROVINCE_NAMES
+                or low in AU_STATE_NAMES
+                or low in US_STATE_MAPPINGS
+                or low in CA_PROVINCE_MAPPINGS
+                or low in AU_STATE_MAPPINGS
+            ):
+                norm_s = cls.normalize_state_province(tok)
+                if norm_s and norm_s not in recognized_states:
+                    recognized_states.append(norm_s)
+            elif low in COUNTRY_MAPPINGS:
+                norm_c = cls.normalize_country(tok)
+                if norm_c and norm_c not in recognized_countries:
+                    recognized_countries.append(norm_c)
+        return recognized_countries, recognized_states
+
+    @classmethod
+    def _resolve_multi_state_country(
+        cls,
+        recognized_states: list[str],
+        recognized_countries: list[str],
+        base_address: AddressRecord | None,
+    ) -> str:
+        if recognized_countries:
+            return recognized_countries[0]
+        if base_address and base_address.country:
+            return base_address.country
+        if all(s.lower() in CA_PROVINCE_NAMES for s in recognized_states):
+            return "Canada"
+        if all(s.lower() in AU_STATE_NAMES for s in recognized_states):
+            return "Australia"
+        return "United States"
+
+    @classmethod
+    def expand_transboundary_addresses(
+        cls,
+        text_or_divisions: str | list[str],
+        base_address: AddressRecord | None = None,
+    ) -> list[AddressRecord]:
+        """Generates multiple distinct AddressRecord items for trans-boundary destinations (REQ-EXT-025).
+
+        Supports destinations traversing multiple administrative divisions, such as:
+        - Multi-state parks (e.g. Yellowstone: Wyoming, Montana, Idaho)
+        - Multi-country landmarks (e.g. Iguazu Falls: Argentina, Brazil)
+
+        Args:
+            text_or_divisions: String or list of division strings (e.g. "Wyoming, Montana, Idaho"
+                               or ["Argentina", "Brazil"]).
+            base_address: Optional template AddressRecord providing street, city, or postal code.
+
+        Returns:
+            List of normalized AddressRecord items, one per distinct traversed administrative division.
+        """
+        if isinstance(text_or_divisions, str):
+            tokens = re.split(r"[,;/]|\s+and\s+", text_or_divisions)
+        else:
+            tokens = list(text_or_divisions)
+
+        cleaned_tokens = [t.strip() for t in tokens if t and t.strip()]
+        if not cleaned_tokens:
+            return [base_address] if base_address else []
+
+        recognized_countries, recognized_states = cls._extract_divisions(cleaned_tokens)
+
+        # 1. Multi-country detected
+        if len(recognized_countries) > 1:
+            records: list[AddressRecord] = []
+            for country in recognized_countries:
+                rec = AddressRecord(
+                    street=base_address.street if base_address else None,
+                    city=base_address.city if base_address else None,
+                    state_province=base_address.state_province if base_address else None,
+                    country=country,
+                    postal_code=base_address.postal_code if base_address else None,
+                )
+                records.append(cls.normalize_address(rec))
+            return records
+
+        # 2. Multi-state detected
+        if len(recognized_states) > 1:
+            country = cls._resolve_multi_state_country(
+                recognized_states, recognized_countries, base_address
+            )
+            records = []
+            for state in recognized_states:
+                rec = AddressRecord(
+                    street=base_address.street if base_address else None,
+                    city=base_address.city if base_address else None,
+                    state_province=state,
+                    country=country,
+                    postal_code=base_address.postal_code if base_address else None,
+                )
+                records.append(cls.normalize_address(rec))
+            return records
+
+        # 3. Single division fallback
+        if base_address:
+            return [cls.normalize_address(base_address)]
+
+        # Construct single address from first token
+        first_tok = cleaned_tokens[0]
+        country_candidate = (
+            recognized_countries[0] if recognized_countries else cls.normalize_country(first_tok)
+        )
+        state_candidate = recognized_states[0] if recognized_states else None
+        return [
+            cls.normalize_address(
+                AddressRecord(
+                    country=country_candidate or "Unknown",
+                    state_province=state_candidate,
+                )
+            )
+        ]

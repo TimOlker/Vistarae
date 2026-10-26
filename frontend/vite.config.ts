@@ -33,10 +33,18 @@ export default defineConfig({
         proxyTimeout: 10000,
       },
     },
+    fs: {
+      allow: [".."],
+    },
   },
   test: {
     globals: true,
     environment: "jsdom",
     setupFiles: "./tests/setup.ts",
+    include: [
+      "src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+      "tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+      "../extension/tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
+    ],
   },
 });

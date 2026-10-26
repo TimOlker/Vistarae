@@ -1,7 +1,15 @@
 // Copyright (c) 2026 Tim Olker
 // SPDX-License-Identifier: Apache-2.0
 
-import { getValidAccessToken, getStoredTokens } from "./auth.js";
+import {
+  getValidAccessToken,
+  getStoredTokens,
+  ensureAuthenticatedForCapture,
+  getAuthenticatedUser,
+  saveTokens,
+  clearTokens,
+  parseJwtPayload,
+} from "./auth.js";
 import {
   prepareRequestHeaders,
   logTelemetryMessage,
@@ -34,10 +42,14 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 /**
- * Handles context menu clicks.
+ * Handles context menu clicks (REQ-EXT-008, REQ-EXT-009).
  */
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "vistarae-capture" && tab?.id) {
+    const isAuthed = await ensureAuthenticatedForCapture();
+    if (!isAuthed) {
+      return;
+    }
     triggerCaptureOnTab(tab.id, {
       text: info.selectionText,
       linkUrl: info.linkUrl,
@@ -55,7 +67,7 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 /**
- * Handles keyboard commands (Ctrl+Shift+S / Command+Shift+S).
+ * Handles keyboard commands (Ctrl+Shift+S / Command+Shift+S) (REQ-EXT-008, REQ-EXT-009).
  */
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "capture-to-vistarae") {
@@ -64,6 +76,10 @@ chrome.commands.onCommand.addListener(async (command) => {
       currentWindow: true,
     });
     if (tab?.id) {
+      const isAuthed = await ensureAuthenticatedForCapture();
+      if (!isAuthed) {
+        return;
+      }
       triggerCaptureOnTab(tab.id);
     }
   }
@@ -139,7 +155,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
+
+  if (message.action === "GET_AUTH_STATUS") {
+    getAuthenticatedUser()
+      .then(sendResponse)
+      .catch(() =>
+        sendResponse({ isAuthenticated: false, email: null, user: null }),
+      );
+    return true;
+  }
+
+  if (message.action === "SYNC_AUTH_FROM_WEBAPP") {
+    handleSyncAuthFromWebapp(message)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ error: err.message }));
+    return true;
+  }
 });
+
+/**
+ * Persists session tokens passed from web application into extension storage.
+ * @param {Object} payload
+ * @param {string} payload.token
+ * @param {Object} [payload.user]
+ */
+async function handleSyncAuthFromWebapp({ token, user }) {
+  if (!token) {
+    await clearTokens();
+    return { success: true, authenticated: false };
+  }
+  const payload = parseJwtPayload(token);
+  const now = Math.floor(Date.now() / 1000);
+  const tokenExpiry = payload?.exp || now + 86400 * 7;
+  await saveTokens({
+    accessToken: token,
+    idToken: token,
+    refreshToken: `mock-refresh-token-${user?.id || payload?.sub || "default"}`,
+    tokenExpiry,
+    user:
+      user ||
+      (payload?.email ? { email: payload.email, id: payload.sub } : null),
+  });
+  logTelemetryMessage(
+    "INBOUND",
+    `Synchronized authentication from web app: ${
+      user?.email || payload?.email || "active user"
+    }`,
+  );
+  return { success: true, authenticated: true };
+}
 
 /**
  * Handles external messages from SPA web client (localhost:5173 / CloudFront).
@@ -151,6 +215,16 @@ chrome.runtime.onMessageExternal.addListener(
       "Received external message from web application",
       { origin: sender.origin, action: message?.action },
     );
+
+    if (
+      message?.action === "sync_auth" ||
+      message?.action === "SYNC_AUTH_FROM_WEBAPP"
+    ) {
+      handleSyncAuthFromWebapp(message)
+        .then((res) => sendResponse({ success: true, ...res }))
+        .catch((err) => sendResponse({ success: false, error: err.message }));
+      return true;
+    }
 
     if (message?.action === "open_folder" && message.path) {
       sendNativeFolderMessage(message.path)

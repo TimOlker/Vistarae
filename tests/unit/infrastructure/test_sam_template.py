@@ -125,9 +125,9 @@ class TestSamTemplateStructure:
 
         # Verify Origin Request Policy is AllViewerExceptHostHeader (b689b0a8-53d0-40ab-baf2-68738e2966ac)
         orp_id = api_behavior.get("OriginRequestPolicyId")
-        assert orp_id == "b689b0a8-53d0-40ab-baf2-68738e2966ac", (
-            "Must use AllViewerExceptHostHeader Managed Policy to prevent Host collision with API Gateway TLS SNI"
-        )
+        assert (
+            orp_id == "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+        ), "Must use AllViewerExceptHostHeader Managed Policy to prevent Host collision with API Gateway TLS SNI"
 
     def test_all_six_domain_lambdas_defined(self, sam_template: dict[str, Any]) -> None:
         """Verifies that all 6 domain Lambdas are declared with arm64 and Python 3.12."""

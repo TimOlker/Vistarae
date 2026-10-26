@@ -85,8 +85,6 @@ from vistarae_core.schemas.poi import (
     PotentialDuplicateItem,
     ReverseGeocodeResponse,
     SharedListResponse,
-    TagCreateRequest,
-    TagResponse,
 )
 from vistarae_core.schemas.poi_duplicate import (
     DuplicateCandidateItem,
@@ -105,6 +103,19 @@ from vistarae_core.schemas.preferences import (
     UpdatePOIPreferencesRequest,
     UpdateUIPreferencesRequest,
     UserPreferencesResponse,
+)
+from vistarae_core.schemas.scraping import (
+    DeduplicationVerdictSchema,
+    ExtractAndCheckRequest,
+    ExtractAndCheckResponse,
+    POICandidateSchema,
+    ScrapingSourcesResponse,
+    ScrapingSourcesUpdateRequest,
+)
+from vistarae_core.schemas.tag import (
+    TagCreateRequest,
+    TagInUseProblemDetails,
+    TagResponse,
 )
 from vistarae_core.schemas.user import (
     UpdateUserQuotaRequest,
@@ -128,10 +139,13 @@ __all__ = [
     "ConfirmSignUpRequest",
     "ConfirmSignUpResponse",
     "DedupCheckResponse",
+    "DeduplicationVerdictSchema",
     "DuplicateCandidateItem",
     "DuplicateCheckRequest",
     "DuplicateCheckResponse",
     "DuplicateItemResponse",
+    "ExtractAndCheckRequest",
+    "ExtractAndCheckResponse",
     "ForgotPasswordRequest",
     "ForgotPasswordResponse",
     "IngestJobProgressResponse",
@@ -163,6 +177,7 @@ __all__ = [
     "ParentPOICandidate",
     "PhotoPOIInference",
     "PlannerPreferencesResponse",
+    "POICandidateSchema",
     "POICreateRequest",
     "POIListResponse",
     "POIMergeRequest",
@@ -182,7 +197,10 @@ __all__ = [
     "ReverseGeocodeResponse",
     "SharedListResponse",
     "StrictBaseModel",
+    "ScrapingSourcesResponse",
+    "ScrapingSourcesUpdateRequest",
     "TagCreateRequest",
+    "TagInUseProblemDetails",
     "TagResponse",
     "TriageDecisionItem",
     "TriageRequest",

@@ -53,7 +53,9 @@ from services.poi.routes import itineraries as itinerary_routes
 from services.poi.routes import lists as list_routes
 from services.poi.routes import merge as merge_routes
 from services.poi.routes import pois as poi_routes
+from services.poi.routes import preferences as preferences_routes
 from services.poi.routes import tags as tag_routes
+from services.poi.routes import triage as triage_routes
 
 
 @asynccontextmanager
@@ -129,11 +131,13 @@ app.include_router(dedup_routes.router)
 app.include_router(bulk_routes.router)
 app.include_router(list_routes.router)
 app.include_router(tag_routes.router)
+app.include_router(preferences_routes.router)
 app.include_router(filter_rules_routes.router)
 app.include_router(hierarchy_routes.router)
 app.include_router(geocode_routes.router)
 app.include_router(merge_routes.router)
 app.include_router(duplicate_routes.router)
+app.include_router(triage_routes.router)
 app.include_router(poi_routes.router)
 app.include_router(itinerary_routes.router)
 
@@ -142,11 +146,13 @@ app.include_router(dedup_routes.router, prefix="/api")
 app.include_router(bulk_routes.router, prefix="/api")
 app.include_router(list_routes.router, prefix="/api")
 app.include_router(tag_routes.router, prefix="/api")
+app.include_router(preferences_routes.router, prefix="/api")
 app.include_router(filter_rules_routes.router, prefix="/api")
 app.include_router(hierarchy_routes.router, prefix="/api")
 app.include_router(geocode_routes.router, prefix="/api")
 app.include_router(merge_routes.router, prefix="/api")
 app.include_router(duplicate_routes.router, prefix="/api")
+app.include_router(triage_routes.router, prefix="/api")
 app.include_router(poi_routes.router, prefix="/api")
 app.include_router(itinerary_routes.router, prefix="/api")
 
@@ -180,5 +186,6 @@ __all__ = [
     "list_routes",
     "merge_routes",
     "poi_routes",
+    "preferences_routes",
     "tag_routes",
 ]

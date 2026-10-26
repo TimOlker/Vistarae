@@ -36,19 +36,7 @@ from vistarae_core.domain.value_objects import (
     VisitState,
 )
 from vistarae_core.schemas.base import StrictBaseModel
-
-
-class TagResponse(StrictBaseModel):
-    """Tag entity response model."""
-
-    id: UUID = Field(..., description="Unique tag identifier")
-    name: str = Field(..., description="Tag name")
-
-
-class TagCreateRequest(StrictBaseModel):
-    """Request model for creating a tag."""
-
-    name: str = Field(..., min_length=1, max_length=64, description="Unique tag name")
+from vistarae_core.schemas.tag import TagResponse
 
 
 class ListResponse(StrictBaseModel):

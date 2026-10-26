@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG = {
   cognitoRegion: "us-east-1",
   cognitoClientId: "1exampleclientidforvistarae",
   backendUrl: "http://localhost:8000",
+  webappUrl: "http://localhost:5173",
   refreshMarginSeconds: 300, // 5 minutes pre-flight window
 };
 
@@ -123,18 +124,31 @@ export function broadcastAuthState(state) {
 export async function getValidAccessToken(overrideConfig = {}) {
   const config = { ...DEFAULT_CONFIG, ...overrideConfig };
   const tokens = await getStoredTokens();
-
-  if (!tokens.accessToken || !tokens.refreshToken) {
+  if (!tokens.accessToken) {
     throw new Error("NO_STORED_CREDENTIALS");
   }
 
   // Pre-flight check: evaluate exp claim against current time + margin
   const now = Math.floor(Date.now() / 1000);
+  const payload = parseJwtPayload(tokens.accessToken);
   const expiry =
-    tokens.tokenExpiry || parseJwtPayload(tokens.accessToken)?.exp || 0;
-  const isExpiringSoon = now >= expiry - config.refreshMarginSeconds;
+    typeof tokens.tokenExpiry === "number"
+      ? tokens.tokenExpiry
+      : typeof payload?.exp === "number"
+        ? payload.exp
+        : null;
+
+  const isExpiringSoon =
+    expiry !== null ? now >= expiry - config.refreshMarginSeconds : false;
 
   if (!isExpiringSoon) {
+    return tokens.accessToken;
+  }
+
+  if (!tokens.refreshToken) {
+    if (expiry !== null && now >= expiry) {
+      throw new Error("TOKEN_EXPIRED");
+    }
     return tokens.accessToken;
   }
 
@@ -269,4 +283,78 @@ export async function executeCognitoRefresh(refreshToken, config) {
   }
 
   throw new Error("TOKEN_REFRESH_MAX_RETRIES_EXCEEDED");
+}
+
+/**
+ * Retrieves the current authenticated user context from stored tokens or JWT claims (REQ-EXT-010).
+ * @returns {Promise<{ isAuthenticated: boolean, email: string | null, user: any }>}
+ */
+export async function getAuthenticatedUser() {
+  const tokens = await getStoredTokens();
+  if (!tokens.accessToken) {
+    return { isAuthenticated: false, email: null, user: null };
+  }
+
+  // Check if expired
+  const now = Math.floor(Date.now() / 1000);
+  const payload = parseJwtPayload(tokens.accessToken);
+  const expiry = tokens.tokenExpiry || payload?.exp || 0;
+  if (expiry > 0 && now >= expiry) {
+    // If refresh token exists, attempt refresh
+    if (tokens.refreshToken) {
+      try {
+        const freshToken = await getValidAccessToken();
+        const freshPayload = parseJwtPayload(freshToken);
+        const email =
+          tokens.user?.email ||
+          freshPayload?.email ||
+          (tokens.idToken ? parseJwtPayload(tokens.idToken)?.email : null);
+        return {
+          isAuthenticated: true,
+          email: email || null,
+          user: tokens.user || null,
+        };
+      } catch (_) {
+        return { isAuthenticated: false, email: null, user: null };
+      }
+    }
+    return { isAuthenticated: false, email: null, user: null };
+  }
+
+  const idPayload = tokens.idToken ? parseJwtPayload(tokens.idToken) : null;
+  const email =
+    tokens.user?.email || payload?.email || idPayload?.email || null;
+
+  return { isAuthenticated: true, email, user: tokens.user || null };
+}
+
+/**
+ * Pre-capture authentication check (REQ-EXT-008, REQ-EXT-009).
+ * Verifies the presence of a valid, unexpired access token. If unauthenticated,
+ * redirects user to web app login in a new tab with return_to=extension and aborts.
+ *
+ * @param {Object} [overrideConfig]
+ * @returns {Promise<boolean>} True if authenticated and authorized to proceed; false if redirected.
+ */
+export async function ensureAuthenticatedForCapture(overrideConfig = {}) {
+  const config = { ...DEFAULT_CONFIG, ...overrideConfig };
+  try {
+    const token = await getValidAccessToken(config);
+    if (token) {
+      return true;
+    }
+  } catch (err) {
+    logTelemetryMessage(
+      "INBOUND",
+      `Pre-capture authentication check failed: ${err.message}. Redirecting to login.`,
+    );
+  }
+
+  // User is unauthenticated - open login page in new tab
+  if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+    const loginUrl = `${config.webappUrl}/login?return_to=extension`;
+    await chrome.tabs.create({ url: loginUrl });
+  }
+
+  return false;
 }

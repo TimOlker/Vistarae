@@ -106,7 +106,8 @@ class UserTable(Base):
     )
 
     __table_args__ = (
-        Index("idx_users_cognito_sub", "cognito_sub", unique=True),
+        UniqueConstraint("cognito_sub", name="uq_users_cognito_sub"),
+        Index("idx_users_cognito_sub", "cognito_sub"),
         Index("idx_users_email", "email"),
     )
 
@@ -152,6 +153,22 @@ class UserPreferencesTable(Base):
     transit_speed_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="walking")
     daily_activity_hour_cap: Mapped[float] = mapped_column(Float, nullable=False, default=8.0)
     preferred_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+
+    # ── Extension / Scraping ────────────────────────────────────────────────
+    valid_scraping_domains: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=lambda: [
+            "wikipedia.org",
+            "tripadvisor.com",
+            "atlasobscura.com",
+            "google.com/maps",
+            "roadtrippers.com",
+        ],
+        server_default=text(
+            '\'["wikipedia.org", "tripadvisor.com", "atlasobscura.com", "google.com/maps", "roadtrippers.com"]\'::jsonb'
+        ),
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -555,7 +572,14 @@ class TagTable(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    aliases: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -565,8 +589,10 @@ class TagTable(Base):
     )
 
     __table_args__ = (
+        UniqueConstraint("user_id", "slug", name="uq_tags_user_slug"),
         UniqueConstraint("user_id", "name", name="uq_tags_user_name"),
         Index("idx_tags_user_id", "user_id"),
+        Index("idx_tags_user_slug", "user_id", "slug"),
     )
 
 

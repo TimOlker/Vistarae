@@ -53,10 +53,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const u = await authService.fetchCurrentUser();
         setUser(u);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
+        }
       } catch {
         // If token expired, clear session
         authService.clearSession();
         setUser(null);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
+        }
       }
     } else {
       setUser(null);
@@ -71,12 +77,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, pass: string): Promise<UserSession> => {
     const { user: loggedInUser } = await authService.login(email, pass);
     setUser(loggedInUser);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
+    }
     return loggedInUser;
   };
 
   const logout = async () => {
     await authService.logout();
     setUser(null);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
+    }
   };
 
   return (
