@@ -20,17 +20,26 @@
 import React, { useState, useEffect } from "react";
 import { usePreferences } from "../context/PreferencesContext";
 import { useToast } from "../context/ToastContext";
-import { Palette, Map, Calendar, Save } from "lucide-react";
+import { Palette, Map, Calendar, Save, Tag, Globe, Plus, Trash2 } from "lucide-react";
 import { ThemeSwitcher } from "../components/common/ThemeSwitcher";
+import { TagManager } from "../components/tags/TagManager";
 
-export type SettingsTab = "account" | "poi" | "planner";
+export type SettingsTab = "account" | "poi" | "planner" | "tags" | "scraping";
 
 export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   initialTab = "account",
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
-  const { ui, poi, planner, updateUI, updatePOI, updatePlanner } =
-    usePreferences();
+  const {
+    ui,
+    poi,
+    planner,
+    validScrapingDomains,
+    updateUI,
+    updatePOI,
+    updatePlanner,
+    updateScrapingDomains,
+  } = usePreferences();
   const { showToast } = useToast();
 
   const [saving, setSaving] = useState(false);
@@ -39,6 +48,50 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   const [uiForm, setUiForm] = useState(ui);
   const [poiForm, setPoiForm] = useState(poi);
   const [plannerForm, setPlannerForm] = useState(planner);
+  const [scrapingDomains, setScrapingDomains] = useState<string[]>(
+    validScrapingDomains || [],
+  );
+  const [newDomainInput, setNewDomainInput] = useState("");
+
+  useEffect(() => {
+    if (validScrapingDomains) {
+      setScrapingDomains(validScrapingDomains);
+    }
+  }, [validScrapingDomains]);
+
+  const handleAddDomain = () => {
+    const trimmed = newDomainInput.trim().toLowerCase();
+    if (!trimmed) return;
+    if (scrapingDomains.includes(trimmed)) {
+      showToast("Domain already authorized", "info");
+      return;
+    }
+    setScrapingDomains((prev) => [...prev, trimmed]);
+    setNewDomainInput("");
+  };
+
+  const handleRemoveDomain = (domainToRemove: string) => {
+    if (scrapingDomains.length <= 1) {
+      showToast(
+        "At least one scraping source domain must remain authorized",
+        "error",
+      );
+      return;
+    }
+    setScrapingDomains((prev) => prev.filter((d) => d !== domainToRemove));
+  };
+
+  const handleSaveScraping = async () => {
+    setSaving(true);
+    try {
+      await updateScrapingDomains(scrapingDomains);
+      showToast("Scraping sources preferences saved!", "success");
+    } catch {
+      showToast("Failed to save scraping sources", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     setUiForm(ui);
@@ -173,6 +226,54 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
         >
           <Calendar size={16} />
           <span>Planner Mode</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("tags")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "10px 16px",
+            borderBottom:
+              activeTab === "tags"
+                ? "2px solid var(--accent, #2563eb)"
+                : "2px solid transparent",
+            color:
+              activeTab === "tags"
+                ? "var(--accent, #2563eb)"
+                : "var(--text-secondary, #64748b)",
+            fontWeight: 600,
+            fontSize: "14px",
+          }}
+        >
+          <Tag size={16} />
+          <span>Tags Library</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("scraping")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "10px 16px",
+            borderBottom:
+              activeTab === "scraping"
+                ? "2px solid var(--accent, #2563eb)"
+                : "2px solid transparent",
+            color:
+              activeTab === "scraping"
+                ? "var(--accent, #2563eb)"
+                : "var(--text-secondary, #64748b)",
+            fontWeight: 600,
+            fontSize: "14px",
+          }}
+        >
+          <Globe size={16} />
+          <span>Scraping Sources</span>
         </button>
       </div>
 
@@ -698,6 +799,176 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
           >
             <Save size={15} />
             <span>{saving ? "Saving..." : "Save Planner Settings"}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Tags Library Tab */}
+      {activeTab === "tags" && (
+        <div className="slide-up">
+          <TagManager />
+        </div>
+      )}
+
+      {/* Scraping Sources Tab */}
+      {activeTab === "scraping" && (
+        <div
+          className="slide-up"
+          style={{
+            background: "var(--bg-surface, #ffffff)",
+            borderRadius: "var(--radius-lg, 16px)",
+            border: "1px solid var(--border-color, #e2e8f0)",
+            padding: "24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontSize: "16px",
+                fontWeight: 700,
+                margin: "0 0 6px 0",
+              }}
+            >
+              Authorized Secondary Scraping Sources
+            </h2>
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--text-secondary, #64748b)",
+                margin: 0,
+              }}
+            >
+              Specify the domain suffixes authorized for automated secondary POI
+              scraping and augmentation (REQ-EXT-019).
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              type="text"
+              placeholder="e.g. timeout.com"
+              value={newDomainInput}
+              onChange={(e) => setNewDomainInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddDomain();
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                fontSize: "13px",
+                background: "var(--bg-surface)",
+                color: "var(--text-primary)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleAddDomain}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 16px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "var(--accent, #2563eb)",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: "13px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Plus size={15} />
+              <span>Add Domain</span>
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+              border: "1px solid var(--border-color, #e2e8f0)",
+              borderRadius: "var(--radius-md, 8px)",
+              padding: "12px",
+            }}
+          >
+            {scrapingDomains.map((domain) => (
+              <div
+                key={domain}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
+                  background: "var(--bg-muted, #f8fafc)",
+                  borderRadius: "6px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <Globe size={14} color="var(--text-secondary, #64748b)" />
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontFamily: "monospace",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {domain}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDomain(domain)}
+                  title="Remove domain"
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--text-muted, #94a3b8)",
+                    cursor: "pointer",
+                    padding: "4px",
+                  }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveScraping}
+            disabled={saving}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              alignSelf: "flex-start",
+              padding: "10px 20px",
+              borderRadius: "var(--radius-md, 8px)",
+              background: "var(--accent, #2563eb)",
+              color: "#ffffff",
+              fontWeight: 600,
+              fontSize: "13px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <Save size={15} />
+            <span>{saving ? "Saving..." : "Save Scraping Sources"}</span>
           </button>
         </div>
       )}

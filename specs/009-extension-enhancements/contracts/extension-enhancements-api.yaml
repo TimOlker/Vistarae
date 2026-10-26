@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Extension Enhancements & Tag Governance API
+  version: 1.0.0
+  description: >
+    API contract for Phase 9 (009-extension-enhancements): User-scoped tag management,
+    scraping sources configuration, multi-source POI extraction, and scale-aware duplicate triage.
+
+paths:
+  /api/pois/tags:
+    get:
+      summary: List user tags
+      description: Returns all tags belonging to the authenticated traveler, sorted in ascending alphabetical order by display name.
+      operationId: listTags
+      tags:
+        - Tags
+      responses:
+        '200':
+          description: Alphabetically ordered list of user tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Create new tag
+      description: Creates a new user tag with an immutable slugified ID, human-readable display name, and search aliases.
+      operationId: createTag
+      tags:
+        - Tags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagCreateRequest'
+      responses:
+        '201':
+          description: Tag successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /api/pois/tags/{tag_id}:
+    delete:
+      summary: Delete user tag
+      description: Permanently deletes a tag if and only if it is not referenced by any POIs. If referenced, returns 409 Conflict.
+      operationId: deleteTag
+      tags:
+        - Tags
+      parameters:
+        - name: tag_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Tag deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Tag in use by one or more POIs (referential integrity violation)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/TagInUseProblemDetails'
+
+  /api/user/preferences/scraping-sources:
+    get:
+      summary: Get authorized scraping domains
+      description: Retrieves the list of authorized domains for secondary web scraping configured by the traveler.
+      operationId: getScrapingSources
+      tags:
+        - Preferences
+      responses:
+        '200':
+          description: List of authorized scraping domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScrapingSourcesResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      summary: Update authorized scraping domains
+      description: Updates the list of authorized domains for secondary web scraping.
+      operationId: updateScrapingSources
+      tags:
+        - Preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScrapingSourcesUpdateRequest'
+      responses:
+        '200':
+          description: Updated scraping sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScrapingSourcesResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pois/extract-and-check:
+    post:
+      summary: Multi-source extraction and duplicate triage
+      description: Orchestrates primary and secondary scraping, geocoding, tight summary synthesis, and scale-aware duplicate/nesting triage.
+      operationId: extractAndCheckPOI
+      tags:
+        - Scraping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractAndCheckRequest'
+      responses:
+        '200':
+          description: Extraction candidate, suggested tags, and duplicate triage verdict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractAndCheckResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  schemas:
+    TagResponse:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - aliases
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          example: fortification
+        name:
+          type: string
+          example: Fortification
+        aliases:
+          type: array
+          items:
+            type: string
+          example: ["castle", "fort", "citadel"]
+        poi_count:
+          type: integer
+          example: 4
+        created_at:
+          type: string
+          format: date-time
+
+    TagCreateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: Historic Railway
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z0-9_]+$'
+          example: historic_railway
+        aliases:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          default: []
+          example: ["steam train", "cog railway"]
+
+    ScrapingSourcesResponse:
+      type: object
+      required:
+        - valid_scraping_domains
+      properties:
+        valid_scraping_domains:
+          type: array
+          items:
+            type: string
+          example: ["wikipedia.org", "tripadvisor.com", "atlasobscura.com"]
+
+    ScrapingSourcesUpdateRequest:
+      type: object
+      required:
+        - valid_scraping_domains
+      properties:
+        valid_scraping_domains:
+          type: array
+          items:
+            type: string
+            minLength: 3
+            maxLength: 255
+          example: ["wikipedia.org", "tripadvisor.com", "atlasobscura.com"]
+
+    AddressRecord:
+      type: object
+      required:
+        - country
+      properties:
+        street:
+          type: string
+          nullable: true
+          example: "Glacier Point Rd"
+        city:
+          type: string
+          nullable: true
+          example: "Yosemite Valley"
+        state:
+          type: string
+          nullable: true
+          example: "California"
+        country:
+          type: string
+          example: "United States"
+        postal_code:
+          type: string
+          nullable: true
+          example: "95389"
+
+    ExtractAndCheckRequest:
+      type: object
+      required:
+        - source_url
+      properties:
+        source_url:
+          type: string
+          format: uri
+          example: "https://en.wikipedia.org/wiki/Bamburgh_Castle"
+        page_title:
+          type: string
+          nullable: true
+          example: "Bamburgh Castle - Wikipedia"
+        selected_text:
+          type: string
+          nullable: true
+          example: "Bamburgh Castle is a castle on the coast at Bamburgh in Northumberland, England."
+
+    ExtractAndCheckResponse:
+      type: object
+      required:
+        - candidate
+        - recommended_tags
+        - deduplication
+      properties:
+        candidate:
+          $ref: '#/components/schemas/POICandidateSchema'
+        recommended_tags:
+          type: array
+          items:
+            type: string
+          example: ["fortification", "historic"]
+        deduplication:
+          $ref: '#/components/schemas/DeduplicationVerdictSchema'
+
+    POICandidateSchema:
+      type: object
+      required:
+        - name
+        - description
+        - addresses
+        - source_type
+        - source_value
+        - extraction_sources
+      properties:
+        name:
+          type: string
+          example: "Bamburgh Castle"
+        description:
+          type: string
+          example: "Historic Norman fortress standing atop a basalt crag on the Northumberland coast."
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRecord'
+        latitude:
+          type: number
+          format: float
+          nullable: true
+          example: 55.6089
+        longitude:
+          type: number
+          format: float
+          nullable: true
+          example: -1.7099
+        official_website_url:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://www.bamburghcastle.com"
+        wikipedia_url:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://en.wikipedia.org/wiki/Bamburgh_Castle"
+        hero_image_url:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Bamburgh_Castle.jpg"
+        estimated_duration_hours:
+          type: number
+          nullable: true
+          example: 3.5
+        estimated_duration_days:
+          type: integer
+          nullable: true
+          example: 0
+        rating:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 5
+        source_type:
+          type: string
+          enum: ["Web"]
+          example: "Web"
+        source_value:
+          type: string
+          example: "https://en.wikipedia.org/wiki/Bamburgh_Castle"
+        extraction_sources:
+          type: array
+          items:
+            type: string
+          example: ["wikipedia.org"]
+
+    DeduplicationVerdictSchema:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: ["UNIQUE_LOCATION", "POTENTIAL_DUPLICATE", "NEARBY_PARENT"]
+          example: "NEARBY_PARENT"
+        distance_meters:
+          type: number
+          nullable: true
+          example: 24.8
+        similarity_score:
+          type: number
+          nullable: true
+          example: 0.35
+        existing_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        existing_poi_name:
+          type: string
+          nullable: true
+          example: "Millennium Park"
+        scale_classification:
+          type: string
+          enum: ["macro", "medium", "micro"]
+          nullable: true
+          example: "macro"
+        recommended_action:
+          type: string
+          enum: ["proceed", "make_child", "abort"]
+          example: "make_child"
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+
+    TagInUseProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            referencing_poi_count:
+              type: integer
+              example: 12
+            remediation_filter_url:
+              type: string
+              example: "/?filter_tag=fortification"
+
+  responses:
+    UnauthorizedError:
+      description: Authentication credentials missing or invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    ValidationError:
+      description: Input validation failed (Pydantic v2 StrictBaseModel error)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    ConflictError:
+      description: Unique constraint or referential integrity conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'

@@ -33,12 +33,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateSignUp,
   onNavigateForgotPassword,
 }) => {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const { showToast } = useToast();
+
+  const isReturnToExtension =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("return_to") === "extension";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (user && isReturnToExtension) {
+      window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
+    }
+  }, [user, isReturnToExtension]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,15 +95,103 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           padding: "36px",
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <span style={{ fontSize: "32px" }}>🧭</span>
-          <h2 style={{ fontSize: "22px", fontWeight: 800, marginTop: "8px" }}>
-            Sign in to Vistarae
-          </h2>
-          <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-            Access your captured travel POIs and custom map views
-          </p>
-        </div>
+        {user && isReturnToExtension ? (
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <span style={{ fontSize: "40px" }}>🧭</span>
+            <h2
+              style={{
+                fontSize: "22px",
+                fontWeight: 800,
+                marginTop: "12px",
+                color: "var(--text-primary)",
+              }}
+            >
+              Extension Connected!
+            </h2>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "var(--text-muted)",
+                marginTop: "8px",
+              }}
+            >
+              Signed in as{" "}
+              <strong style={{ color: "var(--text-primary)" }}>
+                {user.email}
+              </strong>
+            </p>
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "14px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "rgba(16, 185, 129, 0.12)",
+                color: "#059669",
+                fontSize: "13px",
+                fontWeight: 600,
+                border: "1px solid rgba(16, 185, 129, 0.25)",
+              }}
+            >
+              ✓ Vistarae Chrome Extension authenticated and active
+            </div>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginTop: "16px",
+                lineHeight: "1.6",
+              }}
+            >
+              You can close this tab and return to your browsing. Press{" "}
+              <kbd
+                style={{
+                  padding: "2px 6px",
+                  background: "var(--bg-primary, #f1f5f9)",
+                  borderRadius: "4px",
+                  border: "1px solid var(--border-color, #cbd5e1)",
+                  fontFamily: "monospace",
+                }}
+              >
+                Ctrl+Shift+S
+              </kbd>{" "}
+              on any web page to capture travel destinations.
+            </p>
+            <button
+              type="button"
+              onClick={onSuccess}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                marginTop: "24px",
+                padding: "10px 24px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "var(--accent, #2563eb)",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: "14px",
+                cursor: "pointer",
+                border: "none",
+              }}
+            >
+              <span>Go to Web Dashboard</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div style={{ textAlign: "center", marginBottom: "28px" }}>
+              <span style={{ fontSize: "32px" }}>🧭</span>
+              <h2
+                style={{ fontSize: "22px", fontWeight: 800, marginTop: "8px" }}
+              >
+                Sign in to Vistarae
+              </h2>
+              <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                Access your captured travel POIs and custom map views
+              </p>
+            </div>
 
         <form
           onSubmit={handleSubmit}
@@ -223,7 +321,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Create an account
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    )}
+  </div>
+</div>
   );
 };

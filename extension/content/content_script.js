@@ -20,7 +20,7 @@ export function closeCaptureOverlay() {
 }
 
 /**
- * Mounts or reveals the isolated Shadow DOM capture overlay.
+ * Mounts or reveals the isolated Shadow DOM capture overlay with 1:1 schema parity (REQ-EXT-014 to REQ-EXT-016).
  * @param {Object} [payload] - Optional contextual payload from service worker.
  */
 export async function openCaptureOverlay(payload = {}) {
@@ -45,6 +45,14 @@ export async function openCaptureOverlay(payload = {}) {
         source_url: window.location.href,
       };
 
+  // State for selected tags and addresses
+  let selectedTags = new Set();
+  let currentAddresses = scrapedPoi.address
+    ? [{ country: "United States", city: scrapedPoi.address }]
+    : [];
+  let parentPoiId = null;
+  let parentPoiName = null;
+
   // 2. Create custom element container
   const container = document.createElement("vistarae-capture-root");
   const shadow = container.attachShadow({ mode: "open" });
@@ -67,7 +75,11 @@ export async function openCaptureOverlay(payload = {}) {
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
             <circle cx="12" cy="10" r="3"></circle>
           </svg>
-          <span>Vistarae Capture</span>
+          <span id="vistarae-title">Vistarae Capture</span>
+        </div>
+        <div class="vistarae-user-context" id="vistarae-user-context">
+          <span class="vistarae-user-email" id="vistarae-user-email">Loading user...</span>
+          <span class="vistarae-badge vistarae-badge-neutral" id="vistarae-user-badge">Checking...</span>
         </div>
         <button class="vistarae-close-btn" id="vistarae-close-btn" title="Close (Escape)">✕</button>
       </div>
@@ -75,9 +87,10 @@ export async function openCaptureOverlay(payload = {}) {
       <div class="vistarae-body" id="vistarae-body">
         <div class="vistarae-status-banner vistarae-status-unique" id="vistarae-status">
           <span class="vistarae-spinner" id="vistarae-spinner"></span>
-          <span id="vistarae-status-text">Analyzing page with Gemini & verifying spatial uniqueness...</span>
+          <span id="vistarae-status-text">Analyzing page with Gemini & checking spatial uniqueness...</span>
         </div>
 
+        <!-- POI Name -->
         <div class="vistarae-form-group">
           <label class="vistarae-label" for="vistarae-name-input">Destination / POI Name</label>
           <input class="vistarae-input" id="vistarae-name-input" type="text" value="${escapeHtml(
@@ -85,54 +98,103 @@ export async function openCaptureOverlay(payload = {}) {
           )}" required />
         </div>
 
-        <div class="vistarae-grid-2">
-          <div class="vistarae-form-group">
-            <label class="vistarae-label" for="vistarae-category-select">Category</label>
-            <select class="vistarae-select" id="vistarae-category-select">
-              <option value="viewpoint" ${
-                scrapedPoi.category === "viewpoint" ? "selected" : ""
-              }>Scenic Viewpoint</option>
-              <option value="trail" ${
-                scrapedPoi.category === "trail" ? "selected" : ""
-              }>Trail / Hike</option>
-              <option value="landmark" ${
-                scrapedPoi.category === "landmark" ? "selected" : ""
-              }>Historic Landmark</option>
-              <option value="campground" ${
-                scrapedPoi.category === "campground" ? "selected" : ""
-              }>Campground</option>
-              <option value="dining" ${
-                scrapedPoi.category === "dining" ? "selected" : ""
-              }>Dining / Food</option>
-              <option value="experience" ${
-                ![
-                  "viewpoint",
-                  "trail",
-                  "landmark",
-                  "campground",
-                  "dining",
-                ].includes(scrapedPoi.category)
-                  ? "selected"
-                  : ""
-              }>Travel Experience</option>
-            </select>
-          </div>
-
-          <div class="vistarae-form-group">
-            <label class="vistarae-label" for="vistarae-address-input">Address / Region</label>
-            <input class="vistarae-input" id="vistarae-address-input" type="text" value="${escapeHtml(
-              scrapedPoi.address || "",
-            )}" placeholder="City, State, Country" />
-          </div>
-        </div>
-
+        <!-- Description -->
         <div class="vistarae-form-group">
-          <label class="vistarae-label" for="vistarae-desc-input">Notes & Descriptions</label>
+          <label class="vistarae-label" for="vistarae-desc-input">Summary Description</label>
           <textarea class="vistarae-textarea" id="vistarae-desc-input" rows="3">${escapeHtml(
             scrapedPoi.description || "",
           )}</textarea>
         </div>
 
+        <!-- Coordinates -->
+        <div class="vistarae-grid-2">
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-lat-input">Latitude</label>
+            <input class="vistarae-input" id="vistarae-lat-input" type="number" step="any" value="${
+              scrapedPoi.latitude !== undefined && scrapedPoi.latitude !== null
+                ? scrapedPoi.latitude
+                : ""
+            }" placeholder="e.g. 55.6089" />
+          </div>
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-lng-input">Longitude</label>
+            <input class="vistarae-input" id="vistarae-lng-input" type="number" step="any" value="${
+              scrapedPoi.longitude !== undefined &&
+              scrapedPoi.longitude !== null
+                ? scrapedPoi.longitude
+                : ""
+            }" placeholder="e.g. -1.7099" />
+          </div>
+        </div>
+
+        <!-- URLs -->
+        <div class="vistarae-grid-2">
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-official-url-input">Official Website</label>
+            <input class="vistarae-input" id="vistarae-official-url-input" type="url" value="${escapeHtml(
+              scrapedPoi.official_website_url || "",
+            )}" placeholder="https://..." />
+          </div>
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-wikipedia-url-input">Wikipedia Article</label>
+            <input class="vistarae-input" id="vistarae-wikipedia-url-input" type="url" value="${escapeHtml(
+              scrapedPoi.wikipedia_url || "",
+            )}" placeholder="https://en.wikipedia.org/..." />
+          </div>
+        </div>
+
+        <!-- Hero Image -->
+        <div class="vistarae-form-group">
+          <label class="vistarae-label" for="vistarae-hero-image-input">Hero Image URL</label>
+          <input class="vistarae-input" id="vistarae-hero-image-input" type="url" value="${escapeHtml(
+            scrapedPoi.hero_image_url || "",
+          )}" placeholder="https://..." />
+        </div>
+
+        <!-- Duration & Rating -->
+        <div class="vistarae-grid-3">
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-duration-hours-input">Duration (Hours)</label>
+            <input class="vistarae-input" id="vistarae-duration-hours-input" type="number" step="0.5" min="0" value="${
+              scrapedPoi.estimated_duration_hours || ""
+            }" placeholder="e.g. 2.5" />
+          </div>
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-duration-days-input">Duration (Days)</label>
+            <input class="vistarae-input" id="vistarae-duration-days-input" type="number" step="1" min="0" value="${
+              scrapedPoi.estimated_duration_days || ""
+            }" placeholder="e.g. 0" />
+          </div>
+          <div class="vistarae-form-group">
+            <label class="vistarae-label" for="vistarae-rating-input">Star Rating (0-5)</label>
+            <input class="vistarae-input" id="vistarae-rating-input" type="number" min="0" max="5" step="1" value="" placeholder="Unassigned" />
+          </div>
+        </div>
+
+        <!-- Addresses -->
+        <div class="vistarae-form-group" id="vistarae-addresses-container">
+          <label class="vistarae-label">Resolved Addresses</label>
+          <div id="vistarae-address-list" class="vistarae-address-list">
+            <span class="vistarae-text-muted">Resolving geographic address...</span>
+          </div>
+        </div>
+
+        <!-- Parent POI -->
+        <div class="vistarae-form-group" id="vistarae-parent-container">
+          <label class="vistarae-label">Parent Destination (Hierarchical Nesting)</label>
+          <input type="hidden" id="vistarae-parent-id" value="" />
+          <input class="vistarae-input" id="vistarae-parent-name" type="text" placeholder="None (Root Destination)" readonly />
+        </div>
+
+        <!-- Vetted Tags -->
+        <div class="vistarae-form-group" id="vistarae-tags-container">
+          <label class="vistarae-label">Vetted Tags</label>
+          <div id="vistarae-tag-pills" class="vistarae-tag-pills">
+            <span class="vistarae-text-muted">Loading tag recommendations...</span>
+          </div>
+        </div>
+
+        <!-- Triage / Deduplication Banner Container -->
         <div id="vistarae-dedup-container"></div>
       </div>
 
@@ -175,6 +237,87 @@ export async function openCaptureOverlay(payload = {}) {
   shadow.querySelector("#vistarae-cancel-btn").addEventListener("click", close);
   shadow.querySelector("#vistarae-backdrop").addEventListener("click", close);
 
+  // Async user context lookup (REQ-EXT-010)
+  chrome.runtime
+    .sendMessage({ action: "GET_AUTH_STATUS" })
+    .then((auth) => {
+      const emailEl = shadow.querySelector("#vistarae-user-email");
+      const badgeEl = shadow.querySelector("#vistarae-user-badge");
+      if (auth?.isAuthenticated && auth?.email) {
+        if (emailEl) emailEl.textContent = auth.email;
+        if (badgeEl) {
+          badgeEl.textContent = "Authenticated";
+          badgeEl.className = "vistarae-badge vistarae-badge-success";
+        }
+      } else {
+        if (emailEl) emailEl.textContent = "Guest";
+        if (badgeEl) {
+          badgeEl.textContent = "Guest";
+          badgeEl.className = "vistarae-badge vistarae-badge-neutral";
+        }
+      }
+    })
+    .catch(() => {});
+
+  // Render addresses helper
+  const renderAddresses = (addresses) => {
+    const listEl = shadow.querySelector("#vistarae-address-list");
+    if (!listEl) return;
+    if (!addresses || addresses.length === 0) {
+      listEl.innerHTML =
+        '<span class="vistarae-text-muted">No address resolved.</span>';
+      return;
+    }
+    listEl.innerHTML = addresses
+      .map((a) => {
+        const parts = [
+          a.street,
+          a.city,
+          a.state || a.state_province,
+          a.country,
+          a.postal_code,
+        ].filter(Boolean);
+        return `<div class="vistarae-address-chip">${escapeHtml(
+          parts.join(", "),
+        )}</div>`;
+      })
+      .join("");
+  };
+
+  // Render tags helper (REQ-EXT-029)
+  const renderTags = (availableTags, recommended) => {
+    const pillsContainer = shadow.querySelector("#vistarae-tag-pills");
+    if (!pillsContainer) return;
+
+    if (recommended && recommended.length > 0) {
+      recommended.forEach((t) => selectedTags.add(t));
+    }
+
+    const tagsToShow =
+      availableTags && availableTags.length > 0
+        ? availableTags
+        : Array.from(selectedTags).map((slug) => ({ slug, name: slug }));
+
+    pillsContainer.innerHTML = "";
+    tagsToShow.forEach((tag) => {
+      const isSelected = selectedTags.has(tag.slug);
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = `vistarae-tag-pill ${isSelected ? "active" : ""}`;
+      pill.textContent = tag.name || tag.slug;
+      pill.addEventListener("click", () => {
+        if (selectedTags.has(tag.slug)) {
+          selectedTags.delete(tag.slug);
+          pill.classList.remove("active");
+        } else {
+          selectedTags.add(tag.slug);
+          pill.classList.add("active");
+        }
+      });
+      pillsContainer.appendChild(pill);
+    });
+  };
+
   // Save handler
   const save = async () => {
     const saveBtn = shadow.querySelector("#vistarae-save-btn");
@@ -182,35 +325,56 @@ export async function openCaptureOverlay(payload = {}) {
     saveBtn.textContent = "Saving...";
 
     const name = shadow.querySelector("#vistarae-name-input").value.trim();
-    const category = shadow.querySelector("#vistarae-category-select").value;
-    const address = shadow
-      .querySelector("#vistarae-address-input")
-      .value.trim();
     const description = shadow
       .querySelector("#vistarae-desc-input")
       .value.trim();
+    const latVal = shadow.querySelector("#vistarae-lat-input").value;
+    const lngVal = shadow.querySelector("#vistarae-lng-input").value;
+    const officialUrl = shadow
+      .querySelector("#vistarae-official-url-input")
+      .value.trim();
+    const wikipediaUrl = shadow
+      .querySelector("#vistarae-wikipedia-url-input")
+      .value.trim();
+    const heroImageUrl = shadow
+      .querySelector("#vistarae-hero-image-input")
+      .value.trim();
+    const hoursVal = shadow.querySelector(
+      "#vistarae-duration-hours-input",
+    ).value;
+    const daysVal = shadow.querySelector("#vistarae-duration-days-input").value;
+    const ratingVal = shadow.querySelector("#vistarae-rating-input").value;
+
+    const payloadPoi = {
+      name,
+      description,
+      addresses: currentAddresses,
+      latitude: latVal ? parseFloat(latVal) : null,
+      longitude: lngVal ? parseFloat(lngVal) : null,
+      official_website_url: officialUrl || null,
+      wikipedia_url: wikipediaUrl || null,
+      hero_image_url: heroImageUrl || null,
+      estimated_duration_hours: hoursVal ? parseFloat(hoursVal) : null,
+      estimated_duration_days: daysVal ? parseInt(daysVal, 10) : null,
+      rating: ratingVal ? parseInt(ratingVal, 10) : null, // REQ-EXT-016
+      parent_poi_id: parentPoiId,
+      parent_poi_name: parentPoiName,
+      tags: Array.from(selectedTags),
+      source_type: "Web",
+      source_value: window.location.href,
+    };
 
     try {
       const response = await chrome.runtime.sendMessage({
         action: "SAVE_POI",
-        poi: {
-          name,
-          category,
-          address,
-          description,
-          latitude: scrapedPoi.latitude,
-          longitude: scrapedPoi.longitude,
-          rating: scrapedPoi.rating,
-          source_url: window.location.href,
-          tags: scrapedPoi.tags,
-        },
+        poi: payloadPoi,
       });
 
       if (response?.success) {
         saveBtn.textContent = "Saved!";
         setTimeout(close, 400);
       } else {
-        alert(response?.error || "Failed to save POI");
+        alert(response?.error || "Failed to save destination");
         saveBtn.disabled = false;
         saveBtn.textContent = "Save to Vistarae";
       }
@@ -222,15 +386,14 @@ export async function openCaptureOverlay(payload = {}) {
   };
   shadow.querySelector("#vistarae-save-btn").addEventListener("click", save);
 
-  // 5. Dispatch background extraction and deduplication check
+  // 5. Dispatch background extraction, multi-source scraping, and triage check
   try {
     const checkResponse = await chrome.runtime.sendMessage({
       action: "EXTRACT_AND_CHECK",
       payload: {
-        text: selectionText || scrapedPoi.name,
         source_url: window.location.href,
         page_title: document.title,
-        extracted: scrapedPoi,
+        selected_text: selectionText || scrapedPoi.description,
       },
     });
 
@@ -242,11 +405,47 @@ export async function openCaptureOverlay(payload = {}) {
     if (checkResponse?.candidate) {
       const c = checkResponse.candidate;
       if (c.name) shadow.querySelector("#vistarae-name-input").value = c.name;
-      if (c.address)
-        shadow.querySelector("#vistarae-address-input").value = c.address;
-      if (c.category)
-        shadow.querySelector("#vistarae-category-select").value = c.category;
+      if (c.description)
+        shadow.querySelector("#vistarae-desc-input").value = c.description;
+      if (c.latitude !== undefined && c.latitude !== null) {
+        shadow.querySelector("#vistarae-lat-input").value = c.latitude;
+      }
+      if (c.longitude !== undefined && c.longitude !== null) {
+        shadow.querySelector("#vistarae-lng-input").value = c.longitude;
+      }
+      if (c.official_website_url) {
+        shadow.querySelector("#vistarae-official-url-input").value =
+          c.official_website_url;
+      }
+      if (c.wikipedia_url) {
+        shadow.querySelector("#vistarae-wikipedia-url-input").value =
+          c.wikipedia_url;
+      }
+      if (c.hero_image_url) {
+        shadow.querySelector("#vistarae-hero-image-input").value =
+          c.hero_image_url;
+      }
+      if (
+        c.estimated_duration_hours !== undefined &&
+        c.estimated_duration_hours !== null
+      ) {
+        shadow.querySelector("#vistarae-duration-hours-input").value =
+          c.estimated_duration_hours;
+      }
+      if (
+        c.estimated_duration_days !== undefined &&
+        c.estimated_duration_days !== null
+      ) {
+        shadow.querySelector("#vistarae-duration-days-input").value =
+          c.estimated_duration_days;
+      }
+      if (c.addresses && c.addresses.length > 0) {
+        currentAddresses = c.addresses;
+      }
     }
+
+    renderAddresses(currentAddresses);
+    renderTags([], checkResponse?.recommended_tags || []);
 
     const dedup = checkResponse?.deduplication;
     const dedupContainer = shadow.querySelector("#vistarae-dedup-container");
@@ -262,32 +461,94 @@ export async function openCaptureOverlay(payload = {}) {
 
       dedupContainer.innerHTML = `
         <div class="vistarae-dedup-card">
-          <div style="font-weight: 600; color: #b45309;">Existing POI Match: "${escapeHtml(
-            dedup.existing_poi?.name || "Existing",
-          )}"</div>
-          <div style="font-size: 0.85rem; color: #78350f;">
+          <div style="font-weight: 700; color: #b45309;">
+            Existing Match: "${escapeHtml(
+              dedup.existing_poi_name || "Existing POI",
+            )}"
+          </div>
+          <div style="font-size: 0.85rem; color: #78350f; margin-top: 4px;">
             Distance: ${Math.round(
               dedup.distance_meters || 0,
             )}m | Similarity: ${Math.round(
               (dedup.similarity_score || 0) * 100,
             )}%
           </div>
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <button class="vistarae-btn vistarae-btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;" id="vistarae-keep-both">Keep Both</button>
-            <button class="vistarae-btn vistarae-btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;" id="vistarae-overwrite">Update Existing</button>
+          <div class="vistarae-triage-actions" style="display: flex; gap: 8px; margin-top: 10px;">
+            <button class="vistarae-btn vistarae-btn-sm vistarae-btn-secondary" id="vistarae-triage-proceed">Proceed</button>
+            <button class="vistarae-btn vistarae-btn-sm vistarae-btn-primary" id="vistarae-triage-abort">Abort</button>
           </div>
         </div>
       `;
+
+      shadow
+        .querySelector("#vistarae-triage-abort")
+        ?.addEventListener("click", close);
+      shadow
+        .querySelector("#vistarae-triage-proceed")
+        ?.addEventListener("click", () => {
+          dedupContainer.innerHTML = "";
+          statusEl.className = "vistarae-status-banner vistarae-status-unique";
+          statusText.textContent = "Proceeding with new standalone POI.";
+        });
     } else if (dedup.status === "NEARBY_PARENT") {
       statusEl.className = "vistarae-status-banner vistarae-status-parent";
       statusText.textContent = `ℹ Located within parent destination "${escapeHtml(
-        dedup.existing_poi?.name || "Macro-Site",
+        dedup.existing_poi_name || "Macro-Site",
       )}"`;
+
+      dedupContainer.innerHTML = `
+        <div class="vistarae-dedup-card" style="background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.2);">
+          <div style="font-weight: 700; color: #1d4ed8;">
+            Discovered existing location: "${escapeHtml(
+              dedup.existing_poi_name || "Macro Destination",
+            )}" (${Math.round(dedup.distance_meters || 0)}m away)
+          </div>
+          <div style="font-size: 0.85rem; color: #1e40af; margin-top: 4px;">
+            Distance: ${Math.round(dedup.distance_meters || 0)}m | Scale: ${
+              dedup.scale_classification || "macro"
+            }
+          </div>
+          <div class="vistarae-triage-actions" style="display: flex; gap: 8px; margin-top: 10px;">
+            <button class="vistarae-btn vistarae-btn-sm vistarae-btn-primary" id="vistarae-triage-make-child">Make Child (Recommended)</button>
+            <button class="vistarae-btn vistarae-btn-sm vistarae-btn-secondary" id="vistarae-triage-proceed">Proceed</button>
+            <button class="vistarae-btn vistarae-btn-sm vistarae-btn-secondary" id="vistarae-triage-abort">Abort</button>
+          </div>
+        </div>
+      `;
+
+      shadow
+        .querySelector("#vistarae-triage-make-child")
+        ?.addEventListener("click", () => {
+          parentPoiId = dedup.existing_poi_id;
+          parentPoiName = dedup.existing_poi_name;
+          shadow.querySelector("#vistarae-parent-id").value = parentPoiId || "";
+          shadow.querySelector("#vistarae-parent-name").value =
+            parentPoiName || "";
+          dedupContainer.innerHTML = "";
+          statusEl.className = "vistarae-status-banner vistarae-status-unique";
+          statusText.textContent = `✓ Set parent to "${escapeHtml(
+            parentPoiName,
+          )}"`;
+        });
+
+      shadow
+        .querySelector("#vistarae-triage-proceed")
+        ?.addEventListener("click", () => {
+          dedupContainer.innerHTML = "";
+          statusEl.className = "vistarae-status-banner vistarae-status-unique";
+          statusText.textContent = "Proceeding with new standalone POI.";
+        });
+
+      shadow
+        .querySelector("#vistarae-triage-abort")
+        ?.addEventListener("click", close);
     }
   } catch (err) {
     const statusText = shadow.querySelector("#vistarae-status-text");
     if (statusText)
       statusText.textContent = "Ready to save (Offline/Manual Mode)";
+    renderAddresses(currentAddresses);
+    renderTags([], []);
   }
 
   // Focus destination title
@@ -313,5 +574,52 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
       openCaptureOverlay(message.payload);
       sendResponse({ success: true });
     }
+  });
+}
+
+/**
+ * Synchronizes web application authentication state with extension storage.
+ */
+function syncAuthFromWebapp() {
+  try {
+    const isVistaraeOrigin =
+      window.location.hostname === "localhost" ||
+      window.location.hostname.endsWith("cloudfront.net") ||
+      window.location.hostname.endsWith("vistarae.com") ||
+      window.location.hostname === "127.0.0.1";
+
+    if (!isVistaraeOrigin) return;
+
+    const token = localStorage.getItem("vistarae_auth_token");
+    const userRaw = localStorage.getItem("vistarae_user_profile");
+    let user = null;
+    if (userRaw) {
+      try {
+        user = JSON.parse(userRaw);
+      } catch (_) {}
+    }
+
+    if (token && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({
+        action: "SYNC_AUTH_FROM_WEBAPP",
+        token,
+        user,
+      });
+    }
+  } catch (_) {
+    // Cross-origin storage access safely ignored
+  }
+}
+
+// Initial sync on script load & event listeners
+if (typeof window !== "undefined") {
+  syncAuthFromWebapp();
+  window.addEventListener("storage", (e) => {
+    if (e.key === "vistarae_auth_token" || e.key === "vistarae_user_profile") {
+      syncAuthFromWebapp();
+    }
+  });
+  window.addEventListener("vistarae_auth_sync", () => {
+    syncAuthFromWebapp();
   });
 }

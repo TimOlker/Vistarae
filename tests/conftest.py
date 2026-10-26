@@ -21,8 +21,22 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import pytest
+from vistarae_core.adapters.db.session import reset_engine
 from vistarae_core.domain.entities import User, UserPreferences, UserQuota
 from vistarae_core.domain.value_objects import UserTier
+
+
+@pytest.fixture(autouse=True, scope="module")
+def reset_db_engine_singleton():
+    """Reset the SQLAlchemy engine singleton between test modules.
+
+    Prevents asyncpg.InterfaceError caused by TestClient-based tests leaving
+    the connection pool bound to an old event loop, which then corrupts
+    subsequent async test modules that spin up a fresh event loop.
+    """
+    reset_engine()
+    yield
+    reset_engine()
 
 
 @pytest.fixture

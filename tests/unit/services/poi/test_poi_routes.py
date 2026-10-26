@@ -134,8 +134,8 @@ def client(
     app.dependency_overrides[get_embedding_port] = lambda: mock_embedding_port
     app.dependency_overrides[get_db_session] = lambda: AsyncMock()
 
-    client = TestClient(app, raise_server_exceptions=False)
-    yield client
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client
     app.dependency_overrides.clear()
 
 

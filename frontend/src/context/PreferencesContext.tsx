@@ -63,11 +63,21 @@ interface PreferencesContextValue {
   ui: UIPreferences;
   poi: POIPreferences;
   planner: PlannerPreferences;
+  validScrapingDomains: string[];
   isLoading: boolean;
   updateUI: (diff: Partial<UIPreferences>) => Promise<void>;
   updatePOI: (diff: Partial<POIPreferences>) => Promise<void>;
   updatePlanner: (diff: Partial<PlannerPreferences>) => Promise<void>;
+  updateScrapingDomains: (domains: string[]) => Promise<void>;
 }
+
+export const defaultScrapingDomains: string[] = [
+  "wikipedia.org",
+  "tripadvisor.com",
+  "atlasobscura.com",
+  "google.com/maps",
+  "roadtrippers.com",
+];
 
 const defaultUI: UIPreferences = {
   theme: "system",
@@ -111,6 +121,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({
   const [ui, setUI] = useState<UIPreferences>(defaultUI);
   const [poi, setPOI] = useState<POIPreferences>(defaultPOI);
   const [planner, setPlanner] = useState<PlannerPreferences>(defaultPlanner);
+  const [validScrapingDomains, setValidScrapingDomains] = useState<string[]>(defaultScrapingDomains);
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch preferences on login
@@ -118,10 +129,11 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!isAuthenticated) return;
     setIsLoading(true);
     try {
-      const [uiRes, poiRes, plannerRes] = await Promise.allSettled([
+      const [uiRes, poiRes, plannerRes, scrapingRes] = await Promise.allSettled([
         apiFetch<UIPreferences>("/api/users/me/preferences/ui"),
         apiFetch<POIPreferences>("/api/users/me/preferences/poi"),
         apiFetch<PlannerPreferences>("/api/users/me/preferences/planner"),
+        apiFetch<{ valid_scraping_domains: string[] }>("/api/user/preferences/scraping-sources"),
       ]);
 
       if (uiRes.status === "fulfilled" && uiRes.value) {
@@ -143,6 +155,9 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       if (plannerRes.status === "fulfilled" && plannerRes.value) {
         setPlanner(plannerRes.value);
+      }
+      if (scrapingRes.status === "fulfilled" && scrapingRes.value?.valid_scraping_domains) {
+        setValidScrapingDomains(scrapingRes.value.valid_scraping_domains);
       }
     } catch (err) {
       console.warn("Could not load user preferences from backend:", err);
@@ -204,16 +219,28 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const updateScrapingDomains = async (domains: string[]) => {
+    setValidScrapingDomains(domains);
+    if (isAuthenticated) {
+      await apiFetch("/api/user/preferences/scraping-sources", {
+        method: "PUT",
+        body: JSON.stringify({ valid_scraping_domains: domains }),
+      });
+    }
+  };
+
   return (
     <PreferencesContext.Provider
       value={{
         ui,
         poi,
         planner,
+        validScrapingDomains,
         isLoading,
         updateUI,
         updatePOI,
         updatePlanner,
+        updateScrapingDomains,
       }}
     >
       {children}

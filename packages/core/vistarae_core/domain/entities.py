@@ -21,6 +21,7 @@ Encapsulates state and business rules decoupled from external ORM frameworks.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -203,12 +204,21 @@ class ListEntity:
 
 @dataclass
 class TagEntity:
-    """User-scoped taxonomy marker."""
+    """User-scoped taxonomy tag aggregate."""
 
     id: UUID
     user_id: UUID
     name: str
+    slug: str = ""
+    aliases: list[str] = field(default_factory=list)
+    poi_count: int = 0
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def __post_init__(self) -> None:
+        if not self.slug and self.name:
+            cleaned = re.sub(r"[^a-z0-9]+", "_", self.name.strip().lower())
+            cleaned = re.sub(r"^_+|_+$", "", cleaned)
+            self.slug = cleaned or "tag"
 
 
 @dataclass

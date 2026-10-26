@@ -13,7 +13,8 @@
     "format:extension": "prettier --ignore-path ../.prettierignore --write \"../extension/**/*.{js,css,html}\"",
     "codegen": "openapi-typescript ../openapi.json -o ./src/types/api.ts",
     "generate:types": "openapi-typescript ../specs/007-ui-edit-poi-enhancements/contracts/poi-edit-api.yaml -o ./src/types/poi-edit-api.ts",
-    "generate:types:main": "openapi-typescript ../specs/008-ui-main-page-enhancements/contracts/main-page-api.yaml -o ./src/types/main-page-api.ts"
+    "generate:types:main": "openapi-typescript ../specs/008-ui-main-page-enhancements/contracts/main-page-api.yaml -o ./src/types/main-page-api.ts",
+    "generate:types:extension": "openapi-typescript ../specs/009-extension-enhancements/contracts/extension-enhancements-api.yaml -o ./src/types/extension-enhancements-api.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

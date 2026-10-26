@@ -643,6 +643,30 @@ class ITagRepository(Protocol):
         """
         ...
 
+    async def get_by_slug(self, user_id: UUID, slug: str) -> TagEntity | None:
+        """Resolves a tag by its unique slug scoped to tenant.
+
+        Args:
+            user_id: Owning tenant UUID.
+            slug: Normalized slug identifier.
+
+        Returns:
+            TagEntity or None if not found.
+        """
+        ...
+
+    async def count_referencing_pois(self, user_id: UUID, tag_id: UUID) -> int:
+        """Counts how many POIs are currently referencing this tag.
+
+        Args:
+            user_id: Owning tenant UUID.
+            tag_id: Unique tag UUID.
+
+        Returns:
+            Count of referencing POIs.
+        """
+        ...
+
     async def list_by_user(self, user_id: UUID) -> list[TagEntity]:
         """Lists all tags defined by the user.
 
@@ -950,5 +974,36 @@ class IFilterRuleRepository(Protocol):
 
         Returns:
             True if deleted, False if not found.
+        """
+        ...
+
+
+class IScrapingPreferencesRepository(Protocol):
+    """Persistence contract for secondary scraping domain preferences."""
+
+    async def get_scraping_domains(self, user_id: UUID) -> list[str]:
+        """Retrieves authorized secondary scraping domains for the tenant.
+
+        Args:
+            user_id: Owning tenant UUID.
+
+        Returns:
+            List of domain suffix strings.
+        """
+        ...
+
+    async def update_scraping_domains(
+        self,
+        user_id: UUID,
+        domains: list[str],
+    ) -> list[str]:
+        """Updates authorized secondary scraping domains for the tenant.
+
+        Args:
+            user_id: Owning tenant UUID.
+            domains: Updated list of domain suffixes.
+
+        Returns:
+            Persisted list of domain suffixes.
         """
         ...

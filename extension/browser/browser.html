@@ -7,7 +7,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vistarae — POI Explorer & Database Browser</title>
+    <title>Vistarae — Companion Hub</title>
     <link rel="stylesheet" href="browser.css" />
     <link rel="icon" type="image/png" href="../icons/icon16.png" />
   </head>
@@ -22,34 +22,20 @@
             class="brand-icon"
           />
           <span class="brand-title">Vistarae</span>
-          <span class="brand-subtitle">Catalog Workstation</span>
+          <span class="brand-subtitle">Companion Hub</span>
         </div>
 
         <div class="nav-actions">
-          <button
-            id="btn-export-csv"
-            class="btn btn-secondary"
-            title="Export all or filtered POIs to CSV"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+          <div class="user-badge" id="user-badge-container">
+            <span id="user-email" class="user-email">Checking account...</span>
+            <span id="user-status-badge" class="badge badge-neutral"
+              >Guest</span
             >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Export to CSV
-          </button>
-
+          </div>
           <button
-            id="btn-refresh"
+            id="btn-open-webapp"
             class="btn btn-primary"
-            title="Refresh POI catalog"
+            title="Launch full Vistarae Web App"
           >
             <svg
               width="16"
@@ -59,112 +45,127 @@
               stroke="currentColor"
               stroke-width="2"
             >
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              <path
+                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+              ></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
-            Refresh
+            Open Vistarae Web App
           </button>
         </div>
       </header>
 
-      <!-- Filter & Search Toolbar -->
-      <section class="toolbar">
-        <div class="search-box">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            class="search-icon"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            id="input-search"
-            placeholder="Search by name, city, country, or tag..."
-            autofocus
-          />
+      <!-- Main Companion Content -->
+      <main class="content-area companion-hub">
+        <div class="companion-hero">
+          <h1 class="hero-title">Your Web Travel Capture Companion</h1>
+          <p class="hero-description">
+            Vistarae empowers travelers to effortlessly collect scenic
+            overlooks, trails, historic ruins, and points of interest directly
+            from web pages and blog articles into an enriched geospatial
+            catalog.
+          </p>
         </div>
 
-        <div class="filter-controls">
-          <select id="select-category" class="filter-select">
-            <option value="ALL">All Categories</option>
-            <option value="viewpoint">Scenic Viewpoints</option>
-            <option value="trail">Trails & Hikes</option>
-            <option value="landmark">Historic Landmarks</option>
-            <option value="campground">Campgrounds</option>
-            <option value="dining">Dining & Food</option>
-            <option value="experience">Experiences</option>
-          </select>
-
-          <select id="select-sort" class="filter-select">
-            <option value="name_asc">Name (A-Z)</option>
-            <option value="name_desc">Name (Z-A)</option>
-            <option value="rating_desc">Highest Rated</option>
-            <option value="distance_asc">Proximity (Closest First)</option>
-          </select>
-
-          <button
-            id="btn-proximity"
-            class="btn btn-chip"
-            title="Calculate distance from your current location"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="10"></circle>
-              <polygon points="12 8 8 12 12 16 16 12 12 8"></polygon>
-            </svg>
-            <span id="proximity-status">Enable Proximity</span>
-          </button>
-        </div>
-      </section>
-
-      <!-- Table Container -->
-      <main class="content-area">
-        <div class="table-card">
-          <div class="table-header-meta">
-            <span id="record-count" class="badge-count">Loading POIs...</span>
-            <div id="bulk-actions" class="bulk-actions hidden">
-              <span id="selected-count">0 selected</span>
-              <button id="btn-bulk-delete" class="btn btn-danger btn-sm">
-                Delete Selected
-              </button>
+        <div class="cards-grid">
+          <!-- Keyboard Shortcut Card -->
+          <div class="companion-card">
+            <div class="card-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+                <path
+                  d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M6 12h.001M10 12h.001M14 12h.001M18 12h.001M8 16h8"
+                ></path>
+              </svg>
             </div>
+            <h2 class="card-title">Instant Web Capture</h2>
+            <p class="card-text">
+              Press the global shortcut on any webpage to scrape and curate
+              destinations in seconds:
+            </p>
+            <div class="shortcut-box">
+              <kbd class="kbd-key">Ctrl</kbd> +
+              <kbd class="kbd-key">Shift</kbd> + <kbd class="kbd-key">S</kbd>
+              <span class="mac-hint"
+                >(or <kbd class="kbd-key">Cmd</kbd> +
+                <kbd class="kbd-key">Shift</kbd> +
+                <kbd class="kbd-key">S</kbd> on Mac)</span
+              >
+            </div>
+            <p class="card-subtext">
+              Or right-click any webpage, link, or highlighted text and select
+              <strong>"Capture to Vistarae"</strong>.
+            </p>
           </div>
 
-          <div class="table-responsive">
-            <table class="data-table" id="poi-table">
-              <thead>
-                <tr>
-                  <th width="40">
-                    <input
-                      type="checkbox"
-                      id="th-check-all"
-                      title="Select all"
-                    />
-                  </th>
-                  <th>Destination</th>
-                  <th>Category</th>
-                  <th>Location</th>
-                  <th>Rating</th>
-                  <th>Local Photos</th>
-                  <th width="120">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="poi-tbody">
-                <!-- Dynamically populated by browser.js -->
-              </tbody>
-            </table>
+          <!-- Feature Highlights Card -->
+          <div class="companion-card">
+            <div class="card-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path
+                  d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                ></path>
+              </svg>
+            </div>
+            <h2 class="card-title">Multi-Source Intelligence</h2>
+            <ul class="feature-list">
+              <li>Automatic translation and English normalization</li>
+              <li>Wikipedia and secondary source coordination</li>
+              <li>
+                OpenStreetMap Nominatim geocoding & multi-address resolution
+              </li>
+              <li>Early duplicate and hierarchical nesting triage</li>
+            </ul>
+          </div>
+
+          <!-- System Status Card -->
+          <div class="companion-card">
+            <div class="card-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+              </svg>
+            </div>
+            <h2 class="card-title">System Status</h2>
+            <div class="status-row">
+              <span class="status-label">Backend API:</span>
+              <span id="server-status" class="badge badge-checking"
+                >Checking...</span
+              >
+            </div>
+            <div class="status-row">
+              <span class="status-label">Authentication:</span>
+              <span id="auth-status-badge" class="badge badge-neutral"
+                >Guest</span
+              >
+            </div>
+            <div class="status-row">
+              <span class="status-label">Extension Version:</span>
+              <span class="badge badge-outline">v1.2.0</span>
+            </div>
           </div>
         </div>
       </main>
