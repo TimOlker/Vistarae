@@ -126,6 +126,9 @@ class POIResponse(StrictBaseModel):
         default=None, ge=0.1, le=24.0, description="Duration in hours"
     )
     recommended_visit_days: int = Field(default=1, description="Recommended days to spend at POI")
+    estimated_visit_time_notes: str | None = Field(
+        default=None, description="Explanation or reasoning for estimated visit duration"
+    )
     enrichment_status: EnrichmentStatus = Field(
         default=EnrichmentStatus.PARTIAL, description="Address geocoding enrichment status"
     )
@@ -173,6 +176,9 @@ class POICreateRequest(StrictBaseModel):
     lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude in degrees (WGS-84)")
     parent_poi_id: UUID | None = Field(default=None, description="Optional macro-site parent UUID")
     description: str | None = Field(default=None, description="Rich description or markdown")
+    addresses: list[AddressRecord] | None = Field(
+        default=None, description="Array of structured international address records"
+    )
     address: str | None = Field(default=None, max_length=500, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
     states: list[str] | None = Field(
@@ -196,6 +202,12 @@ class POICreateRequest(StrictBaseModel):
     visit_state: VisitState = Field(
         default=VisitState.NOT_VISITED, description="Visit tracking state"
     )
+    source_type: SourceType | str = Field(
+        default="Manual", description="Provenance source type (Web, CSV, Manual, Photo)"
+    )
+    source_value: str | None = Field(
+        default=None, max_length=1000, description="Provenance source value (URL, file path, etc.)"
+    )
     rating: int | None = Field(default=None, ge=0, le=5, description="User rating (1-5)")
     estimated_cost: float | None = Field(default=None, description="Estimated activity cost")
     pricing_unit: str | None = Field(default=None, max_length=16, description="Pricing unit")
@@ -203,6 +215,9 @@ class POICreateRequest(StrictBaseModel):
         default=None, ge=0.25, le=12.0, description="Recommended duration in hours"
     )
     recommended_visit_days: int = Field(default=1, description="Recommended days to spend at POI")
+    estimated_visit_time_notes: str | None = Field(
+        default=None, description="Explanation or reasoning for estimated visit duration"
+    )
 
     @model_validator(mode="after")
     def populate_state_and_country_arrays(self) -> POICreateRequest:
@@ -258,6 +273,9 @@ class POIUpdateRequest(StrictBaseModel):
     )
     recommended_visit_days: int | None = Field(
         default=None, ge=1, le=365, description="Recommended days to spend at POI"
+    )
+    estimated_visit_time_notes: str | None = Field(
+        default=None, description="Explanation or reasoning for estimated visit duration"
     )
     source_type: SourceType | str | None = Field(
         default=None, description="Provenance source type (Web, CSV, Manual, Photo)"

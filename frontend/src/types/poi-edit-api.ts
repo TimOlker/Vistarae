@@ -126,6 +126,7 @@ export interface components {
       longitude?: number;
       recommended_duration_hours?: number | null;
       recommended_visit_days?: number;
+      estimated_visit_time_notes?: string | null;
       /** @enum {string} */
       source_type?: "Web" | "CSV" | "Manual" | "Photo";
       source_value?: string | null;
@@ -153,6 +154,7 @@ export interface components {
       longitude?: number | null;
       recommended_duration_hours?: number | null;
       recommended_visit_days?: number;
+      estimated_visit_time_notes?: string | null;
       source_type?: string;
       source_value?: string | null;
       official_url?: string | null;

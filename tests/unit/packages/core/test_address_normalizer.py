@@ -73,6 +73,12 @@ def test_normalize_address_record():
     assert norm.country == "United States"
     assert norm.postal_code == "62701"
 
+    # Verifies trailing country in street is stripped to avoid duplication
+    rec_dup = AddressRecord(street="56294 Wierschem, Germany", country="Germany")
+    norm_dup = AddressNormalizer.normalize_address(rec_dup)
+    assert norm_dup.street == "56294 Wierschem"
+    assert norm_dup.country == "Germany"
+
 
 def test_normalize_addresses_list():
     """Verifies list normalization with multi-country POIs."""
@@ -84,3 +90,43 @@ def test_normalize_addresses_list():
     assert len(normalized) == 2
     assert normalized[0].country == "Argentina"
     assert normalized[1].country == "Brazil"
+
+
+def test_strip_leading_glyphs():
+    """Verifies non-alphanumeric icon glyphs (pushpins, bullets, icons) are stripped (REQ: FR-015)."""
+    assert (
+        AddressNormalizer.strip_leading_glyphs("🖈56294 Wierschem, Germany")
+        == "56294 Wierschem, Germany"
+    )
+    assert AddressNormalizer.strip_leading_glyphs("📍 Eiffel Tower, Paris") == "Eiffel Tower, Paris"
+    assert AddressNormalizer.strip_leading_glyphs("📌 Grand Canyon") == "Grand Canyon"
+    assert AddressNormalizer.strip_leading_glyphs("🗺 Yellowstone") == "Yellowstone"
+    assert AddressNormalizer.strip_leading_glyphs("• 123 Main St") == "123 Main St"
+    assert AddressNormalizer.strip_leading_glyphs(None) == ""
+    assert AddressNormalizer.strip_leading_glyphs("   ") == ""
+
+
+def test_clean_address_text_multi_country_conflict():
+    """Verifies contradictory secondary country tokens are eliminated (REQ: FR-014, FR-015)."""
+    # Leading pushpin stripped and erroneous trailing United States removed
+    raw = "🖈56294 Wierschem, Germany, United States"
+    cleaned = AddressNormalizer.clean_address_text(raw, verified_country="Germany")
+    assert cleaned == "56294 Wierschem, Germany"
+
+    # Auto-detection of primary country when verified_country not passed
+    assert AddressNormalizer.clean_address_text(raw) == "56294 Wierschem, Germany"
+
+    # Single country unchanged
+    assert AddressNormalizer.clean_address_text("📍 Paris, France") == "Paris, France"
+
+
+def test_country_to_iso_code():
+    """Verifies country name resolution to ISO 3166-1 alpha-2 codes."""
+    assert AddressNormalizer.country_to_iso_code("Germany") == "DE"
+    assert AddressNormalizer.country_to_iso_code("DE") == "DE"
+    assert AddressNormalizer.country_to_iso_code("United States") == "US"
+    assert AddressNormalizer.country_to_iso_code("USA") == "US"
+    assert AddressNormalizer.country_to_iso_code("United Kingdom") == "GB"
+    assert AddressNormalizer.country_to_iso_code("France") == "FR"
+    assert AddressNormalizer.country_to_iso_code("Unknown") == "XX"
+    assert AddressNormalizer.country_to_iso_code(None) == "XX"

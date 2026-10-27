@@ -194,3 +194,119 @@ class TestScrapingOrchestrator:
         assert "fortification" in matched
         assert "historic" in matched
         assert "nature_reserve" not in matched
+
+    async def test_clean_page_title_branding_suffixes(self) -> None:
+        """Verifies stripping of Google Maps and platform branding while preserving hyphens (REQ: FR-001)."""
+        assert (
+            ScrapingOrchestrator.clean_page_title(
+                "Eltz Castle - Google Maps", "https://maps.google.com/?cid=123"
+            )
+            == "Eltz Castle"
+        )
+        assert (
+            ScrapingOrchestrator.clean_page_title(
+                "Baden-Baden Thermal Baths - Google Maps", "https://maps.google.com"
+            )
+            == "Baden-Baden Thermal Baths"
+        )
+        assert (
+            ScrapingOrchestrator.clean_page_title(
+                "Stratford-upon-Avon | TripAdvisor", "https://tripadvisor.com"
+            )
+            == "Stratford-upon-Avon"
+        )
+        assert (
+            ScrapingOrchestrator.clean_page_title(
+                "Yosemite Falls • Yelp", "https://yelp.com/biz/yosemite"
+            )
+            == "Yosemite Falls"
+        )
+
+    async def test_wikipedia_adapter_opensearch_fallback(self) -> None:
+        """Verifies Wikipedia 2-step OpenSearch fallback when direct summary returns 404 (REQ: FR-002, FR-003, T-007, T-009)."""
+        adapter = WikipediaAdapter()
+
+        # Step 1 response: 404 Not Found for raw query
+        resp_404 = MagicMock()
+        resp_404.status_code = 404
+
+        # Step 2 response: OpenSearch returns canonical match
+        resp_opensearch = MagicMock()
+        resp_opensearch.status_code = 200
+        resp_opensearch.json.return_value = [
+            "Burg Eltz",
+            ["Eltz Castle"],
+            ["Medieval castle in Germany"],
+            ["https://en.wikipedia.org/wiki/Eltz_Castle"],
+        ]
+
+        # Step 3 response: Summary for canonical title
+        resp_summary = MagicMock()
+        resp_summary.status_code = 200
+        resp_summary.json.return_value = {
+            "extract": "Eltz Castle is a medieval castle nestled in the hills above the Moselle River.",
+            "coordinates": {"lat": 50.2052, "lon": 7.3366},
+            "originalimage": {"source": "https://upload.wikimedia.org/eltz_full.jpg"},
+            "thumbnail": {"source": "https://upload.wikimedia.org/eltz_thumb.jpg"},
+            "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Eltz_Castle"}},
+        }
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = [resp_404, resp_opensearch, resp_summary]
+
+        result = await adapter.augment("Burg Eltz", client=mock_client)
+        assert result["source_name"] == "wikipedia.org"
+        assert result["wikipedia_url"] == "https://en.wikipedia.org/wiki/Eltz_Castle"
+        assert "Moselle River" in result["description"]
+        assert result["hero_image_url"] == "https://upload.wikimedia.org/eltz_full.jpg"
+        assert result["latitude"] == 50.2052
+        assert result["longitude"] == 7.3366
+
+    async def test_infer_duration_heuristics(self) -> None:
+        """Verifies category and scale visit duration heuristics (REQ: FR-017, T-008, T-010)."""
+        # Category heuristic
+        h, d = ScrapingOrchestrator.infer_duration(category="Castle", name="Eltz")
+        assert h == 2.5
+        assert d == 0
+
+        # Scale heuristic: National park
+        h, d = ScrapingOrchestrator.infer_duration(name="Yellowstone National Park")
+        assert h == 12.0
+        assert d == 1
+
+        # Theme park
+        h, d = ScrapingOrchestrator.infer_duration(category="Theme Park")
+        assert h == 6.0
+        assert d == 0
+
+        # Scenic overlook
+        h, d = ScrapingOrchestrator.infer_duration(name="Glacier Point Scenic Overlook")
+        assert h == 0.5
+        assert d == 0
+
+        # Description keyword fallback
+        h, d = ScrapingOrchestrator.infer_duration(
+            name="Random Place", description="A beautiful botanical garden."
+        )
+        assert h == 2.5
+        assert d == 0
+
+        # Unknown
+        h, d = ScrapingOrchestrator.infer_duration(name="Abstract Art Piece")
+        assert h is None
+        assert d is None
+
+    async def test_orchestrator_parses_client_raw_address(self) -> None:
+        """Verifies client raw address is parsed into structured address without duplicate country."""
+        orchestrator = ScrapingOrchestrator(gemini_api_key=None, secondary_adapters=[])
+        candidate, _ = await orchestrator.orchestrate(
+            source_url="https://example.com/eltz",
+            page_title="Burg Eltz",
+            client_raw_address="56294 Wierschem, Germany",
+        )
+        assert len(candidate.addresses) == 1
+        addr = candidate.addresses[0]
+        assert addr.country == "Germany"
+        assert addr.postal_code == "56294"
+        assert addr.city == "Wierschem"
+        assert addr.street is None or "Germany" not in addr.street

@@ -137,6 +137,7 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
         pricing_unit=row.pricing_unit,
         recommended_duration_hours=row.recommended_duration_hours,
         recommended_visit_days=row.recommended_visit_days,
+        estimated_visit_time_notes=row.estimated_visit_time_notes,
         enrichment_status=EnrichmentStatus(row.enrichment_status),
         region_geom=str(row.region_geom) if row.region_geom is not None else None,
         embedding=list(row.embedding) if row.embedding is not None else None,
@@ -201,6 +202,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             pricing_unit=poi.pricing_unit,
             recommended_duration_hours=poi.recommended_duration_hours,
             recommended_visit_days=poi.recommended_visit_days,
+            estimated_visit_time_notes=poi.estimated_visit_time_notes,
             enrichment_status=poi.enrichment_status.value
             if hasattr(poi.enrichment_status, "value")
             else str(poi.enrichment_status),
@@ -285,6 +287,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row.pricing_unit = poi.pricing_unit
         row.recommended_duration_hours = poi.recommended_duration_hours
         row.recommended_visit_days = poi.recommended_visit_days
+        row.estimated_visit_time_notes = poi.estimated_visit_time_notes
         row.enrichment_status = (
             poi.enrichment_status.value
             if hasattr(poi.enrichment_status, "value")
@@ -797,6 +800,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             "pricing_unit",
             "recommended_duration_hours",
             "recommended_visit_days",
+            "estimated_visit_time_notes",
             "visit_state",
             "visited_dates",
         }

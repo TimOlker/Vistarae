@@ -76,6 +76,7 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         pricing_unit=poi.pricing_unit,
         recommended_duration_hours=poi.recommended_duration_hours,
         recommended_visit_days=poi.recommended_visit_days,
+        estimated_visit_time_notes=getattr(poi, "estimated_visit_time_notes", None),
         source_type=getattr(poi, "source_type", None),
         source_value=getattr(poi, "source_value", None),
         enrichment_status=poi.enrichment_status,

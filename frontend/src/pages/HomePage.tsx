@@ -297,6 +297,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             description: item.description,
             official_url: item.official_url,
             wiki_url: item.wiki_url,
+            source_type: item.source_type,
+            source_value: item.source_value,
           }));
           setPois(mapped);
         }
@@ -461,11 +463,24 @@ export const HomePage: React.FC<HomePageProps> = ({
     setIsDrawerOpen(false);
   };
 
-  const handleDeleteDrawerPOI = (id: string) => {
-    const next = pois.filter((p) => p.id !== id);
-    setPois(next);
-    setIsDrawerOpen(false);
-    if (selectedPoiId === id) setSelectedPoiId(null);
+  const handleDeleteDrawerPOI = async (id: string) => {
+    try {
+      await apiFetch(`/api/pois/${id}`, { method: "DELETE" });
+      const next = pois.filter((p) => p.id !== id);
+      setPois(next);
+      setIsDrawerOpen(false);
+      if (selectedPoiId === id) setSelectedPoiId(null);
+      setBulkNotification({
+        message: "POI deleted successfully from database.",
+        type: "success",
+      });
+    } catch (err: any) {
+      console.error("Failed to delete POI:", err);
+      setBulkNotification({
+        message: err.message || "Failed to delete POI from database.",
+        type: "error",
+      });
+    }
   };
 
   // Multi-select & Bulk Operation Handlers (US3 / REQ-MAIN-022 to REQ-MAIN-035)

@@ -96,6 +96,8 @@ async def get_current_user(
         return await _resolve_mock_user(actual_mock_id, session)
 
     if actual_auth is None or not actual_auth.startswith("Bearer "):
+        if is_local:
+            return await _resolve_mock_user("00000000-0000-0000-0000-000000000001", session)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or malformed Authorization header.",

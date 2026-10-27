@@ -247,6 +247,25 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "ísland": "Iceland",
 }
 
+# ── Inverted Mapping: Standard English Name -> ISO 3166-1 alpha-2 Code ────────
+COUNTRY_TO_ISO: Final[dict[str, str]] = {
+    country: code.upper()
+    for code, country in COUNTRY_MAPPINGS.items()
+    if len(code) == 2 and code.isalpha()
+}
+# Canonical overrides for official ISO 3166-1 alpha-2
+COUNTRY_TO_ISO["United Kingdom"] = "GB"
+
+# Set of standard country names in lowercase for quick membership checking
+KNOWN_COUNTRIES_LOWER: Final[set[str]] = {k.lower() for k in COUNTRY_MAPPINGS} | {
+    v.lower() for v in COUNTRY_MAPPINGS.values()
+}
+
+# Regex to strip non-alphanumeric leading glyphs (pushpins 🖈, 📍, 📌, 🗺, bullets, icons)
+CLEAN_LEADING_GLYPHS: Final[re.Pattern] = re.compile(
+    r"^[\s\W\U00010000-\U0010ffff\u2000-\u2bff\u2600-\u27ff]+", re.UNICODE
+)
+
 # ── US State Postal Codes -> Standard English Names ──────────────────────────
 US_STATE_MAPPINGS: Final[dict[str, str]] = {
     "al": "Alabama",
@@ -430,6 +449,65 @@ class AddressNormalizer:
         return _title_case_english(clean)
 
     @classmethod
+    def country_to_iso_code(cls, country: str | None) -> str:
+        """Returns ISO 3166-1 alpha-2 code for a country name or code."""
+        if not country:
+            return "XX"
+        norm = cls.normalize_country(country)
+        if norm in COUNTRY_TO_ISO:
+            return COUNTRY_TO_ISO[norm]
+        cleaned = country.strip().upper()
+        if len(cleaned) == 2 and cleaned.isalpha():
+            return cleaned
+        return "XX"
+
+    @classmethod
+    def strip_leading_glyphs(cls, text: str | None) -> str:
+        """Strips leading non-alphanumeric icon glyphs (pushpins 🖈, 📍, 📌, 🗺, bullets, icons)."""
+        if not text:
+            return ""
+        cleaned = CLEAN_LEADING_GLYPHS.sub("", text).strip()
+        cleaned = re.sub(r"^[,;:\-\s]+", "", cleaned).strip()
+        return cleaned
+
+    @classmethod
+    def clean_address_text(cls, text: str | None, verified_country: str | None = None) -> str:
+        """Cleans address text by stripping leading glyphs and eliminating conflicting multi-country strings."""
+        if not text:
+            return ""
+        cleaned = cls.strip_leading_glyphs(text)
+        if not cleaned:
+            return ""
+
+        tokens = [t.strip() for t in cleaned.split(",") if t.strip()]
+        countries_in_text: list[tuple[str, str]] = []
+        for tok in tokens:
+            if tok.lower() in KNOWN_COUNTRIES_LOWER:
+                norm_c = cls.normalize_country(tok)
+                if (
+                    norm_c
+                    and norm_c != "Unknown"
+                    and not any(nc == norm_c for _, nc in countries_in_text)
+                ):
+                    countries_in_text.append((tok, norm_c))
+
+        target_country = (
+            cls.normalize_country(verified_country)
+            if verified_country
+            else (countries_in_text[0][1] if countries_in_text else None)
+        )
+
+        if target_country and len(countries_in_text) > 1:
+            for raw_tok, norm_c in countries_in_text:
+                if norm_c != target_country:
+                    pattern = rf"(?:,\s*|\s+){re.escape(raw_tok)}\b"
+                    cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE).strip()
+                    std_pattern = rf"(?:,\s*|\s+){re.escape(norm_c)}\b"
+                    cleaned = re.sub(std_pattern, "", cleaned, flags=re.IGNORECASE).strip()
+
+        return cleaned.rstrip(",").strip()
+
+    @classmethod
     def normalize_address(cls, record: AddressRecord) -> AddressRecord:
         """Normalizes an AddressRecord value object's country, state, city, and street.
 
@@ -441,9 +519,16 @@ class AddressNormalizer:
         """
         norm_country = cls.normalize_country(record.country)
         norm_state = cls.normalize_state_province(record.state_province, country=norm_country)
-        clean_city = record.city.strip() if record.city else None
-        clean_street = record.street.strip() if record.street else None
+        clean_city = cls.strip_leading_glyphs(record.city) if record.city else None
+        clean_street = cls.strip_leading_glyphs(record.street) if record.street else None
         clean_postal = record.postal_code.strip() if record.postal_code else None
+
+        if clean_street and norm_country:
+            clean_street = re.sub(
+                rf",\s*{re.escape(norm_country)}\b", "", clean_street, flags=re.IGNORECASE
+            ).strip()
+            if clean_street.lower() == norm_country.lower():
+                clean_street = None
 
         return AddressRecord(
             street=clean_street if clean_street else None,

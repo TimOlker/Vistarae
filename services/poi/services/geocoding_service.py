@@ -37,6 +37,9 @@ from vistarae_core.adapters.geocoding.rate_limiter import TokenBucketRateLimiter
 from vistarae_core.domain.entities import GeocodingCacheEntry
 from vistarae_core.domain.value_objects import AddressRecord
 from vistarae_core.ports.repositories import IGeocodingCacheRepository
+from vistarae_core.schemas.scraping import (
+    ReverseGeocodeResponse as ScrapingReverseGeocodeResponse,
+)
 from vistarae_core.services.address_normalizer import AddressNormalizer
 
 from services.poi.services.geocode_service import ReverseGeocodeService
@@ -238,3 +241,43 @@ class GeocodingService:
             )
         )
         return [rec]
+
+    async def reverse_geocode_structured(
+        self, lat: float, lng: float
+    ) -> ScrapingReverseGeocodeResponse:
+        """Reverse geocodes coordinates returning full structured details."""
+        resp = await self._reverse_service.reverse_geocode(lat, lng)
+        rec = AddressNormalizer.normalize_address(
+            AddressRecord(
+                street=resp.street,
+                city=resp.city,
+                state_province=resp.state_province,
+                country=resp.country,
+                postal_code=resp.postal_code,
+            )
+        )
+        norm_country = rec.country or "Unknown"
+        country_code = AddressNormalizer.country_to_iso_code(norm_country)
+
+        parts: list[str] = []
+        if rec.street:
+            parts.append(rec.street)
+        if rec.postal_code and rec.city:
+            parts.append(f"{rec.postal_code} {rec.city}")
+        elif rec.city:
+            parts.append(rec.city)
+        if rec.state_province and rec.state_province != rec.city:
+            parts.append(rec.state_province)
+        if norm_country != "Unknown":
+            parts.append(norm_country)
+
+        formatted = ", ".join(parts) if parts else norm_country
+
+        return ScrapingReverseGeocodeResponse(
+            formatted_address=formatted,
+            country=norm_country,
+            country_code=country_code,
+            city=rec.city,
+            postcode=rec.postal_code,
+            addresses=[rec],
+        )

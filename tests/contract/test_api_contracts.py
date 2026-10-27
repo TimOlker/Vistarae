@@ -111,6 +111,37 @@ class TestPydanticStrictBaseModelContracts:
         errors = exc_info.value.errors()
         assert any(e["type"] == "extra_forbidden" for e in errors)
 
+    def test_reverse_geocode_request_extra_forbid(self) -> None:
+        """ReverseGeocodeRequest rejects unknown attributes."""
+        from vistarae_core.schemas.scraping import ReverseGeocodeRequest
+
+        with pytest.raises(ValidationError) as exc_info:
+            ReverseGeocodeRequest.model_validate(
+                {
+                    "latitude": 50.2052,
+                    "longitude": 7.3366,
+                    "extra_attr": "disallowed",
+                }
+            )
+        errors = exc_info.value.errors()
+        assert any(e["type"] == "extra_forbidden" for e in errors)
+
+    def test_reverse_geocode_response_schema_validation(self) -> None:
+        """ReverseGeocodeResponse validates required fields."""
+        from vistarae_core.schemas.scraping import ReverseGeocodeResponse
+
+        valid = ReverseGeocodeResponse.model_validate(
+            {
+                "formatted_address": "Burg Eltz, 56294 Wierschem, Germany",
+                "country": "Germany",
+                "country_code": "DE",
+                "city": "Wierschem",
+                "postcode": "56294",
+                "addresses": [],
+            }
+        )
+        assert valid.country_code == "DE"
+
 
 class TestRFC7807ProblemDetailsContract:
     """Verifies that FastAPI boundary converts validation failures to RFC 7807 ProblemDetails."""
@@ -150,6 +181,22 @@ class TestRFC7807ProblemDetailsContract:
         response = client.post(
             "/api/pois/extract-and-check",
             json={"page_title": "Missing Source URL"},
+        )
+        assert response.status_code == 422
+        assert response.headers.get("content-type") == "application/problem+json"
+        body = response.json()
+        assert body["status"] == 422
+
+    def test_reverse_geocode_extra_field_returns_rfc7807_problem_details(self) -> None:
+        """POST /api/v1/geocoding/reverse with extra attribute returns RFC 7807 422 ProblemDetails."""
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/geocoding/reverse",
+            json={
+                "latitude": 50.2052,
+                "longitude": 7.3366,
+                "extra_field": "not_allowed",
+            },
         )
         assert response.status_code == 422
         assert response.headers.get("content-type") == "application/problem+json"

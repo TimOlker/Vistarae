@@ -15,16 +15,16 @@ paths:
       tags:
         - Tags
       responses:
-        '200':
+        "200":
           description: Alphabetically ordered list of user tags
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TagResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+                  $ref: "#/components/schemas/TagResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
     post:
       summary: Create new tag
@@ -37,18 +37,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TagCreateRequest'
+              $ref: "#/components/schemas/TagCreateRequest"
       responses:
-        '201':
+        "201":
           description: Tag successfully created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TagResponse'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
+                $ref: "#/components/schemas/TagResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
 
   /api/pois/tags/{tag_id}:
     delete:
@@ -65,16 +65,16 @@ paths:
             type: string
             format: uuid
       responses:
-        '204':
+        "204":
           description: Tag deleted successfully
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "409":
           description: Tag in use by one or more POIs (referential integrity violation)
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/TagInUseProblemDetails'
+                $ref: "#/components/schemas/TagInUseProblemDetails"
 
   /api/user/preferences/scraping-sources:
     get:
@@ -84,14 +84,14 @@ paths:
       tags:
         - Preferences
       responses:
-        '200':
+        "200":
           description: List of authorized scraping domains
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScrapingSourcesResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+                $ref: "#/components/schemas/ScrapingSourcesResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
     put:
       summary: Update authorized scraping domains
@@ -104,16 +104,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ScrapingSourcesUpdateRequest'
+              $ref: "#/components/schemas/ScrapingSourcesUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Updated scraping sources
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScrapingSourcesResponse'
-        '400':
-          $ref: '#/components/responses/ValidationError'
+                $ref: "#/components/schemas/ScrapingSourcesResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
 
   /api/pois/extract-and-check:
     post:
@@ -127,18 +127,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExtractAndCheckRequest'
+              $ref: "#/components/schemas/ExtractAndCheckRequest"
       responses:
-        '200':
+        "200":
           description: Extraction candidate, suggested tags, and duplicate triage verdict
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExtractAndCheckResponse'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+                $ref: "#/components/schemas/ExtractAndCheckResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
 components:
   schemas:
@@ -186,7 +186,7 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-          pattern: '^[a-z0-9_]+$'
+          pattern: "^[a-z0-9_]+$"
           example: historic_railway
         aliases:
           type: array
@@ -272,14 +272,14 @@ components:
         - deduplication
       properties:
         candidate:
-          $ref: '#/components/schemas/POICandidateSchema'
+          $ref: "#/components/schemas/POICandidateSchema"
         recommended_tags:
           type: array
           items:
             type: string
           example: ["fortification", "historic"]
         deduplication:
-          $ref: '#/components/schemas/DeduplicationVerdictSchema'
+          $ref: "#/components/schemas/DeduplicationVerdictSchema"
 
     POICandidateSchema:
       type: object
@@ -300,7 +300,7 @@ components:
         addresses:
           type: array
           items:
-            $ref: '#/components/schemas/AddressRecord'
+            $ref: "#/components/schemas/AddressRecord"
         latitude:
           type: number
           format: float
@@ -418,7 +418,7 @@ components:
 
     TagInUseProblemDetails:
       allOf:
-        - $ref: '#/components/schemas/ProblemDetails'
+        - $ref: "#/components/schemas/ProblemDetails"
         - type: object
           properties:
             referencing_poi_count:
@@ -434,25 +434,25 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     ValidationError:
       description: Input validation failed (Pydantic v2 StrictBaseModel error)
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     NotFoundError:
       description: Resource not found
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     ConflictError:
       description: Unique constraint or referential integrity conflict
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"

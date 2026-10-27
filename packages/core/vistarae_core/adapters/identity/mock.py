@@ -67,8 +67,10 @@ class MockIdentityProvider:
 
         try:
             user_uuid = UUID(raw)
-        except ValueError as exc:
-            raise ValueError(f"X-Mock-User-Id must be a valid UUID; got '{token}'.") from exc
+        except ValueError:
+            import uuid
+
+            user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, raw)
 
         logger.debug("MSG -->| [mock.py -> local] Mock auth bypass for user_id=%s", user_uuid)
 

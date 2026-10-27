@@ -1,0 +1,320 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Extension Capture API (Phase 10 Enhancements)
+  version: 1.0.0
+  description: >
+    API contracts for Chrome Extension progressive enrichment, reverse-geocoding,
+    title sanitization, and POI capture persistence.
+
+paths:
+  /api/pois/extract-and-check:
+    post:
+      summary: Extract POI Details & Evaluate Duplicate Triage
+      description: >
+        Performs multi-source knowledge enrichment (Wikipedia, Wikidata, OpenStreetMap),
+        Gemini summary synthesis, tag recommendation, and dual-threshold duplicate triage.
+      operationId: extractAndCheck
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractAndCheckRequest'
+      responses:
+        '200':
+          description: Extraction and triage completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractAndCheckResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+  /api/v1/geocoding/reverse:
+    post:
+      summary: Reverse-Geocode Coordinates
+      description: >
+        Resolves WGS-84 latitude and longitude into an authoritative structured address
+        and sovereign country via internal PostGIS cache and OpenStreetMap Nominatim.
+      operationId: reverseGeocode
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReverseGeocodeRequest'
+      responses:
+        '200':
+          description: Reverse geocoding succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReverseGeocodeResponse'
+        '401':
+          $ref: '#/components/responses/401Unauthorized'
+        '422':
+          $ref: '#/components/responses/422ValidationError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ExtractAndCheckRequest:
+      type: object
+      required:
+        - source_url
+      additionalProperties: false
+      properties:
+        source_url:
+          type: string
+          format: uri
+          description: Canonical URL of the captured page
+        page_title:
+          type: string
+          nullable: true
+          description: Raw HTML document title
+        selected_text:
+          type: string
+          nullable: true
+          description: User highlighted selection or description snippet
+        latitude:
+          type: number
+          format: float
+          minimum: -90.0
+          maximum: 90.0
+          nullable: true
+          description: Client-detected latitude
+        longitude:
+          type: number
+          format: float
+          minimum: -180.0
+          maximum: 180.0
+          nullable: true
+          description: Client-detected longitude
+        raw_address:
+          type: string
+          nullable: true
+          description: Raw address text scraped on client before cleansing
+        category:
+          type: string
+          nullable: true
+          description: Inferred category slug (e.g. landmark, museum)
+
+    ExtractAndCheckResponse:
+      type: object
+      required:
+        - candidate
+        - recommended_tags
+        - deduplication
+      additionalProperties: false
+      properties:
+        candidate:
+          $ref: '#/components/schemas/POICandidateSchema'
+        recommended_tags:
+          type: array
+          items:
+            type: string
+          description: Slugs of vetted tags matching the place taxonomy
+        deduplication:
+          $ref: '#/components/schemas/DuplicateTriageVerdict'
+
+    POICandidateSchema:
+      type: object
+      required:
+        - name
+        - description
+        - category
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: Cleaned standard English name without platform branding
+        description:
+          type: string
+          description: Informative summary of the place
+        category:
+          type: string
+          description: Normalized category slug
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRecord'
+        latitude:
+          type: number
+          format: float
+          nullable: true
+        longitude:
+          type: number
+          format: float
+          nullable: true
+        official_website_url:
+          type: string
+          format: uri
+          nullable: true
+        wikipedia_url:
+          type: string
+          format: uri
+          nullable: true
+        hero_image_url:
+          type: string
+          format: uri
+          nullable: true
+        estimated_duration_hours:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 24.0
+          nullable: true
+        estimated_duration_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+
+    AddressRecord:
+      type: object
+      required:
+        - country
+      additionalProperties: false
+      properties:
+        country:
+          type: string
+          description: Sovereign country name
+        country_code:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 code
+        state_province:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        street_address:
+          type: string
+          nullable: true
+
+    DuplicateTriageVerdict:
+      type: object
+      required:
+        - status
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [POTENTIAL_DUPLICATE, NEARBY_PARENT, UNIQUE_LOCATION]
+        distance_meters:
+          type: number
+          nullable: true
+        matched_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        matched_poi_name:
+          type: string
+          nullable: true
+        recommended_action:
+          type: string
+          enum: [proceed, make_child, abort]
+          nullable: true
+
+    ReverseGeocodeRequest:
+      type: object
+      required:
+        - latitude
+        - longitude
+      additionalProperties: false
+      properties:
+        latitude:
+          type: number
+          format: float
+          minimum: -90.0
+          maximum: 90.0
+        longitude:
+          type: number
+          format: float
+          minimum: -180.0
+          maximum: 180.0
+
+    ReverseGeocodeResponse:
+      type: object
+      required:
+        - formatted_address
+        - country
+        - country_code
+      additionalProperties: false
+      properties:
+        formatted_address:
+          type: string
+        country:
+          type: string
+        country_code:
+          type: string
+        city:
+          type: string
+          nullable: true
+        postcode:
+          type: string
+          nullable: true
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressRecord'
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+
+  responses:
+    401Unauthorized:
+      description: Unauthorized (missing or invalid bearer JWT)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+    422ValidationError:
+      description: Boundary schema validation failed (RFC 7807)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'

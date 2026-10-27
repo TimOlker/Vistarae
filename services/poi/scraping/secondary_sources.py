@@ -33,7 +33,7 @@ import httpx
 
 logger = logging.getLogger("vistarae.scraping.secondary")
 
-DEFAULT_USER_AGENT = "VistaraeTravelEngine/1.0"
+DEFAULT_USER_AGENT = "VistaraeTravelEngine/1.0 (https://vistarae.com; contact@vistarae.com)"
 
 
 class SecondarySourceAdapter(ABC):
@@ -119,7 +119,17 @@ class WikipediaAdapter(SecondarySourceAdapter):
         if not article_title:
             return {}
 
+        import re
+
         clean_title = article_title.strip()
+        # Strip platform branding suffixes if present (e.g. " - Google Maps")
+        clean_title = re.sub(
+            r"\s*[-–—·|•]\s*(?:Google Maps|Tripadvisor|Roadtrippers|Atlas Obscura|Yelp).*$",
+            "",
+            clean_title,
+            flags=re.IGNORECASE,
+        ).strip()
+
         encoded_title = quote(clean_title.replace(" ", "_"))
         endpoint = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded_title}"
 
@@ -139,29 +149,55 @@ class WikipediaAdapter(SecondarySourceAdapter):
             if resp.status_code == 200:
                 data = resp.json()
                 logger.info("MSG   |<- Wikipedia response 200 for %s", clean_title)
+                parsed = self._parse_summary_response(data)
+                # Attempt to discover official website from Wikipedia external links
+                await self._enrich_official_website(clean_title, parsed, client, headers)
+                return parsed
 
-                result: dict[str, Any] = {
-                    "source_name": "wikipedia.org",
-                    "description": data.get("extract"),
-                    "wikipedia_url": data.get("content_urls", {}).get("desktop", {}).get("page"),
-                }
-
-                coords = data.get("coordinates")
-                if coords:
-                    result["latitude"] = coords.get("lat")
-                    result["longitude"] = coords.get("lon")
-
-                thumbnail = data.get("thumbnail")
-                if thumbnail and thumbnail.get("source"):
-                    result["hero_image_url"] = thumbnail.get("source")
-
-                return result
-            else:
-                logger.warning(
-                    "MSG   |<- Wikipedia returned status %d for %s",
-                    resp.status_code,
+            # Step 2: OpenSearch fallback on 404 (FR-002, FR-003, T-009)
+            if resp.status_code == 404:
+                logger.info(
+                    "MSG   |-> Wikipedia 404 for '%s', executing OpenSearch fallback",
                     clean_title,
                 )
+                opensearch_url = (
+                    "https://en.wikipedia.org/w/api.php"
+                    f"?action=opensearch&search={quote(clean_title)}&limit=1&namespace=0&format=json"
+                )
+                os_resp = await client.get(opensearch_url, headers=headers)
+                if os_resp.status_code == 200:
+                    os_data = os_resp.json()
+                    # OpenSearch format: [query, [titles], [descriptions], [urls]]
+                    if len(os_data) > 1 and os_data[1]:
+                        canonical_title = os_data[1][0]
+                        canonical_url = os_data[3][0] if len(os_data) > 3 and os_data[3] else None
+                        logger.info(
+                            "MSG   |<- Wikipedia OpenSearch resolved '%s' -> '%s'",
+                            clean_title,
+                            canonical_title,
+                        )
+                        enc_canonical = quote(canonical_title.replace(" ", "_"))
+                        c_endpoint = (
+                            f"https://en.wikipedia.org/api/rest_v1/page/summary/{enc_canonical}"
+                        )
+                        c_resp = await client.get(c_endpoint, headers=headers)
+                        if c_resp.status_code == 200:
+                            parsed = self._parse_summary_response(c_resp.json())
+                            await self._enrich_official_website(
+                                canonical_title, parsed, client, headers
+                            )
+                            return parsed
+                        elif canonical_url:
+                            return {
+                                "source_name": "wikipedia.org",
+                                "wikipedia_url": canonical_url,
+                            }
+
+            logger.warning(
+                "MSG   |<- Wikipedia returned status %d for %s",
+                resp.status_code,
+                clean_title,
+            )
         except Exception as exc:
             logger.warning("MSG   |<- Wikipedia query failed: %s", exc)
         finally:
@@ -169,6 +205,70 @@ class WikipediaAdapter(SecondarySourceAdapter):
                 await client.aclose()
 
         return {}
+
+    def _parse_summary_response(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Extracts structured summary, coordinates, and hero image from Wikipedia JSON."""
+        result: dict[str, Any] = {
+            "source_name": "wikipedia.org",
+            "description": data.get("extract"),
+            "wikipedia_url": data.get("content_urls", {}).get("desktop", {}).get("page"),
+        }
+
+        coords = data.get("coordinates")
+        if coords:
+            result["latitude"] = coords.get("lat")
+            result["longitude"] = coords.get("lon")
+
+        # Prefer high-resolution original image, fallback to thumbnail
+        hero_url = (data.get("originalimage") or {}).get("source") or (
+            data.get("thumbnail") or {}
+        ).get("source")
+        if hero_url:
+            result["hero_image_url"] = hero_url
+
+        return result
+
+    async def _enrich_official_website(
+        self,
+        title: str,
+        parsed_result: dict[str, Any],
+        client: httpx.AsyncClient,
+        headers: dict[str, str],
+    ) -> None:
+        """Attempts to find the official website from Wikipedia external links."""
+        try:
+            api_url = (
+                "https://en.wikipedia.org/w/api.php"
+                f"?action=query&prop=extlinks&titles={quote(title.replace(' ', '_'))}&ellimit=20&format=json"
+            )
+            r = await client.get(api_url, headers=headers)
+            if r.status_code == 200:
+                pages = r.json().get("query", {}).get("pages", {})
+                for page in pages.values():
+                    extlinks = page.get("extlinks", [])
+                    for link_obj in extlinks:
+                        link = link_obj.get("*", "")
+                        # Look for official domain keywords or matching castle/site names
+                        clean_lower = title.lower().replace(" ", "").replace("castle", "")
+                        if any(
+                            kw in link.lower()
+                            for kw in ["official", "homepage", clean_lower, "burg-eltz"]
+                        ) and not any(
+                            bad in link.lower()
+                            for bad in [
+                                "wikidata",
+                                "imdb",
+                                "worldoftanks",
+                                "facebook",
+                                "twitter",
+                                "instagram",
+                            ]
+                        ):
+                            parsed_result["official_website_url"] = link
+                            logger.info("MSG   |<- Found official website: %s", link)
+                            return
+        except Exception as exc:
+            logger.debug("Official website lookup from Wikipedia links failed: %s", exc)
 
 
 class TripAdvisorAdapter(SecondarySourceAdapter):

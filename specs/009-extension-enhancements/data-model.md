@@ -20,13 +20,14 @@ SPDX-License-Identifier: Apache-2.0
 
 **Feature**: `009-extension-enhancements`  
 **Date**: 2026-10-22  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
 ## 1. Database Schema & Alembic Migration Specification
 
 ### Migration Identifier: `0007_tag_governance_and_scraping_preferences.py`
+
 - **Revision ID**: `0007`
 - **Revises**: `0006` (or previous head)
 - **Engine**: SQLAlchemy 2.0 / PostgreSQL 16+ / PostGIS 3.4+
@@ -59,7 +60,7 @@ def upgrade() -> None:
     # 2. Backfill existing tag slugs from name: slug = lower(replace(name, ' ', '_'))
     op.execute(
         """
-        UPDATE tags 
+        UPDATE tags
         SET slug = regexp_replace(lower(trim(name)), '[^a-z0-9]+', '_', 'g')
         WHERE slug IS NULL;
         """
@@ -96,6 +97,7 @@ def downgrade() -> None:
 ## 2. SQLAlchemy 2.0 Table Definitions (`packages/core`)
 
 ### `TagTable` (`tags`)
+
 ```python
 class TagTable(Base):
     """User-scoped taxonomy marker with slugified ID and alias support."""
@@ -137,6 +139,7 @@ class TagTable(Base):
 ```
 
 ### `UserPreferencesTable` (`user_preferences` extension)
+
 ```python
 class UserPreferencesTable(Base):
     # Existing columns ...
@@ -212,13 +215,13 @@ class DeduplicationVerdict(StrictBaseModel):
 stateDiagram-v2
     [*] --> Provisioned: User Account Created (30 Default Tags Seeded)
     [*] --> Created: User Adds Custom Tag
-    
+
     Created --> Active: Assigned to POIs (poi_count > 0)
     Provisioned --> Active: Assigned to POIs (poi_count > 0)
-    
+
     Active --> DeletionBlocked: User Clicks Delete
     DeletionBlocked --> Active: 409 Conflict (Referenced by N POIs)
-    
+
     Active --> Unassigned: User Removes Tag from all POIs (via Phase 8 Bulk Edit)
     Unassigned --> [*]: Deleted Successfully (poi_count == 0)
 ```
@@ -232,18 +235,18 @@ stateDiagram-v2
     [*] --> Analyzing: Ctrl+Shift+S Pressed on Webpage
     Analyzing --> GeoLookup: Extract Title, Text, Links
     GeoLookup --> ScaleClassify: Check Cache & Reverse Geocode
-    
+
     ScaleClassify --> UniqueLocation: Distance > Scale Radius
     ScaleClassify --> PotentialDuplicate: Distance <= Scale Radius AND Similarity >= 0.60
     ScaleClassify --> NearbyParent: Distance <= Scale Radius AND Similarity < 0.60 AND Candidate is Macro/Medium
-    
+
     UniqueLocation --> OverlayReady: Ready to Save (Independent POI)
     PotentialDuplicate --> UserTriageModal: Show Proceed or Abort Warning
     NearbyParent --> UserTriageModal: Show Make Child Recommendation
-    
+
     UserTriageModal --> OverlayReady: "Proceed" Selected
     UserTriageModal --> OverlayReady: "Make Child" Selected (Sets parent_poi_id)
     UserTriageModal --> [*]: "Abort" Selected (Draft Discarded)
-    
+
     OverlayReady --> [*]: User Reviews & Clicks "Save to Vistarae"
 ```

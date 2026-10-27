@@ -179,6 +179,7 @@ class TestPOIDomainEntities:
         assert poi.states == ["California"]
         assert poi.countries == ["United States"]
         assert poi.recommended_visit_days == 1
+        assert poi.estimated_visit_time_notes is None
         assert isinstance(poi.created_at, datetime)
         assert isinstance(poi.updated_at, datetime)
 

@@ -51,6 +51,38 @@ class ExtractAndCheckRequest(StrictBaseModel):
     selected_text: str | None = Field(
         default=None, description="User highlighted or selection snippet"
     )
+    latitude: float | None = Field(
+        default=None, ge=-90.0, le=90.0, description="Latitude detected by client-side parser"
+    )
+    longitude: float | None = Field(
+        default=None, ge=-180.0, le=180.0, description="Longitude detected by client-side parser"
+    )
+    raw_address: str | None = Field(
+        default=None, description="Raw address text scraped on client before cleansing"
+    )
+    category: str | None = Field(
+        default=None, description="Place category inferred by client-side parser"
+    )
+
+
+class ReverseGeocodeRequest(StrictBaseModel):
+    """Payload to reverse-geocode coordinates into a structured address."""
+
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="WGS-84 latitude")
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="WGS-84 longitude")
+
+
+class ReverseGeocodeResponse(StrictBaseModel):
+    """Structured reverse-geocoded address result."""
+
+    formatted_address: str = Field(..., description="Clean, human-readable address line")
+    country: str = Field(..., description="Sovereign country name (e.g. Germany)")
+    country_code: str = Field(..., description="ISO 3166-1 alpha-2 country code (e.g. DE)")
+    city: str | None = Field(default=None, description="Locality or municipality")
+    postcode: str | None = Field(default=None, description="Postal or ZIP code")
+    addresses: list[AddressRecord] = Field(
+        default_factory=list, description="Structured address records"
+    )
 
 
 class POICandidateSchema(StrictBaseModel):
@@ -79,6 +111,9 @@ class POICandidateSchema(StrictBaseModel):
     )
     estimated_duration_days: int | None = Field(
         default=None, description="Estimated visit duration days"
+    )
+    estimated_visit_time_notes: str | None = Field(
+        default=None, description="Explanation or reasoning for estimated visit duration"
     )
     rating: int | None = Field(
         default=None, ge=0, le=5, description="User manual rating (null on web capture)"
@@ -114,6 +149,15 @@ class DeduplicationVerdictSchema(StrictBaseModel):
     )
 
 
+class UserTagItemSchema(StrictBaseModel):
+    """Configured user tag schema returned to extension."""
+
+    id: UUID | None = Field(default=None, description="Tag UUID")
+    name: str = Field(..., description="Tag display name")
+    slug: str = Field(..., description="Tag slug identifier")
+    aliases: list[str] = Field(default_factory=list, description="Synonym search aliases")
+
+
 class ExtractAndCheckResponse(StrictBaseModel):
     """Comprehensive extraction candidate, tag recommendations, and duplicate verdict response."""
 
@@ -121,6 +165,9 @@ class ExtractAndCheckResponse(StrictBaseModel):
         ..., description="Structured POI candidate extracted from web"
     )
     recommended_tags: list[str] = Field(default_factory=list, description="Matched user tag slugs")
+    available_tags: list[UserTagItemSchema] = Field(
+        default_factory=list, description="All configured tags for the authenticated user"
+    )
     deduplication: DeduplicationVerdictSchema = Field(
         ..., description="Deduplication and nesting verdict"
     )

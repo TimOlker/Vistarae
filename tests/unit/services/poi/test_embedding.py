@@ -101,6 +101,11 @@ class TestGeminiEmbeddingAdapter:
             vector = await adapter.generate_embedding("Half Dome")
             assert len(vector) == 768
             assert vector[10] == pytest.approx(0.10)
+            mock_client.models.embed_content.assert_called_once_with(
+                model="gemini-embedding-001",
+                contents="Half Dome",
+                config={"output_dimensionality": 768},
+            )
 
     @pytest.mark.asyncio
     async def test_unexpected_response_raises_error(self) -> None:

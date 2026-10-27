@@ -181,7 +181,7 @@ class SqlAlchemyTagRepository(ITagRepository):
 
         tags: list[TagEntity] = []
         for item in all_rows:
-            if isinstance(item, (tuple, list)):
+            if hasattr(item, "__getitem__") and not isinstance(item, (str, bytes)):
                 row_obj = item[0]
                 cnt = item[1] if len(item) > 1 else 0
             else:

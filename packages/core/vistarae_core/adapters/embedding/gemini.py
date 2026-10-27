@@ -16,13 +16,14 @@
 
 """Google Gemini vector embedding adapter implementing IEmbeddingPort (T-027).
 
-Uses google-genai SDK to generate 768-dimensional embeddings via text-embedding-004.
+Uses google-genai SDK to generate 768-dimensional embeddings via gemini-embedding-001.
 """
 
 from __future__ import annotations
 
 import asyncio
 import os
+from typing import Any
 
 from vistarae_core.ports.embedding import IEmbeddingPort
 
@@ -33,16 +34,19 @@ class GeminiEmbeddingAdapter(IEmbeddingPort):
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "text-embedding-004",
+        model: str | None = None,
+        dimension: int = 768,
     ) -> None:
         """Initializes the Gemini embedding adapter.
 
         Args:
             api_key: Google AI Studio API key (defaults to GEMINI_API_KEY env var).
-            model: Embedding model identifier.
+            model: Embedding model identifier (defaults to GEMINI_EMBEDDING_MODEL or gemini-embedding-001).
+            dimension: Dimensionality of the resulting vector (defaults to 768).
         """
         self._api_key = api_key or os.getenv("GEMINI_API_KEY", "")
-        self._model = model
+        self._model = model or os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+        self._dimension = dimension
 
     async def generate_embedding(self, text: str) -> list[float]:
         """Generates a 768-dimensional float embedding for the provided text.
@@ -57,15 +61,20 @@ class GeminiEmbeddingAdapter(IEmbeddingPort):
             RuntimeError: If embedding generation fails.
         """
         if not text.strip():
-            return [0.0] * 768
+            return [0.0] * self._dimension
 
         def _call_gemini() -> list[float]:
             from google import genai
 
             client = genai.Client(api_key=self._api_key)
+            config: dict[str, Any] = {}
+            if self._dimension:
+                config["output_dimensionality"] = self._dimension
+
             response = client.models.embed_content(
                 model=self._model,
                 contents=text,
+                config=config or None,
             )
             values = None
             if getattr(response, "embeddings", None):

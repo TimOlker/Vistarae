@@ -39,8 +39,10 @@ from vistarae_core.domain.exceptions import (
     TagLimitExceededError,
 )
 from vistarae_core.domain.value_objects import (
+    AddressRecord,
     BoundingBox,
     EnrichmentStatus,
+    SourceType,
     VisitState,
     WGS84Point,
 )
@@ -105,6 +107,7 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         pricing_unit=poi.pricing_unit,
         recommended_duration_hours=poi.recommended_duration_hours,
         recommended_visit_days=poi.recommended_visit_days,
+        estimated_visit_time_notes=getattr(poi, "estimated_visit_time_notes", None),
         enrichment_status=poi.enrichment_status,
         lon=poi.geom.lon,
         lat=poi.geom.lat,
@@ -192,6 +195,39 @@ async def list_pois(
     return POIListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
+def _resolve_create_addresses(
+    req: POICreateRequest,
+    address: str | None,
+    states: list[str],
+    countries: list[str],
+) -> tuple[list[AddressRecord], list[str], list[str], str | None]:
+    """Resolves and normalizes addresses and falls back to geo-derived values."""
+    addresses: list[AddressRecord] = []
+    if req.addresses:
+        addresses = AddressNormalizer.normalize_addresses(req.addresses)
+    elif address or countries:
+        addresses = [
+            AddressNormalizer.normalize_address(
+                AddressRecord(
+                    street=address,
+                    city=req.city,
+                    state_province=states[0] if states else None,
+                    country=countries[0] if countries else "Unknown",
+                )
+            )
+        ]
+
+    resolved_states = states or [a.state_province for a in addresses if a.state_province]
+    resolved_countries = countries or [
+        a.country for a in addresses if a.country and a.country != "Unknown"
+    ]
+    resolved_address = address or (
+        addresses[0].street if addresses and addresses[0].street else None
+    )
+
+    return addresses, resolved_states, resolved_countries, resolved_address
+
+
 @router.post("/pois", response_model=POIResponse, status_code=status.HTTP_201_CREATED)
 async def create_poi(
     req: POICreateRequest,
@@ -258,6 +294,12 @@ async def create_poi(
     embedding_vector = await embedding_port.generate_embedding(sanitized_text)
     md5_hash = compute_embedding_md5(sanitized_text)
 
+    addresses, states, countries, address = _resolve_create_addresses(
+        req, address, states, countries
+    )
+    source_type = req.source_type or SourceType.MANUAL
+    source_value = req.source_value
+
     # 5. Persist POI aggregate
     poi_id = uuid4()
     poi = POI(
@@ -271,6 +313,9 @@ async def create_poi(
         city=req.city,
         states=states,
         countries=countries,
+        addresses=addresses,
+        source_type=source_type,
+        source_value=source_value,
         official_url=req.official_url,
         wiki_url=req.wiki_url,
         image_urls=req.image_urls,
@@ -280,6 +325,7 @@ async def create_poi(
         pricing_unit=req.pricing_unit,
         recommended_duration_hours=req.recommended_duration_hours,
         recommended_visit_days=req.recommended_visit_days,
+        estimated_visit_time_notes=req.estimated_visit_time_notes,
         enrichment_status=enrichment_status,
         embedding=embedding_vector,
         embedding_md5=md5_hash,
@@ -335,6 +381,7 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:
         "pricing_unit",
         "recommended_duration_hours",
         "recommended_visit_days",
+        "estimated_visit_time_notes",
     )
     for field in fields:
         val = getattr(req, field, None)

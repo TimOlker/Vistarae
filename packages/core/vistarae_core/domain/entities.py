@@ -170,6 +170,7 @@ class POI:
     pricing_unit: str | None = None
     recommended_duration_hours: Decimal | None = None
     recommended_visit_days: int = 1
+    estimated_visit_time_notes: str | None = None
     enrichment_status: EnrichmentStatus = EnrichmentStatus.SUCCESS
     region_geom: str | None = None
     embedding: list[float] | None = None
