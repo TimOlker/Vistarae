@@ -35,6 +35,8 @@ from vistarae_core.ports.repositories import IGeocodingCacheRepository, ITagRepo
 from vistarae_core.schemas.scraping import (
     ExtractAndCheckRequest,
     ExtractAndCheckResponse,
+    ReverseGeocodeRequest,
+    ReverseGeocodeResponse,
 )
 
 from services.poi.dependencies import (
@@ -103,14 +105,46 @@ async def extract_and_check(
         source_url=req.source_url,
         page_title=req.page_title,
         selected_text=req.selected_text,
+        client_latitude=req.latitude,
+        client_longitude=req.longitude,
+        client_raw_address=req.raw_address,
+        client_category=req.category,
     )
 
-    # 4. Match vetted taxonomy tags
+    # 4. Match vetted taxonomy tags with system fallback (REQ: FR-016, T-011)
+    from uuid import uuid4
+
+    from vistarae_core.domain.entities import TagEntity
+
+    from services.poi.services.tag_seeder import DEFAULT_TAGS, seed_default_tags
+
     user_tags = await tag_repo.list_by_user(current_user.id)
+    if not user_tags:
+        try:
+            await seed_default_tags(current_user.id, session)
+            user_tags = await tag_repo.list_by_user(current_user.id)
+        except Exception as exc:
+            logger.warning("Auto-seeding default tags failed: %s", exc)
+
+    if user_tags:
+        combined_tags = list(user_tags)
+    else:
+        combined_tags = [
+            TagEntity(
+                id=uuid4(),
+                user_id=current_user.id,
+                name=t["name"],
+                slug=t["slug"],
+                aliases=t.get("aliases", []),
+            )
+            for t in DEFAULT_TAGS
+        ]
+
     text_to_match = (
-        f"{candidate.name} {candidate.description} {req.page_title or ''} {req.selected_text or ''}"
+        f"{candidate.name} {candidate.description} {req.page_title or ''} "
+        f"{req.selected_text or ''} {req.category or ''}"
     )
-    recommended_tags = TagMatcher(user_tags).match_tags(text_to_match)
+    recommended_tags = TagMatcher(combined_tags).match_tags(text_to_match)
 
     # 5. Evaluate early scale-aware duplicate & parent-child nesting triage
     triage_service = DuplicateTriageService(session=session)
@@ -130,8 +164,38 @@ async def extract_and_check(
         verdict.recommended_action,
     )
 
+    from vistarae_core.schemas.scraping import UserTagItemSchema
+
+    available_tags = [
+        UserTagItemSchema(id=t.id, name=t.name, slug=t.slug, aliases=t.aliases or [])
+        for t in combined_tags
+    ]
+
     return ExtractAndCheckResponse(
         candidate=candidate,
         recommended_tags=recommended_tags,
+        available_tags=available_tags,
         deduplication=verdict,
     )
+
+
+@router.post(
+    "/v1/geocoding/reverse",
+    response_model=ReverseGeocodeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reverse-geocode coordinates to structured address line and sovereign country",
+)
+@router.post(
+    "/pois/geocode/reverse",
+    response_model=ReverseGeocodeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reverse-geocode coordinates to structured address line and sovereign country (legacy path)",
+)
+async def reverse_geocode_v1(
+    req: ReverseGeocodeRequest,
+    current_user: User = Depends(get_current_user),
+    geocache_repo: IGeocodingCacheRepository = Depends(get_geocache_repo),
+) -> ReverseGeocodeResponse:
+    """Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim."""
+    service = GeocodingService(cache_repo=geocache_repo)
+    return await service.reverse_geocode_structured(lat=req.latitude, lng=req.longitude)

@@ -279,6 +279,7 @@ export const POIMergeModal: React.FC<POIMergeModalProps> = ({
         recommended_duration_hours:
           pick("duration").recommended_duration_hours ?? null,
         recommended_visit_days: pick("duration").recommended_visit_days ?? 1,
+        estimated_visit_time_notes: pick("duration").estimated_visit_time_notes ?? null,
         source_type: pick("provenance").source_type || null,
         source_value: pick("provenance").source_value || null,
         official_url: pick("official_url").official_url || null,
@@ -763,8 +764,8 @@ export const POIMergeModal: React.FC<POIMergeModalProps> = ({
                     onChange={() => handleScalarSelect("duration", "source")}
                   />
                   <span>
-                    {sourcePoi.recommended_duration_hours ?? "—"} hrs /{" "}
-                    {sourcePoi.recommended_visit_days ?? 1} days
+                    {sourcePoi.recommended_duration_hours ?? "—"} hrs per visit ({sourcePoi.recommended_visit_days ?? 1} itinerary day{(sourcePoi.recommended_visit_days ?? 1) === 1 ? "" : "s"})
+                    {sourcePoi.estimated_visit_time_notes && <em style={{ display: "block", fontSize: "11px", color: "var(--text-muted)" }}>{sourcePoi.estimated_visit_time_notes}</em>}
                   </span>
                 </label>
               </div>
@@ -781,8 +782,8 @@ export const POIMergeModal: React.FC<POIMergeModalProps> = ({
                     onChange={() => handleScalarSelect("duration", "target")}
                   />
                   <span>
-                    {targetPoi.recommended_duration_hours ?? "—"} hrs /{" "}
-                    {targetPoi.recommended_visit_days ?? 1} days
+                    {targetPoi.recommended_duration_hours ?? "—"} hrs per visit ({targetPoi.recommended_visit_days ?? 1} itinerary day{(targetPoi.recommended_visit_days ?? 1) === 1 ? "" : "s"})
+                    {targetPoi.estimated_visit_time_notes && <em style={{ display: "block", fontSize: "11px", color: "var(--text-muted)" }}>{targetPoi.estimated_visit_time_notes}</em>}
                   </span>
                 </label>
               </div>

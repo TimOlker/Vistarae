@@ -408,6 +408,7 @@ class POITable(Base):
         default=1,
         server_default=text("1"),
     )
+    estimated_visit_time_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     enrichment_status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,

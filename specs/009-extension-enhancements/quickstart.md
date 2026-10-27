@@ -20,26 +20,32 @@ SPDX-License-Identifier: Apache-2.0
 
 **Feature**: `009-extension-enhancements`  
 **Date**: 2026-10-22  
-**Status**: Ready for Validation  
+**Status**: Ready for Validation
 
 ---
 
 ## 1. Prerequisites & Environment Setup
 
 ### 1.1 Local Infrastructure
+
 Ensure local PostgreSQL with PostGIS 3.4+ is running:
+
 ```bash
 docker compose up -d
 ```
 
 ### 1.2 Apply Database Migrations
+
 Apply Alembic revision `0007` to update the `tags` and `user_preferences` schema:
+
 ```bash
 alembic upgrade head
 ```
 
 ### 1.3 Launch Backend Gateway & Frontend Dev Server
+
 In separate terminal sessions:
+
 ```bash
 # Terminal 1: Backend API Gateway (Port 8000)
 uvicorn services.local_gateway:app --reload --port 8000
@@ -50,6 +56,7 @@ npm run dev
 ```
 
 ### 1.4 Load Chrome Extension
+
 1. Open Chrome and navigate to `chrome://extensions/`.
 2. Enable **Developer mode** (top right toggle).
 3. Click **Load unpacked** and select `d:\Coding\Vistarae\extension`.
@@ -60,6 +67,7 @@ npm run dev
 ## 2. Validation Scenarios
 
 ### Scenario 1: Web App Tag Governance & Referential Deletion Protection
+
 1. Open the Web App at `http://localhost:5173` and log in.
 2. Navigate to **Preferences** (`/settings`) and click the **Tags** tab.
 3. **Verify Alphabetical Order & Defaults**:
@@ -84,6 +92,7 @@ npm run dev
 ---
 
 ### Scenario 2: Web App Scraping Sources Configuration
+
 1. In the Web App Preferences (`/settings`), navigate to the **Scraping Sources** section.
 2. **Verify Defaults**:
    - Confirm default domains render: `wikipedia.org`, `tripadvisor.com`, `atlasobscura.com`, `google.com/maps`, `roadtrippers.com`.
@@ -100,6 +109,7 @@ npm run dev
 ---
 
 ### Scenario 3: Extension Companion Page Overhaul & Demo Data Purge
+
 1. Click the Vistarae extension icon in the Chrome toolbar to open `browser.html`.
 2. **Verify Streamlined Design**:
    - Confirm the old tabular POI list, search bar, category dropdown, and "Export to CSV" button are **completely removed**.
@@ -112,6 +122,7 @@ npm run dev
 ---
 
 ### Scenario 4: Extension Authentication Safeguard
+
 1. Open Chrome DevTools for the extension background service worker:
    - Navigate to `chrome://extensions/` -> Vistarae -> click `service_worker`.
 2. In the console, simulate logged-out state:
@@ -126,6 +137,7 @@ npm run dev
 ---
 
 ### Scenario 5: Multi-Source Scraping & Full Field Parity
+
 1. Log in to Vistarae in the Web App to restore active tokens to `chrome.storage.local`.
 2. Navigate to `https://en.wikipedia.org/wiki/Bamburgh_Castle`.
 3. Highlight text: `Bamburgh Castle is a castle on the coast at Bamburgh in Northumberland, England.`
@@ -148,6 +160,7 @@ npm run dev
 ---
 
 ### Scenario 6: Scale-Aware Duplicate & Nesting Triage
+
 1. In the Web App, ensure you have a saved POI named `Millennium Park` in Chicago (Coordinates: `41.8826`, `-87.6226`).
 2. Navigate to a webpage about `Cloud Gate` (e.g. `https://en.wikipedia.org/wiki/Cloud_Gate`).
 3. Press `Ctrl+Shift+S`.
@@ -166,6 +179,7 @@ npm run dev
 ## 3. Automated Test Execution
 
 Execute the full suite of backend and frontend unit tests:
+
 ```bash
 # Backend domain and service unit tests (with 90% coverage enforcement)
 pytest tests/unit/services/poi/ -v --cov=services/poi --cov-fail-under=90

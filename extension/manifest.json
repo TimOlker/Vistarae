@@ -64,6 +64,7 @@
         "content/overlay.css",
         "content/content_script.js",
         "content/parsers/*",
+        "content/vendor/leaflet/*",
         "icons/icon16.png",
         "icons/icon48.png",
         "icons/icon128.png"

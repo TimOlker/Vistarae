@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Purpose**: Validate the quality, completeness, clarity, and consistency of requirements for Chrome Extension enhancements, authentication gate, schema parity, multi-source scraping, intelligent geocoding, and scale-aware duplicate triage.  
 **Created**: 2026-10-22  
-**Feature**: [spec.md](../spec.md) | [plan.md](../plan.md)  
+**Feature**: [spec.md](../spec.md) | [plan.md](../plan.md)
 
 **Review Ownership**: This checklist is a reviewer-owned requirements-quality review artifact. Mark an item `[x]` only when the reviewer determines the requirements-quality criterion is satisfied.  
 **Marker Semantics**: `[x]` means the criterion has been reviewed and satisfied for requirements quality. It does not mean implementation work is complete.

@@ -168,3 +168,74 @@ class TestGeocodingService:
         countries = [r.country for r in records]
         assert "Argentina" in countries
         assert "Brazil" in countries
+
+    async def test_reverse_geocode_structured(self) -> None:
+        """Verifies reverse geocoding produces structured address and sovereign country (REQ: FR-013, FR-014)."""
+        repo = InMemoryGeocacheRepository()
+        rate_limiter = MagicMock(spec=TokenBucketRateLimiter)
+        rate_limiter.acquire = AsyncMock()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "address": {
+                "road": "Burg Eltz 1",
+                "village": "Wierschem",
+                "state": "Rheinland-Pfalz",
+                "country": "Germany",
+                "country_code": "de",
+                "postcode": "56294",
+            }
+        }
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_resp
+
+        service = GeocodingService(
+            cache_repo=repo,
+            rate_limiter=rate_limiter,
+            http_client=mock_client,
+        )
+
+        result = await service.reverse_geocode_structured(lat=50.2052, lng=7.3366)
+        assert result.country == "Germany"
+        assert result.country_code == "DE"
+        assert result.city == "Wierschem"
+        assert result.postcode == "56294"
+        assert "Wierschem" in result.formatted_address
+        assert "Germany" in result.formatted_address
+        assert len(result.addresses) == 1
+        assert result.addresses[0].country == "Germany"
+
+
+def test_reverse_geocode_route_post() -> None:
+    """Verifies POST /api/v1/geocoding/reverse endpoint returns structured address (T-005, T-017)."""
+    from uuid import uuid4
+
+    from fastapi.testclient import TestClient
+    from vistarae_core.domain.entities import User
+
+    from services.poi.dependencies import get_current_user, get_geocache_repo
+    from services.poi.main import app
+
+    mock_user = User(
+        id=uuid4(),
+        cognito_sub="sub-test-geocoding",
+        email="geo@vistarae.internal",
+    )
+
+    repo = InMemoryGeocacheRepository()
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_geocache_repo] = lambda: repo
+
+    # Mock ReverseGeocodeService inside GeocodingService
+    with TestClient(app, raise_server_exceptions=False) as client:
+        payload = {"latitude": 50.2052, "longitude": 7.3366}
+        response = client.post("/api/v1/geocoding/reverse", json=payload)
+        # Should return 200 with structured response
+        assert response.status_code == 200
+        data = response.json()
+        assert "country" in data
+        assert "country_code" in data
+        assert "formatted_address" in data
+
+    app.dependency_overrides.clear()

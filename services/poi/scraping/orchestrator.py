@@ -31,10 +31,12 @@ import asyncio
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Final
 from urllib.parse import urlparse
 
+from vistarae_core.domain.value_objects import AddressRecord
 from vistarae_core.schemas.scraping import POICandidateSchema
+from vistarae_core.services.address_normalizer import AddressNormalizer
 
 from services.poi.scraping.secondary_sources import (
     SecondarySourceAdapter,
@@ -53,13 +55,58 @@ DEFAULT_VALID_DOMAINS = [
     "roadtrippers.com",
 ]
 
+# Scale and category duration heuristics table: (hours, days) (REQ: FR-017)
+CATEGORY_DURATION_HEURISTICS: Final[dict[str, tuple[float, int | None]]] = {
+    "national park": (12.0, 1),
+    "national monument": (4.0, 0),
+    "state park": (6.0, 0),
+    "theme park": (6.0, 0),
+    "amusement park": (6.0, 0),
+    "water park": (5.0, 0),
+    "castle": (2.5, 0),
+    "palace": (2.5, 0),
+    "château": (2.5, 0),
+    "chateau": (2.5, 0),
+    "fortress": (2.5, 0),
+    "museum": (2.5, 0),
+    "art gallery": (2.0, 0),
+    "gallery": (2.0, 0),
+    "viewpoint": (1.0, 0),
+    "lookout": (0.5, 0),
+    "overlook": (0.5, 0),
+    "scenic overlook": (0.5, 0),
+    "waterfall": (1.5, 0),
+    "hiking trail": (3.0, 0),
+    "trail": (2.5, 0),
+    "beach": (4.0, 0),
+    "zoo": (4.0, 0),
+    "aquarium": (3.0, 0),
+    "botanical garden": (2.5, 0),
+    "garden": (2.0, 0),
+    "cathedral": (1.5, 0),
+    "basilica": (1.5, 0),
+    "church": (1.0, 0),
+    "temple": (1.5, 0),
+    "monument": (1.0, 0),
+    "memorial": (1.0, 0),
+    "historic site": (2.0, 0),
+    "brewery": (2.0, 0),
+    "winery": (2.5, 0),
+    "distillery": (2.0, 0),
+    "restaurant": (1.5, 0),
+    "cafe": (1.0, 0),
+}
+
+
+_UNSET = object()
+
 
 class ScrapingOrchestrator:
     """Coordinates primary web extraction, secondary source augmentation, and Gemini synthesis."""
 
     def __init__(
         self,
-        gemini_api_key: str | None = None,
+        gemini_api_key: Any = _UNSET,
         secondary_adapters: list[SecondarySourceAdapter] | None = None,
         timeout_seconds: float = 3.0,
         valid_domains: list[str] | None = None,
@@ -68,13 +115,16 @@ class ScrapingOrchestrator:
         """Initializes the scraping orchestrator.
 
         Args:
-            gemini_api_key: Google AI Studio API key.
+            gemini_api_key: Google AI Studio API key (pass None to disable Gemini in tests).
             secondary_adapters: Optional custom adapter list (defaults to Wikipedia + TripAdvisor).
             timeout_seconds: Strict timeout ceiling for secondary requests (defaults to 3.0s).
             valid_domains: Optional default list of permitted secondary scraping domains.
             geocoding_service: Optional geocoding service for coordinate fallback.
         """
-        self._gemini_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY", "")
+        if gemini_api_key is _UNSET:
+            self._gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        else:
+            self._gemini_api_key = gemini_api_key or ""
         self._adapters: list[SecondarySourceAdapter] = (
             secondary_adapters
             if secondary_adapters is not None
@@ -98,19 +148,50 @@ class ScrapingOrchestrator:
             )
 
         cleaned = title
-        # Remove suffixes like " - Wikipedia", " | TripAdvisor", etc.
+        # Remove suffixes like " - Wikipedia", " | TripAdvisor", " - Google Maps", etc.
         patterns = [
-            r"\s*[-–—|]\s*Wikipedia.*$",
-            r"\s*[-–—|]\s*Tripadvisor.*$",
-            r"\s*[-–—|]\s*Google Maps.*$",
-            r"\s*[-–—|]\s*Atlas Obscura.*$",
-            r"\s*[-–—|]\s*Roadtrippers.*$",
-            r"\s*[-–—|]\s*Official (Site|Website|Guide).*$",
+            r"\s*[-–—·|•]\s*Wikipedia.*$",
+            r"\s*[-–—·|•]\s*Tripadvisor.*$",
+            r"\s*[-–—·|•]\s*Google Maps.*$",
+            r"\s*[-–—·|•]\s*Atlas Obscura.*$",
+            r"\s*[-–—·|•]\s*Roadtrippers.*$",
+            r"\s*[-–—·|•]\s*Yelp.*$",
+            r"\s*[-–—·|•]\s*Official (Site|Website|Guide).*$",
         ]
         for pat in patterns:
             cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
 
         return cleaned.strip() or title.strip()
+
+    @classmethod
+    def infer_duration(
+        cls,
+        category: str | None = None,
+        name: str = "",
+        description: str | None = None,
+    ) -> tuple[float | None, int | None]:
+        """Infers estimated visit duration in hours and days using category/scale heuristics (REQ: FR-017)."""
+        # 1. Check explicit category match
+        if category:
+            cat_clean = category.strip().lower()
+            for key, (h, d) in CATEGORY_DURATION_HEURISTICS.items():
+                if key in cat_clean or cat_clean in key:
+                    return h, d
+
+        # 2. Check destination name keywords
+        name_clean = name.strip().lower()
+        for key, (h, d) in CATEGORY_DURATION_HEURISTICS.items():
+            if re.search(rf"\b{re.escape(key)}\b", name_clean):
+                return h, d
+
+        # 3. Check description text keywords
+        if description:
+            desc_clean = description.strip().lower()
+            for key, (h, d) in CATEGORY_DURATION_HEURISTICS.items():
+                if re.search(rf"\b{re.escape(key)}\b", desc_clean):
+                    return h, d
+
+        return None, None
 
     async def normalize_english_name(self, raw_name: str, source_url: str) -> str:
         """Normalizes destination name to standard English using Gemini Flash-Lite or heuristic fallback."""
@@ -128,11 +209,11 @@ class ScrapingOrchestrator:
                 "destination/attraction/point-of-interest. Do not include quotes, markdown, or commentary."
             )
             config = types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
                 temperature=0.0,
             )
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
             resp = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
+                model=model_name,
                 contents=prompt,
                 config=config,
             )
@@ -185,11 +266,11 @@ class ScrapingOrchestrator:
                 "Return only the 2-3 sentence description without preamble."
             )
             config = types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
                 temperature=0.2,
             )
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
             resp = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
+                model=model_name,
                 contents=prompt,
                 config=config,
             )
@@ -291,11 +372,87 @@ class ScrapingOrchestrator:
 
         return merged
 
+    @classmethod
+    def _parse_client_address(cls, client_raw_address: str | None) -> list[AddressRecord]:
+        """Parses client raw address into normalized AddressRecord list."""
+        if not client_raw_address:
+            return []
+        clean_addr = AddressNormalizer.clean_address_text(client_raw_address)
+        if not clean_addr:
+            return []
+
+        parts = [p.strip() for p in clean_addr.split(",") if p.strip()]
+        detected_country = "Unknown"
+        for part in reversed(parts):
+            norm_c = AddressNormalizer.normalize_country(part)
+            if norm_c:
+                detected_country = norm_c
+                break
+
+        street_parts = list(parts)
+        if (
+            street_parts
+            and detected_country != "Unknown"
+            and AddressNormalizer.normalize_country(street_parts[-1]) == detected_country
+        ):
+            street_parts.pop()
+
+        city = None
+        postal_code = None
+        street = None
+
+        if street_parts:
+            last_token = street_parts[-1]
+            m_post = re.match(r"^(\d{4,5})\s+(.+)$", last_token)
+            if m_post:
+                postal_code = m_post.group(1)
+                city = m_post.group(2)
+                street_parts.pop()
+            elif len(street_parts) > 1:
+                city = street_parts.pop()
+
+        if street_parts:
+            street = ", ".join(street_parts)
+        elif not city and not postal_code:
+            street = clean_addr
+
+        return [
+            AddressNormalizer.normalize_address(
+                AddressRecord(
+                    street=street,
+                    city=city,
+                    country=detected_country,
+                    postal_code=postal_code,
+                )
+            )
+        ]
+
+    @classmethod
+    def _resolve_durations(
+        cls,
+        primary_dur: float | None,
+        secondary_dur: float | None,
+        category: str | None,
+        name: str,
+        desc: str | None,
+    ) -> tuple[float | None, int | None]:
+        """Resolves duration hours and days with heuristic inference."""
+        dur_h = primary_dur if primary_dur is not None else secondary_dur
+        if dur_h is None:
+            return cls.infer_duration(category=category, name=name, description=desc)
+        if dur_h < 24:
+            return dur_h, 0
+        return dur_h, int(dur_h // 24)
+
     async def extract(
         self,
         source_url: str,
         page_title: str | None = None,
         selected_text: str | None = None,
+        client_latitude: float | None = None,
+        client_longitude: float | None = None,
+        client_raw_address: str | None = None,
+        client_category: str | None = None,
     ) -> POICandidateSchema:
         """Extracts and normalizes POI candidate attributes from web and secondary sources."""
         try:
@@ -343,8 +500,13 @@ class ScrapingOrchestrator:
         ):
             official_website_url = source_url
 
-        latitude = primary_lat if primary_lat is not None else secondary.get("latitude")
-        longitude = primary_lon if primary_lon is not None else secondary.get("longitude")
+        latitude = client_latitude if client_latitude is not None else primary_lat
+        if latitude is None:
+            latitude = secondary.get("latitude")
+
+        longitude = client_longitude if client_longitude is not None else primary_lon
+        if longitude is None:
+            longitude = secondary.get("longitude")
 
         if self._geocoding_service and (latitude is None or longitude is None):
             try:
@@ -355,24 +517,28 @@ class ScrapingOrchestrator:
             except Exception as exc:
                 logger.warning("Geocoding service fallback failed: %s", exc)
 
+        addresses = self._parse_client_address(client_raw_address)
         hero_image_url = primary_hero or secondary.get("hero_image_url")
-        estimated_duration_hours = (
-            primary_dur if primary_dur is not None else secondary.get("estimated_duration_hours")
+        estimated_duration_hours, estimated_duration_days = self._resolve_durations(
+            primary_dur,
+            secondary.get("estimated_duration_hours"),
+            client_category,
+            name,
+            desc,
         )
 
         return POICandidateSchema(
             name=name,
             description=desc,
-            addresses=[],
+            addresses=addresses,
             latitude=latitude,
             longitude=longitude,
             official_website_url=official_website_url,
             wikipedia_url=wikipedia_url,
             hero_image_url=hero_image_url,
             estimated_duration_hours=estimated_duration_hours,
-            estimated_duration_days=0
-            if estimated_duration_hours and estimated_duration_hours < 24
-            else None,
+            estimated_duration_days=estimated_duration_days,
+            estimated_visit_time_notes=None,
             rating=None,
             source_type="Web",
             source_value=source_url,
@@ -386,6 +552,10 @@ class ScrapingOrchestrator:
         selected_text: str | None = None,
         valid_scraping_domains: list[str] | None = None,
         vetted_tags: list[dict[str, Any]] | None = None,
+        client_latitude: float | None = None,
+        client_longitude: float | None = None,
+        client_raw_address: str | None = None,
+        client_category: str | None = None,
     ) -> tuple[POICandidateSchema, list[str]]:
         """Orchestrates multi-source scraping, partial fallback, and synthesis.
 
@@ -395,6 +565,10 @@ class ScrapingOrchestrator:
             selected_text: User selection or highlighted excerpt.
             valid_scraping_domains: Authorized domain list from user preferences.
             vetted_tags: User's tag dictionary library for recommendation.
+            client_latitude: Optional parsed latitude from client extension.
+            client_longitude: Optional parsed longitude from client extension.
+            client_raw_address: Optional raw scraped address text.
+            client_category: Optional inferred category from client.
 
         Returns:
             Tuple of (POICandidateSchema, list of recommended tag slugs).
@@ -403,11 +577,17 @@ class ScrapingOrchestrator:
         if valid_scraping_domains is not None:
             self._valid_domains = valid_scraping_domains
         try:
-            candidate = await self.extract(source_url, page_title, selected_text)
-            tag_matcher = TagMatcher(vetted_tags or [])
-            combined_text_for_tags = (
-                f"{candidate.name} {candidate.description} {page_title or ''} {selected_text or ''}"
+            candidate = await self.extract(
+                source_url=source_url,
+                page_title=page_title,
+                selected_text=selected_text,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+                client_raw_address=client_raw_address,
+                client_category=client_category,
             )
+            tag_matcher = TagMatcher(vetted_tags or [])
+            combined_text_for_tags = f"{candidate.name} {candidate.description} {page_title or ''} {selected_text or ''} {client_category or ''}"
             recommended_tags = tag_matcher.match_tags(combined_text_for_tags)
             return candidate, recommended_tags
         finally:

@@ -195,6 +195,39 @@ export const POIPopupCard: React.FC<POIPopupCardProps> = ({
         </span>
       </div>
 
+      {/* Estimated Visit Time & Duration Explanation */}
+      {(poi.recommended_duration_hours != null ||
+        (poi.recommended_visit_days != null && poi.recommended_visit_days > 0) ||
+        poi.estimated_visit_time_notes) && (
+        <div
+          data-testid="poi-popup-duration"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "3px",
+            fontSize: "11px",
+            color: "var(--text-secondary, #475569)",
+            backgroundColor: "var(--bg-hover, #f8fafc)",
+            padding: "6px 8px",
+            borderRadius: "6px",
+            border: "1px solid var(--border-color, #e2e8f0)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+            <span>⏱️ Estimated Visit:</span>
+            <span>
+              {poi.recommended_duration_hours != null ? `${poi.recommended_duration_hours} hrs` : "Flexible"}
+              {poi.recommended_visit_days ? ` (${poi.recommended_visit_days} ${poi.recommended_visit_days === 1 ? "day" : "days"})` : ""}
+            </span>
+          </div>
+          {poi.estimated_visit_time_notes && (
+            <div style={{ fontSize: "10.5px", color: "var(--text-muted, #64748b)", fontStyle: "italic", whiteSpace: "pre-wrap" }}>
+              {poi.estimated_visit_time_notes}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Address info: formatted or multiple locations badge */}
       {hasMultipleAddresses ? (
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>

@@ -53,7 +53,7 @@ export interface POIEditDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (updated: any) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => void | Promise<void>;
   onOpenLocationFinder?: (initialCoords: { lat: number; lng: number }) => void;
   onOpenMerge?: (sourcePoi: any, targetPoi: any) => void;
 }
@@ -87,6 +87,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   const [recommendedDurationHours, setRecommendedDurationHours] =
     useState<string>("");
   const [recommendedVisitDays, setRecommendedVisitDays] = useState<number>(1);
+  const [estimatedVisitTimeNotes, setEstimatedVisitTimeNotes] =
+    useState<string>("");
 
   // Provenance
   const [sourceType, setSourceType] = useState<string>("Manual");
@@ -126,6 +128,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLocationFinderOpen, setIsLocationFinderOpen] =
     useState<boolean>(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const handleApplyLocation = (
     coords: { lat: number; lng: number },
@@ -156,6 +160,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   // Load detailed POI data on open
   useEffect(() => {
     if (!poi || !isOpen) return;
+    setIsConfirmingDelete(false);
+    setIsDeleting(false);
 
     // Initialize baseline from POIMapFeature
     const baselineLat = poi.canonical_lat ?? poi.lat ?? 0;
@@ -208,6 +214,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         ? Boolean(poi.want_to_visit_again)
         : poi.visit_state === "visited_return";
     setWantToVisitAgain(initialWantAgain);
+    setEstimatedVisitTimeNotes(poi.estimated_visit_time_notes || "");
+    setSourceType((poi as any).source_type || "Manual");
+    setSourceValue((poi as any).source_value || "");
 
     // Fetch full rich record from backend
     const loadFullPOI = async () => {
@@ -240,6 +249,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
             : "",
         );
         setRecommendedVisitDays(fullData.recommended_visit_days || 1);
+        setEstimatedVisitTimeNotes(fullData.estimated_visit_time_notes || "");
         setSourceType(fullData.source_type || "Manual");
         setSourceValue(fullData.source_value || "");
         setOfficialUrl(fullData.official_url || "");
@@ -378,6 +388,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         ? parseFloat(recommendedDurationHours)
         : null,
       recommended_visit_days: recommendedVisitDays || 1,
+      estimated_visit_time_notes: estimatedVisitTimeNotes.trim() || null,
       source_type: sourceType,
       source_value: sourceValue.trim() || undefined,
       official_url: officialUrl.trim() || undefined,
@@ -494,6 +505,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
           ? parseFloat(recommendedDurationHours)
           : null,
         recommended_visit_days: recommendedVisitDays || 1,
+        estimated_visit_time_notes: estimatedVisitTimeNotes.trim() || undefined,
         source_type: validSourceType,
         source_value: sourceValue.trim() || undefined,
         official_url: officialUrl.trim() || undefined,
@@ -934,7 +946,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                 }}
               >
                 <Clock size={14} style={{ color: "var(--accent, #2563eb)" }} />
-                Estimated Visit Time
+                Estimated Visit Time & Itinerary Allocation
               </label>
               <div
                 style={{
@@ -945,16 +957,16 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               >
                 <div>
                   <span
-                    style={{ fontSize: "11px", color: "var(--text-muted)" }}
+                    style={{ fontSize: "11px", fontWeight: 500, color: "var(--text-secondary, #475569)" }}
                   >
-                    Hours (0.1 - 24.0)
+                    Duration (Hours)
                   </span>
                   <input
                     type="number"
                     step="0.5"
                     min="0.1"
                     max="24.0"
-                    placeholder="e.g. 3.5"
+                    placeholder="e.g. 2.5"
                     value={recommendedDurationHours}
                     onChange={(e) =>
                       setRecommendedDurationHours(e.target.value)
@@ -965,14 +977,26 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                       borderRadius: "var(--radius-sm, 6px)",
                       border: "1px solid var(--border-color, #e2e8f0)",
                       fontSize: "12px",
+                      marginTop: "3px",
                     }}
                   />
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "var(--text-muted, #64748b)",
+                      display: "block",
+                      marginTop: "3px",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Active visit duration (e.g. 2.5h)
+                  </span>
                 </div>
                 <div>
                   <span
-                    style={{ fontSize: "11px", color: "var(--text-muted)" }}
+                    style={{ fontSize: "11px", fontWeight: 500, color: "var(--text-secondary, #475569)" }}
                   >
-                    Days (1 - 365)
+                    Itinerary Days
                   </span>
                   <input
                     type="number"
@@ -988,9 +1012,52 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                       borderRadius: "var(--radius-sm, 6px)",
                       border: "1px solid var(--border-color, #e2e8f0)",
                       fontSize: "12px",
+                      marginTop: "3px",
                     }}
                   />
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "var(--text-muted, #64748b)",
+                      display: "block",
+                      marginTop: "3px",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Trip days allocated (1 = single-day)
+                  </span>
                 </div>
+              </div>
+
+              {/* Multiline explanation of visit duration reasoning */}
+              <div style={{ marginTop: "10px" }}>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    color: "var(--text-secondary, #475569)",
+                    display: "block",
+                    marginBottom: "3px",
+                  }}
+                >
+                  Visit Duration Reasoning & Notes
+                </span>
+                <textarea
+                  rows={3}
+                  value={estimatedVisitTimeNotes}
+                  onChange={(e) => setEstimatedVisitTimeNotes(e.target.value)}
+                  placeholder="Explain visit duration reasoning (e.g. 45-min guided tour, 30-min treasury exhibit, shuttle walk)..."
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: "var(--radius-sm, 6px)",
+                    border: "1px solid var(--border-color, #e2e8f0)",
+                    fontSize: "12px",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                    lineHeight: 1.4,
+                  }}
+                />
               </div>
             </div>
 
@@ -1643,26 +1710,92 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               }}
             >
               {onDelete ? (
-                <button
-                  type="button"
-                  onClick={() => onDelete(poi.id)}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "8px 12px",
-                    borderRadius: "var(--radius-md, 8px)",
-                    background: "transparent",
-                    color: "var(--danger, #ef4444)",
-                    border: "1px solid var(--danger, #ef4444)",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  <Trash2 size={15} />
-                  Delete POI
-                </button>
+                isConfirmingDelete ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      background: "var(--bg-hover, #fef2f2)",
+                      border: "1px solid #fecaca",
+                      padding: "6px 10px",
+                      borderRadius: "var(--radius-md, 8px)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#b91c1c",
+                      }}
+                    >
+                      Are you sure?
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      onClick={async () => {
+                        setIsDeleting(true);
+                        try {
+                          await onDelete(poi.id);
+                        } finally {
+                          setIsDeleting(false);
+                          setIsConfirmingDelete(false);
+                        }
+                      }}
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {isDeleting ? "Deleting..." : "Yes, Delete"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      onClick={() => setIsConfirmingDelete(false)}
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        background: "#ffffff",
+                        color: "#374151",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingDelete(true)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 12px",
+                      borderRadius: "var(--radius-md, 8px)",
+                      background: "transparent",
+                      color: "var(--danger, #ef4444)",
+                      border: "1px solid var(--danger, #ef4444)",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={15} />
+                    Delete POI
+                  </button>
+                )
               ) : (
                 <div />
               )}

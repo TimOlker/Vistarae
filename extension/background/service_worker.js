@@ -142,6 +142,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
 
+  if (message.action === "REVERSE_GEOCODE") {
+    handleReverseGeocode(message.payload)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ error: err.message }));
+    return true;
+  }
+
   if (message.action === "SAVE_POI") {
     handleSavePoi(message.poi)
       .then(sendResponse)
@@ -165,6 +172,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === "GET_USER_TAGS") {
+    handleGetUserTags()
+      .then(sendResponse)
+      .catch((err) =>
+        sendResponse({ success: false, tags: [], error: err.message }),
+      );
+    return true;
+  }
+
   if (message.action === "SYNC_AUTH_FROM_WEBAPP") {
     handleSyncAuthFromWebapp(message)
       .then(sendResponse)
@@ -172,6 +188,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
+
+/**
+ * Fetches user-configured tags from backend GET /api/pois/tags.
+ */
+async function handleGetUserTags() {
+  let token = null;
+  try {
+    token = await getValidAccessToken();
+  } catch (_) {}
+
+  const { headers } = prepareRequestHeaders({
+    method: "GET",
+    token,
+  });
+
+  try {
+    const response = await fetch(`${DEFAULT_BACKEND_URL}/api/pois/tags`, {
+      method: "GET",
+      headers,
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return { success: true, tags: Array.isArray(data) ? data : [] };
+    }
+  } catch (err) {
+    console.warn("Failed to fetch user tags from backend:", err);
+  }
+  return { success: false, tags: [] };
+}
 
 /**
  * Persists session tokens passed from web application into extension storage.
@@ -280,6 +325,9 @@ chrome.runtime.onMessageExternal.addListener(
  * @param {Object} payload
  */
 async function handleExtractAndCheck(payload) {
+  // Strip client-internal fallback fields before sending to strict backend schema
+  const { extracted, ...requestBody } = payload;
+
   let token = null;
   try {
     token = await getValidAccessToken();
@@ -300,7 +348,7 @@ async function handleExtractAndCheck(payload) {
       {
         method: "POST",
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestBody),
       },
     );
 
@@ -310,8 +358,20 @@ async function handleExtractAndCheck(payload) {
         status: data.deduplication?.status,
       });
       return data;
+    } else {
+      const errText = await response.text();
+      console.error(
+        `Backend extract-and-check failed with status ${response.status}:`,
+        errText,
+      );
+      logTelemetryMessage(
+        "OUTBOUND_RESPONSE",
+        `Backend returned error ${response.status}`,
+        { status: response.status, error: errText },
+      );
     }
   } catch (err) {
+    console.error("Backend unreachable:", err);
     logTelemetryMessage(
       "OUTBOUND_RESPONSE",
       "Backend unreachable, returning local fallback",
@@ -320,16 +380,85 @@ async function handleExtractAndCheck(payload) {
   }
 
   // Graceful offline fallback
+  const cleanFallbackName =
+    (payload.page_title || "")
+      .replace(
+        /\s*[-–—·|•]\s*(Google Maps|Tripadvisor|Roadtrippers|Atlas Obscura|Yelp|Wikipedia|Official (Site|Website|Guide)).*$/i,
+        "",
+      )
+      .trim() ||
+    payload.page_title ||
+    "Destination";
+
   return {
     candidate: payload.extracted || {
-      name: payload.page_title,
-      description: payload.text,
-      category: "experience",
+      name: cleanFallbackName,
+      description: payload.selected_text || payload.text || "",
+      category: payload.category || "experience",
     },
     deduplication: {
       status: "UNIQUE_LOCATION",
       distance_meters: null,
     },
+  };
+}
+
+/**
+ * Dispatches reverse geocoding to backend POST /api/v1/geocoding/reverse (T-021).
+ * @param {Object} payload
+ * @param {number} payload.latitude
+ * @param {number} payload.longitude
+ */
+async function handleReverseGeocode(payload) {
+  let token = null;
+  try {
+    token = await getValidAccessToken();
+  } catch (_) {
+    // Optional auth
+  }
+
+  const { headers } = prepareRequestHeaders({
+    method: "POST",
+    token,
+  });
+
+  logTelemetryMessage("OUTBOUND", "POST /api/v1/geocoding/reverse", payload);
+
+  try {
+    const response = await fetch(
+      `${DEFAULT_BACKEND_URL}/api/v1/geocoding/reverse`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      },
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      logTelemetryMessage("OUTBOUND_RESPONSE", "reverse geocode succeeded", {
+        country: data.country,
+        formatted_address: data.formatted_address,
+      });
+      return data;
+    }
+  } catch (err) {
+    logTelemetryMessage(
+      "OUTBOUND_RESPONSE",
+      "Reverse geocode backend request failed",
+      { error: err.message },
+    );
+  }
+
+  return {
+    formatted_address: `Lat: ${payload.latitude?.toFixed(
+      4,
+    )}, Lng: ${payload.longitude?.toFixed(4)}`,
+    country: "Unknown",
+    country_code: "XX",
+    city: null,
+    postcode: null,
+    addresses: [],
   };
 }
 
@@ -352,11 +481,53 @@ async function handleSavePoi(poi) {
 
   logTelemetryMessage("OUTBOUND", "POST /api/pois", { idempotencyKey });
 
+  const formattedPoi = {
+    name: poi.name || "Untitled POI",
+    lat:
+      poi.latitude !== null && poi.latitude !== undefined
+        ? Number(poi.latitude)
+        : poi.lat !== null && poi.lat !== undefined
+          ? Number(poi.lat)
+          : 0.0,
+    lon:
+      poi.longitude !== null && poi.longitude !== undefined
+        ? Number(poi.longitude)
+        : poi.lon !== null && poi.lon !== undefined
+          ? Number(poi.lon)
+          : 0.0,
+    parent_poi_id: poi.parent_poi_id || null,
+    description: poi.description || null,
+    address: poi.address || poi.addresses?.[0]?.street || null,
+    addresses: Array.isArray(poi.addresses) ? poi.addresses : [],
+    source_type: poi.source_type || "Web",
+    source_value: poi.source_value || poi.source_url || poi.url || null,
+    official_url: poi.official_website_url || poi.official_url || null,
+    wiki_url: poi.wikipedia_url || poi.wiki_url || null,
+    image_urls: poi.hero_image_url
+      ? [poi.hero_image_url]
+      : poi.image_urls || [],
+    tag_names: poi.tags || poi.tag_names || [],
+    rating:
+      poi.rating !== undefined && poi.rating !== null
+        ? parseInt(poi.rating, 10)
+        : null,
+    recommended_duration_hours: poi.estimated_duration_hours
+      ? parseFloat(poi.estimated_duration_hours)
+      : null,
+    recommended_visit_days:
+      poi.estimated_duration_days !== undefined &&
+      poi.estimated_duration_days !== null &&
+      parseInt(poi.estimated_duration_days, 10) >= 1
+        ? parseInt(poi.estimated_duration_days, 10)
+        : 1,
+    estimated_visit_time_notes: poi.estimated_visit_time_notes || null,
+  };
+
   try {
     const response = await fetch(`${DEFAULT_BACKEND_URL}/api/pois`, {
       method: "POST",
       headers,
-      body: JSON.stringify(poi),
+      body: JSON.stringify(formattedPoi),
     });
 
     if (response.ok) {

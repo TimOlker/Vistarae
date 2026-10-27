@@ -64,6 +64,7 @@ def _entity_to_poi_response(poi: POI, tags: list[TagEntity] | None = None) -> PO
         pricing_unit=poi.pricing_unit,
         recommended_duration_hours=poi.recommended_duration_hours,
         recommended_visit_days=poi.recommended_visit_days,
+        estimated_visit_time_notes=getattr(poi, "estimated_visit_time_notes", None),
         source_type=getattr(poi, "source_type", None),
         source_value=getattr(poi, "source_value", None),
         enrichment_status=poi.enrichment_status,
@@ -137,6 +138,8 @@ class MergeService:
         if "recommended_visit_days" in scalars:
             val = scalars["recommended_visit_days"]
             target.recommended_visit_days = int(val) if val is not None else 1
+        if "estimated_visit_time_notes" in scalars:
+            target.estimated_visit_time_notes = scalars["estimated_visit_time_notes"]
         if "source_type" in scalars:
             target.source_type = scalars["source_type"]
         if "source_value" in scalars:

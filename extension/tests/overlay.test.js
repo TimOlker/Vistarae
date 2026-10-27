@@ -207,4 +207,94 @@ describe("Extension Capture Overlay Field Parity & Synchronization (REQ-EXT-010,
     expect(parentIdInput.value).toBe("00000000-0000-0000-0000-000000000001");
     expect(parentNameInput.value).toBe("Millennium Park");
   });
+
+  it("renders Leaflet mini-map container and reselect location button (REQ-FR-011, REQ-FR-012)", async () => {
+    // Provide a mocked L global on window
+    const mockMap = {
+      setView: vi.fn(),
+      on: vi.fn(),
+      invalidateSize: vi.fn(),
+    };
+    const mockMarker = {
+      setLatLng: vi.fn(),
+      on: vi.fn(),
+      dragging: { enable: vi.fn(), disable: vi.fn() },
+    };
+    globalThis.L = {
+      map: vi.fn(() => mockMap),
+      tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
+      divIcon: vi.fn(() => ({})),
+      marker: vi.fn(() => ({ addTo: vi.fn(() => mockMarker) })),
+    };
+
+    await openCaptureOverlay();
+    const shadow = document.querySelector("vistarae-capture-root")?.shadowRoot;
+    await new Promise((r) => setTimeout(r, 20));
+
+    const minimap = shadow.querySelector("#vistarae-minimap");
+    const reselectBtn = shadow.querySelector("#vistarae-reselect-map-btn");
+    expect(minimap).not.toBeNull();
+    expect(reselectBtn).not.toBeNull();
+    expect(reselectBtn.textContent).toContain("Reselect Location");
+
+    // Click Reselect Location to toggle mode
+    reselectBtn.click();
+    expect(reselectBtn.textContent).toContain("Done Reselecting");
+    expect(reselectBtn.classList.contains("active")).toBe(true);
+
+    // Toggle back
+    reselectBtn.click();
+    expect(reselectBtn.textContent).toContain("Reselect Location");
+    expect(reselectBtn.classList.contains("active")).toBe(false);
+  });
+
+  it("renders View buttons next to URL inputs and opens new tab on click (REQ-FR-004, REQ-FR-005, REQ-FR-006)", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    await openCaptureOverlay();
+    const shadow = document.querySelector("vistarae-capture-root")?.shadowRoot;
+    await new Promise((r) => setTimeout(r, 20));
+
+    const officialBtn = shadow.querySelector("#vistarae-view-official-btn");
+    const wikiBtn = shadow.querySelector("#vistarae-view-wiki-btn");
+
+    expect(officialBtn).not.toBeNull();
+    expect(wikiBtn).not.toBeNull();
+
+    // Candidate payload has both URLs, so buttons should be enabled
+    expect(officialBtn.disabled).toBe(false);
+    expect(wikiBtn.disabled).toBe(false);
+
+    // Click View for Official Website
+    officialBtn.click();
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://www.bamburghcastle.com",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    // Click View for Wikipedia
+    wikiBtn.click();
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://en.wikipedia.org/wiki/Bamburgh_Castle",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    openSpy.mockRestore();
+  });
+
+  it("renders Hero Image preview card and probes image load (REQ-FR-007, REQ-FR-008, REQ-FR-009, REQ-FR-010)", async () => {
+    await openCaptureOverlay();
+    const shadow = document.querySelector("vistarae-capture-root")?.shadowRoot;
+    await new Promise((r) => setTimeout(r, 20));
+
+    const heroCard = shadow.querySelector("#vistarae-hero-preview-card");
+    const reloadBtn = shadow.querySelector("#vistarae-hero-reload-btn");
+    const heroInput = shadow.querySelector("#vistarae-hero-image-input");
+
+    expect(heroCard).not.toBeNull();
+    expect(reloadBtn).not.toBeNull();
+    expect(heroInput.value).toBe("https://upload.wikimedia.org/bamburgh.jpg");
+  });
 });

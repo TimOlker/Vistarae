@@ -15,37 +15,35 @@
 **Input**: User description:
 
 > "/speckit.specify Create the specification for Phase 9 (009-extension-enhancements) using strict EARS syntax.
-> 
+>
 > Scope to cover webapp enhancements:
+>
 > 1. Web App Tag Management - avoid having an extensive set of unmanageable tags associated with a POI
 >    - each user should be able to define their own list of what Tags they want to capture independent of other users.
 >    - the list should be displayed in alphabetical order in the web app in the user's preferences page.
 >    - the user should be able to add new Tags
 >    - the user should be able to remove a Tag, but first the Tag must be removed from all POIs before allowing this to happen.
->    - Store each tag as a slugified ID (e.g., fortification, museum_ship) and map natural search terms as aliases (castle -> fortification, submarine -> museum_ship) so search remains flexible without fragmenting your database. 
+>    - Store each tag as a slugified ID (e.g., fortification, museum_ship) and map natural search terms as aliases (castle -> fortification, submarine -> museum_ship) so search remains flexible without fragmenting your database.
 >    - a default list of Tags should be provided, but the user can override. The list includes:
->       - Fortification, Landmark, Ship, Aircraft, Military, Rail, Historic, Memorial, Building, Church, Temple, Museum, Scenic, Waterfall, Water, Park, Wilderness, Coast, Mountain, Food, NPS, UNESCO, Culture, Lighthouse, Zoo, Animal, Shopping, Entertainment, Film Location, Humorous
-> 
-> Scope to cover extension enhancements:
-> 2. Extension POI List
->    - if no data is found, do not display demo samples.
-> 
+>      - Fortification, Landmark, Ship, Aircraft, Military, Rail, Historic, Memorial, Building, Church, Temple, Museum, Scenic, Waterfall, Water, Park, Wilderness, Coast, Mountain, Food, NPS, UNESCO, Culture, Lighthouse, Zoo, Animal, Shopping, Entertainment, Film Location, Humorous
+>
+> Scope to cover extension enhancements: 2. Extension POI List
+>
+> - if no data is found, do not display demo samples.
+>
 > 3. Display currently logged in user for the extension
 >    - Before allowing the key stroke to save a POI, continue to confirm that the user is logged in, if not direct to login.
 >    - If logged in, ensure the user is displayed.
-> 
 > 4. Remove extension functionality
 >    - currently an export CSV option is displayed. This is redundant duplication of what is done on the web app and should be removed.
 >    - currently a list of POIs is displayed. This is redundant duplication of what is done on the web app and should be removed.
 >    - the list of POIs should be replaced with a brief summary of what Vistarae, and more specifically the extension does.
-> 
 > 5. Extension - Web scraping fields
 >    - when the key stroke is provided the logic to scrape information from the currently selected page is triggered.
 >    - the design should be updated to make sure the fields in the DB / fields on the POI edit are synchronized with the fields that can be populated when capturing a POI.
 >    - make sure there are inputs that make sure it is aligned with the web apps edit POI page.
-> 
 > 6. Extension - Web scraping logic
->    - first run the logic to determine the name. The POI name should be the english version of a POI. A normalization of location names should be applied to standardized POI names.  
+>    - first run the logic to determine the name. The POI name should be the english version of a POI. A normalization of location names should be applied to standardized POI names.
 >    - if the page does not have the information needed to scrape data, attempt to look to other sources to scrape data from. For example wikipedia entry, a tripadvisor or other well regarded sites could be used. For each POI please record which sites were used to extract information from. If no information is found, leave the field blank. The list of valid sites to extract information from should be configurable on the web app in the user's preferences. This list is then made available to the extension by an API call for an authorized user. Each user can have their own list. They should be able to add/remove/edit which sites are on the list.
 >    - attempt to determine the location's lat & long. If it can not be determined from the sources, but an address is available, check the cache and if no hit then attempt to query a geocoding service to map.
 >    - attempt to determine the location's address. If not present, attempt to geocode an address from the lat & long. Note there may be multiple addresses, or a larger location that is a region may not have a specific street address and only have a city, state/province and country. Alternatively a larger location may not have a town/city or state/province. Some may span multiple town/city, state/province, country, in which case create multiple address entries. Locations should be standardized to english versions of location names, and normalized into the standardized format. (for example if a country standard hasn't been selected, use an open source distribution of ISO 3166-1).
@@ -72,6 +70,7 @@ Phase 9 (`009-extension-enhancements`) establishes a unified, high-integrity cap
 The feature delivers six cohesive capability pillars:
 
 1. **User-Scoped Tag Governance & Alias Normalization (Web App & Backend)**:
+
    - Eliminates database tag fragmentation by introducing controlled user tag libraries managed within the Web App Preferences page (`/settings`).
    - Every tag is identified by an immutable slugified ID (e.g. `fortification`, `museum_ship`) and associated with a human-readable display name and an array of alias terms (e.g. `["castle", "fort", "citadel"]` mapped to `fortification`).
    - Tags are rendered in strict alphabetical order.
@@ -79,16 +78,19 @@ The feature delivers six cohesive capability pillars:
    - Seeds 30 standardized default tags upon user registration, which users can customize, extend, or alias.
 
 2. **Extension Streamlining & Informational Overhaul**:
+
    - Removes redundant features from the extension: the CSV export button, full POI table, search toolbar, and category filters are eliminated in favor of the full Web App.
    - Removes all hardcoded demo fallback records (`Glacier Point Overlook`, `Mist Trail`), ensuring that offline or empty states never display fake travel data.
    - Replaces the extension browser tab/popup with a polished, branded landing dashboard summarizing Vistarae's mission, explaining the capture keystroke (`Ctrl+Shift+S` / `Cmd+Shift+S`), displaying active system health, and linking directly to the Web App.
 
 3. **Strict Authentication Gate & Identity Context**:
+
    - Enforces pre-capture authentication: pressing `Ctrl+Shift+S` or invoking the capture menu verifies active Cognito tokens.
    - If unauthenticated, the extension immediately halts capture and directs the traveler to the Web App login page with a return redirect.
    - If authenticated, the extension prominently displays the logged-in user's email/display name in both the extension overview and the Shadow DOM capture overlay.
 
 4. **1:1 Field Parity Across Extension, Web App, and Database**:
+
    - Updates the capture overlay inputs to mirror the fields present in the database and the Web App POI Editor:
      - Standardized English POI Name
      - Multiline Freeform Description / Synthesized Summary
@@ -105,6 +107,7 @@ The feature delivers six cohesive capability pillars:
    - Guarantees that local photo folder paths are strictly excluded and never populated during web scraping.
 
 5. **Multi-Source Scraping, English Normalization & Intelligent Geocoding**:
+
    - When a capture is initiated, the scraping engine extracts primary page metadata and determines the standardized English name.
    - If critical information is missing, the engine queries authorized secondary sources (e.g., Wikipedia API, TripAdvisor) configured in the user's preferences (`valid_scraping_domains`), recording each source domain used.
    - If secondary sources fail, timeout, or hit rate limits, the system executes a graceful partial fallback, returning primary page data without blocking.
@@ -139,7 +142,7 @@ The feature delivers six cohesive capability pillars:
 
 ### User Story 1 - Web App Tag Management & Vetted Tag Governance (Priority: P1) 🎯 MVP
 
-A traveler wants to organize their saved destinations without accumulating hundreds of inconsistent, messy tags (e.g., "castles", "Castle", "forts", "chateaux"). In the Web App, they navigate to Preferences (`/settings`) and click the **Tags** tab. They see a clean, alphabetically sorted list of 30 standard default tags (Aircraft, Animal, Building, Church, Coast, Culture, Entertainment, Film Location, Food, Fortification, Historic, Humorous, Landmark, Lighthouse, Memorial, Military, Mountain, Museum, NPS, Park, Rail, Scenic, Ship, Shopping, Temple, UNESCO, Water, Waterfall, Wilderness, Zoo). 
+A traveler wants to organize their saved destinations without accumulating hundreds of inconsistent, messy tags (e.g., "castles", "Castle", "forts", "chateaux"). In the Web App, they navigate to Preferences (`/settings`) and click the **Tags** tab. They see a clean, alphabetically sorted list of 30 standard default tags (Aircraft, Animal, Building, Church, Coast, Culture, Entertainment, Film Location, Food, Fortification, Historic, Humorous, Landmark, Lighthouse, Memorial, Military, Mountain, Museum, NPS, Park, Rail, Scenic, Ship, Shopping, Temple, UNESCO, Water, Waterfall, Wilderness, Zoo).
 
 The traveler notices `Fortification` has aliases `castle`, `fort`, `citadel`. They also add `fort` as an alias on `Military`. They add a new custom tag with display name `Historic Railway`, slug `historic_railway`, and aliases `steam train`, `cog railway`, `funicular`. Later, when attempting to delete `Historic`, the system detects that 12 POIs currently use `Historic` and blocks deletion, returning a 409 Conflict modal with a button: "View 12 Affected POIs in Table". Clicking the button takes them to the main POI table pre-filtered by `Historic`, where they use bulk edit to remove the tag, and then successfully delete `Historic`.
 
@@ -159,7 +162,7 @@ The traveler notices `Fortification` has aliases `castle`, `fort`, `citadel`. Th
 
 ### User Story 2 - Extension Streamlining & Authenticated User Context (Priority: P1) 🎯 MVP
 
-A traveler clicks the Vistarae Chrome Extension toolbar icon or opens its extension page. Instead of viewing a duplicate, clunky copy of the POI table with fake demo items ("Glacier Point Overlook", "Mist Trail") and an export CSV button, they are greeted by an elegant, focused Vistarae Extension Companion dashboard. 
+A traveler clicks the Vistarae Chrome Extension toolbar icon or opens its extension page. Instead of viewing a duplicate, clunky copy of the POI table with fake demo items ("Glacier Point Overlook", "Mist Trail") and an export CSV button, they are greeted by an elegant, focused Vistarae Extension Companion dashboard.
 
 The dashboard prominently displays their authenticated profile banner (`Signed in as: alex.traveler@example.com`), active backend connectivity status, a visual cheat sheet explaining how to capture destinations using `Ctrl+Shift+S` (or `Cmd+Shift+S` on Mac), and a direct button "Open Vistarae Web App" linking to the main discovery canvas. If the traveler is logged out, the dashboard clearly states "Session Expired / Not Logged In" with a prominent "Log In with Vistarae" button, and disables capture hotkeys until authenticated.
 
@@ -179,9 +182,9 @@ The dashboard prominently displays their authenticated profile banner (`Signed i
 
 ### User Story 3 - Full-Spectrum Synchronized Web Scraping & Multi-Source Augmentation (Priority: P1)
 
-A traveler is browsing a travel blog article discussing the "Bamburgh Castle" on the Northumberland coast. They highlight the name and press `Ctrl+Shift+S`. The extension triggers its isolated Shadow DOM overlay. 
+A traveler is browsing a travel blog article discussing the "Bamburgh Castle" on the Northumberland coast. They highlight the name and press `Ctrl+Shift+S`. The extension triggers its isolated Shadow DOM overlay.
 
-The extension first extracts the primary page data, normalizing the name to standardized English ("Bamburgh Castle"). Because the blog article lacks physical address details and estimated duration, the backend scraping engine queries authorized secondary sources from the user's preferences (such as the English Wikipedia entry and TripAdvisor summary). 
+The extension first extracts the primary page data, normalizing the name to standardized English ("Bamburgh Castle"). Because the blog article lacks physical address details and estimated duration, the backend scraping engine queries authorized secondary sources from the user's preferences (such as the English Wikipedia entry and TripAdvisor summary).
 
 The system extracts the official website (`https://www.bamburghcastle.com`), Wikipedia article (`https://en.wikipedia.org/wiki/Bamburgh_Castle`), hero image URL, and estimates visit duration as 3.5 hours (0 days). It distills the combined text into a tight, two-sentence summary. If secondary sources fail or timeout (> 3.0s), the system performs a graceful partial fallback, displaying a soft notice without aborting capture. Because the text matches the alias "fort", which belongs to both `Fortification` and `Military`, the capture overlay recommends both tags with opt-out badges. The star rating is left blank for the traveler to evaluate. Local photo folders remain completely unpopulated. The traveler adjusts the rating to 5 stars and clicks "Save to Vistarae".
 
@@ -201,7 +204,7 @@ The system extracts the official website (`https://www.bamburghcastle.com`), Wik
 
 ### User Story 4 - Intelligent Geocoding, Boundary-Aware Addressing & Rate-Limit Caching (Priority: P2)
 
-A traveler captures "Iguazu Falls" from an international travel portal. The falls span both Argentina (Misiones Province) and Brazil (Paraná State) and lack a traditional street number. 
+A traveler captures "Iguazu Falls" from an international travel portal. The falls span both Argentina (Misiones Province) and Brazil (Paraná State) and lack a traditional street number.
 
 The scraping engine extracts latitude `-25.6953` and longitude `-54.4367`. The geocoding subsystem first checks the local PostGIS `geocoding_cache` table by SHA256 query hash. On cache miss, it executes a rate-limited query to OSM Nominatim (adhering strictly to 1 req/sec with `User-Agent: VistaraeTravelEngine/1.0`). Detecting that the geographic boundary spans two countries, the engine produces two structured address records: Address 1 (`Puerto Iguazú, Misiones, Argentina`, ISO `ARG`) and Address 2 (`Foz do Iguaçu, Paraná, Brazil`, ISO `BRA`). Subsequent requests for Iguazu Falls hit the internal `geocoding_cache` without invoking Nominatim.
 
@@ -220,17 +223,18 @@ The scraping engine extracts latitude `-25.6953` and longitude `-54.4367`. The g
 
 ### User Story 5 - Early Scale-Aware Duplicate & Parent-Child Nesting Triage (Priority: P2)
 
-A traveler visits the Chicago Art Institute website and captures the famous outdoor sculpture "Cloud Gate" (The Bean) in Millennium Park. 
+A traveler visits the Chicago Art Institute website and captures the famous outdoor sculpture "Cloud Gate" (The Bean) in Millennium Park.
 
-During the initial extraction phase, the backend analyzes coordinates and computes trigram similarity against the traveler's existing POIs. It discovers that the traveler already saved "Millennium Park" at the same coordinates. The system evaluates the physical scale: "Millennium Park" is classified as a Macro/Site-scale park (24.5 acres), whereas "Cloud Gate" is classified as a Micro-scale sculpture (33 feet high). Because trigram similarity is $< 0.60$ and the existing POI is at a larger spatial scale, the system classifies the match as a `NEARBY_PARENT`. 
+During the initial extraction phase, the backend analyzes coordinates and computes trigram similarity against the traveler's existing POIs. It discovers that the traveler already saved "Millennium Park" at the same coordinates. The system evaluates the physical scale: "Millennium Park" is classified as a Macro/Site-scale park (24.5 acres), whereas "Cloud Gate" is classified as a Micro-scale sculpture (33 feet high). Because trigram similarity is $< 0.60$ and the existing POI is at a larger spatial scale, the system classifies the match as a `NEARBY_PARENT`.
 
 The capture overlay displays an early triage banner:  
 `"Discovered existing location: Millennium Park (25m away). Cloud Gate appears to be located within Millennium Park."`  
-The banner highlights **Make Child** as the primary recommendation alongside **Proceed** and **Abort**:  
-- **Proceed**: Save Cloud Gate as a standalone, unlinked POI.  
-- **Make Child** (Recommended): Save Cloud Gate as a child of Millennium Park (automatically setting `parent_poi_id` to Millennium Park's ID and `parent_poi_name` to "Millennium Park").  
+The banner highlights **Make Child** as the primary recommendation alongside **Proceed** and **Abort**:
+
+- **Proceed**: Save Cloud Gate as a standalone, unlinked POI.
+- **Make Child** (Recommended): Save Cloud Gate as a child of Millennium Park (automatically setting `parent_poi_id` to Millennium Park's ID and `parent_poi_name` to "Millennium Park").
 - **Abort**: Close the overlay and cancel capture.  
-The traveler clicks **Make Child**, and the POI is persisted with the correct hierarchy.
+  The traveler clicks **Make Child**, and the POI is persisted with the correct hierarchy.
 
 **Why this priority**: Eliminates duplicate clutter and builds structured attraction hierarchies (parks containing monuments; museums containing galleries).
 

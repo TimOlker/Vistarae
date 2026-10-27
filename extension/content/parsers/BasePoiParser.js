@@ -21,6 +21,33 @@
  * @property {string[]} [photo_urls]
  */
 
+const BRANDING_SUFFIXES = [
+  /\s*[-–—·|•]\s*Google Maps.*$/i,
+  /\s*[-–—·|•]\s*Tripadvisor.*$/i,
+  /\s*[-–—·|•]\s*Roadtrippers.*$/i,
+  /\s*[-–—·|•]\s*Atlas Obscura.*$/i,
+  /\s*[-–—·|•]\s*Yelp.*$/i,
+  /\s*[-–—·|•]\s*Wikipedia.*$/i,
+  /\s*[-–—·|•]\s*Official (Site|Website|Guide).*$/i,
+];
+
+/**
+ * Strips platform branding suffixes while preserving legitimate geographic hyphens.
+ * @param {string} rawTitle - Raw title from page or element.
+ * @param {string} [platformHint] - Optional platform hint.
+ * @returns {string} Sanitized destination title.
+ */
+export function sanitizeDestinationTitle(rawTitle, platformHint = "") {
+  if (!rawTitle || typeof rawTitle !== "string") {
+    return "";
+  }
+  let title = rawTitle.trim();
+  for (const regex of BRANDING_SUFFIXES) {
+    title = title.replace(regex, "");
+  }
+  return title.trim();
+}
+
 /**
  * Abstract Base Class for all travel POI parsers.
  */

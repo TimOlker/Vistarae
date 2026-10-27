@@ -64,16 +64,16 @@ Phase 9 establishes an integrated, high-integrity travel capture companion conne
 
 _GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design._
 
-| Principle / Rule | Compliance Status | Implementation Detail |
-| :--- | :---: | :--- |
-| **1. File Header & Docstrings** | PASS | All new `.py`, `.ts`, `.tsx`, and `.sql` files mandate Apache-2.0 copyright headers and Google-style docstrings with Cognitive Complexity $\le 15$. |
-| **2. Ports & Adapters Architecture** | PASS | Domain entities (`UserTagEntity`), value objects (`TagSlug`, `SpatialScale`), and schemas reside in `packages/core/vistarae_core/`. No infrastructure leakage into domain models. |
-| **3. Tenancy Invariants (No RLS)** | PASS | All queries on `tags`, `user_preferences`, and `pois` enforce `WHERE user_id = :current_user_id`. Zero PostgreSQL Row-Level Security used. |
-| **4. Alembic & Environment Isolation** | PASS | Migration `0007_tag_governance_and_scraping_preferences.py` provides fully reversible `downgrade()` dropping added columns and constraints. Zero native PostgreSQL enum types. |
-| **5. API Contracts & Pydantic v2** | PASS | OpenAPI 3.1 contract documented in [contracts/extension-enhancements-api.yaml](./contracts/extension-enhancements-api.yaml). All schemas subclass `StrictBaseModel` with `extra="forbid"`. All errors return RFC 7807 `ProblemDetails`. |
-| **6. Middleware & Security Guardrails** | PASS | Extension origin whitelisted in `CORSMiddleware`. Idempotency and rate-limiting middleware configured. |
-| **7. Observability & Tracing** | PASS | Cross-boundary directional tags (`MSG ->\|`, `MSG <-\|`, `MSG \|->`, `MSG \|<-`) and W3C `traceparent` headers supported across all new extension routes. |
-| **8. PyTest Governance (90% Coverage)** | PASS | Unit tests mirrored 1:1 in `tests/unit/services/poi/` and `tests/unit/packages/core/` with `--cov-fail-under=90`. |
+| Principle / Rule                        | Compliance Status | Implementation Detail                                                                                                                                                                                                                   |
+| :-------------------------------------- | :---------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. File Header & Docstrings**         |       PASS        | All new `.py`, `.ts`, `.tsx`, and `.sql` files mandate Apache-2.0 copyright headers and Google-style docstrings with Cognitive Complexity $\le 15$.                                                                                     |
+| **2. Ports & Adapters Architecture**    |       PASS        | Domain entities (`UserTagEntity`), value objects (`TagSlug`, `SpatialScale`), and schemas reside in `packages/core/vistarae_core/`. No infrastructure leakage into domain models.                                                       |
+| **3. Tenancy Invariants (No RLS)**      |       PASS        | All queries on `tags`, `user_preferences`, and `pois` enforce `WHERE user_id = :current_user_id`. Zero PostgreSQL Row-Level Security used.                                                                                              |
+| **4. Alembic & Environment Isolation**  |       PASS        | Migration `0007_tag_governance_and_scraping_preferences.py` provides fully reversible `downgrade()` dropping added columns and constraints. Zero native PostgreSQL enum types.                                                          |
+| **5. API Contracts & Pydantic v2**      |       PASS        | OpenAPI 3.1 contract documented in [contracts/extension-enhancements-api.yaml](./contracts/extension-enhancements-api.yaml). All schemas subclass `StrictBaseModel` with `extra="forbid"`. All errors return RFC 7807 `ProblemDetails`. |
+| **6. Middleware & Security Guardrails** |       PASS        | Extension origin whitelisted in `CORSMiddleware`. Idempotency and rate-limiting middleware configured.                                                                                                                                  |
+| **7. Observability & Tracing**          |       PASS        | Cross-boundary directional tags (`MSG ->\|`, `MSG <-\|`, `MSG \|->`, `MSG \|<-`) and W3C `traceparent` headers supported across all new extension routes.                                                                               |
+| **8. PyTest Governance (90% Coverage)** |       PASS        | Unit tests mirrored 1:1 in `tests/unit/services/poi/` and `tests/unit/packages/core/` with `--cov-fail-under=90`.                                                                                                                       |
 
 ---
 

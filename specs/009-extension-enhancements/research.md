@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Feature**: `009-extension-enhancements`  
 **Date**: 2026-10-22  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
@@ -35,8 +35,8 @@ SPDX-License-Identifier: Apache-2.0
 - **Deletion Protection**: When `DELETE /api/pois/tags/{tag_id}` is invoked, the repository checks `SELECT COUNT(*) FROM poi_tags WHERE tag_id = :tag_id`. If `count > 0`, the service raises a `TagInUseError`, returning RFC 7807 409 Conflict with the count and an actionable remediation link.
 - **Seeding 30 Default Tags**: A domain service `seed_default_tags(user_id, session)` is executed on user creation and during migration, inserting the 30 standardized default tags (`ON CONFLICT (user_id, slug) DO NOTHING`).
 - **Alternatives Considered**:
-  - *Storing tags as freeform text strings in a JSONB array on POIs*: Rejected because it leads to fragmentation, duplicate variations ("castle", "Castle", "Castles"), and makes global tag management and renaming impossible.
-  - *Global system-wide tags table*: Rejected because the specification mandates each user define their own list independent of other users.
+  - _Storing tags as freeform text strings in a JSONB array on POIs_: Rejected because it leads to fragmentation, duplicate variations ("castle", "Castle", "Castles"), and makes global tag management and renaming impossible.
+  - _Global system-wide tags table_: Rejected because the specification mandates each user define their own list independent of other users.
 
 ---
 
@@ -47,8 +47,8 @@ SPDX-License-Identifier: Apache-2.0
 - **API Surface**: Expose `GET /api/user/preferences/scraping-sources` and `PUT /api/user/preferences/scraping-sources` within the existing user preferences router.
 - **Extension Caching**: The Chrome Extension queries this endpoint upon initialization and caches the list in `chrome.storage.local` with a 24-hour TTL, updating whenever the user visits the preferences page or triggers a manual sync.
 - **Alternatives Considered**:
-  - *Dedicated `user_scraping_sources` table*: Evaluated in Clarification Q1 and rejected by the user in favor of extending `user_preferences` to reduce relational overhead and simplify atomic preference updates.
-  - *Client-only `chrome.storage.sync`*: Rejected because it fails to synchronize with backend scraping tasks or across browser profiles.
+  - _Dedicated `user_scraping_sources` table_: Evaluated in Clarification Q1 and rejected by the user in favor of extending `user_preferences` to reduce relational overhead and simplify atomic preference updates.
+  - _Client-only `chrome.storage.sync`_: Rejected because it fails to synchronize with backend scraping tasks or across browser profiles.
 
 ---
 
@@ -62,7 +62,7 @@ SPDX-License-Identifier: Apache-2.0
   4. **Timeout & Partial Fallback Policy**: Every secondary HTTP request is bounded by a strict `asyncio.wait_for(timeout=3.0)` ceiling. If any secondary source times out or returns HTTP 429/403, the orchestrator catches the exception, logs `MSG <-| Scraping source failed`, and continues with primary data (Clarification Q3).
   5. **Tight Summary Synthesis**: Invokes Gemini Flash-Lite with structured output enforcing `POIExtractionPayload` to distill multi-source content into a concise 2–3 sentence description.
 - **Alternatives Considered**:
-  - *Full headless browser (Playwright/Puppeteer) on backend*: Rejected due to AWS Lambda 250MB deployment size limit, high cold-start latency (3–5s), and constitutional zero-cost architecture principles. Direct lightweight HTTP APIs (`httpx.AsyncClient`) are fast (< 400ms) and stateless.
+  - _Full headless browser (Playwright/Puppeteer) on backend_: Rejected due to AWS Lambda 250MB deployment size limit, high cold-start latency (3–5s), and constitutional zero-cost architecture principles. Direct lightweight HTTP APIs (`httpx.AsyncClient`) are fast (< 400ms) and stateless.
 
 ---
 
@@ -75,7 +75,7 @@ SPDX-License-Identifier: Apache-2.0
   - **Boundary Spanning**: If reverse geocoding returns multiple administrative parent polygons, or if Gemini identifies multi-state/multi-country boundaries, generate distinct `AddressRecord` items in the `addresses` JSONB array.
   - **English Country Standardization**: Normalize country names to ISO 3166-1 alpha-3 and English common names via `pycountry` or internal ISO mapping, matching Phase 7 (`007-ui-edit-poi-enhancements`).
 - **Alternatives Considered**:
-  - *Google Maps Geocoding API*: Rejected due to commercial API costs violating the project's zero-cost architectural guardrails.
+  - _Google Maps Geocoding API_: Rejected due to commercial API costs violating the project's zero-cost architectural guardrails.
 
 ---
 
@@ -115,13 +115,13 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 2. Constitutional Verification Matrix
 
-| Constitutional Rule | Compliance Status | Implementation Strategy |
-| :--- | :---: | :--- |
-| **1. Copyright Headers & Pre-Commit** | PASS | Standard Apache-2.0 header on all `.py`, `.ts`, `.tsx`, and `.sql` files. Cognitive complexity $\le 15$. |
-| **2. Ports & Adapters Architecture** | PASS | Domain models and interfaces in `packages/core/vistarae_core/`. No AWS SDK or HTTP imports in domain layer. |
-| **3. Tenancy Invariants (No RLS)** | PASS | `WHERE user_id = :current_user_id` enforced on all tag and preference lookups. Zero PostgreSQL RLS used. |
-| **4. Alembic & Environment Isolation** | PASS | Migration `0007_tag_governance_and_scraping_preferences.py` implements reversible `downgrade()`. Zero native DB ENUMs. |
-| **5. API Contract & Pydantic v2** | PASS | All payloads use `StrictBaseModel` with `extra="forbid"`. Non-2XX responses use RFC 7807 `ProblemDetails`. |
-| **6. Middleware & Security Guardrails**| PASS | Extension origin whitelisted in `CORSMiddleware`. Idempotency and rate-limiting middleware configured. |
-| **7. Observability & Tracing** | PASS | Standard W3C `traceparent` headers sent by extension; directional `MSG ->\|` logging in local development. |
-| **8. PyTest Governance (90% Coverage)** | PASS | Full test suite mirroring in `tests/unit/services/poi/` and `tests/unit/packages/core/` with `--cov-fail-under=90`. |
+| Constitutional Rule                     | Compliance Status | Implementation Strategy                                                                                                |
+| :-------------------------------------- | :---------------: | :--------------------------------------------------------------------------------------------------------------------- |
+| **1. Copyright Headers & Pre-Commit**   |       PASS        | Standard Apache-2.0 header on all `.py`, `.ts`, `.tsx`, and `.sql` files. Cognitive complexity $\le 15$.               |
+| **2. Ports & Adapters Architecture**    |       PASS        | Domain models and interfaces in `packages/core/vistarae_core/`. No AWS SDK or HTTP imports in domain layer.            |
+| **3. Tenancy Invariants (No RLS)**      |       PASS        | `WHERE user_id = :current_user_id` enforced on all tag and preference lookups. Zero PostgreSQL RLS used.               |
+| **4. Alembic & Environment Isolation**  |       PASS        | Migration `0007_tag_governance_and_scraping_preferences.py` implements reversible `downgrade()`. Zero native DB ENUMs. |
+| **5. API Contract & Pydantic v2**       |       PASS        | All payloads use `StrictBaseModel` with `extra="forbid"`. Non-2XX responses use RFC 7807 `ProblemDetails`.             |
+| **6. Middleware & Security Guardrails** |       PASS        | Extension origin whitelisted in `CORSMiddleware`. Idempotency and rate-limiting middleware configured.                 |
+| **7. Observability & Tracing**          |       PASS        | Standard W3C `traceparent` headers sent by extension; directional `MSG ->\|` logging in local development.             |
+| **8. PyTest Governance (90% Coverage)** |       PASS        | Full test suite mirroring in `tests/unit/services/poi/` and `tests/unit/packages/core/` with `--cov-fail-under=90`.    |
