@@ -239,7 +239,8 @@ export async function openCaptureOverlay(payload = {}) {
           <div class="vistarae-form-group">
             <label class="vistarae-label" for="vistarae-duration-days-input">Itinerary Days</label>
             <input class="vistarae-input" id="vistarae-duration-days-input" type="number" step="1" min="1" value="${
-              scrapedPoi.estimated_duration_days && scrapedPoi.estimated_duration_days >= 1
+              scrapedPoi.estimated_duration_days &&
+              scrapedPoi.estimated_duration_days >= 1
                 ? scrapedPoi.estimated_duration_days
                 : 1
             }" placeholder="e.g. 1" />
@@ -648,7 +649,6 @@ export async function openCaptureOverlay(payload = {}) {
     }
     listEl.innerHTML = addresses
       .map((a) => {
-
         const parts = [];
         let streetVal = a.street ? a.street.trim() : "";
         const countryVal = (a.country || "").trim();
@@ -667,7 +667,9 @@ export async function openCaptureOverlay(payload = {}) {
         if (
           a.city &&
           a.city.trim() &&
-          !parts.some((p) => p.toLowerCase().includes(a.city.trim().toLowerCase()))
+          !parts.some((p) =>
+            p.toLowerCase().includes(a.city.trim().toLowerCase()),
+          )
         ) {
           parts.push(a.city.trim());
         }
@@ -784,9 +786,8 @@ export async function openCaptureOverlay(payload = {}) {
     const description = shadow
       .querySelector("#vistarae-desc-input")
       .value.trim();
-    const reasonToVisit = shadow
-      .querySelector("#vistarae-reason-input")
-      ?.value?.trim() || null;
+    const reasonToVisit =
+      shadow.querySelector("#vistarae-reason-input")?.value?.trim() || null;
     const latVal = shadow.querySelector("#vistarae-lat-input").value;
     const lngVal = shadow.querySelector("#vistarae-lng-input").value;
     const officialUrl = shadow
@@ -803,7 +804,9 @@ export async function openCaptureOverlay(payload = {}) {
     ).value;
     const daysVal = shadow.querySelector("#vistarae-duration-days-input").value;
     const ratingVal = shadow.querySelector("#vistarae-rating-input").value;
-    const notesVal = shadow.querySelector("#vistarae-duration-notes-input")?.value?.trim() || null;
+    const notesVal =
+      shadow.querySelector("#vistarae-duration-notes-input")?.value?.trim() ||
+      null;
 
     const payloadPoi = {
       name,

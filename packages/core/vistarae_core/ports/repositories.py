@@ -54,7 +54,6 @@ from vistarae_core.domain.value_objects import (
 )
 
 
-
 class IUserRepository(Protocol):
     """Persistence contract for tenant identity management."""
 
@@ -1050,4 +1049,3 @@ class IUserPromptRepository(Protocol):
             user_id: Owning tenant UUID.
         """
         ...
-

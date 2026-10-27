@@ -45,7 +45,6 @@ from vistarae_core.domain.value_objects import (
 )
 
 
-
 @dataclass
 class User:
     """Core tenant anchor entity."""
@@ -104,7 +103,6 @@ class UserPrompt:
     prompt_text: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
 
 
 @dataclass

@@ -95,7 +95,7 @@ class BatchIngestWorker:
         self._prompt_cache = prompt_cache
         self._orchestrator = orchestrator
 
-    async def process_record(
+    async def process_record(  # noqa: C901
         self,
         record: dict[str, Any],
         session: AsyncSession,
@@ -208,8 +208,7 @@ class BatchIngestWorker:
                 cached = self._prompt_cache.get(user_id)
                 if cached:
                     prompt_directives = {
-                        (k.value if hasattr(k, "value") else str(k)): v
-                        for k, v in cached.items()
+                        (k.value if hasattr(k, "value") else str(k)): v for k, v in cached.items()
                     }
             except Exception:
                 logger.warning("Failed to retrieve prompt directives for user %s", user_id)

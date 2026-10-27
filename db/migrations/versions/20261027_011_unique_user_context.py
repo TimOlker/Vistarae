@@ -50,7 +50,9 @@ def upgrade() -> None:
     op.add_column("pois", sa.Column("reason_to_visit", sa.Text(), nullable=True))
 
     # 2. Add travel_style_description column to user_preferences table
-    op.add_column("user_preferences", sa.Column("travel_style_description", sa.Text(), nullable=True))
+    op.add_column(
+        "user_preferences", sa.Column("travel_style_description", sa.Text(), nullable=True)
+    )
 
     # 3. Create user_prompts table
     op.create_table(

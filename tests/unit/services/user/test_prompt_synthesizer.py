@@ -134,7 +134,9 @@ async def test_decompose_prompt_injection_safety(mock_gemini_client):
 async def test_decompose_gemini_api_error_fallback(mock_gemini_client):
     """Verifies API exceptions fall back safely to empty dictionary without raising unhandled errors."""
     synthesizer = UserPromptSynthesizer(api_key="test-api-key")
-    mock_gemini_client.models.generate_content.side_effect = RuntimeError("AI Studio quota exceeded")
+    mock_gemini_client.models.generate_content.side_effect = RuntimeError(
+        "AI Studio quota exceeded"
+    )
 
     narrative = "I enjoy exploring medieval architecture and historic stone fortresses."
     directives = await synthesizer.decompose(narrative)

@@ -125,16 +125,16 @@ class UserPromptCache:
 
         try:
             db_prompts = await repo.list_by_user(user_id)
-            prompt_dict: dict[PromptType, str] = {
-                p.prompt_type: p.prompt_text for p in db_prompts
-            }
+            prompt_dict: dict[PromptType, str] = {p.prompt_type: p.prompt_text for p in db_prompts}
             try:
                 self.set(user_id, prompt_dict)
             except Exception as exc:
                 logger.warning("Cache write error for user %s: %s", user_id, exc)
             return prompt_dict
         except Exception as exc:
-            logger.error("Failed to load prompt directives from database for user %s: %s", user_id, exc)
+            logger.error(
+                "Failed to load prompt directives from database for user %s: %s", user_id, exc
+            )
             return {}
 
 

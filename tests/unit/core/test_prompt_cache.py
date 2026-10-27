@@ -28,11 +28,10 @@ from __future__ import annotations
 
 import concurrent.futures
 import time
-from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID, uuid4
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
-
 from vistarae_core.domain.entities import UserPrompt
 from vistarae_core.domain.value_objects import PromptType
 from vistarae_core.ports.repositories import IUserPromptRepository
@@ -114,7 +113,7 @@ def test_cache_clear(cache: UserPromptCache) -> None:
     cache.clear()
 
     assert cache.get(user_a) is None
-    assert cache.get(user_b) == None
+    assert cache.get(user_b) is None
 
 
 def test_cache_thread_safety() -> None:
@@ -153,7 +152,9 @@ async def test_get_or_load_hits_cache(cache: UserPromptCache, mock_repo: AsyncMo
 
 
 @pytest.mark.asyncio
-async def test_get_or_load_loads_and_populates_cache(cache: UserPromptCache, mock_repo: AsyncMock) -> None:
+async def test_get_or_load_loads_and_populates_cache(
+    cache: UserPromptCache, mock_repo: AsyncMock
+) -> None:
     """Verify get_or_load loads from repo on miss and stores in cache."""
     user_id = uuid4()
     prompt_record = UserPrompt(
@@ -177,7 +178,9 @@ async def test_get_or_load_loads_and_populates_cache(cache: UserPromptCache, moc
 
 
 @pytest.mark.asyncio
-async def test_get_or_load_repo_failure_graceful_fallback(cache: UserPromptCache, mock_repo: AsyncMock) -> None:
+async def test_get_or_load_repo_failure_graceful_fallback(
+    cache: UserPromptCache, mock_repo: AsyncMock
+) -> None:
     """Verify get_or_load returns empty dict gracefully when database raises error."""
     user_id = uuid4()
     mock_repo.list_by_user.side_effect = RuntimeError("Database connection timed out")

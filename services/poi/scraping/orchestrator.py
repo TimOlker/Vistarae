@@ -239,7 +239,9 @@ class ScrapingOrchestrator:
         directive: str | None = None,
     ) -> str:
         """Internal helper for summary synthesis."""
-        return await self.synthesize_summary(name, primary_snippet, secondary_extracts, directive=directive)
+        return await self.synthesize_summary(
+            name, primary_snippet, secondary_extracts, directive=directive
+        )
 
     async def synthesize_summary(
         self,
@@ -515,7 +517,10 @@ class ScrapingOrchestrator:
 
         if dur_h is not None and time_spent_directive:
             dir_lower = time_spent_directive.lower()
-            if any(k in dir_lower for k in ("generous", "leisurely", "relaxed", "slow", "linger", "unhurried")):
+            if any(
+                k in dir_lower
+                for k in ("generous", "leisurely", "relaxed", "slow", "linger", "unhurried")
+            ):
                 dur_h = dur_h * 2.0 if dur_h <= 2.0 else min(dur_h * 1.5, 24.0)
             elif any(k in dir_lower for k in ("quick", "brisk", "fast", "short", "half")):
                 dur_h = max(dur_h * 0.75, 0.5)
@@ -572,8 +577,12 @@ class ScrapingOrchestrator:
             secondary = {}
 
         secondary_extracts = secondary.get("secondary_extracts", [])
-        desc = await self._synthesize_summary(name, primary_desc, secondary_extracts, directive=desc_directive)
-        reason_to_visit = await self.synthesize_reason_to_visit(name, primary_desc, secondary_extracts, directive=reason_directive)
+        desc = await self._synthesize_summary(
+            name, primary_desc, secondary_extracts, directive=desc_directive
+        )
+        reason_to_visit = await self.synthesize_reason_to_visit(
+            name, primary_desc, secondary_extracts, directive=reason_directive
+        )
 
         extraction_sources = list(secondary.get("extraction_sources", []))
         parsed_url = urlparse(source_url)

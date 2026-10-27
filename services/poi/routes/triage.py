@@ -33,13 +33,13 @@ from vistarae_core.adapters.db.tables import UserPreferencesTable
 from vistarae_core.adapters.repositories.user_prompt_repo import SqlAlchemyUserPromptRepository
 from vistarae_core.domain.entities import User
 from vistarae_core.ports.repositories import IGeocodingCacheRepository, ITagRepository
-from vistarae_core.services.prompt_cache import default_prompt_cache
 from vistarae_core.schemas.scraping import (
     ExtractAndCheckRequest,
     ExtractAndCheckResponse,
     ReverseGeocodeRequest,
     ReverseGeocodeResponse,
 )
+from vistarae_core.services.prompt_cache import default_prompt_cache
 
 from services.poi.dependencies import (
     get_current_user,

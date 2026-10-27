@@ -2,7 +2,7 @@
 
 **Feature**: `010-extension-capture-bug-fix`  
 **Date**: 2026-10-26  
-**Status**: Ready for Validation  
+**Status**: Ready for Validation
 
 ---
 

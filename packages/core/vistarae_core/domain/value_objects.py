@@ -280,4 +280,3 @@ class PromptType(StrEnum):
     DESCRIPTION = "description"
     REASON_TO_VISIT = "reason_to_visit"
     TIME_SPENT = "time_spent"
-

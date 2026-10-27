@@ -30,8 +30,8 @@ SPDX-License-Identifier: Apache-2.0
 
 **Purpose**: Database migration scaffolding, contract synchronization, and shared configuration.
 
-- [X] T-001 Create Alembic migration script in `db/migrations/versions/20261027_011_unique_user_context.py` adding `reason_to_visit` (`TEXT`, nullable) to table `pois`, adding `travel_style_description` (`TEXT`, nullable) to table `user_preferences`, creating table `user_prompts` (`id UUID PK`, `user_id UUID FK users(id) ON DELETE CASCADE`, `prompt_type VARCHAR(32) NOT NULL`, `prompt_text TEXT NOT NULL`, `created_at TIMESTAMPTZ NOT NULL`, `updated_at TIMESTAMPTZ NOT NULL`, `UNIQUE(user_id, prompt_type)`), and creating GiST/trigram indices on `pois.reason_to_visit` and `pois.description`. [REQ: REQ-CTX-014, REQ-CTX-015, REQ-CTX-020, REQ-CTX-026]
-- [X] T-002 [P] Export OpenAPI specification to `openapi.json` and generate TypeScript client definitions in `frontend/src/types/user-context-api.ts` using `npx openapi-typescript ./specs/011-unique-user-context/contracts/user-context-api.yaml -o frontend/src/types/user-context-api.ts`. [REQ: REQ-CTX-021, REQ-CTX-022]
+- [x] T-001 Create Alembic migration script in `db/migrations/versions/20261027_011_unique_user_context.py` adding `reason_to_visit` (`TEXT`, nullable) to table `pois`, adding `travel_style_description` (`TEXT`, nullable) to table `user_preferences`, creating table `user_prompts` (`id UUID PK`, `user_id UUID FK users(id) ON DELETE CASCADE`, `prompt_type VARCHAR(32) NOT NULL`, `prompt_text TEXT NOT NULL`, `created_at TIMESTAMPTZ NOT NULL`, `updated_at TIMESTAMPTZ NOT NULL`, `UNIQUE(user_id, prompt_type)`), and creating GiST/trigram indices on `pois.reason_to_visit` and `pois.description`. [REQ: REQ-CTX-014, REQ-CTX-015, REQ-CTX-020, REQ-CTX-026]
+- [x] T-002 [P] Export OpenAPI specification to `openapi.json` and generate TypeScript client definitions in `frontend/src/types/user-context-api.ts` using `npx openapi-typescript ./specs/011-unique-user-context/contracts/user-context-api.yaml -o frontend/src/types/user-context-api.ts`. [REQ: REQ-CTX-021, REQ-CTX-022]
 
 ---
 
@@ -41,15 +41,15 @@ SPDX-License-Identifier: Apache-2.0
 
 **⚠️ CRITICAL**: No user story implementation work can begin until this foundational phase is complete.
 
-- [X] T-003 [P] Define `PromptType` enumeration subclassing Python `enum.StrEnum` with members `DESCRIPTION = "description"`, `REASON_TO_VISIT = "reason_to_visit"`, and `TIME_SPENT = "time_spent"` in `packages/core/vistarae_core/domain/value_objects.py`. [REQ: REQ-CTX-015]
-- [X] T-004 [P] Update domain entities in `packages/core/vistarae_core/domain/entities.py` adding `reason_to_visit: str | None = None` to the `POI` entity and creating the `UserPrompt` dataclass entity (`id: UUID`, `user_id: UUID`, `prompt_type: PromptType`, `prompt_text: str`, `created_at: datetime`, `updated_at: datetime`). [REQ: REQ-CTX-014, REQ-CTX-020, REQ-CTX-021]
-- [X] T-005 [P] Update SQLAlchemy table mappings in `packages/core/vistarae_core/adapters/db/tables.py`: add `reason_to_visit = Column(Text, nullable=True)` to `POITable`, add `travel_style_description = Column(Text, nullable=True)` to `UserPreferencesTable`, and define `UserPromptTable` with foreign key `users.id` (`ondelete="CASCADE"`), `VARCHAR(32)` `prompt_type`, and composite unique constraint `uq_user_prompts_user_type`. [REQ: REQ-CTX-014, REQ-CTX-015, REQ-CTX-020]
-- [X] T-006 [P] Update Pydantic schemas in `packages/core/vistarae_core/schemas/poi.py` adding `reason_to_visit: str | None = None` to `POICreateRequest`, `POIUpdateRequest`, and `POIResponse` under strict `extra="forbid"` and `str_strip_whitespace=True`. [REQ: REQ-CTX-021]
-- [X] T-007 [P] Update `POICandidateSchema` in `packages/core/vistarae_core/schemas/scraping.py` adding `reason_to_visit: str | None = None` and ensuring `description` and `reason_to_visit` are included in extraction schemas. [REQ: REQ-CTX-022, REQ-CTX-023]
-- [X] T-008 [P] Define `TravelStyleUpdateRequest`, `TravelStyleResponse`, and `UserPromptItem` schemas in `packages/core/vistarae_core/schemas/user.py` inheriting from `StrictBaseModel`. [REQ: REQ-CTX-002, REQ-CTX-004, REQ-CTX-007]
-- [X] T-009 [P] Define `IUserPromptRepository` protocol in `packages/core/vistarae_core/ports/repositories.py` specifying methods `list_by_user(user_id: UUID) -> Sequence[UserPrompt]`, `upsert_prompts(user_id: UUID, prompts: dict[PromptType, str]) -> Sequence[UserPrompt]`, and `delete_by_user(user_id: UUID) -> None`. [REQ: REQ-CTX-001, REQ-CTX-014]
-- [X] T-010 Implement `SqlAlchemyUserPromptRepository` in `packages/core/vistarae_core/adapters/repositories/user_prompt_repo.py` enforcing strict tenant filtering (`WHERE user_id = :current_user_id`), cascade deletes, and composite upserts. [REQ: REQ-CTX-001, REQ-CTX-014]
-- [X] T-011 Implement thread-safe in-memory cache `UserPromptCache` with TTL expiration, per-tenant invalidation (`invalidate_user(user_id)`), and graceful fallback to DB in `packages/core/vistarae_core/services/prompt_cache.py`. [REQ: REQ-CTX-016, REQ-CTX-017, REQ-CTX-018, REQ-CTX-019]
+- [x] T-003 [P] Define `PromptType` enumeration subclassing Python `enum.StrEnum` with members `DESCRIPTION = "description"`, `REASON_TO_VISIT = "reason_to_visit"`, and `TIME_SPENT = "time_spent"` in `packages/core/vistarae_core/domain/value_objects.py`. [REQ: REQ-CTX-015]
+- [x] T-004 [P] Update domain entities in `packages/core/vistarae_core/domain/entities.py` adding `reason_to_visit: str | None = None` to the `POI` entity and creating the `UserPrompt` dataclass entity (`id: UUID`, `user_id: UUID`, `prompt_type: PromptType`, `prompt_text: str`, `created_at: datetime`, `updated_at: datetime`). [REQ: REQ-CTX-014, REQ-CTX-020, REQ-CTX-021]
+- [x] T-005 [P] Update SQLAlchemy table mappings in `packages/core/vistarae_core/adapters/db/tables.py`: add `reason_to_visit = Column(Text, nullable=True)` to `POITable`, add `travel_style_description = Column(Text, nullable=True)` to `UserPreferencesTable`, and define `UserPromptTable` with foreign key `users.id` (`ondelete="CASCADE"`), `VARCHAR(32)` `prompt_type`, and composite unique constraint `uq_user_prompts_user_type`. [REQ: REQ-CTX-014, REQ-CTX-015, REQ-CTX-020]
+- [x] T-006 [P] Update Pydantic schemas in `packages/core/vistarae_core/schemas/poi.py` adding `reason_to_visit: str | None = None` to `POICreateRequest`, `POIUpdateRequest`, and `POIResponse` under strict `extra="forbid"` and `str_strip_whitespace=True`. [REQ: REQ-CTX-021]
+- [x] T-007 [P] Update `POICandidateSchema` in `packages/core/vistarae_core/schemas/scraping.py` adding `reason_to_visit: str | None = None` and ensuring `description` and `reason_to_visit` are included in extraction schemas. [REQ: REQ-CTX-022, REQ-CTX-023]
+- [x] T-008 [P] Define `TravelStyleUpdateRequest`, `TravelStyleResponse`, and `UserPromptItem` schemas in `packages/core/vistarae_core/schemas/user.py` inheriting from `StrictBaseModel`. [REQ: REQ-CTX-002, REQ-CTX-004, REQ-CTX-007]
+- [x] T-009 [P] Define `IUserPromptRepository` protocol in `packages/core/vistarae_core/ports/repositories.py` specifying methods `list_by_user(user_id: UUID) -> Sequence[UserPrompt]`, `upsert_prompts(user_id: UUID, prompts: dict[PromptType, str]) -> Sequence[UserPrompt]`, and `delete_by_user(user_id: UUID) -> None`. [REQ: REQ-CTX-001, REQ-CTX-014]
+- [x] T-010 Implement `SqlAlchemyUserPromptRepository` in `packages/core/vistarae_core/adapters/repositories/user_prompt_repo.py` enforcing strict tenant filtering (`WHERE user_id = :current_user_id`), cascade deletes, and composite upserts. [REQ: REQ-CTX-001, REQ-CTX-014]
+- [x] T-011 Implement thread-safe in-memory cache `UserPromptCache` with TTL expiration, per-tenant invalidation (`invalidate_user(user_id)`), and graceful fallback to DB in `packages/core/vistarae_core/services/prompt_cache.py`. [REQ: REQ-CTX-016, REQ-CTX-017, REQ-CTX-018, REQ-CTX-019]
 
 **Checkpoint**: Foundation ready — domain models, relational tables, repository interfaces, schemas, and in-memory cache live.
 
@@ -63,16 +63,16 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Tests for User Story 1
 
-- [X] T-012 [P] [US1] Unit tests for Gemini prompt decomposition in `tests/unit/services/user/test_prompt_synthesizer.py` verifying structured output for `description`, `reason_to_visit`, and `time_spent`, `thinking_budget = 0`, prompt injection delimiter protection, and brief/empty input handling. [REQ: REQ-CTX-005, REQ-CTX-006, SC-004]
-- [X] T-013 [P] [US1] Unit and route integration tests for travel style endpoints (`PUT /api/user/profile/travel-style`, `GET /api/user/profile/travel-style`, `DELETE /api/user/profile/travel-style`) in `tests/unit/services/user/test_profile_travel_style.py` verifying tenant isolation, schema validation, and cache invalidation. [REQ: REQ-CTX-001, REQ-CTX-003, REQ-CTX-004, REQ-CTX-006, SC-007]
-- [X] T-014 [P] [US1] Frontend component tests for Travel Style form and read-only prompt preview cards in `frontend/src/pages/__tests__/ProfilePage.test.tsx`. [REQ: REQ-CTX-002, REQ-CTX-007]
+- [x] T-012 [P] [US1] Unit tests for Gemini prompt decomposition in `tests/unit/services/user/test_prompt_synthesizer.py` verifying structured output for `description`, `reason_to_visit`, and `time_spent`, `thinking_budget = 0`, prompt injection delimiter protection, and brief/empty input handling. [REQ: REQ-CTX-005, REQ-CTX-006, SC-004]
+- [x] T-013 [P] [US1] Unit and route integration tests for travel style endpoints (`PUT /api/user/profile/travel-style`, `GET /api/user/profile/travel-style`, `DELETE /api/user/profile/travel-style`) in `tests/unit/services/user/test_profile_travel_style.py` verifying tenant isolation, schema validation, and cache invalidation. [REQ: REQ-CTX-001, REQ-CTX-003, REQ-CTX-004, REQ-CTX-006, SC-007]
+- [x] T-014 [P] [US1] Frontend component tests for Travel Style form and read-only prompt preview cards in `frontend/src/pages/__tests__/ProfilePage.test.tsx`. [REQ: REQ-CTX-002, REQ-CTX-007]
 
 ### Implementation for User Story 1
 
-- [X] T-015 [US1] Implement `UserPromptSynthesizer` service in `services/user/services/prompt_synthesizer.py` using Google AI Studio `google-genai` SDK with model `gemini-2.5-flash-lite`, explicit `thinking_budget = 0`, Pydantic output schema, XML boundary isolation for prompt injection mitigation, and directional `MSG` logging markers. [REQ: REQ-CTX-005, SC-004]
-- [X] T-016 [US1] Implement API routes `PUT`, `GET`, and `DELETE` for `/api/user/profile/travel-style` in `services/user/routes/profile.py` delegating to `UserPreferencesRepository`, `UserPromptSynthesizer`, and `UserPromptCache`, returning RFC 7807 `ProblemDetails` on error. [REQ: REQ-CTX-001, REQ-CTX-003, REQ-CTX-004, REQ-CTX-006, REQ-CTX-008]
-- [X] T-017 [US1] Mount user profile routes in the user service application router `services/user/main.py`. [REQ: REQ-CTX-003]
-- [X] T-018 [US1] Implement "Travel Style & Preferences" card and read-only prompt directive preview cards in `frontend/src/pages/ProfilePage.tsx` with multiline textarea, save button, loading state, toast feedback, and clear button. [REQ: REQ-CTX-002, REQ-CTX-007]
+- [x] T-015 [US1] Implement `UserPromptSynthesizer` service in `services/user/services/prompt_synthesizer.py` using Google AI Studio `google-genai` SDK with model `gemini-2.5-flash-lite`, explicit `thinking_budget = 0`, Pydantic output schema, XML boundary isolation for prompt injection mitigation, and directional `MSG` logging markers. [REQ: REQ-CTX-005, SC-004]
+- [x] T-016 [US1] Implement API routes `PUT`, `GET`, and `DELETE` for `/api/user/profile/travel-style` in `services/user/routes/profile.py` delegating to `UserPreferencesRepository`, `UserPromptSynthesizer`, and `UserPromptCache`, returning RFC 7807 `ProblemDetails` on error. [REQ: REQ-CTX-001, REQ-CTX-003, REQ-CTX-004, REQ-CTX-006, REQ-CTX-008]
+- [x] T-017 [US1] Mount user profile routes in the user service application router `services/user/main.py`. [REQ: REQ-CTX-003]
+- [x] T-018 [US1] Implement "Travel Style & Preferences" card and read-only prompt directive preview cards in `frontend/src/pages/ProfilePage.tsx` with multiline textarea, save button, loading state, toast feedback, and clear button. [REQ: REQ-CTX-002, REQ-CTX-007]
 
 **Checkpoint**: User Story 1 complete — Travel style narrative saved, decomposed into modular directives, persisted, cached, and visible on the user profile.
 
@@ -86,17 +86,17 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Tests for User Story 2
 
-- [X] T-019 [P] [US2] Unit tests for personalized prompt extension injection in `tests/unit/services/poi/test_scraping_personalized.py` verifying description augmentation, reason to visit generation, visit duration adjustments, secondary source aggregation, and anti-hallucination guardrails for non-overlapping themes. [REQ: REQ-CTX-027, REQ-CTX-028, REQ-CTX-029, REQ-CTX-030, REQ-CTX-031, REQ-CTX-032]
-- [X] T-020 [P] [US2] Unit tests for `POST /api/pois/extract-and-check` in `tests/unit/services/poi/test_triage_personalized.py` ensuring `reason_to_visit` is returned in the response payload. [REQ: REQ-CTX-021, REQ-CTX-022, SC-001]
-- [X] T-021 [P] [US2] Chrome Extension Shadow DOM overlay rendering and ordering tests in `extension/tests/overlay_reason_to_visit.test.js` verifying `Reason to Visit` multiline textarea appears immediately below `Description`. [REQ: REQ-CTX-034, SC-005]
+- [x] T-019 [P] [US2] Unit tests for personalized prompt extension injection in `tests/unit/services/poi/test_scraping_personalized.py` verifying description augmentation, reason to visit generation, visit duration adjustments, secondary source aggregation, and anti-hallucination guardrails for non-overlapping themes. [REQ: REQ-CTX-027, REQ-CTX-028, REQ-CTX-029, REQ-CTX-030, REQ-CTX-031, REQ-CTX-032]
+- [x] T-020 [P] [US2] Unit tests for `POST /api/pois/extract-and-check` in `tests/unit/services/poi/test_triage_personalized.py` ensuring `reason_to_visit` is returned in the response payload. [REQ: REQ-CTX-021, REQ-CTX-022, SC-001]
+- [x] T-021 [P] [US2] Chrome Extension Shadow DOM overlay rendering and ordering tests in `extension/tests/overlay_reason_to_visit.test.js` verifying `Reason to Visit` multiline textarea appears immediately below `Description`. [REQ: REQ-CTX-034, SC-005]
 
 ### Implementation for User Story 2
 
-- [X] T-022 [US2] Update `ScrapingOrchestrator` in `services/poi/scraping/orchestrator.py` to retrieve active user prompt directives from `UserPromptCache` (or DB fallback) and inject them into Gemini Flash-Lite extraction prompts for `description`, `reason_to_visit`, and duration calculation. [REQ: REQ-CTX-027, REQ-CTX-028, REQ-CTX-029, REQ-CTX-030, REQ-CTX-031, REQ-CTX-032]
-- [X] T-023 [US2] Update triage route `POST /api/pois/extract-and-check` in `services/poi/routes/triage.py` to populate `reason_to_visit` on `POICandidateSchema` and return it to callers. [REQ: REQ-CTX-021, REQ-CTX-022, SC-001]
-- [X] T-024 [US2] Update `extension/content/content_script.js` to render the editable `Reason to Visit` multiline textarea positioned directly below `Description` in the Shadow DOM capture overlay and include `reason_to_visit` in the save POI payload. [REQ: REQ-CTX-034, SC-005]
-- [X] T-025 [US2] Update `extension/content/overlay.css` to style the `Reason to Visit` textarea with visual hierarchy and spacing consistent with `Description`. [REQ: REQ-CTX-034]
-- [X] T-026 [US2] Update companion script `extension/browser/browser.js` to handle `reason_to_visit` in extension popup review view. [REQ: REQ-CTX-034]
+- [x] T-022 [US2] Update `ScrapingOrchestrator` in `services/poi/scraping/orchestrator.py` to retrieve active user prompt directives from `UserPromptCache` (or DB fallback) and inject them into Gemini Flash-Lite extraction prompts for `description`, `reason_to_visit`, and duration calculation. [REQ: REQ-CTX-027, REQ-CTX-028, REQ-CTX-029, REQ-CTX-030, REQ-CTX-031, REQ-CTX-032]
+- [x] T-023 [US2] Update triage route `POST /api/pois/extract-and-check` in `services/poi/routes/triage.py` to populate `reason_to_visit` on `POICandidateSchema` and return it to callers. [REQ: REQ-CTX-021, REQ-CTX-022, SC-001]
+- [x] T-024 [US2] Update `extension/content/content_script.js` to render the editable `Reason to Visit` multiline textarea positioned directly below `Description` in the Shadow DOM capture overlay and include `reason_to_visit` in the save POI payload. [REQ: REQ-CTX-034, SC-005]
+- [x] T-025 [US2] Update `extension/content/overlay.css` to style the `Reason to Visit` textarea with visual hierarchy and spacing consistent with `Description`. [REQ: REQ-CTX-034]
+- [x] T-026 [US2] Update companion script `extension/browser/browser.js` to handle `reason_to_visit` in extension popup review view. [REQ: REQ-CTX-034]
 
 **Checkpoint**: User Story 2 complete — Chrome extension capture extracts personalized description and reason to visit, displaying both in strict visual order.
 
@@ -110,18 +110,18 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Tests for User Story 3
 
-- [X] T-027 [P] [US3] Repository unit tests in `tests/unit/repositories/test_poi_search_reason.py` verifying keyword searches matching text exclusively in `reason_to_visit` return 100% of matching POIs using trigram indices. [REQ: REQ-CTX-024, REQ-CTX-026, SC-002]
-- [X] T-028 [P] [US3] Frontend component tests in `frontend/src/components/poi/__tests__/POIEditDrawer.test.tsx` and `frontend/src/components/poi/__tests__/POIDetailDrawer.test.tsx` verifying visual ordering (`Reason to Visit` directly below `Description`) and form submission. [REQ: REQ-CTX-035, REQ-CTX-036, SC-005]
-- [X] T-029 [P] [US3] Frontend table filtering tests in `frontend/src/components/poi/__tests__/POITable.test.tsx` verifying client-side search matches against both `description` and `reason_to_visit`. [REQ: REQ-CTX-025, REQ-CTX-037]
+- [x] T-027 [P] [US3] Repository unit tests in `tests/unit/repositories/test_poi_search_reason.py` verifying keyword searches matching text exclusively in `reason_to_visit` return 100% of matching POIs using trigram indices. [REQ: REQ-CTX-024, REQ-CTX-026, SC-002]
+- [x] T-028 [P] [US3] Frontend component tests in `frontend/src/components/poi/__tests__/POIEditDrawer.test.tsx` and `frontend/src/components/poi/__tests__/POIDetailDrawer.test.tsx` verifying visual ordering (`Reason to Visit` directly below `Description`) and form submission. [REQ: REQ-CTX-035, REQ-CTX-036, SC-005]
+- [x] T-029 [P] [US3] Frontend table filtering tests in `frontend/src/components/poi/__tests__/POITable.test.tsx` verifying client-side search matches against both `description` and `reason_to_visit`. [REQ: REQ-CTX-025, REQ-CTX-037]
 
 ### Implementation for User Story 3
 
-- [X] T-030 [US3] Update `SqlAlchemyPOIRepository.list_pois()` in `packages/core/vistarae_core/adapters/repositories/poi_repo.py` to include `POITable.reason_to_visit.ilike(f"%{q}%")` in search filter conjunctions. [REQ: REQ-CTX-024]
-- [X] T-031 [US3] Update POI route handlers (`POST /api/pois`, `GET /api/pois/{poi_id}`, `PATCH /api/pois/{poi_id}`) in `services/poi/routes/pois.py` to persist, retrieve, and update `reason_to_visit`. [REQ: REQ-CTX-020, REQ-CTX-021]
-- [X] T-032 [US3] Update `frontend/src/components/poi/POIEditDrawer.tsx` adding the `Reason to Visit` multiline textarea positioned directly below `Description`. [REQ: REQ-CTX-035, SC-005]
-- [X] T-033 [US3] Update `frontend/src/components/poi/ManualAddPOIModal.tsx` adding the `Reason to Visit` multiline textarea positioned directly below `Description`. [REQ: REQ-CTX-035, SC-005]
-- [X] T-034 [US3] Update `frontend/src/components/poi/POIDetailDrawer.tsx` adding a dedicated "Why Visit" card displaying `reason_to_visit` immediately following the description block. [REQ: REQ-CTX-036]
-- [X] T-035 [US3] Update `frontend/src/components/poi/POITable.tsx` to add an optional column toggle for `Reason to Visit` alongside `Description`, and include `reason_to_visit` in table text search filtering. [REQ: REQ-CTX-025, REQ-CTX-037]
+- [x] T-030 [US3] Update `SqlAlchemyPOIRepository.list_pois()` in `packages/core/vistarae_core/adapters/repositories/poi_repo.py` to include `POITable.reason_to_visit.ilike(f"%{q}%")` in search filter conjunctions. [REQ: REQ-CTX-024]
+- [x] T-031 [US3] Update POI route handlers (`POST /api/pois`, `GET /api/pois/{poi_id}`, `PATCH /api/pois/{poi_id}`) in `services/poi/routes/pois.py` to persist, retrieve, and update `reason_to_visit`. [REQ: REQ-CTX-020, REQ-CTX-021]
+- [x] T-032 [US3] Update `frontend/src/components/poi/POIEditDrawer.tsx` adding the `Reason to Visit` multiline textarea positioned directly below `Description`. [REQ: REQ-CTX-035, SC-005]
+- [x] T-033 [US3] Update `frontend/src/components/poi/ManualAddPOIModal.tsx` adding the `Reason to Visit` multiline textarea positioned directly below `Description`. [REQ: REQ-CTX-035, SC-005]
+- [x] T-034 [US3] Update `frontend/src/components/poi/POIDetailDrawer.tsx` adding a dedicated "Why Visit" card displaying `reason_to_visit` immediately following the description block. [REQ: REQ-CTX-036]
+- [x] T-035 [US3] Update `frontend/src/components/poi/POITable.tsx` to add an optional column toggle for `Reason to Visit` alongside `Description`, and include `reason_to_visit` in table text search filtering. [REQ: REQ-CTX-025, REQ-CTX-037]
 
 **Checkpoint**: User Story 3 complete — Reason to Visit is editable, viewable in detail, togglable in table, and fully searchable.
 
@@ -135,13 +135,13 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Tests for User Story 4
 
-- [X] T-036 [P] [US4] Unit tests for CSV parser mapping in `tests/unit/services/ingest/test_csv_parser_reason.py` verifying parsing of `reason_to_visit` column if present in uploaded CSV files. [REQ: REQ-CTX-033]
-- [X] T-037 [P] [US4] Worker integration tests in `tests/unit/services/worker/test_processor_personalized.py` verifying that the background ingestion processor loads prompt directives and produces personalized POI attributes. [REQ: REQ-CTX-033]
+- [x] T-036 [P] [US4] Unit tests for CSV parser mapping in `tests/unit/services/ingest/test_csv_parser_reason.py` verifying parsing of `reason_to_visit` column if present in uploaded CSV files. [REQ: REQ-CTX-033]
+- [x] T-037 [P] [US4] Worker integration tests in `tests/unit/services/worker/test_processor_personalized.py` verifying that the background ingestion processor loads prompt directives and produces personalized POI attributes. [REQ: REQ-CTX-033]
 
 ### Implementation for User Story 4
 
-- [X] T-038 [US4] Update `CSVParser` in `services/ingest/services/csv_parser.py` to recognize and map optional `reason_to_visit` and `why_visit` CSV column headers. [REQ: REQ-CTX-033]
-- [X] T-039 [US4] Update SQS background worker in `services/worker/processor.py` to retrieve the batch owner's prompt extensions via `UserPromptCache` and pass them into the scraping and enrichment orchestrator. [REQ: REQ-CTX-033]
+- [x] T-038 [US4] Update `CSVParser` in `services/ingest/services/csv_parser.py` to recognize and map optional `reason_to_visit` and `why_visit` CSV column headers. [REQ: REQ-CTX-033]
+- [x] T-039 [US4] Update SQS background worker in `services/worker/processor.py` to retrieve the batch owner's prompt extensions via `UserPromptCache` and pass them into the scraping and enrichment orchestrator. [REQ: REQ-CTX-033]
 
 **Checkpoint**: User Story 4 complete — Batch CSV ingestion and manual imports apply personalized prompt directives.
 
@@ -155,13 +155,13 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Tests for User Story 5
 
-- [X] T-040 [P] [US5] Unit tests for `UserPromptCache` in `tests/unit/core/test_prompt_cache.py` verifying cache hits, cache misses, TTL expiration, thread safety, tenant eviction on update/delete, and DB fallback on cache failure. [REQ: REQ-CTX-016, REQ-CTX-017, REQ-CTX-018, REQ-CTX-019, SC-003]
-- [X] T-041 [P] [US5] Benchmark test in `tests/unit/core/test_prompt_cache_benchmark.py` verifying cache retrieval executes in < 2ms for 99% of requests. [REQ: SC-003]
+- [x] T-040 [P] [US5] Unit tests for `UserPromptCache` in `tests/unit/core/test_prompt_cache.py` verifying cache hits, cache misses, TTL expiration, thread safety, tenant eviction on update/delete, and DB fallback on cache failure. [REQ: REQ-CTX-016, REQ-CTX-017, REQ-CTX-018, REQ-CTX-019, SC-003]
+- [x] T-041 [P] [US5] Benchmark test in `tests/unit/core/test_prompt_cache_benchmark.py` verifying cache retrieval executes in < 2ms for 99% of requests. [REQ: SC-003]
 
 ### Implementation for User Story 5
 
-- [X] T-042 [US5] Integrate `UserPromptCache` into `services/poi/scraping/orchestrator.py` and `services/worker/processor.py` to wrap prompt lookups with in-memory caching. [REQ: REQ-CTX-016, REQ-CTX-017, SC-003]
-- [X] T-043 [US5] Wire cache eviction calls (`prompt_cache.invalidate_user(user_id)`) into travel style update, delete, and user deletion handlers in `services/user/routes/profile.py`. [REQ: REQ-CTX-006, REQ-CTX-018]
+- [x] T-042 [US5] Integrate `UserPromptCache` into `services/poi/scraping/orchestrator.py` and `services/worker/processor.py` to wrap prompt lookups with in-memory caching. [REQ: REQ-CTX-016, REQ-CTX-017, SC-003]
+- [x] T-043 [US5] Wire cache eviction calls (`prompt_cache.invalidate_user(user_id)`) into travel style update, delete, and user deletion handlers in `services/user/routes/profile.py`. [REQ: REQ-CTX-006, REQ-CTX-018]
 
 **Checkpoint**: User Story 5 complete — Sub-2ms in-memory cache active with strict per-tenant eviction hooks.
 
@@ -175,15 +175,15 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Tests for User Story 6
 
-- [X] T-044 [P] [US6] Vitest component tests in `frontend/src/components/profile/__tests__/TravelStyleOnboardingModal.test.tsx` verifying modal rendering on null/empty travel style, redirection to `/profile#travel-style` on CTA click, focus behavior, and session dismissal via "Remind Me Later". [REQ: REQ-CTX-009, REQ-CTX-010, REQ-CTX-011, REQ-CTX-012, SC-006]
-- [X] T-045 [P] [US6] Extension unit test in `extension/tests/capture_unconfigured.test.js` verifying that unconfigured travel styles do not trigger modal popups or block capture. [REQ: REQ-CTX-013]
+- [x] T-044 [P] [US6] Vitest component tests in `frontend/src/components/profile/__tests__/TravelStyleOnboardingModal.test.tsx` verifying modal rendering on null/empty travel style, redirection to `/profile#travel-style` on CTA click, focus behavior, and session dismissal via "Remind Me Later". [REQ: REQ-CTX-009, REQ-CTX-010, REQ-CTX-011, REQ-CTX-012, SC-006]
+- [x] T-045 [P] [US6] Extension unit test in `extension/tests/capture_unconfigured.test.js` verifying that unconfigured travel styles do not trigger modal popups or block capture. [REQ: REQ-CTX-013]
 
 ### Implementation for User Story 6
 
-- [X] T-046 [US6] Implement `TravelStyleOnboardingModal.tsx` in `frontend/src/components/profile/TravelStyleOnboardingModal.tsx` displaying the personalization prompt, "Set Up Travel Style" redirect button, and "Remind Me Later" dismissal button. [REQ: REQ-CTX-010, REQ-CTX-011, REQ-CTX-012, SC-006]
-- [X] T-047 [US6] Update `frontend/src/context/AuthContext.tsx` to evaluate `user.travel_style_description` post-login and trigger `TravelStyleOnboardingModal` if null or whitespace-only (once per authenticated session). [REQ: REQ-CTX-009, REQ-CTX-010]
-- [X] T-048 [US6] Update `frontend/src/pages/ProfilePage.tsx` to handle anchor `#travel-style` by auto-scrolling to and focusing the travel style narrative textarea on mount. [REQ: REQ-CTX-011]
-- [X] T-049 [US6] Ensure `extension/content/content_script.js` silently passes default base prompts when active travel style is unconfigured without displaying modals or interrupting capture. [REQ: REQ-CTX-013]
+- [x] T-046 [US6] Implement `TravelStyleOnboardingModal.tsx` in `frontend/src/components/profile/TravelStyleOnboardingModal.tsx` displaying the personalization prompt, "Set Up Travel Style" redirect button, and "Remind Me Later" dismissal button. [REQ: REQ-CTX-010, REQ-CTX-011, REQ-CTX-012, SC-006]
+- [x] T-047 [US6] Update `frontend/src/context/AuthContext.tsx` to evaluate `user.travel_style_description` post-login and trigger `TravelStyleOnboardingModal` if null or whitespace-only (once per authenticated session). [REQ: REQ-CTX-009, REQ-CTX-010]
+- [x] T-048 [US6] Update `frontend/src/pages/ProfilePage.tsx` to handle anchor `#travel-style` by auto-scrolling to and focusing the travel style narrative textarea on mount. [REQ: REQ-CTX-011]
+- [x] T-049 [US6] Ensure `extension/content/content_script.js` silently passes default base prompts when active travel style is unconfigured without displaying modals or interrupting capture. [REQ: REQ-CTX-013]
 
 **Checkpoint**: User Story 6 complete — Web App login onboarding modal active with seamless redirection, extension capture remains silent and non-intrusive.
 
@@ -193,10 +193,10 @@ SPDX-License-Identifier: Apache-2.0
 
 **Purpose**: Automated end-to-end regression validation, performance auditing, documentation updates, and compliance verification.
 
-- [X] T-050 [P] Execute end-to-end quickstart validation scenarios defined in `specs/011-unique-user-context/quickstart.md` using `curl` and browser inspection. [REQ: SC-001, SC-002, SC-003, SC-004, SC-005, SC-006, SC-007]
-- [X] T-051 [P] Run full test suite with coverage enforcement (`pytest --cov --cov-fail-under=90` and `npm --prefix frontend test`) ensuring $\ge 90\%$ branch and line coverage per Constitution Principle 8. [REQ: SC-007]
-- [X] T-052 Verify directional `MSG` logging markers (`MSG: -->|`, `MSG: <--|`) on Gemini Flash-Lite prompt synthesis in `services/user/services/prompt_synthesizer.py` per Constitution Principle 7.
-- [X] T-053 [P] Update API documentation and user guide in `docs/user-guide/travel-style-personalization.md`.
+- [x] T-050 [P] Execute end-to-end quickstart validation scenarios defined in `specs/011-unique-user-context/quickstart.md` using `curl` and browser inspection. [REQ: SC-001, SC-002, SC-003, SC-004, SC-005, SC-006, SC-007]
+- [x] T-051 [P] Run full test suite with coverage enforcement (`pytest --cov --cov-fail-under=90` and `npm --prefix frontend test`) ensuring $\ge 90\%$ branch and line coverage per Constitution Principle 8. [REQ: SC-007]
+- [x] T-052 Verify directional `MSG` logging markers (`MSG: -->|`, `MSG: <--|`) on Gemini Flash-Lite prompt synthesis in `services/user/services/prompt_synthesizer.py` per Constitution Principle 7.
+- [x] T-053 [P] Update API documentation and user guide in `docs/user-guide/travel-style-personalization.md`.
 
 ---
 

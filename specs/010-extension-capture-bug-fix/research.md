@@ -2,17 +2,20 @@
 
 **Feature**: `010-extension-capture-bug-fix`  
 **Date**: 2026-10-26  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
 ## 1. Title Sanitization & Platform Branding Removal (`FR-001`)
 
 ### Problem
+
 When capturing destinations from mapping or travel websites (e.g., Google Maps), `document.title` or `<h1>` often includes trailing platform branding (e.g., `"Eltz Castle - Google Maps"`). This pollutes the POI title in both the capture modal and the database.
 
 ### Decision
+
 Implement deterministic dual-layer title sanitization:
+
 1. **Client-Side Sanitizer in Extension (`extension/content/parsers/`)**:
    - A dedicated `sanitizeDestinationTitle(rawTitle, platformHint)` utility function in `extension/content/parsers/BasePoiParser.js`.
    - Strips common platform suffixes using comprehensive regex patterns:
@@ -32,8 +35,9 @@ Implement deterministic dual-layer title sanitization:
    - Expand `clean_page_title()` to strip these patterns alongside Gemini Flash-Lite English entity normalization (`thinking_budget=0`).
 
 ### Alternatives Considered
-- *Gemini LLM only*: Slower (adds 400-800ms) and fails if offline or when quota exceeded.
-- *Simple `.split('-')[0]`*: Breaks legitimately hyphenated destination names (e.g., "Stratford-upon-Avon" or "Baden-Baden").
+
+- _Gemini LLM only_: Slower (adds 400-800ms) and fails if offline or when quota exceeded.
+- _Simple `.split('-')[0]`_: Breaks legitimately hyphenated destination names (e.g., "Stratford-upon-Avon" or "Baden-Baden").
 - **Chosen**: Targeted regex suffix stripping preserving geographic hyphens.
 
 ---
@@ -41,10 +45,13 @@ Implement deterministic dual-layer title sanitization:
 ## 2. Interactive Mini-Map in Content Script Shadow DOM (`FR-011`, `FR-012`, `FR-013`)
 
 ### Problem
+
 Travelers need immediate visual confirmation that the detected coordinates point to the correct structure, plus a simple way to adjust the pinpoint without leaving the page.
 
 ### Decision
+
 Embed a lightweight Leaflet map instance inside the content script's isolated Shadow DOM (`vistarae-capture-root`):
+
 1. **Zero-Cost OSM Raster Tiles**:
    - Tile provider: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`.
    - Adheres to Constitution Operational Invariant 3 (Zero-Cost Architecture). Zero Google Maps API keys or Mapbox tokens required.
@@ -63,8 +70,9 @@ Embed a lightweight Leaflet map instance inside the content script's isolated Sh
      3. Refreshes the resolved address chip.
 
 ### Alternatives Considered
-- *Static image map (static tile)*: Non-interactive, cannot adjust pin.
-- *Google Maps Embed iframe*: Requires API key, violates zero-cost invariant, prone to CSP block.
+
+- _Static image map (static tile)_: Non-interactive, cannot adjust pin.
+- _Google Maps Embed iframe_: Requires API key, violates zero-cost invariant, prone to CSP block.
 - **Chosen**: Local Leaflet in Shadow DOM with standard OSM tiles.
 
 ---
@@ -72,10 +80,13 @@ Embed a lightweight Leaflet map instance inside the content script's isolated Sh
 ## 3. Wikipedia 2-Step Search & Multi-Source Knowledge Enrichment (`FR-002`, `FR-003`)
 
 ### Problem
+
 Wikipedia lookup for "Eltz Castle" returned empty because direct query to `https://en.wikipedia.org/api/rest_v1/page/summary/Eltz_Castle_-_Google_Maps` returned 404, and even with sanitized title, slight spelling variations cause direct lookup failures.
 
 ### Decision
+
 Upgrade `WikipediaAdapter` in `services/poi/scraping/secondary_sources.py`:
+
 1. **Step 1: Direct Summary Lookup**:
    - Try `https://en.wikipedia.org/api/rest_v1/page/summary/{sanitized_title}`.
 2. **Step 2: OpenSearch Fallback**:
@@ -90,8 +101,9 @@ Upgrade `WikipediaAdapter` in `services/poi/scraping/secondary_sources.py`:
    - `coordinates`: Lat/Lon verification.
 
 ### Alternatives Considered
-- *Wikidata SPARQL only*: High latency and complex queries.
-- *Direct summary only*: Fails on any redirect or punctuation mismatch.
+
+- _Wikidata SPARQL only_: High latency and complex queries.
+- _Direct summary only_: Fails on any redirect or punctuation mismatch.
 - **Chosen**: Direct summary + OpenSearch fallback with 3.0s timeout ceiling.
 
 ---
@@ -99,10 +111,12 @@ Upgrade `WikipediaAdapter` in `services/poi/scraping/secondary_sources.py`:
 ## 4. Address Normalization & Reverse-Geocoding Precedence (`FR-014`, `FR-015`)
 
 ### Problem
+
 1. Google Maps web scraping extracted raw button text: `"🖈56294 Wierschem, Germany"`. The pushpin symbol (`🖈`, U+1F588) was not stripped.
 2. `content_script.js` line 51 hardcoded `{ country: "United States", city: scrapedPoi.address }`, causing the address to render as `"🖈56294 Wierschem, Germany, United States"`.
 
 ### Decision
+
 1. **Eliminate Hardcoded Country Default**:
    - Remove `{ country: "United States" }` from `content_script.js`.
    - Default address state initialized from coordinates via reverse-geocoding.
@@ -123,9 +137,11 @@ Upgrade `WikipediaAdapter` in `services/poi/scraping/secondary_sources.py`:
 ## 5. Hero Image Preview & Client-Side Preflight (`FR-007` to `FR-010`)
 
 ### Problem
+
 Hero Image URL is often empty. When populated or pasted by the user, there was no visual preview and no way to test if the URL works before saving.
 
 ### Decision
+
 1. **Extraction Source**:
    - Wikipedia `originalimage.source` or `thumbnail.source`.
    - Google Maps primary header image `img.decoding="async"`.
@@ -138,8 +154,12 @@ Hero Image URL is often empty. When populated or pasted by the user, there was n
    - When clicked (or on blur), runs client-side preflight:
      ```javascript
      const img = new Image();
-     img.onload = () => { showPreview(url); };
-     img.onerror = () => { showWarning("Image preview unavailable (check URL or CORS)"); };
+     img.onload = () => {
+       showPreview(url);
+     };
+     img.onerror = () => {
+       showWarning("Image preview unavailable (check URL or CORS)");
+     };
      img.src = url;
      ```
    - Does NOT block form submission if image fails (non-blocking).
@@ -149,9 +169,11 @@ Hero Image URL is often empty. When populated or pasted by the user, there was n
 ## 6. External Link "View" Verification Buttons (`FR-004`, `FR-005`, `FR-006`)
 
 ### Problem
+
 Travelers could not verify that official website or Wikipedia links pointed to the right destination without manually copying and pasting URLs into new tabs.
 
 ### Decision
+
 - Add dedicated `<button type="button" class="vistarae-view-btn" data-target="vistarae-official-url-input">View ↗</button>` and `<button type="button" class="vistarae-view-btn" data-target="vistarae-wikipedia-url-input">View ↗</button>`.
 - Button stays disabled if input is empty or does not start with `http://` / `https://`.
 - When clicked, opens link in new tab via `window.open(url, '_blank', 'noopener,noreferrer')`.
@@ -161,10 +183,13 @@ Travelers could not verify that official website or Wikipedia links pointed to t
 ## 7. Hybrid Visit Duration Inference (`FR-017`)
 
 ### Problem
+
 Duration (hours and days) was always unassigned because neither raw Google Maps text nor basic Wikipedia summaries specify numeric hours.
 
 ### Decision
+
 Implement a 2-tier hybrid duration estimator:
+
 1. **Tier 1: Category & Scale Heuristic Table**:
    - Castle / Fortress / Palace: 2.5 hours, 0 days.
    - Museum / Gallery: 2.0 hours, 0 days.
@@ -181,9 +206,11 @@ Implement a 2-tier hybrid duration estimator:
 ## 8. Vetted Tag Recommendation & System Seed Availability (`FR-016`)
 
 ### Problem
+
 Vetted Tags container was empty because the user's custom tag list had 0 entries in the local database.
 
 ### Decision
+
 1. **System Tag Fallback**:
    - In `routes/triage.py`, when `tag_repo.list_by_user(current_user.id)` returns empty, fall back to system standard tags (or auto-seed default tags for the user via `TagSeeder.seed_default_tags(user_id)`).
 2. **Taxonomy Matching**:

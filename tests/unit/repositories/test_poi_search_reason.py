@@ -118,7 +118,10 @@ class TestPOISearchReasonToVisit:
 
         assert total == 1
         assert len(pois) == 1
-        assert pois[0].reason_to_visit == "Spectacular sunset vista with rare alpine wildflower blooms."
+        assert (
+            pois[0].reason_to_visit
+            == "Spectacular sunset vista with rare alpine wildflower blooms."
+        )
 
         # Verify SQL statements executed contain the ILIKE conditions for reason_to_visit
         calls = session.execute.call_args_list
@@ -149,10 +152,16 @@ class TestPOISearchReasonToVisit:
         repo = SqlAlchemyPOIRepository(session)
         created = await repo.create(poi)
 
-        assert created.reason_to_visit == "Secret back-room wine cellar with artisanal vintage pairings."
+        assert (
+            created.reason_to_visit
+            == "Secret back-room wine cellar with artisanal vintage pairings."
+        )
         # Verify row added to session has reason_to_visit populated
         added_row = session.add.call_args[0][0]
-        assert added_row.reason_to_visit == "Secret back-room wine cellar with artisanal vintage pairings."
+        assert (
+            added_row.reason_to_visit
+            == "Secret back-room wine cellar with artisanal vintage pairings."
+        )
 
         # Mock get_by_id retrieval
         mock_row = _create_mock_poi_row(
@@ -168,7 +177,10 @@ class TestPOISearchReasonToVisit:
 
         retrieved = await repo.get_by_id(poi_id, user_id)
         assert retrieved is not None
-        assert retrieved.reason_to_visit == "Secret back-room wine cellar with artisanal vintage pairings."
+        assert (
+            retrieved.reason_to_visit
+            == "Secret back-room wine cellar with artisanal vintage pairings."
+        )
 
     @pytest.mark.asyncio
     async def test_update_poi_modifies_reason_to_visit(self) -> None:

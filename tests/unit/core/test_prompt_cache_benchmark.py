@@ -26,8 +26,6 @@ from __future__ import annotations
 import time
 from uuid import uuid4
 
-import pytest
-
 from vistarae_core.domain.value_objects import PromptType
 from vistarae_core.services.prompt_cache import UserPromptCache
 
@@ -64,6 +62,8 @@ def test_cache_retrieval_sub_2ms_p99() -> None:
     p99_latency_ms = latencies_ms[p99_idx]
     mean_latency_ms = sum(latencies_ms) / iterations
 
-    print(f"\n[CACHE BENCHMARK] Mean: {mean_latency_ms:.4f}ms | p99: {p99_latency_ms:.4f}ms (threshold: 2.0ms)")
+    print(
+        f"\n[CACHE BENCHMARK] Mean: {mean_latency_ms:.4f}ms | p99: {p99_latency_ms:.4f}ms (threshold: 2.0ms)"
+    )
 
     assert p99_latency_ms < 2.0, f"p99 latency {p99_latency_ms:.4f}ms exceeded 2.0ms threshold"

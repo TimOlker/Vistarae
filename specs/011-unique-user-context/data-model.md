@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Feature**: `011-unique-user-context`  
 **Date**: 2026-10-27  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
@@ -88,16 +88,17 @@ erDiagram
 
 Stores modular prompt directives synthesized from the traveler's freeform travel style narrative.
 
-| Column | Type | Nullable | Default | Constraints / References | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `id` | `UUID` | No | `gen_random_uuid()` | Primary Key | Unique prompt directive record ID |
-| `user_id` | `UUID` | No | None | FK `users(id)` ON DELETE CASCADE | Owning tenant UUID |
-| `prompt_type` | `VARCHAR(32)` | No | None | Check constraint `prompt_type IN ('description', 'reason_to_visit', 'time_spent')` | Prompt target category (Python `StrEnum`) |
-| `prompt_text` | `TEXT` | No | None | Min length 1 | Prompt directive instructions |
-| `created_at` | `TIMESTAMPTZ` | No | `NOW()` | None | Creation timestamp |
-| `updated_at` | `TIMESTAMPTZ` | No | `NOW()` | None | Update timestamp |
+| Column        | Type          | Nullable | Default             | Constraints / References                                                           | Description                               |
+| :------------ | :------------ | :------- | :------------------ | :--------------------------------------------------------------------------------- | :---------------------------------------- |
+| `id`          | `UUID`        | No       | `gen_random_uuid()` | Primary Key                                                                        | Unique prompt directive record ID         |
+| `user_id`     | `UUID`        | No       | None                | FK `users(id)` ON DELETE CASCADE                                                   | Owning tenant UUID                        |
+| `prompt_type` | `VARCHAR(32)` | No       | None                | Check constraint `prompt_type IN ('description', 'reason_to_visit', 'time_spent')` | Prompt target category (Python `StrEnum`) |
+| `prompt_text` | `TEXT`        | No       | None                | Min length 1                                                                       | Prompt directive instructions             |
+| `created_at`  | `TIMESTAMPTZ` | No       | `NOW()`             | None                                                                               | Creation timestamp                        |
+| `updated_at`  | `TIMESTAMPTZ` | No       | `NOW()`             | None                                                                               | Update timestamp                          |
 
 **Indexes & Constraints**:
+
 - `CONSTRAINT uq_user_prompts_user_type UNIQUE (user_id, prompt_type)`
 - `CREATE INDEX idx_user_prompts_user_id ON user_prompts (user_id);`
 - `CONSTRAINT ck_user_prompts_type CHECK (prompt_type IN ('description', 'reason_to_visit', 'time_spent'))`
@@ -108,9 +109,9 @@ Stores modular prompt directives synthesized from the traveler's freeform travel
 
 Extends the tenant preferences table to retain the raw travel style narrative.
 
-| Column | Type | Nullable | Default | Constraints / References | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `travel_style_description` | `TEXT` | Yes | `NULL` | Max 2000 chars | Freeform narrative describing travel goals and style |
+| Column                     | Type   | Nullable | Default | Constraints / References | Description                                          |
+| :------------------------- | :----- | :------- | :------ | :----------------------- | :--------------------------------------------------- |
+| `travel_style_description` | `TEXT` | Yes      | `NULL`  | Max 2000 chars           | Freeform narrative describing travel goals and style |
 
 ---
 
@@ -118,11 +119,12 @@ Extends the tenant preferences table to retain the raw travel style narrative.
 
 Extends the core points of interest table with experiential visit rationale and updated full-text indices.
 
-| Column | Type | Nullable | Default | Constraints / References | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `reason_to_visit` | `TEXT` | Yes | `NULL` | None | Multiline experiential rationale explaining why to visit |
+| Column            | Type   | Nullable | Default | Constraints / References | Description                                              |
+| :---------------- | :----- | :------- | :------ | :----------------------- | :------------------------------------------------------- |
+| `reason_to_visit` | `TEXT` | Yes      | `NULL`  | None                     | Multiline experiential rationale explaining why to visit |
 
 **Indexes & Constraints**:
+
 - `CREATE INDEX idx_pois_reason_to_visit_trgm ON pois USING gin (reason_to_visit gin_trgm_ops);`
 - `CREATE INDEX idx_pois_description_trgm ON pois USING gin (description gin_trgm_ops);`
 - Composite search queries evaluate `(name ILIKE :q OR address ILIKE :q OR city ILIKE :q OR description ILIKE :q OR reason_to_visit ILIKE :q)`.
@@ -138,7 +140,7 @@ from enum import StrEnum
 
 class PromptType(StrEnum):
     """Enumeration of modular prompt directive targets.
-    
+
     Adheres to Constitution Principle 4:
     Typed as Python StrEnum backed by PostgreSQL VARCHAR(32).
     """
@@ -252,7 +254,7 @@ stateDiagram-v2
     NoTravelStyle --> SavingTravelStyle : User Enters Narrative & Clicks Save
     SavingTravelStyle --> SynthesizingPrompts : Persist narrative to user_preferences
     SynthesizingPrompts --> PromptsActive : Gemini extracts directives -> Insert to user_prompts -> Invalidate Cache
-    
+
     PromptsActive --> InCache : Subsequent POI Capture / Batch Ingestion
     InCache --> InCache : Fast sub-2ms memory lookup
 

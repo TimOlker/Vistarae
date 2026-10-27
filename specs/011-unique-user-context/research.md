@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Feature**: `011-unique-user-context`  
 **Date**: 2026-10-27  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
@@ -30,6 +30,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Context**: Travelers describe their travel style in freeform text on the Web App profile page. An AI decomposes this narrative into specialized prompt directives keyed by target field (`description`, `reason_to_visit`, `time_spent`). These prompt directives must be stored in a dedicated database table, keyed to the user profile and prompt type, and displayed as read-only cards on the user profile.
 - **Decision**: Create a dedicated table `user_prompts` in `packages/core/vistarae_core/adapters/db/tables.py` via Alembic migration:
+
   ```python
   class PromptType(StrEnum):
       DESCRIPTION = "description"
@@ -50,7 +51,9 @@ SPDX-License-Identifier: Apache-2.0
           Index("idx_user_prompts_user_id", "user_id"),
       )
   ```
+
   Store the raw user narrative in `user_preferences.travel_style_description: Mapped[str | None] = mapped_column(Text, nullable=True)`.
+
 - **Constitutional Alignment**:
   - Principle 3: Child table references `users(id) ON DELETE CASCADE`.
   - Principle 3: No PostgreSQL RLS; tenant isolation strictly enforced in application layer via `WHERE user_id = :current_user_id`.

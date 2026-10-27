@@ -139,7 +139,8 @@ describe("Extension Capture Overlay Reason to Visit Field & Ordering (T-021 / RE
 
     // Edit Reason to Visit
     const reasonInput = shadow.querySelector("#vistarae-reason-input");
-    reasonInput.value = "Updated traveler motivation: incredible fresh sourdough bread!";
+    reasonInput.value =
+      "Updated traveler motivation: incredible fresh sourdough bread!";
 
     // Click Save to Vistarae
     const saveBtn = shadow.querySelector("#vistarae-save-btn");

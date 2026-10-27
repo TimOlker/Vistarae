@@ -34,7 +34,6 @@ from vistarae_core.adapters.db.tables import (
 from vistarae_core.adapters.identity.cognito import CognitoIdentityProvider
 from vistarae_core.domain.entities import User
 from vistarae_core.domain.value_objects import PacingMode, ThemeMode, TransitSpeedMode, UserTier
-from vistarae_core.services.prompt_cache import default_prompt_cache
 from vistarae_core.schemas.preferences import (
     PlannerPreferencesResponse,
     POIPreferencesResponse,
@@ -48,6 +47,7 @@ from vistarae_core.schemas.user import (
     UserQuotaResponse,
     UserResponse,
 )
+from vistarae_core.services.prompt_cache import default_prompt_cache
 
 from services.user.dependencies import get_current_user
 
@@ -140,9 +140,7 @@ async def get_me(
                 if (prefs_row and prefs_row.preferred_currency)
                 else "USD",
             ),
-            travel_style_description=prefs_row.travel_style_description
-            if prefs_row
-            else None,
+            travel_style_description=prefs_row.travel_style_description if prefs_row else None,
         ),
         metrics=UserMetricsResponse(
             poi_count=metrics_row.poi_count

@@ -27,6 +27,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Summary
 
 Phase 11 implements **Unique User Context** across Vistarae, providing personalized AI extraction and enriched POI knowledge:
+
 1. **POI Schema Parity & Search**: Adds a multiline `reason_to_visit` field to the POI record, positioned immediately after `description` across the Web App (Edit Drawer, Manual Add Modal, Detail Drawer) and Chrome Extension review overlay. Expands full-text and trigram search to evaluate both `description` and `reason_to_visit`.
 2. **Traveler Travel Style & AI Prompt Decomposition**: Adds a travel style text input to the Web App User Profile (`/profile`). When saved, Google Gemini Flash-Lite (`thinking_budget = 0`) decomposes the narrative into modular prompt directives (`description`, `reason_to_visit`, `time_spent`), which are persisted in a `user_prompts` table and rendered as read-only cards on the profile.
 3. **In-Memory Caching**: Caches user prompt directives in process memory with TTL and immediate tenant eviction on profile mutation, ensuring sub-2ms prompt resolution during captures without external Redis/DynamoDB costs.
@@ -39,20 +40,21 @@ Phase 11 implements **Unique User Context** across Vistarae, providing personali
 
 **Language/Version**: Python 3.12 (backend), TypeScript 5.5+ (frontend, extension)  
 **Primary Dependencies**:
+
 - Backend: FastAPI 0.111+, SQLAlchemy 2.0 (pure async with `asyncpg`), Pydantic v2 (`StrictBaseModel`), Google GenAI SDK (`google-genai` Flash-Lite, `thinking_budget = 0`), Alembic
 - Frontend: React 18, Vite 5, Lucide React
 - Extension: Pure Vanilla JS / Chrome Manifest V3 with Shadow DOM
-**Storage**: PostgreSQL 16+ / PostGIS 3.4+ (`pois` table with `reason_to_visit`, `user_prompts` table, `user_preferences` table with `travel_style_description`), process-level in-memory cache for prompt directives  
-**Testing**: pytest with pytest-asyncio and pytest-cov ($\ge 90\%$ branch/line coverage threshold), Vitest for frontend components  
-**Target Platform**: AWS Lambda (serverless Mangum ASGI entrypoint), Linux server, Modern Chromium browsers (Extension MV3), Evergreen Web Browsers (Vite SPA)  
-**Project Type**: Monorepo with Ports & Adapters architecture (`packages/core/`, `services/user/`, `services/poi/`, `services/ingest/`, `services/worker/`, `frontend/`, `extension/`)  
-**Performance Goals**: Prompt decomposition < 4.0s end-to-end, in-memory cache resolution < 2ms (99th percentile), POI capture extraction < 3.0s ceiling  
-**Constraints**:
+  **Storage**: PostgreSQL 16+ / PostGIS 3.4+ (`pois` table with `reason_to_visit`, `user_prompts` table, `user_preferences` table with `travel_style_description`), process-level in-memory cache for prompt directives  
+  **Testing**: pytest with pytest-asyncio and pytest-cov ($\ge 90\%$ branch/line coverage threshold), Vitest for frontend components  
+  **Target Platform**: AWS Lambda (serverless Mangum ASGI entrypoint), Linux server, Modern Chromium browsers (Extension MV3), Evergreen Web Browsers (Vite SPA)  
+  **Project Type**: Monorepo with Ports & Adapters architecture (`packages/core/`, `services/user/`, `services/poi/`, `services/ingest/`, `services/worker/`, `frontend/`, `extension/`)  
+  **Performance Goals**: Prompt decomposition < 4.0s end-to-end, in-memory cache resolution < 2ms (99th percentile), POI capture extraction < 3.0s ceiling  
+  **Constraints**:
 - Zero-cost AWS free tier architecture (no external paid caching like Redis/ElastiCache/DynamoDB)
 - Strictly adhere to OSM Nominatim rate limits (1 req/sec max) and local SHA-256 geocache
 - Strict tenant isolation via `WHERE user_id = :current_user_id` (no PostgreSQL RLS)
 - Zero thinking budget (`thinking_budget = 0`) on all Gemini extraction calls
-**Scale/Scope**: 10,000+ POIs per user, multi-source enrichment across authorized domains, batch CSV parsing up to 2,000 rows / 2MB  
+  **Scale/Scope**: 10,000+ POIs per user, multi-source enrichment across authorized domains, batch CSV parsing up to 2,000 rows / 2MB
 
 ---
 
@@ -60,17 +62,17 @@ Phase 11 implements **Unique User Context** across Vistarae, providing personali
 
 _GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design._
 
-| Principle | Requirement Summary | Status | Compliance Verification |
-| :--- | :--- | :--- | :--- |
-| **1. File Header & Docstrings** | Standard Apache 2.0 copyright banner on all `.py`, `.ts`, `.tsx`, `.sql`. Max nesting 3, Cognitive Complexity $\le 15$. | **PASS** | Every new/modified file includes exact copyright header, Google-style docstrings, and guard-clause structure. |
-| **2. Ports & Adapters Architecture** | Domain models isolated in `packages/core`. Pure domain decoupled from `boto3`, HTTP, and framework internals. | **PASS** | New entities (`UserPrompt`, `PromptType`) and value objects isolated in `packages/core/vistarae_core`. Repositories defined via Python protocols. |
-| **3. Database & Tenancy** | Pure Async SQLAlchemy 2.0 (`asyncpg`). NullPool in cloud, QueuePool in local. `statement_cache_size=0`. No RLS. `WHERE user_id = :current_user_id`. `users(id) ON DELETE CASCADE`. | **PASS** | Table `user_prompts` references `users(id)` with cascade delete. Repository applies tenant filter. No PostgreSQL RLS used. |
-| **4. Alembic & Environment Isolation** | Schema migrations in `db/migrations/`. Reversible `downgrade()`. Status/category fields typed with Python `StrEnum` backed by `VARCHAR(n)` (no native DB ENUMs). | **PASS** | Migration creates `user_prompts` and adds `reason_to_visit` and `travel_style_description`. `PromptType` uses `StrEnum` + `VARCHAR(32)`. Fully reversible. |
-| **5. API Contract & Validation** | OpenAPI 3.1 authoritative contract. TypeScript types synced via `npx openapi-typescript`. Pydantic v2 `StrictBaseModel` (extra='forbid', str_strip_whitespace=True). RFC 7807 ProblemDetails for errors. | **PASS** | Contracts defined in `contracts/user-context-api.yaml`. Boundary schemas inherit from `StrictBaseModel`. ProblemDetails error responses implemented. |
-| **6. Middleware & Security** | Idempotency first, RateLimit second. CORS restricted. Sensitive tokens excluded from logs. | **PASS** | Middleware order preserved. Travel style prompts validated against prompt injection via XML delimiters. |
-| **7. Observability & Tracing** | Directional `MSG` logging markers (`MSG: -->|`, `MSG: <--|`, etc.) in local dev. Structured JSON in cloud. W3C `traceparent` propagation. | **PASS** | Directional messaging tags applied to Gemini synthesizer and user context routes. Tracing context propagated across services. |
-| **8. PyTest & SDD Governance** | Minimum 90% branch and line coverage. Mirror source tree in `tests/unit/`. Spec governs as absolute truth. Strict YAGNI. | **PASS** | Dedicated unit test suites structured to mirror source tree with $\ge 90\%$ coverage target. |
-| **Operational Guardrails** | Zero-Cost Architecture (Neon tables, in-memory caching, no paid Redis/DynamoDB). SQS long-polling, 1 req/sec geocache policy. | **PASS** | In-memory process cache uses standard Python dictionary/LRU with thread-safe TTL. No external cloud dependencies introduced. |
+| Principle                              | Requirement Summary                                                                                                                                                                                      | Status       | Compliance Verification                                                                                                                                    |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **1. File Header & Docstrings**        | Standard Apache 2.0 copyright banner on all `.py`, `.ts`, `.tsx`, `.sql`. Max nesting 3, Cognitive Complexity $\le 15$.                                                                                  | **PASS**     | Every new/modified file includes exact copyright header, Google-style docstrings, and guard-clause structure.                                              |
+| **2. Ports & Adapters Architecture**   | Domain models isolated in `packages/core`. Pure domain decoupled from `boto3`, HTTP, and framework internals.                                                                                            | **PASS**     | New entities (`UserPrompt`, `PromptType`) and value objects isolated in `packages/core/vistarae_core`. Repositories defined via Python protocols.          |
+| **3. Database & Tenancy**              | Pure Async SQLAlchemy 2.0 (`asyncpg`). NullPool in cloud, QueuePool in local. `statement_cache_size=0`. No RLS. `WHERE user_id = :current_user_id`. `users(id) ON DELETE CASCADE`.                       | **PASS**     | Table `user_prompts` references `users(id)` with cascade delete. Repository applies tenant filter. No PostgreSQL RLS used.                                 |
+| **4. Alembic & Environment Isolation** | Schema migrations in `db/migrations/`. Reversible `downgrade()`. Status/category fields typed with Python `StrEnum` backed by `VARCHAR(n)` (no native DB ENUMs).                                         | **PASS**     | Migration creates `user_prompts` and adds `reason_to_visit` and `travel_style_description`. `PromptType` uses `StrEnum` + `VARCHAR(32)`. Fully reversible. |
+| **5. API Contract & Validation**       | OpenAPI 3.1 authoritative contract. TypeScript types synced via `npx openapi-typescript`. Pydantic v2 `StrictBaseModel` (extra='forbid', str_strip_whitespace=True). RFC 7807 ProblemDetails for errors. | **PASS**     | Contracts defined in `contracts/user-context-api.yaml`. Boundary schemas inherit from `StrictBaseModel`. ProblemDetails error responses implemented.       |
+| **6. Middleware & Security**           | Idempotency first, RateLimit second. CORS restricted. Sensitive tokens excluded from logs.                                                                                                               | **PASS**     | Middleware order preserved. Travel style prompts validated against prompt injection via XML delimiters.                                                    |
+| **7. Observability & Tracing**         | Directional `MSG` logging markers (`MSG: -->                                                                                                                                                             | `, `MSG: <-- | `, etc.) in local dev. Structured JSON in cloud. W3C `traceparent` propagation.                                                                            | **PASS** | Directional messaging tags applied to Gemini synthesizer and user context routes. Tracing context propagated across services. |
+| **8. PyTest & SDD Governance**         | Minimum 90% branch and line coverage. Mirror source tree in `tests/unit/`. Spec governs as absolute truth. Strict YAGNI.                                                                                 | **PASS**     | Dedicated unit test suites structured to mirror source tree with $\ge 90\%$ coverage target.                                                               |
+| **Operational Guardrails**             | Zero-Cost Architecture (Neon tables, in-memory caching, no paid Redis/DynamoDB). SQS long-polling, 1 req/sec geocache policy.                                                                            | **PASS**     | In-memory process cache uses standard Python dictionary/LRU with thread-safe TTL. No external cloud dependencies introduced.                               |
 
 ---
 
@@ -167,8 +169,8 @@ extension/
 
 > **Constitution Check: 0 Violations. All architectural choices strictly adhere to constitutional invariants.**
 
-| Area | Decision | Constitution Justification |
-| :--- | :--- | :--- |
-| **Cache Architecture** | In-process memory cache with TTL & eviction | Avoids paid Redis/DynamoDB clusters, satisfying Zero-Cost Architecture & AWS Free-Tier Guardrails. |
-| **Enum Modeling** | Python `StrEnum` + `VARCHAR(32)` | Adheres to Constitution Principle 4 (strictly avoiding native PostgreSQL database ENUMs). |
-| **AI Synthesis** | Gemini Flash-Lite with `thinking_budget = 0` | Adheres to Constitution Core Rules & Invariants for deterministic, low-latency, zero-overhead extraction. |
+| Area                   | Decision                                     | Constitution Justification                                                                                |
+| :--------------------- | :------------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
+| **Cache Architecture** | In-process memory cache with TTL & eviction  | Avoids paid Redis/DynamoDB clusters, satisfying Zero-Cost Architecture & AWS Free-Tier Guardrails.        |
+| **Enum Modeling**      | Python `StrEnum` + `VARCHAR(32)`             | Adheres to Constitution Principle 4 (strictly avoiding native PostgreSQL database ENUMs).                 |
+| **AI Synthesis**       | Gemini Flash-Lite with `thinking_budget = 0` | Adheres to Constitution Core Rules & Invariants for deterministic, low-latency, zero-overhead extraction. |

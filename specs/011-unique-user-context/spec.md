@@ -17,11 +17,13 @@
 **Input**: User description:
 
 > "New POI field:
+>
 > - In the POI DB record, please add a new field holding a multiline text field called 'Reason to Visit'. This should be visibile on the POI edit field on the webapp as well as a field in the extension web scraping logic. The existing 'description' field will focus on what the POI is. The new 'Reason to Visit' field is why a tourist would be interested in visiting the location. Both fields will look at the same data from extracted sources using the existing list of sites to be scraped.
 > - the 'Reason to Visit' field should be displayed after the 'Description' field.
 > - Both the existing 'Description' field and the new 'Reason to Visit' field should be searchable.
 >
 > Scope to cover LLM query customization:
+>
 > - For each user in their profile on the web app, please have a multi-line text field where the user can describe what they are looking for in travel. When the user clicks 'save' invoke an LLM to process the have the LLM extract out prompt that will be used in later LLM queries to customize the results. Save what the user is looking to get out of travel into the users profile. Then save each set of prompts to a DB table keyed to the users profile + prompt type. These prompts can be displayed as read-only fields on the user profile so the user can see what is being used.
 > - If it will speed up the web app, or extension, cache the LLM prompts to memory and invalidate when the field is updated so an API query doesn't need to be made for each POI.
 > - When looking to generate fields using a LLM for a POI by looking at the scraped websites (either when manually importing through the web app, uploading a batch POIs from a CSV file through the web app, or web scraping a website through the extension, or any other POI creation method) extended the LLM prompt with the customization data that was saved to the DB.
@@ -35,6 +37,7 @@
 Phase 11 introduces **Unique User Context** to the Vistarae platform, transforming entity extraction and point-of-interest (POI) synthesis from a generic summary process into a deeply personalized travel discovery companion. Travelers have diverse, individual travel aspirations: some seek culinary immersion at a leisurely pace, others prioritize historical fortifications, scenic vistas, or family-friendly outdoor trails.
 
 To address this, Phase 11 implements three cohesive capability pillars:
+
 1. **Differentiated POI Semantic Knowledge**: Introduces a dedicated multiline `reason_to_visit` field alongside the existing `description`. While `description` remains objective ("what the POI is"), `reason_to_visit` captures experiential tourist value ("why a traveler should visit"). Both fields are rendered in strict visual succession across the Web App and Chrome Extension, and both are made comprehensively searchable.
 2. **Personalized AI Prompt Extensions & Fast In-Memory Caching**: Travelers express their travel goals and preferences in a freeform narrative on their Web App profile. Saving this narrative triggers an AI synthesis job that decomposes the user's travel style into specialized prompt directives keyed by field type (such as `description`, `reason_to_visit`, and `time_spent`). These directives are persisted to a dedicated database table, exposed as transparent read-only prompt cards on the user profile, and cached in memory with proactive invalidation. Every downstream POI generation pathway—including Extension web scraping, manual Web App creation, and bulk CSV ingestion—dynamically extends base extraction prompts with the traveler's active customization context.
 3. **Onboarding & Migration Login Redirection**: Proactively guides new travelers and un-migrated accounts upon login by presenting an informative modal popup when their travel style profile is unpopulated, redirecting them directly to `/profile` so they can set up their travel preferences.
@@ -56,9 +59,11 @@ To address this, Phase 11 implements three cohesive capability pillars:
 ### User Story 1 - Traveler Configures Travel Style and Inspects Generated Prompts (Priority: P1)
 
 A traveler navigates to their User Profile page on the Web App (`/profile`). In a dedicated "Travel Style & Preferences" card, they enter a freeform description:
+
 > "I prefer relaxing vacations focused on local culinary traditions, farmers markets, artisan bakeries, and regional food culture. I prefer taking my time rather than rushing through checklist sights."
 
 The traveler clicks **Save Travel Style**. The system persists the narrative to the traveler's profile and invokes an asynchronous prompt synthesis AI task. The AI extracts modular prompt instructions:
+
 - `description`: "Provide a clear description of what the destination is, highlighting any local food traditions, culinary history, food vendors, or gastronomic significance if present."
 - `reason_to_visit`: "Explain why a food-loving traveler should visit, focusing on authentic dining, tasting experiences, regional ingredients, and relaxed cultural atmosphere."
 - `time_spent`: "Allow generous duration estimates for leisurely dining and neighborhood exploration; do not rush the itinerary."
@@ -82,11 +87,13 @@ The profile page renders these extracted directives inside read-only prompt insp
 A food-focused traveler browses a travel article about the historic Pike Place Market in Seattle and triggers the capture shortcut (`Ctrl+Shift+S`).
 
 The Chrome Extension capture pipeline collects raw webpage text and invokes the backend extraction API (`/api/pois/extract-and-check`). Because the traveler has configured food-centric travel preferences, the extraction orchestrator loads the traveler's cached prompt directives:
+
 - The base `description` prompt is appended with the user's `description` directive, resulting in a summary of Pike Place Market that prominently highlights fishmongers, fresh farm produce stands, and artisan cheese shops.
 - The base `reason_to_visit` prompt is appended with the user's `reason_to_visit` directive, producing an engaging explanation of why the user specifically will love visiting to sample artisan ciders and wander culinary market alleys.
 - The `time_spent` heuristic adjusts recommended duration from 1.5 hours to 3.0 hours to accommodate leisurely sampling.
 
 The extension Shadow DOM review overlay opens displaying:
+
 1. POI Name: `Pike Place Market`
 2. Description: multiline overview emphasizing market history and food stalls.
 3. Reason to Visit: multiline rationale emphasizing gourmet tastings, farm stalls, and culinary culture (positioned immediately below Description).
@@ -132,6 +139,7 @@ Later, the traveler uses the top search bar to find destinations matching "after
 A traveler uploads a CSV file containing 50 landmark names and URLs through the Web App batch ingestion portal (`/import`).
 
 The ingestion worker dequeues each import task. For each row:
+
 1. It retrieves the traveler's active prompt extensions from the in-memory cache.
 2. It fetches the primary source and authorized secondary sources.
 3. It applies the personalized prompt directives for `description`, `reason_to_visit`, and `time_spent`.
@@ -176,6 +184,7 @@ When the traveler subsequently visits `/profile` and updates their travel prefer
 A traveler logs into the Vistarae Web Application (either a newly registered user or an existing traveler with an un-migrated profile).
 
 Upon successful authentication, the frontend checks whether the traveler has populated their `travel_style_description`. Detecting that it is null or empty, the application renders a friendly onboarding modal popup:
+
 > "Personalize Your Travel Experience!  
 > Vistarae customizes destination descriptions, reasons to visit, and visit pacing based on your unique travel style. Tell us what you look for in travel to activate your personalized companion."
 

@@ -26,7 +26,6 @@ Verifies:
 
 from __future__ import annotations
 
-import pytest
 from services.ingest.services.csv_parser import parse_and_sanitize_csv
 
 
@@ -36,9 +35,9 @@ class TestCSVParserReasonToVisit:
     def test_parse_csv_with_reason_to_visit_column(self) -> None:
         """Asserts reason_to_visit column is parsed and sanitized into row_data."""
         csv_content = (
-            "name,city,description,reason_to_visit\n"
-            "Sunset Cliff,San Diego,Scenic ocean bluffs,Incredible sunset vantage point with ocean vistas.\n"
-        ).encode("utf-8")
+            b"name,city,description,reason_to_visit\n"
+            b"Sunset Cliff,San Diego,Scenic ocean bluffs,Incredible sunset vantage point with ocean vistas.\n"
+        )
 
         rows = parse_and_sanitize_csv(csv_content, content_type="text/csv")
         assert len(rows) == 1
@@ -50,24 +49,26 @@ class TestCSVParserReasonToVisit:
     def test_parse_csv_with_why_visit_alias_column(self) -> None:
         """Asserts why_visit alias header is normalized into reason_to_visit key."""
         csv_content = (
-            "name,city,why_visit\n"
-            "Old Town Bakery,Portland,Award-winning marionberry pastries and pour-over coffee.\n"
-        ).encode("utf-8")
+            b"name,city,why_visit\n"
+            b"Old Town Bakery,Portland,Award-winning marionberry pastries and pour-over coffee.\n"
+        )
 
         rows = parse_and_sanitize_csv(csv_content, content_type="text/csv")
         assert len(rows) == 1
         row_data = rows[0]["row_data"]
         assert row_data["name"] == "Old Town Bakery"
         assert "why_visit" not in row_data
-        assert row_data["reason_to_visit"] == "Award-winning marionberry pastries and pour-over coffee."
+        assert (
+            row_data["reason_to_visit"]
+            == "Award-winning marionberry pastries and pour-over coffee."
+        )
 
     def test_reason_to_visit_sanitization_and_truncation(self) -> None:
         """Asserts HTML stripping, formula neutralization, and 4,000 character truncation."""
         long_text = "Spectacular view! " * 300  # 5,400 chars
         csv_content = (
-            "name,reason_to_visit\n"
-            f'Lookout Peak,"<b>=HYPERLINK(evil)</b>{long_text}"\n'
-        ).encode("utf-8")
+            "name,reason_to_visit\n" f'Lookout Peak,"<b>=HYPERLINK(evil)</b>{long_text}"\n'
+        ).encode()
 
         rows = parse_and_sanitize_csv(csv_content, content_type="text/csv")
         assert len(rows) == 1

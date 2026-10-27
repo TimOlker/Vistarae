@@ -125,13 +125,16 @@ async def test_extract_and_check_returns_reason_to_visit(
         extraction_sources=["pikeplacemarket.org", "wikipedia.org"],
     )
 
-    with patch(
-        "services.poi.routes.triage.ScrapingOrchestrator.extract",
-        new_callable=AsyncMock,
-    ) as mock_extract, patch(
-        "services.poi.routes.triage.default_prompt_cache.get_or_load",
-        new_callable=AsyncMock,
-    ) as mock_get_or_load:
+    with (
+        patch(
+            "services.poi.routes.triage.ScrapingOrchestrator.extract",
+            new_callable=AsyncMock,
+        ) as mock_extract,
+        patch(
+            "services.poi.routes.triage.default_prompt_cache.get_or_load",
+            new_callable=AsyncMock,
+        ) as mock_get_or_load,
+    ):
         mock_extract.return_value = candidate_mock
         mock_get_or_load.return_value = {
             PromptType.DESCRIPTION: "Highlight local food traditions.",
@@ -163,4 +166,7 @@ async def test_extract_and_check_returns_reason_to_visit(
         mock_extract.assert_awaited_once()
         _, kwargs = mock_extract.call_args
         assert "prompt_directives" in kwargs
-        assert kwargs["prompt_directives"][PromptType.DESCRIPTION] == "Highlight local food traditions."
+        assert (
+            kwargs["prompt_directives"][PromptType.DESCRIPTION]
+            == "Highlight local food traditions."
+        )

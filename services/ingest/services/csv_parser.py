@@ -147,7 +147,10 @@ def parse_and_sanitize_csv(  # noqa: C901
         for idx, col_name in enumerate(header_row):
             cell_val = raw_row[idx] if idx < len(raw_row) else ""
             sanitized = sanitize_text_field(cell_val)
-            if col_name in ("description", "reason_to_visit", "why_visit") and len(sanitized) > 4000:
+            if (
+                col_name in ("description", "reason_to_visit", "why_visit")
+                and len(sanitized) > 4000
+            ):
                 sanitized = sanitized[:4000]
             target_key = "reason_to_visit" if col_name == "why_visit" else col_name
             row_dict[target_key] = sanitized

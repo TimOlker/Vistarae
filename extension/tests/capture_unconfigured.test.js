@@ -101,7 +101,9 @@ describe("Extension Capture Unconfigured Travel Style Non-Blocking Behavior (T-0
 
     // Verify host document has no onboarding popup or modal
     expect(document.querySelector(".vistarae-onboarding-modal")).toBeNull();
-    expect(document.querySelector("[data-testid='travel-style-onboarding-modal']")).toBeNull();
+    expect(
+      document.querySelector("[data-testid='travel-style-onboarding-modal']"),
+    ).toBeNull();
 
     // Verify shadow DOM has no modal blocking capture
     expect(shadow.querySelector(".vistarae-onboarding-modal")).toBeNull();
@@ -119,7 +121,9 @@ describe("Extension Capture Unconfigured Travel Style Non-Blocking Behavior (T-0
     const reasonInput = shadow.querySelector("#vistarae-reason-input");
 
     expect(nameInput.value).toBe("Grand Canyon National Park");
-    expect(descInput.value).toContain("Vast national park famous for layered bands");
+    expect(descInput.value).toContain(
+      "Vast national park famous for layered bands",
+    );
     expect(reasonInput.value).toContain("Visitors are drawn to Grand Canyon");
 
     // Save button remains interactive and non-blocked

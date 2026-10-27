@@ -27,13 +27,11 @@ Validates:
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from vistarae_core.domain.value_objects import PromptType
-from vistarae_core.schemas.scraping import POICandidateSchema
 
 from services.poi.scraping.orchestrator import ScrapingOrchestrator
 from services.poi.scraping.secondary_sources import SecondarySourceAdapter
@@ -140,8 +138,12 @@ class TestPersonalizedScraping:
 
             # Verify prompt contents passed to Gemini
             assert mock_client.models.generate_content.call_count == 3
-            desc_call_prompt = mock_client.models.generate_content.call_args_list[1].kwargs["contents"]
-            reason_call_prompt = mock_client.models.generate_content.call_args_list[2].kwargs["contents"]
+            desc_call_prompt = mock_client.models.generate_content.call_args_list[1].kwargs[
+                "contents"
+            ]
+            reason_call_prompt = mock_client.models.generate_content.call_args_list[2].kwargs[
+                "contents"
+            ]
 
             assert "Highlight local food traditions" in desc_call_prompt
             assert "Focus on authentic dining" in reason_call_prompt

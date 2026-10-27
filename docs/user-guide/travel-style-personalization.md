@@ -4,7 +4,7 @@
 
 Vistarae empowers travelers to customize how destinations and points of interest (POIs) are extracted, enriched, and presented across the platform. By articulating your natural travel style (interests, pacing, culinary passions, architectural preferences), Vistarae uses Google Gemini Flash-Lite to decompose your preferences into modular prompt directives that shape future captures.
 
-Additionally, every captured POI features both an objective factual summary (`Description`) and a tailored experiential rationale (`Reason to Visit`) explaining *why* a tourist with your travel interests should visit the location.
+Additionally, every captured POI features both an objective factual summary (`Description`) and a tailored experiential rationale (`Reason to Visit`) explaining _why_ a tourist with your travel interests should visit the location.
 
 ---
 
@@ -13,14 +13,15 @@ Additionally, every captured POI features both an objective factual summary (`De
 1. Navigate to your **Profile** (`/profile`) on the Vistarae Web App.
 2. Locate the **Travel Style & AI Context** card (`#travel-style`).
 3. In the freeform text area (up to 2,000 characters), describe what you look for when exploring:
-   - *Interests*: Artisan food, local markets, gothic architecture, scenic trails, modern art.
-   - *Pacing*: Leisurely with long café breaks vs. fast-paced bucket-list sightseeing.
-   - *Atmosphere*: Quiet hidden alleys vs. bustling landmarks.
+   - _Interests_: Artisan food, local markets, gothic architecture, scenic trails, modern art.
+   - _Pacing_: Leisurely with long café breaks vs. fast-paced bucket-list sightseeing.
+   - _Atmosphere_: Quiet hidden alleys vs. bustling landmarks.
 4. Click **Save Travel Style**.
 
 ### AI Prompt Decomposition
 
 Upon saving, Gemini Flash-Lite decomposes your narrative into three distinct prompt directives:
+
 - **`Description Directive`**: Controls which physical landmarks, architectural styles, and neighborhood features are highlighted in factual POI summaries.
 - **`Reason to Visit Directive`**: Dictates the experiential rationale explaining why a visitor would find the attraction compelling.
 - **`Pacing & Duration Directive`**: Guides recommended duration calculations (e.g. factoring in leisurely stops or rapid visits).
@@ -32,8 +33,9 @@ Active directives appear in read-only preview cards immediately below the narrat
 ## 2. "Reason to Visit" Field
 
 Across all Vistarae interfaces, POIs feature two complementary fields arranged in strict visual order:
-1. **Description**: Factual summary describing *what* the destination is.
-2. **Reason to Visit**: Experiential tourist rationale describing *why* someone should visit.
+
+1. **Description**: Factual summary describing _what_ the destination is.
+2. **Reason to Visit**: Experiential tourist rationale describing _why_ someone should visit.
 
 ### Interface Parity
 
@@ -49,13 +51,14 @@ Across all Vistarae interfaces, POIs feature two complementary fields arranged i
 
 Vistarae leverages PostgreSQL trigram similarity indices (`gin_trgm_ops`) and client-side filter evaluators to provide unified text search across both `description` and `reason_to_visit`.
 
-Searching for specialized keywords present exclusively in a POI's `reason_to_visit` (e.g., *"artisan sourdough"*, *"panoramic sunset"*, *"tranquil courtyard"*) returns 100% of matching locations with zero false exclusions.
+Searching for specialized keywords present exclusively in a POI's `reason_to_visit` (e.g., _"artisan sourdough"_, _"panoramic sunset"_, _"tranquil courtyard"_) returns 100% of matching locations with zero false exclusions.
 
 ---
 
 ## 4. Batch CSV Ingestion & Imports
 
 When importing POIs in bulk via `/import`:
+
 - CSV files may include optional column headers: `reason_to_visit` or `why_visit`.
 - When web addresses are provided without pre-filled text, the background ingestion processor retrieves your active prompt directives from the in-memory cache and generates personalized descriptions and reasons to visit automatically.
 
@@ -72,9 +75,11 @@ When importing POIs in bulk via `/import`:
 ## 6. API Reference
 
 ### `GET /api/user/profile/travel-style`
+
 Retrieves the authenticated traveler's stored narrative and active prompt directives.
 
 **Response**:
+
 ```json
 {
   "travel_style_description": "I love relaxing vacations exploring local bakeries...",
@@ -99,9 +104,11 @@ Retrieves the authenticated traveler's stored narrative and active prompt direct
 ```
 
 ### `PUT /api/user/profile/travel-style`
+
 Updates freeform travel style narrative and synthesizes modular prompt directives.
 
 **Request Body**:
+
 ```json
 {
   "travel_style_description": "Passionate about gothic cathedrals, quiet cobblestone streets, and classical history."
@@ -109,12 +116,15 @@ Updates freeform travel style narrative and synthesizes modular prompt directive
 ```
 
 ### `DELETE /api/user/profile/travel-style`
+
 Clears stored narrative and deletes all synthesized prompt directives for the tenant.
 
 ### `POST /api/pois/extract-and-check`
+
 Extracts and check triage candidate from web page URL and snippet, applying personalized directives.
 
 **Response**:
+
 ```json
 {
   "candidate": {
@@ -122,7 +132,7 @@ Extracts and check triage candidate from web page URL and snippet, applying pers
     "description": "Historic public market in Seattle overlooking Elliott Bay...",
     "reason_to_visit": "Wander bustling market alleys to sample artisan cheeses and ciders...",
     "latitude": 47.6087,
-    "longitude": -122.3400
+    "longitude": -122.34
   },
   "verdict": {
     "match_type": "UNIQUE_LOCATION"

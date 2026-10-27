@@ -28,7 +28,6 @@ from vistarae_core.schemas.base import StrictBaseModel
 from vistarae_core.schemas.preferences import UserPreferencesResponse
 
 
-
 class UserResponse(StrictBaseModel):
     """Basic representation of a registered user."""
 
@@ -109,4 +108,3 @@ class TravelStyleResponse(StrictBaseModel):
         default_factory=list,
         description="Active personalized prompt directives",
     )
-

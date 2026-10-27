@@ -32,7 +32,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from vistarae_core.adapters.embedding.mock import MockEmbeddingAdapter
 from vistarae_core.domain.entities import POI, PotentialDuplicateMatch
-from vistarae_core.domain.value_objects import PromptType, WGS84Point
+from vistarae_core.domain.value_objects import PromptType
 from vistarae_core.services.prompt_cache import UserPromptCache
 
 from services.worker.processor import BatchIngestWorker
@@ -136,7 +136,10 @@ class TestPersonalizedBatchIngestWorker:
         # POI was persisted with reason_to_visit
         assert len(fake_poi.created_pois) == 1
         created = fake_poi.created_pois[0]
-        assert created.reason_to_visit == "Iconic romantic Victorian architecture and water reflections."
+        assert (
+            created.reason_to_visit
+            == "Iconic romantic Victorian architecture and water reflections."
+        )
 
     async def test_process_record_synthesizes_missing_reason_with_orchestrator(self) -> None:
         """Asserts missing reason_to_visit is synthesized via orchestrator using prompt cache."""

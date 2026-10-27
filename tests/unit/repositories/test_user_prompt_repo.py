@@ -23,7 +23,6 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-
 from vistarae_core.adapters.db.tables import UserPromptTable
 from vistarae_core.adapters.repositories.user_prompt_repo import SqlAlchemyUserPromptRepository
 from vistarae_core.domain.value_objects import PromptType
