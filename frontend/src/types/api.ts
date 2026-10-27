@@ -1715,6 +1715,11 @@ export interface components {
        */
       description?: string | null;
       /**
+       * Reason To Visit
+       * @description Why a traveler should visit
+       */
+      reason_to_visit?: string | null;
+      /**
        * Address
        * @description Street address
        */
@@ -1877,6 +1882,11 @@ export interface components {
        * @description Rich description or markdown
        */
       description?: string | null;
+      /**
+       * Reason To Visit
+       * @description Why a traveler should visit
+       */
+      reason_to_visit?: string | null;
       /**
        * Address
        * @description Geocoded street address

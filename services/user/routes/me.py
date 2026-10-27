@@ -34,6 +34,7 @@ from vistarae_core.adapters.db.tables import (
 from vistarae_core.adapters.identity.cognito import CognitoIdentityProvider
 from vistarae_core.domain.entities import User
 from vistarae_core.domain.value_objects import PacingMode, ThemeMode, TransitSpeedMode, UserTier
+from vistarae_core.services.prompt_cache import default_prompt_cache
 from vistarae_core.schemas.preferences import (
     PlannerPreferencesResponse,
     POIPreferencesResponse,
@@ -139,6 +140,9 @@ async def get_me(
                 if (prefs_row and prefs_row.preferred_currency)
                 else "USD",
             ),
+            travel_style_description=prefs_row.travel_style_description
+            if prefs_row
+            else None,
         ),
         metrics=UserMetricsResponse(
             poi_count=metrics_row.poi_count
@@ -220,5 +224,7 @@ async def delete_me(
     """
     # 1. Remove from identity provider.
     await _cognito.delete_user(current_user.cognito_sub)
-    # 2. Delete from PostgreSQL — triggers CASCADE on all child tables.
+    # 2. Invalidate prompt cache
+    default_prompt_cache.invalidate_user(current_user.id)
+    # 3. Delete from PostgreSQL — triggers CASCADE on all child tables.
     await session.execute(delete(UserTable).where(UserTable.id == current_user.id))

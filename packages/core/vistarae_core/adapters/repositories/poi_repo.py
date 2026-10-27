@@ -115,6 +115,7 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
         parent_poi_id=row.parent_poi_id,
         parent_poi_name=parent_name,
         description=row.description,
+        reason_to_visit=getattr(row, "reason_to_visit", None),
         address=row.address,
         city=row.city,
         states=list(row.states) if row.states else [],
@@ -176,6 +177,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             parent_poi_id=poi.parent_poi_id,
             name=poi.name,
             description=poi.description,
+            reason_to_visit=poi.reason_to_visit,
             address=poi.address,
             city=poi.city,
             states=poi.states,
@@ -261,6 +263,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row.name = poi.name
         row.parent_poi_id = poi.parent_poi_id
         row.description = poi.description
+        row.reason_to_visit = poi.reason_to_visit
         row.address = poi.address
         row.city = poi.city
         row.states = poi.states
@@ -661,13 +664,15 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             query = query.where(cond)
             count_query = count_query.where(cond)
 
-        # Fuzzy text search on name or address
+        # Fuzzy text search on name, address, city, description, or reason_to_visit
         if text_query:
             pattern = f"%{text_query}%"
             cond = or_(
                 POITable.name.ilike(pattern),
                 POITable.address.ilike(pattern),
                 POITable.city.ilike(pattern),
+                POITable.description.ilike(pattern),
+                POITable.reason_to_visit.ilike(pattern),
             )
             query = query.where(cond)
             count_query = count_query.where(cond)

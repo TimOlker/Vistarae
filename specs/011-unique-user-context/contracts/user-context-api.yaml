@@ -1,0 +1,422 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Unique User Context & Reason to Visit API
+  version: 1.0.0
+  description: >
+    API contract for Phase 11 (011-unique-user-context): Traveler travel style management,
+    AI prompt decomposition directives, and Reason to Visit POI schema parity.
+
+paths:
+  /api/user/profile/travel-style:
+    get:
+      summary: Get traveler travel style and active prompt directives
+      description: Returns the traveler's saved travel style narrative and the list of active read-only prompt directives.
+      operationId: getTravelStyle
+      tags:
+        - UserContext
+      responses:
+        "200":
+          description: Travel style and active prompt directives
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelStyleResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    put:
+      summary: Update travel style and regenerate prompt directives
+      description: >
+        Saves the traveler's freeform travel style narrative and invokes AI synthesis
+        to regenerate modular prompt directives. Submitting an empty description clears directives.
+      operationId: updateTravelStyle
+      tags:
+        - UserContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TravelStyleUpdateRequest"
+      responses:
+        "200":
+          description: Travel style updated and prompt directives regenerated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelStyleResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    delete:
+      summary: Clear traveler travel style and delete custom prompt directives
+      description: Deletes all custom prompt directives for the traveler and reverts to standard base prompts.
+      operationId: clearTravelStyle
+      tags:
+        - UserContext
+      responses:
+        "200":
+          description: Travel style cleared successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelStyleResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/pois:
+    get:
+      summary: Query and search POIs
+      description: >
+        Queries POIs with spatial bounding box, taxonomic filters, and text search across
+        name, address, city, description, and reason_to_visit.
+      operationId: listPOIs
+      tags:
+        - POIs
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Keyword search evaluated against name, address, city, description, and reason_to_visit.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Paginated POI list with reason_to_visit populated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POIListResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    post:
+      summary: Create new POI
+      description: Creates a new POI record supporting both description and reason_to_visit.
+      operationId: createPOI
+      tags:
+        - POIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/POICreateRequest"
+      responses:
+        "201":
+          description: POI created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POIResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/pois/{poi_id}:
+    put:
+      summary: Update existing POI
+      description: Updates POI attributes including description and reason_to_visit.
+      operationId: updatePOI
+      tags:
+        - POIs
+      parameters:
+        - name: poi_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/POIUpdateRequest"
+      responses:
+        "200":
+          description: POI updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POIResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+  /api/pois/extract-and-check:
+    post:
+      summary: Extract destination details with personalized context and duplicate triage
+      description: >
+        Performs web scraping extraction augmented with the traveler's active prompt extensions,
+        returning both personalized description and reason_to_visit.
+      operationId: extractAndCheckPOI
+      tags:
+        - Scraping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractAndCheckRequest"
+      responses:
+        "200":
+          description: Extracted candidate attributes including personalized reason_to_visit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractAndCheckResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+components:
+  schemas:
+    TravelStyleUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        travel_style_description:
+          type:
+            - string
+            - "null"
+          maxLength: 2000
+          description: Narrative describing traveler style, interests, pace, and priorities.
+
+    UserPromptItem:
+      type: object
+      additionalProperties: false
+      required:
+        - prompt_type
+        - prompt_text
+        - updated_at
+      properties:
+        prompt_type:
+          type: string
+          enum:
+            - description
+            - reason_to_visit
+            - time_spent
+        prompt_text:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+
+    TravelStyleResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - prompts
+      properties:
+        travel_style_description:
+          type:
+            - string
+            - "null"
+        prompts:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserPromptItem"
+
+    POICreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - lat
+        - lon
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type:
+            - string
+            - "null"
+        reason_to_visit:
+          type:
+            - string
+            - "null"
+        lat:
+          type: number
+        lon:
+          type: number
+        address:
+          type:
+            - string
+            - "null"
+        city:
+          type:
+            - string
+            - "null"
+
+    POIUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        description:
+          type:
+            - string
+            - "null"
+        reason_to_visit:
+          type:
+            - string
+            - "null"
+
+    POIResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - user_id
+        - name
+        - lat
+        - lon
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type:
+            - string
+            - "null"
+        reason_to_visit:
+          type:
+            - string
+            - "null"
+        lat:
+          type: number
+        lon:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    POIListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/POIResponse"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ExtractAndCheckRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - source_url
+      properties:
+        source_url:
+          type: string
+          format: uri
+        page_title:
+          type:
+            - string
+            - "null"
+        selected_text:
+          type:
+            - string
+            - "null"
+
+    ExtractAndCheckResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - candidate
+      properties:
+        candidate:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type:
+                - string
+                - "null"
+            reason_to_visit:
+              type:
+                - string
+                - "null"
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+
+  responses:
+    ValidationError:
+      description: Request validation failure formatted per RFC 7807
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+    UnauthorizedError:
+      description: Authentication credential missing or expired
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"

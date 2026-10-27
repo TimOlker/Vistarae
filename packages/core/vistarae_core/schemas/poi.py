@@ -78,6 +78,9 @@ class POIResponse(StrictBaseModel):
     )
     name: str = Field(..., description="POI canonical name")
     description: str | None = Field(default=None, description="Rich description or markdown")
+    reason_to_visit: str | None = Field(
+        default=None, description="Experiential rationale explaining why a tourist should visit"
+    )
     address: str | None = Field(default=None, description="Geocoded street address")
     city: str | None = Field(default=None, description="City or municipality")
     states: list[str] = Field(
@@ -176,6 +179,9 @@ class POICreateRequest(StrictBaseModel):
     lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude in degrees (WGS-84)")
     parent_poi_id: UUID | None = Field(default=None, description="Optional macro-site parent UUID")
     description: str | None = Field(default=None, description="Rich description or markdown")
+    reason_to_visit: str | None = Field(
+        default=None, description="Experiential rationale explaining why a tourist should visit"
+    )
     addresses: list[AddressRecord] | None = Field(
         default=None, description="Array of structured international address records"
     )
@@ -244,6 +250,11 @@ class POIUpdateRequest(StrictBaseModel):
     parent_poi_id: UUID | None = Field(default=None, description="Optional macro-site parent UUID")
     description: str | None = Field(
         default=None, max_length=10000, description="Rich description or markdown"
+    )
+    reason_to_visit: str | None = Field(
+        default=None,
+        max_length=10000,
+        description="Experiential rationale explaining why a tourist should visit",
     )
     addresses: list[AddressRecord] | None = Field(
         default=None, description="Structured international address records"

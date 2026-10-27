@@ -52,6 +52,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
   const { showToast } = useToast();
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [reasonToVisit, setReasonToVisit] = useState("");
   const [latitude, setLatitude] = useState<string>("");
   const [longitude, setLongitude] = useState<string>("");
   const [city, setCity] = useState("");
@@ -158,6 +160,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
       rating: rating > 0 ? rating : null,
       city: city || undefined,
       address: address || undefined,
+      description: description.trim() || undefined,
+      reason_to_visit: reasonToVisit.trim() || undefined,
       tags: tagsInput
         .split(",")
         .map((t) => t.trim())
@@ -179,6 +183,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
     setLongitude("");
     setCity("");
     setAddress("");
+    setDescription("");
+    setReasonToVisit("");
     setTagsInput("");
     onClose();
   };
@@ -332,6 +338,68 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
               borderRadius: "var(--radius-md, 8px)",
               border: "1px solid var(--border-color, #e2e8f0)",
               fontSize: "13px",
+            }}
+          />
+        </div>
+
+        {/* Description textarea */}
+        <div>
+          <label
+            htmlFor="manual-poi-description"
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              display: "block",
+              marginBottom: "6px",
+            }}
+          >
+            Description
+          </label>
+          <textarea
+            id="manual-poi-description"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Detailed visitor notes, highlights, or scenic overlooks..."
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "var(--radius-md, 8px)",
+              border: "1px solid var(--border-color, #e2e8f0)",
+              fontSize: "13px",
+              resize: "vertical",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+
+        {/* Reason to Visit textarea positioned directly below Description */}
+        <div>
+          <label
+            htmlFor="manual-poi-reason-to-visit"
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              display: "block",
+              marginBottom: "6px",
+            }}
+          >
+            Reason to Visit
+          </label>
+          <textarea
+            id="manual-poi-reason-to-visit"
+            rows={3}
+            value={reasonToVisit}
+            onChange={(e) => setReasonToVisit(e.target.value)}
+            placeholder="Why a tourist would be interested in visiting (e.g. scenic sunset, historic architecture)..."
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "var(--radius-md, 8px)",
+              border: "1px solid var(--border-color, #e2e8f0)",
+              fontSize: "13px",
+              resize: "vertical",
+              fontFamily: "inherit",
             }}
           />
         </div>

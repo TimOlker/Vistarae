@@ -98,3 +98,4 @@ class UserPreferencesResponse(StrictBaseModel):
     ui: UIPreferencesResponse
     poi: POIPreferencesResponse
     planner: PlannerPreferencesResponse
+    travel_style_description: str | None = None

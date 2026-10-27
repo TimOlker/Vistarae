@@ -119,6 +119,7 @@ export interface components {
     POIUpdateRequest: {
       name?: string;
       description?: string;
+      reason_to_visit?: string | null;
       /** Format: uuid */
       parent_poi_id?: string | null;
       addresses?: components["schemas"]["AddressRecord"][];
@@ -146,6 +147,7 @@ export interface components {
       user_id: string;
       name: string;
       description?: string | null;
+      reason_to_visit?: string | null;
       /** Format: uuid */
       parent_poi_id?: string | null;
       parent_poi_name?: string | null;

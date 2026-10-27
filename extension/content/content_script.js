@@ -121,6 +121,17 @@ export async function openCaptureOverlay(payload = {}) {
           )}</textarea>
         </div>
 
+        <!-- Reason to Visit (REQ-CTX-034 / SC-005) -->
+        <div class="vistarae-form-group">
+          <label class="vistarae-label" for="vistarae-reason-input">
+            Reason to Visit
+            <span class="vistarae-field-spinner" id="vistarae-reason-spinner" title="Enriching reason to visit..."></span>
+          </label>
+          <textarea class="vistarae-textarea" id="vistarae-reason-input" rows="3" placeholder="Why a tourist would be interested in visiting...">${escapeHtml(
+            scrapedPoi.reason_to_visit || "",
+          )}</textarea>
+        </div>
+
         <!-- Coordinates -->
         <div class="vistarae-grid-2">
           <div class="vistarae-form-group">
@@ -773,6 +784,9 @@ export async function openCaptureOverlay(payload = {}) {
     const description = shadow
       .querySelector("#vistarae-desc-input")
       .value.trim();
+    const reasonToVisit = shadow
+      .querySelector("#vistarae-reason-input")
+      ?.value?.trim() || null;
     const latVal = shadow.querySelector("#vistarae-lat-input").value;
     const lngVal = shadow.querySelector("#vistarae-lng-input").value;
     const officialUrl = shadow
@@ -794,6 +808,7 @@ export async function openCaptureOverlay(payload = {}) {
     const payloadPoi = {
       name,
       description,
+      reason_to_visit: reasonToVisit,
       addresses: currentAddresses,
       latitude: latVal ? parseFloat(latVal) : null,
       longitude: lngVal ? parseFloat(lngVal) : null,
@@ -836,6 +851,7 @@ export async function openCaptureOverlay(payload = {}) {
   // Helpers to dismiss spinners
   const dismissSpinners = () => {
     shadow.querySelector("#vistarae-desc-spinner")?.remove();
+    shadow.querySelector("#vistarae-reason-spinner")?.remove();
     shadow.querySelector("#vistarae-wiki-spinner")?.remove();
     shadow.querySelector("#vistarae-hero-spinner")?.remove();
     shadow.querySelector("#vistarae-dur-spinner")?.remove();
@@ -879,6 +895,10 @@ export async function openCaptureOverlay(payload = {}) {
           sanitizeDestinationTitle(c.name) || c.name;
       if (c.description)
         shadow.querySelector("#vistarae-desc-input").value = c.description;
+      if (c.reason_to_visit) {
+        const reasonInput = shadow.querySelector("#vistarae-reason-input");
+        if (reasonInput) reasonInput.value = c.reason_to_visit;
+      }
       if (c.latitude !== undefined && c.latitude !== null) {
         shadow.querySelector("#vistarae-lat-input").value = c.latitude;
       }

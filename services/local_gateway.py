@@ -129,6 +129,7 @@ async def health_ready(
 
 
 # 3. Mount microservices
+gateway.mount("/api/user", user_app)
 gateway.mount("/api/users", user_app)
 gateway.mount("/api/admin", admin_app)
 gateway.include_router(auth_router, prefix="/api/auth", tags=["auth"])

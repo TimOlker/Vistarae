@@ -90,6 +90,9 @@ class POICandidateSchema(StrictBaseModel):
 
     name: str = Field(..., description="Normalized standard English POI name")
     description: str = Field(..., description="Concise multi-line summary of the destination")
+    reason_to_visit: str | None = Field(
+        default=None, description="Experiential rationale explaining why a tourist should visit"
+    )
     addresses: list[AddressRecord] = Field(
         default_factory=list, description="Array of resolved address objects"
     )

@@ -15,3 +15,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Domain application services package."""
+
+from vistarae_core.services.prompt_cache import UserPromptCache, default_prompt_cache
+
+__all__ = ["UserPromptCache", "default_prompt_cache"]
+

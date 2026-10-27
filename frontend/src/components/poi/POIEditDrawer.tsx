@@ -69,6 +69,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   // Core scalar state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [reasonToVisit, setReasonToVisit] = useState("");
   const [rating, setRating] = useState<number>(0);
   const [tagsInput, setTagsInput] = useState("");
 
@@ -168,6 +169,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     const baselineLon = poi.canonical_lng ?? poi.lon ?? 0;
     setName(poi.name || "");
     setDescription(poi.description || "");
+    setReasonToVisit(poi.reason_to_visit || "");
     setLat(baselineLat);
     setLon(baselineLon);
     setInitialLat(baselineLat);
@@ -234,6 +236,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         const fullData = await apiFetch<any>(`/api/pois/${poi.id}`);
         setName(fullData.name || "");
         setDescription(fullData.description || "");
+        setReasonToVisit(fullData.reason_to_visit || "");
         const fetchedLat = fullData.lat ?? fullData.latitude ?? baselineLat;
         const fetchedLon = fullData.lon ?? fullData.longitude ?? baselineLon;
         setLat(fetchedLat);
@@ -372,6 +375,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       ...poi,
       name: name.trim(),
       description: description.trim() || undefined,
+      reason_to_visit: reasonToVisit.trim() || undefined,
       parent_poi_id: parentPoiId || undefined,
       parent_poi_name: parentPoiName || undefined,
       addresses: currentAddrs,
@@ -496,6 +500,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       const payload: POIUpdateRequest = {
         name: name.trim(),
         description: description.trim() || undefined,
+        reason_to_visit: reasonToVisit.trim() || undefined,
         parent_poi_id: parentPoiId || undefined,
         addresses: activeAddresses.length > 0 ? activeAddresses : undefined,
         latitude: lat,
@@ -563,6 +568,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         rating: updated.rating,
         tags: finalTags,
         description: updated.description,
+        reason_to_visit: updated.reason_to_visit ?? (reasonToVisit.trim() || undefined),
         addresses: updated.addresses,
         parent_poi_id: updated.parent_poi_id,
         parent_poi_name: updated.parent_poi_name,
@@ -780,6 +786,67 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                 placeholder="Detailed visitor notes, highlights, entrance instructions, or scenic overlooks..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  border: "1px solid var(--border-color, #e2e8f0)",
+                  fontSize: "13px",
+                  background: "var(--bg-surface, #ffffff)",
+                  color: "var(--text-primary, #0f172a)",
+                  resize: "vertical",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+
+            {/* Section 2b: Reason to Visit (Why Visit) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <label
+                  htmlFor="poi-reason-to-visit"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary, #475569)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  <Compass
+                    size={14}
+                    style={{ color: "var(--accent, #2563eb)" }}
+                  />
+                  Reason to Visit
+                </label>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color:
+                      reasonToVisit.length > 9500
+                        ? "var(--warning, #f59e0b)"
+                        : "var(--text-muted, #94a3b8)",
+                  }}
+                >
+                  {reasonToVisit.length.toLocaleString()} / 10,000
+                </span>
+              </div>
+              <textarea
+                id="poi-reason-to-visit"
+                rows={4}
+                maxLength={10000}
+                placeholder="Why a tourist would be interested in visiting (e.g., scenic sunset vistas, historic architecture, specialty dishes)..."
+                value={reasonToVisit}
+                onChange={(e) => setReasonToVisit(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "8px 12px",

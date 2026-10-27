@@ -53,24 +53,32 @@ class MockIdentityProvider:
         Raises:
             ValueError: If the token is not a valid UUID format.
         """
+        had_mock_prefix = False
         raw = token.strip()
         if raw.startswith("Bearer "):
             raw = raw.removeprefix("Bearer ").strip()
         if raw.startswith("mock-access-token-"):
             raw = raw.removeprefix("mock-access-token-")
+            had_mock_prefix = True
         elif raw.startswith("mock-id-token-"):
             raw = raw.removeprefix("mock-id-token-")
+            had_mock_prefix = True
         elif raw.startswith("mock-token-"):
             raw = raw.removeprefix("mock-token-")
+            had_mock_prefix = True
         elif raw.startswith("mock-"):
             raw = raw.removeprefix("mock-")
+            had_mock_prefix = True
 
         try:
             user_uuid = UUID(raw)
-        except ValueError:
-            import uuid
+        except ValueError as exc:
+            if had_mock_prefix:
+                import uuid
 
-            user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, raw)
+                user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, raw)
+            else:
+                raise ValueError(f"X-Mock-User-Id must be a valid UUID; got '{token}'.") from exc
 
         logger.debug("MSG -->| [mock.py -> local] Mock auth bypass for user_id=%s", user_uuid)
 

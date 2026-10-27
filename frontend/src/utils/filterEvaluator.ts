@@ -66,6 +66,51 @@ export function evaluateRuleClause(
       return true;
     }
 
+    case "description": {
+      const desc = (poi.description || "").trim().toLowerCase();
+      const target = String(value ?? "")
+        .trim()
+        .toLowerCase();
+      if (op === "contains") return desc.includes(target);
+      if (op === "equals" || op === "=") return desc === target;
+      if (op === "is_empty") return desc.length === 0;
+      if (op === "is_not_empty") return desc.length > 0;
+      return true;
+    }
+
+    case "reason_to_visit": {
+      const reason = (poi.reason_to_visit || "").trim().toLowerCase();
+      const target = String(value ?? "")
+        .trim()
+        .toLowerCase();
+      if (op === "contains") return reason.includes(target);
+      if (op === "equals" || op === "=") return reason === target;
+      if (op === "is_empty") return reason.length === 0;
+      if (op === "is_not_empty") return reason.length > 0;
+      return true;
+    }
+
+    case "search":
+    case "text":
+    case "q": {
+      const target = String(value ?? "")
+        .trim()
+        .toLowerCase();
+      if (!target) return true;
+      const name = (poi.name || "").toLowerCase();
+      const addr = (poi.address || "").toLowerCase();
+      const city = (poi.city || "").toLowerCase();
+      const desc = (poi.description || "").toLowerCase();
+      const reason = (poi.reason_to_visit || "").toLowerCase();
+      return (
+        name.includes(target) ||
+        addr.includes(target) ||
+        city.includes(target) ||
+        desc.includes(target) ||
+        reason.includes(target)
+      );
+    }
+
     case "has_parent": {
       const isParentExpected = Boolean(value);
       const hasParent = Boolean(poi.parent_poi_id);

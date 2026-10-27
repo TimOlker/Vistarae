@@ -78,6 +78,7 @@ export interface POIMapFeature {
   want_to_visit_again?: boolean | null;
   visited_dates?: string[];
   description?: string;
+  reason_to_visit?: string;
   official_url?: string;
   wiki_url?: string;
   recommended_duration_hours?: number | null;

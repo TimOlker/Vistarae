@@ -25,14 +25,17 @@ import React, {
   useCallback,
 } from "react";
 import { authService, type UserSession } from "../services/auth";
+import { TravelStyleOnboardingModal } from "../components/profile/TravelStyleOnboardingModal";
 
 interface AuthContextValue {
   user: UserSession | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isOnboardingModalOpen: boolean;
   login: (email: string, pass: string) => Promise<UserSession>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  closeOnboardingModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -44,6 +47,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     authService.getStoredUser(),
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState<boolean>(false);
+
+  const checkTravelStyleOnboarding = useCallback((u: UserSession | null) => {
+    if (!u) return;
+    if (typeof window === "undefined") return;
+    const isDismissed = sessionStorage.getItem("vistarae_travel_style_dismissed") === "true";
+    if (isDismissed) return;
+    const desc = u.travel_style_description?.trim();
+    if (!desc) {
+      setIsOnboardingModalOpen(true);
+    }
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const token = authService.getStoredToken();
@@ -53,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const u = await authService.fetchCurrentUser();
         setUser(u);
+        checkTravelStyleOnboarding(u);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
         }
@@ -68,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
     }
     setIsLoading(false);
-  }, []);
+  }, [checkTravelStyleOnboarding]);
 
   useEffect(() => {
     refreshUser();
@@ -77,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, pass: string): Promise<UserSession> => {
     const { user: loggedInUser } = await authService.login(email, pass);
     setUser(loggedInUser);
+    checkTravelStyleOnboarding(loggedInUser);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
     }
@@ -86,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     await authService.logout();
     setUser(null);
+    setIsOnboardingModalOpen(false);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("vistarae_auth_sync"));
     }
@@ -97,12 +115,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         isAuthenticated: !!user,
         isLoading,
+        isOnboardingModalOpen,
         login,
         logout,
         refreshUser,
+        closeOnboardingModal: () => setIsOnboardingModalOpen(false),
       }}
     >
       {children}
+      <TravelStyleOnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={() => setIsOnboardingModalOpen(false)}
+      />
     </AuthContext.Provider>
   );
 };

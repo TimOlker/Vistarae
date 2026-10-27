@@ -497,6 +497,7 @@ async function handleSavePoi(poi) {
           : 0.0,
     parent_poi_id: poi.parent_poi_id || null,
     description: poi.description || null,
+    reason_to_visit: poi.reason_to_visit || null,
     address: poi.address || poi.addresses?.[0]?.street || null,
     addresses: Array.isArray(poi.addresses) ? poi.addresses : [],
     source_type: poi.source_type || "Web",

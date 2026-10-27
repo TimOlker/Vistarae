@@ -85,6 +85,7 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         parent_poi_name=getattr(poi, "parent_poi_name", None),
         name=poi.name,
         description=poi.description,
+        reason_to_visit=getattr(poi, "reason_to_visit", None),
         addresses=poi.addresses or [],
         address=poi.address,
         city=poi.city,
@@ -309,6 +310,7 @@ async def create_poi(
         geom=WGS84Point(lon=req.lon, lat=req.lat),
         parent_poi_id=req.parent_poi_id,
         description=req.description,
+        reason_to_visit=req.reason_to_visit,
         address=address,
         city=req.city,
         states=states,
@@ -363,6 +365,7 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:
     fields = (
         "name",
         "description",
+        "reason_to_visit",
         "address",
         "city",
         "states",

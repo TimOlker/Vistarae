@@ -14,7 +14,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import type { TableConfig } from "../../types/filter";
 import {
@@ -25,6 +25,7 @@ import {
   Filter,
   CheckSquare,
   Square,
+  Search,
 } from "lucide-react";
 import { BulkActionsToolbar } from "../bulk/BulkActionsToolbar";
 
@@ -63,15 +64,45 @@ export const POITable: React.FC<POITableProps> = ({
   onOpenBulkDelete,
   onDeselectAll,
 }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showReasonColumn, setShowReasonColumn] = useState(false);
+  const [showDescColumn, setShowDescColumn] = useState(false);
+
+  // Filter POIs by searchTerm matching name, address, description, reason_to_visit, etc.
+  const filteredPois = useMemo(() => {
+    if (!searchTerm.trim()) return pois;
+    const term = searchTerm.trim().toLowerCase();
+    return pois.filter((poi) => {
+      const name = (poi.name || "").toLowerCase();
+      const addr = (poi.address || "").toLowerCase();
+      const city = (poi.city || "").toLowerCase();
+      const state = (poi.state || "").toLowerCase();
+      const country = (poi.country || "").toLowerCase();
+      const desc = (poi.description || "").toLowerCase();
+      const reason = (poi.reason_to_visit || "").toLowerCase();
+      const tags = (poi.tags || []).join(" ").toLowerCase();
+      return (
+        name.includes(term) ||
+        addr.includes(term) ||
+        city.includes(term) ||
+        state.includes(term) ||
+        country.includes(term) ||
+        desc.includes(term) ||
+        reason.includes(term) ||
+        tags.includes(term)
+      );
+    });
+  }, [pois, searchTerm]);
+
   // Sort POIs based on tableConfig if specified
   const sortedPois = useMemo(() => {
     if (!tableConfig?.sort || tableConfig.sort.direction === "unsorted") {
-      return pois;
+      return filteredPois;
     }
     const { column, direction } = tableConfig.sort;
     const modifier = direction === "desc" ? -1 : 1;
 
-    return [...pois].sort((a, b) => {
+    return [...filteredPois].sort((a, b) => {
       let valA: any = "";
       let valB: any = "";
 
@@ -110,22 +141,52 @@ export const POITable: React.FC<POITableProps> = ({
         valB = (b.tags || []).join(",");
         return valA.localeCompare(valB) * modifier;
       }
+      if (column === "description") {
+        valA = a.description || "";
+        valB = b.description || "";
+        return valA.localeCompare(valB) * modifier;
+      }
+      if (column === "reason_to_visit") {
+        valA = a.reason_to_visit || "";
+        valB = b.reason_to_visit || "";
+        return valA.localeCompare(valB) * modifier;
+      }
       return 0;
     });
-  }, [pois, tableConfig]);
+  }, [filteredPois, tableConfig]);
 
   // Determine active columns and order
   const activeColumns = useMemo(() => {
     const defaultCols = ["name", "city", "rating", "visit_state", "tags"];
-    if (!tableConfig) return defaultCols;
+    let baseCols: string[];
+    if (tableConfig) {
+      const visibleSet = new Set(tableConfig.visible_columns);
+      if (showReasonColumn) visibleSet.add("reason_to_visit");
+      if (showDescColumn) visibleSet.add("description");
+      const order =
+        tableConfig.column_order.length > 0
+          ? tableConfig.column_order
+          : defaultCols;
+      baseCols = order.filter((col) => visibleSet.has(col));
+      if (showReasonColumn && !baseCols.includes("reason_to_visit")) {
+        baseCols.push("reason_to_visit");
+      }
+      if (showDescColumn && !baseCols.includes("description")) {
+        baseCols.splice(baseCols.indexOf("reason_to_visit") !== -1 ? baseCols.indexOf("reason_to_visit") : baseCols.length, 0, "description");
+      }
+      return baseCols;
+    }
 
-    const visibleSet = new Set(tableConfig.visible_columns);
-    const order =
-      tableConfig.column_order.length > 0
-        ? tableConfig.column_order
-        : defaultCols;
-    return order.filter((col) => visibleSet.has(col));
-  }, [tableConfig]);
+    baseCols = [...defaultCols];
+    if (showDescColumn) {
+      baseCols.splice(2, 0, "description");
+    }
+    if (showReasonColumn) {
+      const idx = baseCols.indexOf("description");
+      baseCols.splice(idx !== -1 ? idx + 1 : 2, 0, "reason_to_visit");
+    }
+    return baseCols;
+  }, [tableConfig, showReasonColumn, showDescColumn]);
 
   const allFilteredSelected = useMemo(() => {
     if (pois.length === 0) return false;
@@ -217,6 +278,10 @@ export const POITable: React.FC<POITableProps> = ({
         return "Status";
       case "tags":
         return "Tags";
+      case "description":
+        return "Description";
+      case "reason_to_visit":
+        return "Reason to Visit";
       default:
         return colId;
     }
@@ -268,6 +333,41 @@ export const POITable: React.FC<POITableProps> = ({
               </span>
             ))}
           </div>
+        );
+      case "description":
+        return (
+          <span
+            title={poi.description || undefined}
+            data-testid={`poi-desc-cell-${poi.id}`}
+            style={{
+              display: "inline-block",
+              maxWidth: "180px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "var(--text-secondary, #475569)",
+            }}
+          >
+            {poi.description || "—"}
+          </span>
+        );
+      case "reason_to_visit":
+        return (
+          <span
+            title={poi.reason_to_visit || undefined}
+            data-testid={`poi-reason-cell-${poi.id}`}
+            style={{
+              display: "inline-block",
+              maxWidth: "200px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "var(--accent, #2563eb)",
+              fontWeight: 500,
+            }}
+          >
+            {poi.reason_to_visit || "—"}
+          </span>
         );
       default:
         return null;
@@ -338,30 +438,85 @@ export const POITable: React.FC<POITableProps> = ({
           )}
         </div>
 
-        {/* Viewport Filter Toggle */}
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontSize: "12px",
-            fontWeight: 600,
-            color: "var(--text-secondary, #475569)",
-            cursor: "pointer",
-          }}
-        >
-          <Filter
-            size={14}
-            color={isViewportFilterActive ? "var(--accent)" : "inherit"}
-          />
-          <span>Filter to map viewport</span>
-          <input
-            type="checkbox"
-            checked={isViewportFilterActive}
-            onChange={(e) => onToggleViewportFilter(e.target.checked)}
-            style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
-          />
-        </label>
+        {/* Search input and Viewport Filter Toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+          {/* Text search filter */}
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <Search
+              size={14}
+              style={{
+                position: "absolute",
+                left: "8px",
+                color: "var(--text-muted, #94a3b8)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              data-testid="poi-table-search-input"
+              placeholder="Search POIs, description, why visit..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: "4px 8px 4px 28px",
+                borderRadius: "var(--radius-md, 6px)",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                fontSize: "12px",
+                width: "220px",
+                background: "var(--bg-surface, #ffffff)",
+                color: "var(--text-primary, #0f172a)",
+              }}
+            />
+          </div>
+
+          {/* Column Toggles */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                data-testid="toggle-desc-column"
+                checked={showDescColumn}
+                onChange={(e) => setShowDescColumn(e.target.checked)}
+                style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
+              />
+              <span>Description</span>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                data-testid="toggle-reason-column"
+                checked={showReasonColumn}
+                onChange={(e) => setShowReasonColumn(e.target.checked)}
+                style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
+              />
+              <span>Reason to Visit</span>
+            </label>
+          </div>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "var(--text-secondary, #475569)",
+              cursor: "pointer",
+            }}
+          >
+            <Filter
+              size={14}
+              color={isViewportFilterActive ? "var(--accent)" : "inherit"}
+            />
+            <span>Filter to map viewport</span>
+            <input
+              type="checkbox"
+              checked={isViewportFilterActive}
+              onChange={(e) => onToggleViewportFilter(e.target.checked)}
+              style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Bulk Actions Toolbar */}

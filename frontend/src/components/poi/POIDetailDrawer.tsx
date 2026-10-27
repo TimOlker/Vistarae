@@ -37,6 +37,8 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
   onDelete,
 }) => {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [reasonToVisit, setReasonToVisit] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
   const [visitState, setVisitState] = useState<VisitState>("not_visited");
@@ -46,6 +48,8 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
   useEffect(() => {
     if (poi) {
       setName(poi.name);
+      setDescription(poi.description || "");
+      setReasonToVisit(poi.reason_to_visit || "");
       setCity(poi.city || "");
       setAddress(poi.address || "");
       setVisitState(poi.visit_state);
@@ -61,6 +65,8 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
     const updated: POIMapFeature = {
       ...poi,
       name,
+      description: description.trim() || undefined,
+      reason_to_visit: reasonToVisit.trim() || undefined,
       city,
       address,
       visit_state: visitState,
@@ -158,6 +164,80 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
                 borderRadius: "var(--radius-md, 8px)",
                 border: "1px solid var(--border-color, #e2e8f0)",
                 fontSize: "13px",
+              }}
+            />
+          </div>
+
+          {/* Description Block */}
+          <div>
+            <label
+              htmlFor="detail-poi-description"
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                display: "block",
+                marginBottom: "6px",
+              }}
+            >
+              Description
+            </label>
+            <textarea
+              id="detail-poi-description"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this location is..."
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                fontSize: "13px",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+
+          {/* Dedicated Why Visit card immediately following Description */}
+          <div
+            data-testid="detail-why-visit-card"
+            style={{
+              padding: "12px",
+              borderRadius: "var(--radius-md, 8px)",
+              background: "var(--bg-hover, #f8fafc)",
+              border: "1px solid var(--border-color, #e2e8f0)",
+            }}
+          >
+            <label
+              htmlFor="detail-poi-reason-to-visit"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "var(--accent, #2563eb)",
+                marginBottom: "6px",
+              }}
+            >
+              Why Visit (Reason to Visit)
+            </label>
+            <textarea
+              id="detail-poi-reason-to-visit"
+              rows={3}
+              value={reasonToVisit}
+              onChange={(e) => setReasonToVisit(e.target.value)}
+              placeholder="Why visit this location..."
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                border: "1px solid var(--border-color, #cbd5e1)",
+                fontSize: "13px",
+                resize: "vertical",
+                fontFamily: "inherit",
+                background: "var(--bg-surface, #ffffff)",
               }}
             />
           </div>
