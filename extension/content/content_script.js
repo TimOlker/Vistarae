@@ -256,9 +256,9 @@ export async function openCaptureOverlay(payload = {}) {
         <!-- Visit Duration Notes / Reasoning -->
         <div class="vistarae-form-group">
           <label class="vistarae-label" for="vistarae-duration-notes-input">
-            Estimated Visit Time Notes
+            Visit Duration Reasoning & Notes
           </label>
-          <textarea class="vistarae-textarea" id="vistarae-duration-notes-input" rows="2" placeholder="Reasoning for visit duration (e.g. 45-min tour, 30-min grounds walk)...">${
+          <textarea class="vistarae-textarea" id="vistarae-duration-notes-input" rows="3" placeholder="Reasoning for visit duration (e.g. ticket lines, tour length, shuttle transit, ranger talks, demonstrations)...">${
             scrapedPoi.estimated_visit_time_notes || ""
           }</textarea>
         </div>

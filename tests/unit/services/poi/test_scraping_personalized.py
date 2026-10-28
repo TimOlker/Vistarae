@@ -108,18 +108,21 @@ class TestPersonalizedScraping:
             mock_client = MagicMock()
             mock_genai_cls.return_value = mock_client
 
-            # Return distinctive responses for name normalization, description, and reason_to_visit
+            # Return distinctive responses for name normalization, description, reason_to_visit, and duration notes
             mock_resp_name = MagicMock()
             mock_resp_name.text = "Pike Place Market"
             mock_resp_desc = MagicMock()
             mock_resp_desc.text = "Historic public market showcasing local artisan bakeries, fresh seafood stalls, and northwest food culture."
             mock_resp_reason = MagicMock()
             mock_resp_reason.text = "Food-loving travelers should visit to wander the bustling market alleys, sample artisan ciders, and taste local cheeses."
+            mock_resp_duration = MagicMock()
+            mock_resp_duration.text = "Estimated 3 hours allows leisurely exploration of artisan stalls, a 45-minute food tasting tour, and unhurried sampling."
 
             mock_client.models.generate_content.side_effect = [
                 mock_resp_name,
                 mock_resp_desc,
                 mock_resp_reason,
+                mock_resp_duration,
             ]
 
             candidate = await orchestrator.extract(
@@ -132,16 +135,21 @@ class TestPersonalizedScraping:
             assert "artisan bakeries" in candidate.description
             assert candidate.reason_to_visit is not None
             assert "artisan ciders" in candidate.reason_to_visit
+            assert candidate.estimated_visit_time_notes is not None
+            assert "tasting tour" in candidate.estimated_visit_time_notes
 
             # Check pacing adjustment: Pike Place base duration 1.5 adjusted for leisurely pacing -> 3.0
             assert candidate.estimated_duration_hours == 3.0
 
             # Verify prompt contents passed to Gemini
-            assert mock_client.models.generate_content.call_count == 3
+            assert mock_client.models.generate_content.call_count == 4
             desc_call_prompt = mock_client.models.generate_content.call_args_list[1].kwargs[
                 "contents"
             ]
             reason_call_prompt = mock_client.models.generate_content.call_args_list[2].kwargs[
+                "contents"
+            ]
+            duration_call_prompt = mock_client.models.generate_content.call_args_list[3].kwargs[
                 "contents"
             ]
 
@@ -149,6 +157,44 @@ class TestPersonalizedScraping:
             assert "Focus on authentic dining" in reason_call_prompt
             assert "Do NOT invent, hallucinate, or force irrelevant themes" in desc_call_prompt
             assert "Do not invent or force irrelevant themes" in reason_call_prompt
+            assert (
+                "CRITICAL REQUIREMENT: Do NOT include or mention the capture source"
+                in desc_call_prompt
+            )
+            assert "Time to spend in line / ticket queues" in duration_call_prompt
+            assert "guided tour" in duration_call_prompt
+            assert "Shuttle bus" in duration_call_prompt
+
+    async def test_description_excludes_capture_source(self) -> None:
+        """Verifies capture source prefixes ('Captured from Google Maps:') are stripped and forbidden."""
+        orchestrator = ScrapingOrchestrator(
+            gemini_api_key="test-api-key",
+            secondary_adapters=[],
+        )
+
+        with patch("google.genai.Client") as mock_genai_cls:
+            mock_client = MagicMock()
+            mock_genai_cls.return_value = mock_client
+
+            mock_resp_desc = MagicMock()
+            # Simulate an LLM that mistakenly repeated the capture source
+            mock_resp_desc.text = "Captured from Google Maps: Eltz Castle is a medieval castle nestled in the hills above the Moselle."
+            mock_client.models.generate_content.return_value = mock_resp_desc
+
+            desc = await orchestrator.synthesize_summary(
+                name="Eltz Castle",
+                primary_snippet="Captured from Google Maps: Eltz Castle Eltz Castle is a medieval castle nestled in the hills.",
+                secondary_extracts=[],
+            )
+
+            # Assert capture source prefix is completely stripped from description output
+            assert "Captured from Google Maps" not in desc
+            assert desc.startswith("Eltz Castle is a medieval castle")
+
+            # Assert the prompt explicitly instructed Gemini not to include the capture source
+            call_prompt = mock_client.models.generate_content.call_args.kwargs["contents"]
+            assert "Do NOT include or mention the capture source" in call_prompt
+            assert "Start directly with the factual description" in call_prompt
 
     async def test_duration_pacing_heuristic_generous(self) -> None:
         """Verifies leisurely/generous time_spent directive scales visit duration appropriately."""
@@ -181,3 +227,20 @@ class TestPersonalizedScraping:
 
         assert dur_h == 1.5
         assert dur_d == 0
+
+    async def test_heuristic_duration_notes_includes_factors(self) -> None:
+        """Verifies visit duration reasoning and notes include tours, lines, shuttles, demonstrations, and pacing."""
+        notes = ScrapingOrchestrator._heuristic_duration_notes(
+            name="Eltz Castle",
+            category="castle",
+            duration_hours=2.5,
+            duration_days=0,
+            time_spent_directive="We travel at a leisurely, relaxed pace with time for tours.",
+        )
+
+        assert "Eltz Castle" in notes
+        assert "shuttle bus" in notes.lower() or "approach" in notes.lower()
+        assert "ticket" in notes.lower() or "lines" in notes.lower()
+        assert "tour" in notes.lower()
+        assert "demonstrations" in notes.lower() or "viewpoints" in notes.lower()
+        assert "leisurely" in notes.lower()

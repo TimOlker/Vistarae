@@ -220,6 +220,7 @@ class BatchIngestWorker:
             if row_data.get("recommended_duration_hours")
             else None
         )
+        estimated_visit_time_notes = row_data.get("estimated_visit_time_notes")
 
         if self._orchestrator:
             url = row_data.get("url") or row_data.get("source_url")
@@ -233,8 +234,18 @@ class BatchIngestWorker:
                         description = extracted.description
                     if not reason_to_visit and extracted.reason_to_visit:
                         reason_to_visit = extracted.reason_to_visit
-                    if recommended_duration_hours is None and extracted.recommended_duration_hours:
+                    if recommended_duration_hours is None and getattr(
+                        extracted, "estimated_duration_hours", None
+                    ):
+                        recommended_duration_hours = extracted.estimated_duration_hours
+                    elif recommended_duration_hours is None and getattr(
+                        extracted, "recommended_duration_hours", None
+                    ):
                         recommended_duration_hours = extracted.recommended_duration_hours
+                    if not estimated_visit_time_notes and getattr(
+                        extracted, "estimated_visit_time_notes", None
+                    ):
+                        estimated_visit_time_notes = extracted.estimated_visit_time_notes
             elif prompt_directives and not reason_to_visit and description:
                 if hasattr(self._orchestrator, "synthesize_reason_to_visit"):
                     reason_to_visit = await self._orchestrator.synthesize_reason_to_visit(
@@ -249,6 +260,7 @@ class BatchIngestWorker:
                 "name": raw_name,
                 "description": description or "",
                 "reason_to_visit": reason_to_visit or "",
+                "estimated_visit_time_notes": estimated_visit_time_notes or None,
                 "address": address,
                 "city": row_data.get("city", ""),
                 "states": [row_data["state"]] if row_data.get("state") else [],
@@ -295,6 +307,7 @@ class BatchIngestWorker:
             visited_dates=visited_dates,
             visit_state=visit_state,
             recommended_duration_hours=recommended_duration_hours,
+            estimated_visit_time_notes=estimated_visit_time_notes,
             embedding=embedding,
         )
         await poi_repo.create(poi)

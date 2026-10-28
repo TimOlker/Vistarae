@@ -37,8 +37,7 @@ export class GenericSelectionParser extends BasePoiParser {
     const metaDesc = document
       .querySelector('meta[name="description"]')
       ?.getAttribute("content");
-    const description =
-      selectionText.trim() || ogDesc || metaDesc || `Captured from ${docTitle}`;
+    const description = selectionText.trim() || ogDesc || metaDesc || "";
 
     // 3. Photo extraction
     const ogImage = document

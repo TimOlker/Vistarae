@@ -83,7 +83,7 @@ export class GoogleMapsParser extends BasePoiParser {
 
     return {
       name,
-      description: selectionText.trim() || `Captured from Google Maps: ${name}`,
+      description: selectionText.trim(),
       category,
       address,
       raw_address: rawAddress,
