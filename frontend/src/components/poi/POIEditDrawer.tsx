@@ -974,7 +974,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.000001"
+                    step="any"
                     min="-90"
                     max="90"
                     value={lat}
@@ -996,7 +996,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.000001"
+                    step="any"
                     min="-180"
                     max="180"
                     value={lon}
@@ -1057,7 +1057,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.5"
+                    step="any"
                     min="0.1"
                     max="24.0"
                     placeholder="e.g. 2.5"
