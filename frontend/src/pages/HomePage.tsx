@@ -271,10 +271,21 @@ export const HomePage: React.FC<HomePageProps> = ({
               typeof t === "string" ? t : t.name,
             ),
             rating: item.rating,
-            address: item.address,
-            city: item.city,
-            state: item.state,
-            country: item.country,
+            address:
+              item.address ||
+              item.addresses?.find((a: any) => a.street?.trim())?.street,
+            city:
+              item.city ||
+              item.addresses?.find((a: any) => a.city?.trim())?.city,
+            state:
+              item.state ||
+              item.states?.[0] ||
+              item.addresses?.find((a: any) => a.state_province?.trim())
+                ?.state_province,
+            country:
+              item.country ||
+              item.countries?.[0] ||
+              item.addresses?.find((a: any) => a.country?.trim())?.country,
             addresses:
               item.addresses ||
               (item.address

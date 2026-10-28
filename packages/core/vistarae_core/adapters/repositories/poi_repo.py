@@ -107,6 +107,32 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
             elif isinstance(addr, AddressRecord):
                 addresses.append(addr)
 
+    city = row.city
+    if not city and addresses:
+        for addr in addresses:
+            if addr.city:
+                city = addr.city
+                break
+
+    states = list(row.states) if row.states else []
+    if not states and addresses:
+        extracted = [a.state_province for a in addresses if a.state_province]
+        if extracted:
+            states = list(dict.fromkeys(extracted))
+
+    countries = list(row.countries) if row.countries else []
+    if not countries and addresses:
+        extracted = [a.country for a in addresses if a.country and a.country != "Unknown"]
+        if extracted:
+            countries = list(dict.fromkeys(extracted))
+
+    address = row.address
+    if not address and addresses:
+        for addr in addresses:
+            if addr.street:
+                address = addr.street
+                break
+
     return POI(
         id=row.id,
         user_id=row.user_id,
@@ -116,10 +142,10 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
         parent_poi_name=parent_name,
         description=row.description,
         reason_to_visit=getattr(row, "reason_to_visit", None),
-        address=row.address,
-        city=row.city,
-        states=list(row.states) if row.states else [],
-        countries=list(row.countries) if row.countries else [],
+        address=address,
+        city=city,
+        states=states,
+        countries=countries,
         addresses=addresses,
         official_url=row.official_url,
         wiki_url=row.wiki_url,
@@ -171,6 +197,19 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             else []
         )
 
+        resolved_city = poi.city
+        if not resolved_city and poi.addresses:
+            for addr in poi.addresses:
+                if addr.city:
+                    resolved_city = addr.city
+                    break
+        resolved_address = poi.address
+        if not resolved_address and poi.addresses:
+            for addr in poi.addresses:
+                if addr.street:
+                    resolved_address = addr.street
+                    break
+
         row = POITable(
             id=poi.id,
             user_id=poi.user_id,
@@ -178,8 +217,8 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             name=poi.name,
             description=poi.description,
             reason_to_visit=poi.reason_to_visit,
-            address=poi.address,
-            city=poi.city,
+            address=resolved_address,
+            city=resolved_city,
             states=poi.states,
             countries=poi.countries,
             addresses=serialized_addresses,
@@ -260,12 +299,25 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             else []
         )
 
+        resolved_city = poi.city
+        if not resolved_city and poi.addresses:
+            for addr in poi.addresses:
+                if addr.city:
+                    resolved_city = addr.city
+                    break
+        resolved_address = poi.address
+        if not resolved_address and poi.addresses:
+            for addr in poi.addresses:
+                if addr.street:
+                    resolved_address = addr.street
+                    break
+
         row.name = poi.name
         row.parent_poi_id = poi.parent_poi_id
         row.description = poi.description
         row.reason_to_visit = poi.reason_to_visit
-        row.address = poi.address
-        row.city = poi.city
+        row.address = resolved_address
+        row.city = resolved_city
         row.states = poi.states
         row.countries = poi.countries
         row.addresses = serialized_addresses

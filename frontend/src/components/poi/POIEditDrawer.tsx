@@ -379,6 +379,12 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       parent_poi_id: parentPoiId || undefined,
       parent_poi_name: parentPoiName || undefined,
       addresses: currentAddrs,
+      city: currentAddrs.find((a) => a.city?.trim())?.city || poi.city,
+      state:
+        currentAddrs.find((a) => a.state_province?.trim())?.state_province ||
+        poi.state,
+      country:
+        currentAddrs.find((a) => a.country?.trim())?.country || poi.country,
       lat,
       lon,
       latitude: lat,
@@ -497,12 +503,22 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
           : "Manual"
       ) as "Web" | "CSV" | "Manual" | "Photo";
 
+      const resolvedCity =
+        activeAddresses.find((a) => a.city?.trim())?.city?.trim() || poi.city;
+      const resolvedState =
+        activeAddresses.find((a) => a.state_province?.trim())?.state_province?.trim() ||
+        poi.state;
+      const resolvedCountry =
+        activeAddresses.find((a) => a.country?.trim())?.country?.trim() ||
+        poi.country;
+
       const payload: POIUpdateRequest = {
         name: name.trim(),
         description: description.trim() || undefined,
         reason_to_visit: reasonToVisit.trim() || undefined,
         parent_poi_id: parentPoiId || undefined,
         addresses: activeAddresses.length > 0 ? activeAddresses : undefined,
+        city: resolvedCity || undefined,
         latitude: lat,
         longitude: lon,
         rating: rating > 0 ? rating : null,
@@ -560,6 +576,17 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         canonical_lng: finalLng,
         render_lat: finalLat,
         render_lng: finalLng,
+        city: updated.city || resolvedCity || poi.city,
+        state:
+          updated.state ||
+          updated.states?.[0] ||
+          resolvedState ||
+          poi.state,
+        country:
+          updated.country ||
+          updated.countries?.[0] ||
+          resolvedCountry ||
+          poi.country,
         visit_state: updated.visit_state || derivedVisitState,
         already_visited: updated.already_visited ?? isVisited,
         visit_pending: updated.visit_pending ?? isPending,

@@ -293,24 +293,40 @@ export const POITable: React.FC<POITableProps> = ({
         return (
           <span style={{ fontWeight: 600, color: "#111827" }}>{poi.name}</span>
         );
-      case "city":
+      case "city": {
+        const displayCity =
+          poi.city ||
+          poi.addresses?.find((a: any) => a.city?.trim())?.city ||
+          "—";
         return (
           <span style={{ color: "var(--text-secondary, #475569)" }}>
-            {poi.city || "—"}
+            {displayCity}
           </span>
         );
-      case "state":
+      }
+      case "state": {
+        const displayState =
+          poi.state ||
+          poi.addresses?.find((a: any) => a.state_province?.trim())
+            ?.state_province ||
+          "—";
         return (
           <span style={{ color: "var(--text-secondary, #475569)" }}>
-            {poi.state || "—"}
+            {displayState}
           </span>
         );
-      case "country":
+      }
+      case "country": {
+        const displayCountry =
+          poi.country ||
+          poi.addresses?.find((a: any) => a.country?.trim())?.country ||
+          "—";
         return (
           <span style={{ color: "var(--text-secondary, #475569)" }}>
-            {poi.country || "—"}
+            {displayCountry}
           </span>
         );
+      }
       case "rating":
         return renderStars(poi.rating);
       case "visit_state":

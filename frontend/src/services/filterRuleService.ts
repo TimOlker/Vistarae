@@ -111,9 +111,21 @@ export const filterRuleService = {
       tags: (p.tags || []).map((t: any) =>
         typeof t === "string" ? t : t.name,
       ),
-      city: p.city || undefined,
-      state: p.states?.[0] || undefined,
-      country: p.countries?.[0] || undefined,
+      city:
+        p.city ||
+        p.addresses?.find((a: any) => a.city?.trim())?.city ||
+        undefined,
+      state:
+        p.state ||
+        p.states?.[0] ||
+        p.addresses?.find((a: any) => a.state_province?.trim())
+          ?.state_province ||
+        undefined,
+      country:
+        p.country ||
+        p.countries?.[0] ||
+        p.addresses?.find((a: any) => a.country?.trim())?.country ||
+        undefined,
       parent_poi_id: p.parent_poi_id,
       already_visited: p.already_visited,
       visit_pending: p.visit_pending,
