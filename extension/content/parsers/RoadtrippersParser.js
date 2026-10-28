@@ -65,10 +65,7 @@ export class RoadtrippersParser extends BasePoiParser {
       document.querySelector(".place-description") ||
       document.querySelector(".description-text");
     const description =
-      selectionText.trim() ||
-      (descEl
-        ? descEl.textContent.trim()
-        : `Captured from Roadtrippers: ${name}`);
+      selectionText.trim() || (descEl ? descEl.textContent.trim() : "");
 
     return {
       name,

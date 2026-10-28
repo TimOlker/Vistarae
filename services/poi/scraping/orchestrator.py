@@ -33,10 +33,12 @@ import os
 import re
 from typing import Any, Final
 from urllib.parse import urlparse
+from uuid import UUID
 
-from vistarae_core.domain.value_objects import AddressRecord
+from vistarae_core.domain.value_objects import AddressRecord, PromptType
 from vistarae_core.schemas.scraping import POICandidateSchema
 from vistarae_core.services.address_normalizer import AddressNormalizer
+from vistarae_core.services.prompt_cache import default_prompt_cache
 
 from services.poi.scraping.secondary_sources import (
     SecondarySourceAdapter,
@@ -234,47 +236,84 @@ class ScrapingOrchestrator:
         name: str,
         primary_snippet: str | None,
         secondary_extracts: list[str],
+        directive: str | None = None,
     ) -> str:
         """Internal helper for summary synthesis."""
-        return await self.synthesize_summary(name, primary_snippet, secondary_extracts)
+        return await self.synthesize_summary(
+            name, primary_snippet, secondary_extracts, directive=directive
+        )
+
+    @classmethod
+    def _clean_source_attribution(cls, text: str, name: str | None = None) -> str:
+        """Strips capture source prefixes (e.g. 'Captured from Google Maps: ...')."""
+        if not text:
+            return ""
+        cleaned = re.sub(
+            r"^\s*Captured\s+from\s+[^:\n]+:\s*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        ).strip()
+        if name:
+            double_prefix = f"{name} {name}"
+            if cleaned.lower().startswith(double_prefix.lower()):
+                cleaned = f"{name}{cleaned[len(double_prefix):]}"
+        return cleaned.strip()
 
     async def synthesize_summary(
         self,
         name: str,
         primary_snippet: str | None,
         secondary_extracts: list[str],
+        directive: str | None = None,
     ) -> str:
-        """Synthesizes a tight 2-3 sentence travel description."""
-        combined_text = " ".join([s for s in [primary_snippet, *secondary_extracts] if s]).strip()
+        """Synthesizes a tight 2-3 sentence travel description with optional personalized directive."""
+        clean_primary = self._clean_source_attribution(primary_snippet or "", name=name)
+        clean_secondary = [
+            self._clean_source_attribution(s, name=name) for s in secondary_extracts if s
+        ]
+        combined_text = " ".join([s for s in [clean_primary, *clean_secondary] if s]).strip()
         if not combined_text:
             return f"Point of interest: {name}."
 
         if not self._gemini_api_key:
             # Deterministic fallback: extract first 2 sentences
             sentences = re.split(r"(?<=[.!?]) +", combined_text)
-            return " ".join(sentences[:2]) if sentences else combined_text[:200]
+            fallback = " ".join(sentences[:2]) if sentences else combined_text[:200]
+            return self._clean_source_attribution(fallback, name=name)
 
         def _call_gemini() -> str:
             from google import genai
             from google.genai import types
 
             client = genai.Client(api_key=self._gemini_api_key)
-            prompt = (
-                f"Synthesize a tight, informative, elegant 2-3 sentence travel description for '{name}' "
-                f"using these source details: '{combined_text[:1500]}'. "
-                "Highlight historical significance, scenic beauty, or traveler activity. "
-                "Return only the 2-3 sentence description without preamble."
-            )
+            prompt_parts = [
+                f"Synthesize a tight, informative, elegant 2-3 sentence travel description for '{name}' ",
+                f"using these source details: '{combined_text[:1500]}'. ",
+                "Highlight historical significance, scenic beauty, or traveler activity. ",
+                "\nCRITICAL REQUIREMENT: Do NOT include or mention the capture source (such as 'Captured from Google Maps', 'Captured from TripAdvisor', or any source/scraping attribution prefix) in the description. Start directly with the factual description of the destination itself.",
+            ]
+            if directive:
+                prompt_parts.append(
+                    f"\nTraveler preference directive: {directive}\n"
+                    "Apply this preference IF AND ONLY IF the source details support it. "
+                    "Do NOT invent, hallucinate, or force irrelevant themes if the destination does not feature them."
+                )
+            prompt_parts.append("\nReturn only the 2-3 sentence description without preamble.")
+            prompt = "".join(prompt_parts)
+
             config = types.GenerateContentConfig(
                 temperature=0.2,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             )
-            model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
             resp = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
                 config=config,
             )
-            return (resp.text or "").strip() or combined_text[:200]
+            res = (resp.text or "").strip() or combined_text[:200]
+            return self._clean_source_attribution(res, name=name)
 
         try:
             logger.info("MSG   |-> Gemini summary synthesis for: %s", name)
@@ -284,7 +323,221 @@ class ScrapingOrchestrator:
         except Exception as exc:
             logger.warning("MSG   |<- Gemini summary synthesis fallback: %s", exc)
             sentences = re.split(r"(?<=[.!?]) +", combined_text)
-            return " ".join(sentences[:2]) if sentences else combined_text[:200]
+            fallback = " ".join(sentences[:2]) if sentences else combined_text[:200]
+            return self._clean_source_attribution(fallback, name=name)
+
+    async def synthesize_reason_to_visit(
+        self,
+        name: str,
+        primary_snippet: str | None = None,
+        secondary_extracts: list[str] | None = None,
+        directive: str | None = None,
+        *,
+        description: str | None = None,
+        reason_directive: str | None = None,
+    ) -> str:
+        """Synthesizes an experiential 2-3 sentence tourist rationale explaining why to visit."""
+        actual_snippet = primary_snippet if primary_snippet is not None else description
+        actual_extracts = secondary_extracts if secondary_extracts is not None else []
+        actual_directive = directive if directive is not None else reason_directive
+
+        clean_primary = self._clean_source_attribution(actual_snippet or "", name=name)
+        clean_secondary = [
+            self._clean_source_attribution(s, name=name) for s in actual_extracts if s
+        ]
+        combined_text = " ".join([s for s in [clean_primary, *clean_secondary] if s]).strip()
+
+        if not self._gemini_api_key:
+            return f"Visitors are drawn to {name} for its distinctive sights, cultural atmosphere, and memorable local character."
+
+        def _call_gemini() -> str:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=self._gemini_api_key)
+            prompt_parts = [
+                f"Synthesize an engaging, compelling 2-3 sentence travel rationale explaining WHY a tourist would be interested in visiting '{name}' ",
+                f"based on these source details: '{combined_text[:1500]}'. ",
+                "Focus on tourist appeal, unique atmosphere, and memorable activities.",
+                "\nCRITICAL REQUIREMENT: Do NOT include or mention the capture source or scraping attribution prefix. Focus exclusively on the tourist rationale.",
+            ]
+            if actual_directive:
+                prompt_parts.append(
+                    f"\nTraveler motivation directive: {actual_directive}\n"
+                    "Highlight why this traveler specifically would enjoy visiting IF the destination aligns with these interests. "
+                    "Do not invent or force irrelevant themes."
+                )
+            prompt_parts.append("\nReturn only the 2-3 sentence rationale without preamble.")
+            prompt = "".join(prompt_parts)
+
+            config = types.GenerateContentConfig(
+                temperature=0.2,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            )
+            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+            resp = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
+            res = (
+                (resp.text or "").strip()
+                or f"A compelling destination for travelers looking to experience {name}'s unique character and sights."
+            )
+            return self._clean_source_attribution(res, name=name)
+
+        try:
+            logger.info("MSG   |-> Gemini reason-to-visit synthesis for: %s", name)
+            reason = await asyncio.to_thread(_call_gemini)
+            logger.info("MSG   |<- Gemini reason-to-visit synthesized: %d chars", len(reason))
+            return reason
+        except Exception as exc:
+            logger.warning("MSG   |<- Gemini reason-to-visit synthesis fallback: %s", exc)
+            return f"Visitors are drawn to {name} for its distinctive sights, cultural atmosphere, and memorable local character."
+
+    @classmethod
+    def _heuristic_duration_notes(
+        cls,
+        name: str,
+        category: str | None,
+        duration_hours: float | None,
+        duration_days: int | None = None,
+        time_spent_directive: str | None = None,
+    ) -> str:
+        """Generates deterministic visit duration reasoning and notes based on timing factors."""
+        dur_h = duration_hours or 2.0
+        dur_d = duration_days or 0
+        dur_str = (
+            f"{dur_d} day{'s' if dur_d > 1 else ''}"
+            if dur_d > 0
+            else f"{dur_h:g} hour{'s' if dur_h != 1 else ''}"
+        )
+
+        pacing_note = ""
+        if time_spent_directive:
+            td_lower = time_spent_directive.lower()
+            if any(k in td_lower for k in ("leisurely", "relaxed", "slow", "linger", "generous")):
+                pacing_note = " Pacing is adjusted for a leisurely travel style, allowing extra time for in-depth exploration, photo stops, and unhurried rest."
+            elif any(k in td_lower for k in ("brisk", "quick", "fast", "short", "half")):
+                pacing_note = " Pacing reflects a brisk travel style focused on key highlights and swift transit."
+
+        if dur_h <= 1.0 and dur_d == 0:
+            return (
+                f"Estimated {dur_str} for {name} accounts for arrival and walking approach (~10-15 min), "
+                f"exploring the main viewpoints or highlights (~30-40 min), and brief orientation or photo stops."
+                f"{pacing_note}"
+            )
+        elif dur_h <= 2.5 and dur_d == 0:
+            return (
+                f"Estimated {dur_str} for {name} accounts for shuttle bus transit or parking approach (~15-20 min), "
+                f"time to spend in ticket lines (~15 min), a 45-60 minute guided or audio tour, "
+                f"and 30-45 minutes of general time to see everything and view scheduled demonstrations."
+                f"{pacing_note}"
+            )
+        elif dur_d > 0 or dur_h >= 6.0:
+            return (
+                f"Estimated {dur_str} for {name} accounts for shuttle bus transit, "
+                f"attending scheduled ranger talks or interpretive demonstrations, "
+                f"participating in full guided tours, and comprehensive exploration of major exhibits and scenic trails."
+                f"{pacing_note}"
+            )
+        else:
+            return (
+                f"Estimated {dur_str} for {name} accounts for ticket queues and entry lines (~20-30 min), "
+                f"shuttle bus or walking connection (~15-20 min), a comprehensive 60-90 minute tour, "
+                f"and 1-2 hours of general time to see everything, including ranger talks, demonstrations, and grounds."
+                f"{pacing_note}"
+            )
+
+    async def synthesize_visit_duration_notes(
+        self,
+        name: str,
+        category: str | None,
+        duration_hours: float | None,
+        duration_days: int | None = None,
+        context_text: str | None = None,
+        directive: str | None = None,
+    ) -> str:
+        """Synthesizes text explanation of the reasoning of why duration values were set."""
+        dur_h = duration_hours or 2.0
+        dur_d = duration_days or 0
+        dur_str = (
+            f"{dur_d} day{'s' if dur_d > 1 else ''}"
+            if dur_d > 0
+            else f"{dur_h:g} hour{'s' if dur_h != 1 else ''}"
+        )
+
+        if not self._gemini_api_key:
+            return self._heuristic_duration_notes(
+                name=name,
+                category=category,
+                duration_hours=duration_hours,
+                duration_days=duration_days,
+                time_spent_directive=directive,
+            )
+
+        def _call_gemini() -> str:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=self._gemini_api_key)
+            prompt_parts = [
+                f"Explain the visit duration reasoning for '{name}' with an estimated visit time of {dur_str}.\n",
+                "Synthesize a clear, informative 2-3 sentence explanation detailing why this duration was set.\n",
+                "CRITICAL FACTORS TO INCLUDE IN THE REASONING (cover relevant items naturally):\n",
+                "- Time to spend in line / ticket queues\n",
+                "- How much time to take a guided tour, audio tour, or interior walk\n",
+                "- Shuttle bus, transit connection, or walking approach from parking\n",
+                "- General time to see everything and explore the main highlights\n",
+                "- Time for scheduled exhibits, demonstrations, or ranger talks\n",
+                "\nCRITICAL REQUIREMENT: Do NOT include or mention the capture source (such as 'Captured from Google Maps').\n",
+            ]
+            if directive:
+                prompt_parts.append(
+                    f"Traveler style / pacing input: '{directive}'.\n"
+                    "Incorporate this travel style into the reasoning (e.g., whether the traveler prefers an unhurried, leisurely pace with in-depth tours, or a brisk, focused highlight tour).\n"
+                )
+            if context_text:
+                cleaned_ctx = self._clean_source_attribution(context_text, name=name)
+                prompt_parts.append(f"Destination context: '{cleaned_ctx[:1000]}'.\n")
+            prompt_parts.append(
+                "Return only the text explanation of the duration reasoning and notes without headings, bullet points, or preamble."
+            )
+            prompt = "".join(prompt_parts)
+
+            config = types.GenerateContentConfig(
+                temperature=0.2,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            )
+            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+            resp = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
+            res = (resp.text or "").strip()
+            return self._clean_source_attribution(res, name=name) or self._heuristic_duration_notes(
+                name=name,
+                category=category,
+                duration_hours=duration_hours,
+                duration_days=duration_days,
+                time_spent_directive=directive,
+            )
+
+        try:
+            logger.info("MSG   |-> Gemini visit duration notes synthesis for: %s", name)
+            notes = await asyncio.to_thread(_call_gemini)
+            logger.info("MSG   |<- Gemini visit duration notes synthesized: %d chars", len(notes))
+            return notes
+        except Exception as exc:
+            logger.warning("MSG   |<- Gemini visit duration notes synthesis fallback: %s", exc)
+            return self._heuristic_duration_notes(
+                name=name,
+                category=category,
+                duration_hours=duration_hours,
+                duration_days=duration_days,
+                time_spent_directive=directive,
+            )
 
     async def _extract_primary(
         self,
@@ -435,14 +688,27 @@ class ScrapingOrchestrator:
         category: str | None,
         name: str,
         desc: str | None,
+        time_spent_directive: str | None = None,
     ) -> tuple[float | None, int | None]:
-        """Resolves duration hours and days with heuristic inference."""
+        """Resolves duration hours and days with heuristic inference and user pacing directives."""
         dur_h = primary_dur if primary_dur is not None else secondary_dur
         if dur_h is None:
-            return cls.infer_duration(category=category, name=name, description=desc)
-        if dur_h < 24:
-            return dur_h, 0
-        return dur_h, int(dur_h // 24)
+            dur_h, dur_d = cls.infer_duration(category=category, name=name, description=desc)
+        else:
+            dur_d = 0 if dur_h < 24 else int(dur_h // 24)
+
+        if dur_h is not None and time_spent_directive:
+            dir_lower = time_spent_directive.lower()
+            if any(
+                k in dir_lower
+                for k in ("generous", "leisurely", "relaxed", "slow", "linger", "unhurried")
+            ):
+                dur_h = dur_h * 2.0 if dur_h <= 2.0 else min(dur_h * 1.5, 24.0)
+            elif any(k in dir_lower for k in ("quick", "brisk", "fast", "short", "half")):
+                dur_h = max(dur_h * 0.75, 0.5)
+            dur_d = 0 if dur_h < 24 else int(dur_h // 24)
+
+        return dur_h, dur_d
 
     async def extract(
         self,
@@ -453,8 +719,18 @@ class ScrapingOrchestrator:
         client_longitude: float | None = None,
         client_raw_address: str | None = None,
         client_category: str | None = None,
+        prompt_directives: dict[PromptType, str] | None = None,
+        user_id: UUID | None = None,
     ) -> POICandidateSchema:
         """Extracts and normalizes POI candidate attributes from web and secondary sources."""
+        directives = prompt_directives
+        if directives is None and user_id is not None:
+            directives = default_prompt_cache.get(user_id)
+
+        desc_directive = directives.get(PromptType.DESCRIPTION) if directives else None
+        reason_directive = directives.get(PromptType.REASON_TO_VISIT) if directives else None
+        time_directive = directives.get(PromptType.TIME_SPENT) if directives else None
+
         try:
             primary = await self._extract_primary(source_url, page_title, selected_text)
             name = primary.get("name") or self.clean_page_title(page_title, source_url)
@@ -483,7 +759,12 @@ class ScrapingOrchestrator:
             secondary = {}
 
         secondary_extracts = secondary.get("secondary_extracts", [])
-        desc = await self._synthesize_summary(name, primary_desc, secondary_extracts)
+        desc = await self._synthesize_summary(
+            name, primary_desc, secondary_extracts, directive=desc_directive
+        )
+        reason_to_visit = await self.synthesize_reason_to_visit(
+            name, primary_desc, secondary_extracts, directive=reason_directive
+        )
 
         extraction_sources = list(secondary.get("extraction_sources", []))
         parsed_url = urlparse(source_url)
@@ -525,11 +806,22 @@ class ScrapingOrchestrator:
             client_category,
             name,
             desc,
+            time_spent_directive=time_directive,
+        )
+
+        estimated_visit_time_notes = await self.synthesize_visit_duration_notes(
+            name=name,
+            category=client_category,
+            duration_hours=estimated_duration_hours,
+            duration_days=estimated_duration_days,
+            context_text=desc,
+            directive=time_directive,
         )
 
         return POICandidateSchema(
             name=name,
             description=desc,
+            reason_to_visit=reason_to_visit,
             addresses=addresses,
             latitude=latitude,
             longitude=longitude,
@@ -538,11 +830,31 @@ class ScrapingOrchestrator:
             hero_image_url=hero_image_url,
             estimated_duration_hours=estimated_duration_hours,
             estimated_duration_days=estimated_duration_days,
-            estimated_visit_time_notes=None,
+            estimated_visit_time_notes=estimated_visit_time_notes,
             rating=None,
             source_type="Web",
             source_value=source_url,
             extraction_sources=extraction_sources,
+        )
+
+    async def extract_from_url(
+        self,
+        url: str,
+        user_directives: dict[str, str] | None = None,
+        user_id: UUID | None = None,
+    ) -> POICandidateSchema:
+        """Convenience wrapper for extracting POI candidate directly from URL with directives."""
+        typed_directives: dict[PromptType, str] = {}
+        if user_directives:
+            for k, v in user_directives.items():
+                try:
+                    typed_directives[PromptType(k)] = v
+                except ValueError:
+                    continue
+        return await self.extract(
+            source_url=url,
+            prompt_directives=typed_directives or None,
+            user_id=user_id,
         )
 
     async def orchestrate(
@@ -556,6 +868,8 @@ class ScrapingOrchestrator:
         client_longitude: float | None = None,
         client_raw_address: str | None = None,
         client_category: str | None = None,
+        prompt_directives: dict[PromptType, str] | None = None,
+        user_id: UUID | None = None,
     ) -> tuple[POICandidateSchema, list[str]]:
         """Orchestrates multi-source scraping, partial fallback, and synthesis.
 
@@ -569,6 +883,8 @@ class ScrapingOrchestrator:
             client_longitude: Optional parsed longitude from client extension.
             client_raw_address: Optional raw scraped address text.
             client_category: Optional inferred category from client.
+            prompt_directives: Optional personalized prompt directives dictionary.
+            user_id: Optional owning tenant UUID for prompt cache lookup.
 
         Returns:
             Tuple of (POICandidateSchema, list of recommended tag slugs).
@@ -585,6 +901,8 @@ class ScrapingOrchestrator:
                 client_longitude=client_longitude,
                 client_raw_address=client_raw_address,
                 client_category=client_category,
+                prompt_directives=prompt_directives,
+                user_id=user_id,
             )
             tag_matcher = TagMatcher(vetted_tags or [])
             combined_text_for_tags = f"{candidate.name} {candidate.description} {page_title or ''} {selected_text or ''} {client_category or ''}"

@@ -497,7 +497,17 @@ async function handleSavePoi(poi) {
           : 0.0,
     parent_poi_id: poi.parent_poi_id || null,
     description: poi.description || null,
+    reason_to_visit: poi.reason_to_visit || null,
     address: poi.address || poi.addresses?.[0]?.street || null,
+    city: poi.city || poi.addresses?.[0]?.city || null,
+    states:
+      poi.states ||
+      (poi.addresses?.[0]?.state_province
+        ? [poi.addresses[0].state_province]
+        : []),
+    countries:
+      poi.countries ||
+      (poi.addresses?.[0]?.country ? [poi.addresses[0].country] : []),
     addresses: Array.isArray(poi.addresses) ? poi.addresses : [],
     source_type: poi.source_type || "Web",
     source_value: poi.source_value || poi.source_url || poi.url || null,

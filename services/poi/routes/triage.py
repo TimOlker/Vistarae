@@ -30,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.adapters.db.tables import UserPreferencesTable
+from vistarae_core.adapters.repositories.user_prompt_repo import SqlAlchemyUserPromptRepository
 from vistarae_core.domain.entities import User
 from vistarae_core.ports.repositories import IGeocodingCacheRepository, ITagRepository
 from vistarae_core.schemas.scraping import (
@@ -38,6 +39,7 @@ from vistarae_core.schemas.scraping import (
     ReverseGeocodeRequest,
     ReverseGeocodeResponse,
 )
+from vistarae_core.services.prompt_cache import default_prompt_cache
 
 from services.poi.dependencies import (
     get_current_user,
@@ -100,6 +102,10 @@ async def extract_and_check(
         geocoding_service=geocoding_service,
     )
 
+    # 2.5 Resolve active user prompt directives for personalized synthesis (REQ-CTX-027)
+    prompt_repo = SqlAlchemyUserPromptRepository(session)
+    prompt_directives = await default_prompt_cache.get_or_load(current_user.id, prompt_repo)
+
     # 3. Extract POI candidate attributes
     candidate = await orchestrator.extract(
         source_url=req.source_url,
@@ -109,6 +115,8 @@ async def extract_and_check(
         client_longitude=req.longitude,
         client_raw_address=req.raw_address,
         client_category=req.category,
+        prompt_directives=prompt_directives,
+        user_id=current_user.id,
     )
 
     # 4. Match vetted taxonomy tags with system fallback (REQ: FR-016, T-011)

@@ -80,6 +80,28 @@ function openWebApp() {
   }
 }
 
+/**
+ * Formats a POI preview card including Reason to Visit positioned below Description (REQ-CTX-034).
+ * @param {Object} poi
+ * @returns {string} HTML string
+ */
+export function formatPoiReviewCard(poi) {
+  if (!poi) return "";
+  return `
+    <div class="poi-review-card">
+      <h3 class="poi-title">${poi.name || "Untitled POI"}</h3>
+      <div class="poi-field poi-description">
+        <span class="field-label">Description:</span>
+        <p>${poi.description || "No description provided."}</p>
+      </div>
+      <div class="poi-field poi-reason-to-visit">
+        <span class="field-label">Reason to Visit:</span>
+        <p>${poi.reason_to_visit || "No reason to visit provided."}</p>
+      </div>
+    </div>
+  `;
+}
+
 // --- Initialization & Event Bindings ---
 document.addEventListener("DOMContentLoaded", () => {
   updateAuthContext();

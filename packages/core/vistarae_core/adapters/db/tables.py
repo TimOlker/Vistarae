@@ -104,6 +104,11 @@ class UserTable(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    prompts: Mapped[list[UserPromptTable]] = relationship(
+        "UserPromptTable",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         UniqueConstraint("cognito_sub", name="uq_users_cognito_sub"),
@@ -169,6 +174,9 @@ class UserPreferencesTable(Base):
             '\'["wikipedia.org", "tripadvisor.com", "atlasobscura.com", "google.com/maps", "roadtrippers.com"]\'::jsonb'
         ),
     )
+
+    # ── Unique User Context ──────────────────────────────────────────────────
+    travel_style_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -298,6 +306,46 @@ class IdempotencyKeysTable(Base):
     )
 
 
+class UserPromptTable(Base):
+    """Personalized prompt directives decomposed by LLM from user travel style."""
+
+    __tablename__ = "user_prompts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    prompt_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    user: Mapped[UserTable] = relationship("UserTable", back_populates="prompts")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "prompt_type", name="uq_user_prompts_user_type"),
+        CheckConstraint(
+            "prompt_type IN ('description', 'reason_to_visit', 'time_spent')",
+            name="ck_user_prompts_type",
+        ),
+        Index("idx_user_prompts_user_id", "user_id"),
+    )
+
+
 class POITable(Base):
     """Point of interest aggregate record with geospatial indices."""
 
@@ -321,6 +369,7 @@ class POITable(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reason_to_visit: Mapped[str | None] = mapped_column(Text, nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     states: Mapped[list[str]] = mapped_column(
@@ -488,6 +537,16 @@ class POITable(Base):
         Index(
             "idx_pois_name_trgm",
             text("name gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "idx_pois_reason_to_visit_trgm",
+            text("reason_to_visit gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "idx_pois_description_trgm",
+            text("description gin_trgm_ops"),
             postgresql_using="gin",
         ),
         Index(

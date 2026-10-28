@@ -191,6 +191,12 @@ export const HomePage: React.FC<HomePageProps> = ({
       "rating",
       "visit_state",
       "tags",
+      "description",
+      "reason_to_visit",
+      "recommended_duration_hours",
+      "recommended_visit_days",
+      "visit_pending",
+      "visited_date",
     ],
     sort: {
       column: "name",
@@ -271,10 +277,21 @@ export const HomePage: React.FC<HomePageProps> = ({
               typeof t === "string" ? t : t.name,
             ),
             rating: item.rating,
-            address: item.address,
-            city: item.city,
-            state: item.state,
-            country: item.country,
+            address:
+              item.address ||
+              item.addresses?.find((a: any) => a.street?.trim())?.street,
+            city:
+              item.addresses?.find((a: any) => a.city?.trim())?.city ||
+              item.city,
+            state:
+              item.addresses && item.addresses.length > 0
+                ? item.addresses.find((a: any) => a.state_province?.trim())
+                    ?.state_province
+                : item.state || item.states?.[0],
+            country:
+              item.addresses?.find((a: any) => a.country?.trim())?.country ||
+              item.country ||
+              item.countries?.[0],
             addresses:
               item.addresses ||
               (item.address
@@ -295,6 +312,10 @@ export const HomePage: React.FC<HomePageProps> = ({
             want_to_visit_again: item.want_to_visit_again,
             visited_dates: item.visited_dates || [],
             description: item.description,
+            reason_to_visit: item.reason_to_visit,
+            recommended_duration_hours: item.recommended_duration_hours,
+            recommended_visit_days: item.recommended_visit_days,
+            estimated_visit_time_notes: item.estimated_visit_time_notes,
             official_url: item.official_url,
             wiki_url: item.wiki_url,
             source_type: item.source_type,

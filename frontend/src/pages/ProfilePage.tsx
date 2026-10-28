@@ -14,15 +14,27 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2026 Vistarae. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { authService } from "../services/auth";
+import {
+  userContextService,
+  type UserPromptItem,
+} from "../services/userContextService";
 import { Modal } from "../components/common/Modal";
-import { User, Shield, AlertTriangle, Trash2 } from "lucide-react";
+import {
+  User,
+  Shield,
+  AlertTriangle,
+  Trash2,
+  Sparkles,
+  Compass,
+  Heart,
+  Clock,
+  RotateCcw,
+  CheckCircle2,
+} from "lucide-react";
 
 export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
   onAccountDeleted,
@@ -33,6 +45,107 @@ export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Travel style & prompt directives state
+  const [travelStyleDescription, setTravelStyleDescription] = useState("");
+  const [initialDescription, setInitialDescription] = useState("");
+  const [prompts, setPrompts] = useState<UserPromptItem[]>([]);
+  const [isLoadingTravelStyle, setIsLoadingTravelStyle] = useState(false);
+  const [isSavingTravelStyle, setIsSavingTravelStyle] = useState(false);
+  const [isClearingTravelStyle, setIsClearingTravelStyle] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setIsLoadingTravelStyle(true);
+    userContextService
+      .getTravelStyle()
+      .then((data) => {
+        const desc = data.travel_style_description || "";
+        setTravelStyleDescription(desc);
+        setInitialDescription(desc);
+        setPrompts(data.prompts || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load travel style:", err);
+      })
+      .finally(() => {
+        setIsLoadingTravelStyle(false);
+      });
+  }, [user?.id]);
+
+  // Support #travel-style anchor scrolling and auto-focus (T-048 / REQ-CTX-011)
+  useEffect(() => {
+    if (window.location.hash === "#travel-style") {
+      const el = document.getElementById("travel-style");
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          const textarea = document.querySelector<HTMLTextAreaElement>(
+            "[data-testid='travel-style-textarea']",
+          );
+          if (textarea) {
+            textarea.focus();
+          }
+        }, 100);
+      }
+    }
+  }, []);
+
+  const handleSaveTravelStyle = async () => {
+    setIsSavingTravelStyle(true);
+    try {
+      const res = await userContextService.updateTravelStyle(
+        travelStyleDescription.trim() || null,
+      );
+      const desc = res.travel_style_description || "";
+      setTravelStyleDescription(desc);
+      setInitialDescription(desc);
+      setPrompts(res.prompts || []);
+      showToast("Travel style saved and prompt directives synthesized.", "success");
+    } catch (err: unknown) {
+      const errorObj = err as {
+        problem?: { title: string; detail: string };
+        message?: string;
+      };
+      showToast(
+        errorObj.problem?.detail ||
+          errorObj.problem?.title ||
+          errorObj.message ||
+          "Failed to save travel style.",
+        "error",
+      );
+    } finally {
+      setIsSavingTravelStyle(false);
+    }
+  };
+
+  const handleClearTravelStyle = async () => {
+    setIsClearingTravelStyle(true);
+    try {
+      const res = await userContextService.clearTravelStyle();
+      setTravelStyleDescription("");
+      setInitialDescription("");
+      setPrompts(res.prompts || []);
+      showToast(
+        "Travel style cleared. Reverted to standard extraction prompts.",
+        "info",
+      );
+    } catch (err: unknown) {
+      const errorObj = err as {
+        problem?: { title: string; detail: string };
+        message?: string;
+      };
+      showToast(
+        errorObj.problem?.detail ||
+          errorObj.problem?.title ||
+          errorObj.message ||
+          "Failed to clear travel style.",
+        "error",
+      );
+    } finally {
+      setIsClearingTravelStyle(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmation !== "DELETE") return;
@@ -69,6 +182,9 @@ export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
       </div>
     );
   }
+
+  const isDirty = travelStyleDescription !== initialDescription;
+  const isTooLong = travelStyleDescription.length > 2000;
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "32px 16px" }}>
@@ -156,6 +272,265 @@ export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Travel Style & AI Prompt Directives Card (T-018 / REQ-CTX-002, REQ-CTX-007) */}
+      <div
+        id="travel-style"
+        data-testid="travel-style-card"
+        style={{
+          background: "var(--bg-surface, #ffffff)",
+          borderRadius: "var(--radius-lg, 16px)",
+          border: "1px solid var(--border-color, #e2e8f0)",
+          boxShadow: "var(--shadow-sm)",
+          padding: "24px",
+          marginBottom: "20px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            marginBottom: "8px",
+          }}
+        >
+          <Sparkles size={20} color="var(--accent, #2563eb)" />
+          <h2 style={{ fontSize: "17px", fontWeight: 700, margin: 0 }}>
+            Travel Style & AI Context
+          </h2>
+        </div>
+        <p
+          style={{
+            fontSize: "13px",
+            color: "var(--text-secondary)",
+            marginBottom: "16px",
+            lineHeight: 1.5,
+          }}
+        >
+          Describe what you look for in travel (interests, pace, food passions,
+          hidden gems vs. iconic landmarks). Our AI engine extracts modular
+          directives to personalize your web captures, itineraries, and durations.
+        </p>
+
+        <div style={{ position: "relative", marginBottom: "12px" }}>
+          <textarea
+            data-testid="travel-style-textarea"
+            aria-label="Travel Style Description"
+            value={travelStyleDescription}
+            onChange={(e) => setTravelStyleDescription(e.target.value)}
+            disabled={isLoadingTravelStyle || isSavingTravelStyle}
+            placeholder="e.g., I love relaxing vacations exploring local culinary traditions, artisan bakeries, and vibrant food markets. I prefer leisurely pacing with plenty of time to soak in the atmosphere..."
+            rows={4}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: "var(--radius-md, 8px)",
+              border: `1px solid ${isTooLong ? "var(--danger, #ef4444)" : "var(--border-color, #cbd5e1)"}`,
+              fontSize: "13px",
+              fontFamily: "inherit",
+              lineHeight: 1.5,
+              resize: "vertical",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "4px",
+              fontSize: "11px",
+              color: isTooLong ? "var(--danger, #ef4444)" : "var(--text-muted)",
+              fontWeight: isTooLong ? 700 : 500,
+            }}
+          >
+            {travelStyleDescription.length} / 2000 characters
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            marginBottom: prompts.length > 0 ? "24px" : "0",
+          }}
+        >
+          <button
+            type="button"
+            data-testid="save-travel-style-btn"
+            disabled={!isDirty || isTooLong || isSavingTravelStyle}
+            onClick={handleSaveTravelStyle}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "9px 18px",
+              borderRadius: "var(--radius-md, 8px)",
+              background: "var(--accent, #2563eb)",
+              color: "#ffffff",
+              fontWeight: 600,
+              fontSize: "13px",
+              cursor: !isDirty || isTooLong || isSavingTravelStyle ? "not-allowed" : "pointer",
+              opacity: !isDirty || isTooLong || isSavingTravelStyle ? 0.6 : 1,
+              border: "none",
+            }}
+          >
+            <CheckCircle2 size={15} />
+            <span>
+              {isSavingTravelStyle ? "Synthesizing Directives..." : "Save Travel Style"}
+            </span>
+          </button>
+
+          {(travelStyleDescription || prompts.length > 0) && (
+            <button
+              type="button"
+              data-testid="clear-travel-style-btn"
+              disabled={isSavingTravelStyle || isClearingTravelStyle}
+              onClick={handleClearTravelStyle}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "9px 16px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "var(--bg-hover, #f1f5f9)",
+                color: "var(--text-secondary)",
+                fontWeight: 600,
+                fontSize: "13px",
+                cursor: "pointer",
+                border: "1px solid var(--border-color, #e2e8f0)",
+              }}
+            >
+              <RotateCcw size={14} />
+              <span>{isClearingTravelStyle ? "Clearing..." : "Clear Style"}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Read-Only Synthesized Directives Preview Cards (REQ-CTX-007) */}
+        {prompts.length > 0 && (
+          <div
+            data-testid="prompt-directives-section"
+            style={{
+              paddingTop: "20px",
+              borderTop: "1px solid var(--border-color, #f1f5f9)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "12px",
+              }}
+            >
+              <Sparkles size={16} color="var(--accent, #2563eb)" />
+              <h3 style={{ fontSize: "14px", fontWeight: 700, margin: 0 }}>
+                Active AI Prompt Directives
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginBottom: "14px",
+              }}
+            >
+              These decomposed directives automatically customize your web captures,
+              extension highlights, and time spent calculations.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {prompts.map((p) => {
+                let badgeLabel = "Directive";
+                let badgeColor = "#2563eb";
+                let badgeBg = "#eff6ff";
+                let Icon = Compass;
+
+                if (p.prompt_type === "description") {
+                  badgeLabel = "Description Focus";
+                  badgeColor = "#2563eb";
+                  badgeBg = "#eff6ff";
+                  Icon = Compass;
+                } else if (p.prompt_type === "reason_to_visit") {
+                  badgeLabel = "Why Visit Focus";
+                  badgeColor = "#7c3aed";
+                  badgeBg = "#f5f3ff";
+                  Icon = Heart;
+                } else if (p.prompt_type === "time_spent") {
+                  badgeLabel = "Duration & Pacing";
+                  badgeColor = "#059669";
+                  badgeBg = "#ecfdf5";
+                  Icon = Clock;
+                }
+
+                return (
+                  <div
+                    key={p.prompt_type}
+                    data-testid={`prompt-card-${p.prompt_type}`}
+                    style={{
+                      padding: "14px",
+                      borderRadius: "10px",
+                      background: "var(--bg-hover, #f8fafc)",
+                      border: "1px solid var(--border-color, #e2e8f0)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "3px 8px",
+                          borderRadius: "9999px",
+                          background: badgeBg,
+                          color: badgeColor,
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          marginBottom: "10px",
+                        }}
+                      >
+                        <Icon size={12} />
+                        <span>{badgeLabel}</span>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: "12px",
+                          color: "var(--text-primary, #1e293b)",
+                          lineHeight: 1.5,
+                          fontStyle: "italic",
+                          margin: "0 0 10px 0",
+                        }}
+                      >
+                        &ldquo;{p.prompt_text}&rdquo;
+                      </p>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--text-muted)",
+                        marginTop: "auto",
+                      }}
+                    >
+                      Updated: {new Date(p.updated_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quotas & Usage Card */}
@@ -323,6 +698,8 @@ export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
             color: "#ffffff",
             fontWeight: 600,
             fontSize: "13px",
+            border: "none",
+            cursor: "pointer",
           }}
         >
           <Trash2 size={15} />
@@ -377,6 +754,8 @@ export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
                 color: "var(--text-secondary)",
                 fontWeight: 600,
                 fontSize: "13px",
+                border: "none",
+                cursor: "pointer",
               }}
             >
               Cancel
@@ -392,6 +771,7 @@ export const ProfilePage: React.FC<{ onAccountDeleted: () => void }> = ({
                 color: "#ffffff",
                 fontWeight: 600,
                 fontSize: "13px",
+                border: "none",
                 cursor:
                   deleteConfirmation === "DELETE" ? "pointer" : "not-allowed",
                 opacity: deleteConfirmation === "DELETE" ? 1 : 0.6,

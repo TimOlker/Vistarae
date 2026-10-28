@@ -121,6 +121,17 @@ export async function openCaptureOverlay(payload = {}) {
           )}</textarea>
         </div>
 
+        <!-- Reason to Visit (REQ-CTX-034 / SC-005) -->
+        <div class="vistarae-form-group">
+          <label class="vistarae-label" for="vistarae-reason-input">
+            Reason to Visit
+            <span class="vistarae-field-spinner" id="vistarae-reason-spinner" title="Enriching reason to visit..."></span>
+          </label>
+          <textarea class="vistarae-textarea" id="vistarae-reason-input" rows="3" placeholder="Why a tourist would be interested in visiting...">${escapeHtml(
+            scrapedPoi.reason_to_visit || "",
+          )}</textarea>
+        </div>
+
         <!-- Coordinates -->
         <div class="vistarae-grid-2">
           <div class="vistarae-form-group">
@@ -228,7 +239,8 @@ export async function openCaptureOverlay(payload = {}) {
           <div class="vistarae-form-group">
             <label class="vistarae-label" for="vistarae-duration-days-input">Itinerary Days</label>
             <input class="vistarae-input" id="vistarae-duration-days-input" type="number" step="1" min="1" value="${
-              scrapedPoi.estimated_duration_days && scrapedPoi.estimated_duration_days >= 1
+              scrapedPoi.estimated_duration_days &&
+              scrapedPoi.estimated_duration_days >= 1
                 ? scrapedPoi.estimated_duration_days
                 : 1
             }" placeholder="e.g. 1" />
@@ -244,9 +256,9 @@ export async function openCaptureOverlay(payload = {}) {
         <!-- Visit Duration Notes / Reasoning -->
         <div class="vistarae-form-group">
           <label class="vistarae-label" for="vistarae-duration-notes-input">
-            Estimated Visit Time Notes
+            Visit Duration Reasoning & Notes
           </label>
-          <textarea class="vistarae-textarea" id="vistarae-duration-notes-input" rows="2" placeholder="Reasoning for visit duration (e.g. 45-min tour, 30-min grounds walk)...">${
+          <textarea class="vistarae-textarea" id="vistarae-duration-notes-input" rows="3" placeholder="Reasoning for visit duration (e.g. ticket lines, tour length, shuttle transit, ranger talks, demonstrations)...">${
             scrapedPoi.estimated_visit_time_notes || ""
           }</textarea>
         </div>
@@ -637,7 +649,6 @@ export async function openCaptureOverlay(payload = {}) {
     }
     listEl.innerHTML = addresses
       .map((a) => {
-
         const parts = [];
         let streetVal = a.street ? a.street.trim() : "";
         const countryVal = (a.country || "").trim();
@@ -656,7 +667,9 @@ export async function openCaptureOverlay(payload = {}) {
         if (
           a.city &&
           a.city.trim() &&
-          !parts.some((p) => p.toLowerCase().includes(a.city.trim().toLowerCase()))
+          !parts.some((p) =>
+            p.toLowerCase().includes(a.city.trim().toLowerCase()),
+          )
         ) {
           parts.push(a.city.trim());
         }
@@ -773,6 +786,8 @@ export async function openCaptureOverlay(payload = {}) {
     const description = shadow
       .querySelector("#vistarae-desc-input")
       .value.trim();
+    const reasonToVisit =
+      shadow.querySelector("#vistarae-reason-input")?.value?.trim() || null;
     const latVal = shadow.querySelector("#vistarae-lat-input").value;
     const lngVal = shadow.querySelector("#vistarae-lng-input").value;
     const officialUrl = shadow
@@ -789,11 +804,14 @@ export async function openCaptureOverlay(payload = {}) {
     ).value;
     const daysVal = shadow.querySelector("#vistarae-duration-days-input").value;
     const ratingVal = shadow.querySelector("#vistarae-rating-input").value;
-    const notesVal = shadow.querySelector("#vistarae-duration-notes-input")?.value?.trim() || null;
+    const notesVal =
+      shadow.querySelector("#vistarae-duration-notes-input")?.value?.trim() ||
+      null;
 
     const payloadPoi = {
       name,
       description,
+      reason_to_visit: reasonToVisit,
       addresses: currentAddresses,
       latitude: latVal ? parseFloat(latVal) : null,
       longitude: lngVal ? parseFloat(lngVal) : null,
@@ -836,6 +854,7 @@ export async function openCaptureOverlay(payload = {}) {
   // Helpers to dismiss spinners
   const dismissSpinners = () => {
     shadow.querySelector("#vistarae-desc-spinner")?.remove();
+    shadow.querySelector("#vistarae-reason-spinner")?.remove();
     shadow.querySelector("#vistarae-wiki-spinner")?.remove();
     shadow.querySelector("#vistarae-hero-spinner")?.remove();
     shadow.querySelector("#vistarae-dur-spinner")?.remove();
@@ -879,6 +898,10 @@ export async function openCaptureOverlay(payload = {}) {
           sanitizeDestinationTitle(c.name) || c.name;
       if (c.description)
         shadow.querySelector("#vistarae-desc-input").value = c.description;
+      if (c.reason_to_visit) {
+        const reasonInput = shadow.querySelector("#vistarae-reason-input");
+        if (reasonInput) reasonInput.value = c.reason_to_visit;
+      }
       if (c.latitude !== undefined && c.latitude !== null) {
         shadow.querySelector("#vistarae-lat-input").value = c.latitude;
       }

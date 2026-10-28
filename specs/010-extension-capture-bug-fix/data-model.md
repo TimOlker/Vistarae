@@ -2,13 +2,14 @@
 
 **Feature**: `010-extension-capture-bug-fix`  
 **Date**: 2026-10-26  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
 ## 1. Schema Parity & Backend Invariants
 
 In accordance with Constitution Principle 5 (API Contract, Validation & Error Standard):
+
 - All payloads are strictly validated using Pydantic v2 `StrictBaseModel` with `extra="forbid"`.
 - Coordinates are canonically represented in WGS-84 (`latitude: float` between -90 and 90, `longitude: float` between -180 and 180).
 - Address records adhere strictly to `AddressRecord` value objects.
@@ -104,36 +105,36 @@ Maintained in `extension/content/content_script.js` during the capture overlay l
 ```typescript
 interface CaptureOverlayState {
   // Identification
-  poiName: string;                  // Clean destination name
-  description: string;              // Summary description
+  poiName: string; // Clean destination name
+  description: string; // Summary description
 
   // Spatial & Mapping
-  latitude: number | null;          // Active latitude
-  longitude: number | null;         // Active longitude
-  isReselectingMap: boolean;        // True when map click/drag reselection mode is active
-  mapInstance: any | null;          // Leaflet L.Map instance
-  mapMarker: any | null;           // Leaflet L.Marker instance
+  latitude: number | null; // Active latitude
+  longitude: number | null; // Active longitude
+  isReselectingMap: boolean; // True when map click/drag reselection mode is active
+  mapInstance: any | null; // Leaflet L.Map instance
+  mapMarker: any | null; // Leaflet L.Marker instance
 
   // Addresses
-  addresses: AddressRecord[];       // Structured addresses
-  formattedAddressDisplay: string;  // Cleansed string display
+  addresses: AddressRecord[]; // Structured addresses
+  formattedAddressDisplay: string; // Cleansed string display
 
   // External Links & Media
-  officialWebsiteUrl: string;       // Official site URL
-  wikipediaUrl: string;             // Canonical Wikipedia article URL
-  heroImageUrl: string;             // Hero image URL
-  heroImageStatus: 'empty' | 'loading' | 'valid' | 'error'; // Preflight probe state
+  officialWebsiteUrl: string; // Official site URL
+  wikipediaUrl: string; // Canonical Wikipedia article URL
+  heroImageUrl: string; // Hero image URL
+  heroImageStatus: "empty" | "loading" | "valid" | "error"; // Preflight probe state
 
   // Metadata
-  durationHours: number | null;     // Estimated hours (e.g. 2.5)
-  durationDays: number | null;      // Estimated days (e.g. 0)
-  rating: number | null;            // 1-5 or null
-  selectedTags: Set<string>;        // Slugs of active vetted tags
-  availableTags: TagRecord[];       // Vetted tag taxonomy choices
+  durationHours: number | null; // Estimated hours (e.g. 2.5)
+  durationDays: number | null; // Estimated days (e.g. 0)
+  rating: number | null; // 1-5 or null
+  selectedTags: Set<string>; // Slugs of active vetted tags
+  availableTags: TagRecord[]; // Vetted tag taxonomy choices
 
   // Triage & Hierarchy
-  parentPoiId: string | null;       // Parent POI UUID if nested
-  parentPoiName: string | null;     // Parent POI name
+  parentPoiId: string | null; // Parent POI UUID if nested
+  parentPoiName: string | null; // Parent POI name
   deduplicationVerdict: any | null; // Duplicate check status
 }
 ```

@@ -22,6 +22,7 @@ Constitution Principle 2 (Ports & Adapters). No ORM or driver imports allowed.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 from typing import Any, Protocol
 from uuid import UUID
@@ -38,6 +39,7 @@ from vistarae_core.domain.entities import (
     User,
     UserMetric,
     UserPreferences,
+    UserPrompt,
     UserQuota,
 )
 from vistarae_core.domain.value_objects import (
@@ -45,6 +47,7 @@ from vistarae_core.domain.value_objects import (
     IdempotencyStatus,
     IngestJobStatus,
     MergeResolutionRule,
+    PromptType,
     UserTier,
     VisitState,
     WGS84Point,
@@ -1005,5 +1008,44 @@ class IScrapingPreferencesRepository(Protocol):
 
         Returns:
             Persisted list of domain suffixes.
+        """
+        ...
+
+
+class IUserPromptRepository(Protocol):
+    """Persistence contract for tenant personalized prompt directives."""
+
+    async def list_by_user(self, user_id: UUID) -> Sequence[UserPrompt]:
+        """Retrieves all active prompt directives for a tenant.
+
+        Args:
+            user_id: Owning tenant UUID.
+
+        Returns:
+            Sequence of UserPrompt entities.
+        """
+        ...
+
+    async def upsert_prompts(
+        self,
+        user_id: UUID,
+        prompts: dict[PromptType, str],
+    ) -> Sequence[UserPrompt]:
+        """Atomically replaces or updates prompt directives for a tenant.
+
+        Args:
+            user_id: Owning tenant UUID.
+            prompts: Mapping of prompt types to directive text.
+
+        Returns:
+            Sequence of upserted UserPrompt entities.
+        """
+        ...
+
+    async def delete_by_user(self, user_id: UUID) -> None:
+        """Deletes all custom prompt directives for a tenant.
+
+        Args:
+            user_id: Owning tenant UUID.
         """
         ...

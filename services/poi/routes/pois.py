@@ -78,6 +78,31 @@ router = APIRouter(tags=["pois"])
 
 def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIResponse:
     """Maps a pure domain POI entity and its tags to POIResponse schema."""
+    city = poi.city
+    if not city and poi.addresses:
+        for addr in poi.addresses:
+            if addr.city:
+                city = addr.city
+                break
+
+    states = poi.states
+    if poi.addresses:
+        extracted = [a.state_province for a in poi.addresses if a.state_province]
+        states = list(dict.fromkeys(extracted))
+
+    countries = poi.countries
+    if not countries and poi.addresses:
+        extracted = [a.country for a in poi.addresses if a.country and a.country != "Unknown"]
+        if extracted:
+            countries = list(dict.fromkeys(extracted))
+
+    address = poi.address
+    if not address and poi.addresses:
+        for addr in poi.addresses:
+            if addr.street:
+                address = addr.street
+                break
+
     return POIResponse(
         id=poi.id,
         user_id=poi.user_id,
@@ -85,11 +110,12 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         parent_poi_name=getattr(poi, "parent_poi_name", None),
         name=poi.name,
         description=poi.description,
+        reason_to_visit=getattr(poi, "reason_to_visit", None),
         addresses=poi.addresses or [],
-        address=poi.address,
-        city=poi.city,
-        states=poi.states,
-        countries=poi.countries,
+        address=address,
+        city=city,
+        states=states,
+        countries=countries,
         official_url=poi.official_url,
         wiki_url=poi.wiki_url,
         image_urls=poi.image_urls,
@@ -200,11 +226,17 @@ def _resolve_create_addresses(
     address: str | None,
     states: list[str],
     countries: list[str],
-) -> tuple[list[AddressRecord], list[str], list[str], str | None]:
-    """Resolves and normalizes addresses and falls back to geo-derived values."""
+) -> tuple[list[AddressRecord], list[str], list[str], str | None, str | None]:
     addresses: list[AddressRecord] = []
     if req.addresses:
         addresses = AddressNormalizer.normalize_addresses(req.addresses)
+        resolved_states = [a.state_province for a in addresses if a.state_province]
+        resolved_countries = [a.country for a in addresses if a.country and a.country != "Unknown"]
+        resolved_address = address or (
+            addresses[0].street if addresses and addresses[0].street else None
+        )
+        resolved_city = req.city or (addresses[0].city if addresses and addresses[0].city else None)
+        return addresses, resolved_states, resolved_countries, resolved_address, resolved_city
     elif address or countries:
         addresses = [
             AddressNormalizer.normalize_address(
@@ -224,8 +256,9 @@ def _resolve_create_addresses(
     resolved_address = address or (
         addresses[0].street if addresses and addresses[0].street else None
     )
+    resolved_city = req.city or (addresses[0].city if addresses and addresses[0].city else None)
 
-    return addresses, resolved_states, resolved_countries, resolved_address
+    return addresses, resolved_states, resolved_countries, resolved_address, resolved_city
 
 
 @router.post("/pois", response_model=POIResponse, status_code=status.HTTP_201_CREATED)
@@ -294,7 +327,7 @@ async def create_poi(
     embedding_vector = await embedding_port.generate_embedding(sanitized_text)
     md5_hash = compute_embedding_md5(sanitized_text)
 
-    addresses, states, countries, address = _resolve_create_addresses(
+    addresses, states, countries, address, city = _resolve_create_addresses(
         req, address, states, countries
     )
     source_type = req.source_type or SourceType.MANUAL
@@ -309,8 +342,9 @@ async def create_poi(
         geom=WGS84Point(lon=req.lon, lat=req.lat),
         parent_poi_id=req.parent_poi_id,
         description=req.description,
+        reason_to_visit=req.reason_to_visit,
         address=address,
-        city=req.city,
+        city=city,
         states=states,
         countries=countries,
         addresses=addresses,
@@ -358,11 +392,12 @@ async def get_poi(
     return _poi_to_response(poi, tags)
 
 
-def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:
+def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:  # noqa: C901
     """Applies non-null scalar fields from update request to domain entity."""
     fields = (
         "name",
         "description",
+        "reason_to_visit",
         "address",
         "city",
         "states",
@@ -400,14 +435,24 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:
     if req.addresses is not None:
         normalized = AddressNormalizer.normalize_addresses(req.addresses)
         poi.addresses = normalized
+        if req.city is None:
+            for a in normalized:
+                if a.city:
+                    poi.city = a.city
+                    break
+        if req.address is None:
+            for a in normalized:
+                if a.street:
+                    poi.address = a.street
+                    break
         if req.states is None:
             extracted_states = [a.state_province for a in normalized if a.state_province]
-            if extracted_states:
-                poi.states = list(dict.fromkeys(extracted_states))
+            poi.states = list(dict.fromkeys(extracted_states))
         if req.countries is None:
-            extracted_countries = [a.country for a in normalized if a.country]
-            if extracted_countries:
-                poi.countries = list(dict.fromkeys(extracted_countries))
+            extracted_countries = [
+                a.country for a in normalized if a.country and a.country != "Unknown"
+            ]
+            poi.countries = list(dict.fromkeys(extracted_countries))
 
 
 @router.patch("/pois/{poi_id}", response_model=POIResponse)

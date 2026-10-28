@@ -21,18 +21,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExtractAndCheckRequest'
+              $ref: "#/components/schemas/ExtractAndCheckRequest"
       responses:
-        '200':
+        "200":
           description: Extraction and triage completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExtractAndCheckResponse'
-        '401':
-          $ref: '#/components/responses/401Unauthorized'
-        '422':
-          $ref: '#/components/responses/422ValidationError'
+                $ref: "#/components/schemas/ExtractAndCheckResponse"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "422":
+          $ref: "#/components/responses/422ValidationError"
 
   /api/v1/geocoding/reverse:
     post:
@@ -48,18 +48,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReverseGeocodeRequest'
+              $ref: "#/components/schemas/ReverseGeocodeRequest"
       responses:
-        '200':
+        "200":
           description: Reverse geocoding succeeded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReverseGeocodeResponse'
-        '401':
-          $ref: '#/components/responses/401Unauthorized'
-        '422':
-          $ref: '#/components/responses/422ValidationError'
+                $ref: "#/components/schemas/ReverseGeocodeResponse"
+        "401":
+          $ref: "#/components/responses/401Unauthorized"
+        "422":
+          $ref: "#/components/responses/422ValidationError"
 
 components:
   securitySchemes:
@@ -119,14 +119,14 @@ components:
       additionalProperties: false
       properties:
         candidate:
-          $ref: '#/components/schemas/POICandidateSchema'
+          $ref: "#/components/schemas/POICandidateSchema"
         recommended_tags:
           type: array
           items:
             type: string
           description: Slugs of vetted tags matching the place taxonomy
         deduplication:
-          $ref: '#/components/schemas/DuplicateTriageVerdict'
+          $ref: "#/components/schemas/DuplicateTriageVerdict"
 
     POICandidateSchema:
       type: object
@@ -148,7 +148,7 @@ components:
         addresses:
           type: array
           items:
-            $ref: '#/components/schemas/AddressRecord'
+            $ref: "#/components/schemas/AddressRecord"
         latitude:
           type: number
           format: float
@@ -277,7 +277,7 @@ components:
         addresses:
           type: array
           items:
-            $ref: '#/components/schemas/AddressRecord'
+            $ref: "#/components/schemas/AddressRecord"
 
     ProblemDetails:
       type: object
@@ -310,11 +310,11 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
 
     422ValidationError:
       description: Boundary schema validation failed (RFC 7807)
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"

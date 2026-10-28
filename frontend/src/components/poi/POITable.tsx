@@ -14,7 +14,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import type { TableConfig } from "../../types/filter";
 import {
@@ -25,6 +25,7 @@ import {
   Filter,
   CheckSquare,
   Square,
+  Search,
 } from "lucide-react";
 import { BulkActionsToolbar } from "../bulk/BulkActionsToolbar";
 
@@ -63,15 +64,43 @@ export const POITable: React.FC<POITableProps> = ({
   onOpenBulkDelete,
   onDeselectAll,
 }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter POIs by searchTerm matching name, address, description, reason_to_visit, etc.
+  const filteredPois = useMemo(() => {
+    if (!searchTerm.trim()) return pois;
+    const term = searchTerm.trim().toLowerCase();
+    return pois.filter((poi) => {
+      const name = (poi.name || "").toLowerCase();
+      const addr = (poi.address || "").toLowerCase();
+      const city = (poi.city || "").toLowerCase();
+      const state = (poi.state || "").toLowerCase();
+      const country = (poi.country || "").toLowerCase();
+      const desc = (poi.description || "").toLowerCase();
+      const reason = (poi.reason_to_visit || "").toLowerCase();
+      const tags = (poi.tags || []).join(" ").toLowerCase();
+      return (
+        name.includes(term) ||
+        addr.includes(term) ||
+        city.includes(term) ||
+        state.includes(term) ||
+        country.includes(term) ||
+        desc.includes(term) ||
+        reason.includes(term) ||
+        tags.includes(term)
+      );
+    });
+  }, [pois, searchTerm]);
+
   // Sort POIs based on tableConfig if specified
   const sortedPois = useMemo(() => {
     if (!tableConfig?.sort || tableConfig.sort.direction === "unsorted") {
-      return pois;
+      return filteredPois;
     }
     const { column, direction } = tableConfig.sort;
     const modifier = direction === "desc" ? -1 : 1;
 
-    return [...pois].sort((a, b) => {
+    return [...filteredPois].sort((a, b) => {
       let valA: any = "";
       let valB: any = "";
 
@@ -110,21 +139,58 @@ export const POITable: React.FC<POITableProps> = ({
         valB = (b.tags || []).join(",");
         return valA.localeCompare(valB) * modifier;
       }
+      if (column === "description") {
+        valA = a.description || "";
+        valB = b.description || "";
+        return valA.localeCompare(valB) * modifier;
+      }
+      if (column === "reason_to_visit") {
+        valA = a.reason_to_visit || "";
+        valB = b.reason_to_visit || "";
+        return valA.localeCompare(valB) * modifier;
+      }
+      if (column === "recommended_duration_hours") {
+        valA = a.recommended_duration_hours ?? -1;
+        valB = b.recommended_duration_hours ?? -1;
+        return (valA - valB) * modifier;
+      }
+      if (column === "recommended_visit_days") {
+        valA = a.recommended_visit_days ?? -1;
+        valB = b.recommended_visit_days ?? -1;
+        return (valA - valB) * modifier;
+      }
+      if (column === "visit_pending") {
+        valA = a.visit_pending ? 1 : 0;
+        valB = b.visit_pending ? 1 : 0;
+        return (valA - valB) * modifier;
+      }
+      if (column === "visited_date") {
+        valA =
+          a.visited_dates && a.visited_dates.length > 0
+            ? a.visited_dates[0]
+            : "";
+        valB =
+          b.visited_dates && b.visited_dates.length > 0
+            ? b.visited_dates[0]
+            : "";
+        return valA.localeCompare(valB) * modifier;
+      }
       return 0;
     });
-  }, [pois, tableConfig]);
+  }, [filteredPois, tableConfig]);
 
   // Determine active columns and order
   const activeColumns = useMemo(() => {
     const defaultCols = ["name", "city", "rating", "visit_state", "tags"];
-    if (!tableConfig) return defaultCols;
-
-    const visibleSet = new Set(tableConfig.visible_columns);
-    const order =
-      tableConfig.column_order.length > 0
-        ? tableConfig.column_order
-        : defaultCols;
-    return order.filter((col) => visibleSet.has(col));
+    if (tableConfig) {
+      const visibleSet = new Set(tableConfig.visible_columns);
+      const order =
+        tableConfig.column_order.length > 0
+          ? tableConfig.column_order
+          : defaultCols;
+      return order.filter((col) => visibleSet.has(col));
+    }
+    return [...defaultCols];
   }, [tableConfig]);
 
   const allFilteredSelected = useMemo(() => {
@@ -217,6 +283,18 @@ export const POITable: React.FC<POITableProps> = ({
         return "Status";
       case "tags":
         return "Tags";
+      case "description":
+        return "Description";
+      case "reason_to_visit":
+        return "Reason to Visit";
+      case "recommended_duration_hours":
+        return "Duration (Hours)";
+      case "recommended_visit_days":
+        return "Itinerary Days";
+      case "visit_pending":
+        return "Visit Pending";
+      case "visited_date":
+        return "Visited Date";
       default:
         return colId;
     }
@@ -228,24 +306,40 @@ export const POITable: React.FC<POITableProps> = ({
         return (
           <span style={{ fontWeight: 600, color: "#111827" }}>{poi.name}</span>
         );
-      case "city":
+      case "city": {
+        const displayCity =
+          poi.city ||
+          poi.addresses?.find((a: any) => a.city?.trim())?.city ||
+          "—";
         return (
           <span style={{ color: "var(--text-secondary, #475569)" }}>
-            {poi.city || "—"}
+            {displayCity}
           </span>
         );
-      case "state":
+      }
+      case "state": {
+        const displayState =
+          poi.state ||
+          poi.addresses?.find((a: any) => a.state_province?.trim())
+            ?.state_province ||
+          "—";
         return (
           <span style={{ color: "var(--text-secondary, #475569)" }}>
-            {poi.state || "—"}
+            {displayState}
           </span>
         );
-      case "country":
+      }
+      case "country": {
+        const displayCountry =
+          poi.country ||
+          poi.addresses?.find((a: any) => a.country?.trim())?.country ||
+          "—";
         return (
           <span style={{ color: "var(--text-secondary, #475569)" }}>
-            {poi.country || "—"}
+            {displayCountry}
           </span>
         );
+      }
       case "rating":
         return renderStars(poi.rating);
       case "visit_state":
@@ -269,6 +363,101 @@ export const POITable: React.FC<POITableProps> = ({
             ))}
           </div>
         );
+      case "description":
+        return (
+          <span
+            title={poi.description || undefined}
+            data-testid={`poi-desc-cell-${poi.id}`}
+            style={{
+              display: "inline-block",
+              maxWidth: "180px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "var(--text-secondary, #475569)",
+            }}
+          >
+            {poi.description || "—"}
+          </span>
+        );
+      case "reason_to_visit":
+        return (
+          <span
+            title={poi.reason_to_visit || undefined}
+            data-testid={`poi-reason-cell-${poi.id}`}
+            style={{
+              display: "inline-block",
+              maxWidth: "200px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              color: "var(--accent, #2563eb)",
+              fontWeight: 500,
+            }}
+          >
+            {poi.reason_to_visit || "—"}
+          </span>
+        );
+      case "recommended_duration_hours":
+        return (
+          <span
+            data-testid={`poi-duration-cell-${poi.id}`}
+            style={{ color: "var(--text-secondary, #475569)" }}
+          >
+            {poi.recommended_duration_hours != null
+              ? `${poi.recommended_duration_hours} hrs`
+              : "—"}
+          </span>
+        );
+      case "recommended_visit_days":
+        return (
+          <span
+            data-testid={`poi-days-cell-${poi.id}`}
+            style={{ color: "var(--text-secondary, #475569)" }}
+          >
+            {poi.recommended_visit_days != null
+              ? `${poi.recommended_visit_days} days`
+              : "—"}
+          </span>
+        );
+      case "visit_pending":
+        return (
+          <span
+            data-testid={`poi-visit-pending-cell-${poi.id}`}
+            style={{
+              padding: "2px 8px",
+              borderRadius: "9999px",
+              fontSize: "11px",
+              fontWeight: 600,
+              background: poi.visit_pending ? "#fef3c7" : "#f1f5f9",
+              color: poi.visit_pending ? "#b45309" : "#64748b",
+              border: poi.visit_pending
+                ? "1px solid #fde68a"
+                : "1px solid #e2e8f0",
+            }}
+          >
+            {poi.visit_pending ? "Pending" : "No"}
+          </span>
+        );
+      case "visited_date": {
+        const firstVisitedDate =
+          poi.visited_dates && poi.visited_dates.length > 0
+            ? poi.visited_dates[0]
+            : null;
+        return (
+          <span
+            data-testid={`poi-visited-date-cell-${poi.id}`}
+            title={
+              poi.visited_dates && poi.visited_dates.length > 1
+                ? poi.visited_dates.join(", ")
+                : undefined
+            }
+            style={{ color: "var(--text-secondary, #475569)" }}
+          >
+            {firstVisitedDate || "—"}
+          </span>
+        );
+      }
       default:
         return null;
     }
@@ -338,30 +527,61 @@ export const POITable: React.FC<POITableProps> = ({
           )}
         </div>
 
-        {/* Viewport Filter Toggle */}
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontSize: "12px",
-            fontWeight: 600,
-            color: "var(--text-secondary, #475569)",
-            cursor: "pointer",
-          }}
-        >
-          <Filter
-            size={14}
-            color={isViewportFilterActive ? "var(--accent)" : "inherit"}
-          />
-          <span>Filter to map viewport</span>
-          <input
-            type="checkbox"
-            checked={isViewportFilterActive}
-            onChange={(e) => onToggleViewportFilter(e.target.checked)}
-            style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
-          />
-        </label>
+        {/* Search input and Viewport Filter Toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+          {/* Text search filter */}
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <Search
+              size={14}
+              style={{
+                position: "absolute",
+                left: "8px",
+                color: "var(--text-muted, #94a3b8)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              data-testid="poi-table-search-input"
+              placeholder="Search POIs, description, why visit..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: "4px 8px 4px 28px",
+                borderRadius: "var(--radius-md, 6px)",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                fontSize: "12px",
+                width: "220px",
+                background: "var(--bg-surface, #ffffff)",
+                color: "var(--text-primary, #0f172a)",
+              }}
+            />
+          </div>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "var(--text-secondary, #475569)",
+              cursor: "pointer",
+            }}
+          >
+            <Filter
+              size={14}
+              color={isViewportFilterActive ? "var(--accent)" : "inherit"}
+            />
+            <span>Filter to map viewport</span>
+            <input
+              type="checkbox"
+              checked={isViewportFilterActive}
+              onChange={(e) => onToggleViewportFilter(e.target.checked)}
+              style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Bulk Actions Toolbar */}

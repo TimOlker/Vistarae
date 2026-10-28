@@ -111,13 +111,29 @@ export const filterRuleService = {
       tags: (p.tags || []).map((t: any) =>
         typeof t === "string" ? t : t.name,
       ),
-      city: p.city || undefined,
-      state: p.states?.[0] || undefined,
-      country: p.countries?.[0] || undefined,
+      city:
+        p.addresses?.find((a: any) => a.city?.trim())?.city ||
+        p.city ||
+        undefined,
+      state:
+        p.addresses && p.addresses.length > 0
+          ? p.addresses.find((a: any) => a.state_province?.trim())
+              ?.state_province
+          : p.state || p.states?.[0] || undefined,
+      country:
+        p.addresses?.find((a: any) => a.country?.trim())?.country ||
+        p.country ||
+        p.countries?.[0] ||
+        undefined,
       parent_poi_id: p.parent_poi_id,
       already_visited: p.already_visited,
       visit_pending: p.visit_pending,
       want_to_visit_again: p.want_to_visit_again,
+      visited_dates: p.visited_dates || [],
+      description: p.description,
+      reason_to_visit: p.reason_to_visit,
+      recommended_duration_hours: p.recommended_duration_hours,
+      recommended_visit_days: p.recommended_visit_days,
     }));
 
     return {

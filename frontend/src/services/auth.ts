@@ -26,6 +26,7 @@ export interface UserSession {
   is_admin: boolean;
   tier: string;
   created_at?: string;
+  travel_style_description?: string | null;
 }
 
 export interface AuthTokens {
@@ -47,6 +48,9 @@ function normalizeUserSession(raw: unknown): UserSession {
       is_admin?: boolean;
       created_at?: string;
     };
+    preferences?: {
+      travel_style_description?: string | null;
+    };
     quotas?: {
       tier?: string;
     };
@@ -56,7 +60,13 @@ function normalizeUserSession(raw: unknown): UserSession {
     is_admin?: boolean;
     tier?: string;
     created_at?: string;
+    travel_style_description?: string | null;
   };
+
+  const travelStyle =
+    data?.preferences?.travel_style_description ??
+    data?.travel_style_description ??
+    null;
 
   if (data?.user) {
     const tier = (data.quotas?.tier || "LOW").toUpperCase();
@@ -69,6 +79,7 @@ function normalizeUserSession(raw: unknown): UserSession {
         (tier === "ADMIN" || data.user.email.includes("admin")),
       tier,
       created_at: data.user.created_at,
+      travel_style_description: travelStyle,
     };
   }
 
@@ -79,6 +90,7 @@ function normalizeUserSession(raw: unknown): UserSession {
     is_admin: Boolean(data?.is_admin),
     tier: (data?.tier || "LOW").toUpperCase(),
     created_at: data?.created_at,
+    travel_style_description: travelStyle,
   };
 }
 

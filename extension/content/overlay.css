@@ -575,3 +575,9 @@
   margin-left: 6px;
   vertical-align: middle;
 }
+
+/* Reason to Visit field styling (REQ-CTX-034 / Phase 11) */
+#vistarae-reason-input {
+  resize: vertical;
+  min-height: 72px;
+}

@@ -120,10 +120,7 @@ export class TripAdvisorParser extends BasePoiParser {
 
     return {
       name,
-      description:
-        selectionText.trim() ||
-        ldData?.description ||
-        `Captured from TripAdvisor: ${name}`,
+      description: selectionText.trim() || ldData?.description || "",
       category,
       address,
       latitude,

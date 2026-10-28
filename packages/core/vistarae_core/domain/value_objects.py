@@ -268,3 +268,15 @@ class SortDirection(StrEnum):
     ASC = "asc"
     DESC = "desc"
     UNSORTED = "unsorted"
+
+
+class PromptType(StrEnum):
+    """Enumeration of modular prompt directive targets.
+
+    Stored as VARCHAR(32) per Constitution Principle 4 (strictly avoiding
+    PostgreSQL native ENUM types).
+    """
+
+    DESCRIPTION = "description"
+    REASON_TO_VISIT = "reason_to_visit"
+    TIME_SPENT = "time_spent"

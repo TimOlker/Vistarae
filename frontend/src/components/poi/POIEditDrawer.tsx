@@ -30,10 +30,10 @@ import {
   MapPin,
   Compass,
   FileText,
-  Tag,
   Loader2,
 } from "lucide-react";
 import { apiFetch, ApiError } from "../../services/api";
+import { TagSelector } from "../tags/TagSelector";
 import { ParentPOISelector } from "./ParentPOISelector";
 import { MultiAddressEditor, AddressRecord } from "./MultiAddressEditor";
 import { LocationFinderModal } from "./LocationFinderModal";
@@ -69,8 +69,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   // Core scalar state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [reasonToVisit, setReasonToVisit] = useState("");
   const [rating, setRating] = useState<number>(0);
-  const [tagsInput, setTagsInput] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // Coordinates
   const [lat, setLat] = useState<number>(0);
@@ -168,6 +169,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     const baselineLon = poi.canonical_lng ?? poi.lon ?? 0;
     setName(poi.name || "");
     setDescription(poi.description || "");
+    setReasonToVisit(poi.reason_to_visit || "");
     setLat(baselineLat);
     setLon(baselineLon);
     setInitialLat(baselineLat);
@@ -190,13 +192,12 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     } else {
       setAddresses([]);
     }
-    setTagsInput(
-      Array.isArray(poi.tags)
-        ? poi.tags
-            .map((t: any) => (typeof t === "string" ? t : t.name))
-            .join(", ")
-        : "",
-    );
+    const initialTags: string[] = Array.isArray(poi.tags)
+      ? poi.tags
+          .map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+          .filter(Boolean)
+      : [];
+    setSelectedTags(initialTags);
 
     // Baseline visit lifecycle tracking
     const rawVisitedDates =
@@ -234,6 +235,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         const fullData = await apiFetch<any>(`/api/pois/${poi.id}`);
         setName(fullData.name || "");
         setDescription(fullData.description || "");
+        setReasonToVisit(fullData.reason_to_visit || "");
         const fetchedLat = fullData.lat ?? fullData.latitude ?? baselineLat;
         const fetchedLon = fullData.lon ?? fullData.longitude ?? baselineLon;
         setLat(fetchedLat);
@@ -259,12 +261,11 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         setVisitedDates((fullData.visited_dates || []).map(String).sort());
         setWantToVisitAgain(Boolean(fullData.want_to_visit_again));
         setRating(fullData.rating || 0);
-        if (fullData.tags) {
-          setTagsInput(
-            fullData.tags
-              .map((t: any) => (typeof t === "string" ? t : t.name))
-              .join(", "),
-          );
+        if (fullData.tags && Array.isArray(fullData.tags)) {
+          const fetchedTags = fullData.tags
+            .map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+            .filter(Boolean);
+          setSelectedTags(fetchedTags);
         }
       } catch (err) {
         console.warn(
@@ -355,10 +356,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
 
   // Helper to construct current in-memory draft
   const getCurrentDraft = (currentAddrs: AddressRecord[]) => {
-    const parsedTags = tagsInput
-      .split(",")
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+    const parsedTags = selectedTags;
 
     const isVisited = visitedDates.length > 0;
     const isPending = !isVisited || wantToVisitAgain;
@@ -372,9 +370,17 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       ...poi,
       name: name.trim(),
       description: description.trim() || undefined,
+      reason_to_visit: reasonToVisit.trim() || undefined,
       parent_poi_id: parentPoiId || undefined,
       parent_poi_name: parentPoiName || undefined,
       addresses: currentAddrs,
+      city: currentAddrs.find((a) => a.city?.trim())?.city || poi.city,
+      state:
+        currentAddrs.length > 0
+          ? currentAddrs.find((a) => a.state_province?.trim())?.state_province
+          : poi.state,
+      country:
+        currentAddrs.find((a) => a.country?.trim())?.country || poi.country,
       lat,
       lon,
       latitude: lat,
@@ -482,10 +488,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         }
       }
 
-      const parsedTags = tagsInput
-        .split(",")
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
+      const parsedTags = selectedTags;
 
       const validSourceType = (
         ["Web", "CSV", "Manual", "Photo"].includes(sourceType)
@@ -493,11 +496,27 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
           : "Manual"
       ) as "Web" | "CSV" | "Manual" | "Photo";
 
+      const resolvedCity =
+        activeAddresses.find((a) => a.city?.trim())?.city?.trim() || poi.city;
+      const resolvedState =
+        activeAddresses.length > 0
+          ? activeAddresses.find((a) => a.state_province?.trim())?.state_province?.trim()
+          : poi.state;
+      const resolvedCountry =
+        activeAddresses.find((a) => a.country?.trim())?.country?.trim() ||
+        poi.country;
+
       const payload: POIUpdateRequest = {
         name: name.trim(),
         description: description.trim() || undefined,
+        reason_to_visit: reasonToVisit.trim() || undefined,
         parent_poi_id: parentPoiId || undefined,
         addresses: activeAddresses.length > 0 ? activeAddresses : undefined,
+        city: resolvedCity || undefined,
+        state: resolvedState || undefined,
+        states: resolvedState ? [resolvedState] : [],
+        country: resolvedCountry || undefined,
+        countries: resolvedCountry ? [resolvedCountry] : [],
         latitude: lat,
         longitude: lon,
         rating: rating > 0 ? rating : null,
@@ -536,8 +555,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       const finalLat = updated.lat ?? updated.latitude ?? lat;
       const finalLng = updated.lon ?? updated.longitude ?? lon;
       const finalTags = Array.isArray(updated.tags)
-        ? updated.tags.map((t: any) => (typeof t === "string" ? t : t.name))
-        : parsedTags;
+        ? updated.tags.map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+        : selectedTags;
 
       const isVisited = visitedDates.length > 0;
       const isPending = !isVisited || wantToVisitAgain;
@@ -555,6 +574,17 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         canonical_lng: finalLng,
         render_lat: finalLat,
         render_lng: finalLng,
+        city: updated.city || resolvedCity || poi.city,
+        state:
+          updated.state ||
+          updated.states?.[0] ||
+          resolvedState ||
+          poi.state,
+        country:
+          updated.country ||
+          updated.countries?.[0] ||
+          resolvedCountry ||
+          poi.country,
         visit_state: updated.visit_state || derivedVisitState,
         already_visited: updated.already_visited ?? isVisited,
         visit_pending: updated.visit_pending ?? isPending,
@@ -563,6 +593,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         rating: updated.rating,
         tags: finalTags,
         description: updated.description,
+        reason_to_visit: updated.reason_to_visit ?? (reasonToVisit.trim() || undefined),
         addresses: updated.addresses,
         parent_poi_id: updated.parent_poi_id,
         parent_poi_name: updated.parent_poi_name,
@@ -794,6 +825,67 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               />
             </div>
 
+            {/* Section 2b: Reason to Visit (Why Visit) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <label
+                  htmlFor="poi-reason-to-visit"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text-secondary, #475569)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  <Compass
+                    size={14}
+                    style={{ color: "var(--accent, #2563eb)" }}
+                  />
+                  Reason to Visit
+                </label>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color:
+                      reasonToVisit.length > 9500
+                        ? "var(--warning, #f59e0b)"
+                        : "var(--text-muted, #94a3b8)",
+                  }}
+                >
+                  {reasonToVisit.length.toLocaleString()} / 10,000
+                </span>
+              </div>
+              <textarea
+                id="poi-reason-to-visit"
+                rows={4}
+                maxLength={10000}
+                placeholder="Why a tourist would be interested in visiting (e.g., scenic sunset vistas, historic architecture, specialty dishes)..."
+                value={reasonToVisit}
+                onChange={(e) => setReasonToVisit(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  border: "1px solid var(--border-color, #e2e8f0)",
+                  fontSize: "13px",
+                  background: "var(--bg-surface, #ffffff)",
+                  color: "var(--text-primary, #0f172a)",
+                  resize: "vertical",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+
             {/* Section 3: Hierarchical Parent Selector */}
             <ParentPOISelector
               activePoiId={poi.id}
@@ -880,7 +972,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.000001"
+                    step="any"
                     min="-90"
                     max="90"
                     value={lat}
@@ -902,7 +994,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.000001"
+                    step="any"
                     min="-180"
                     max="180"
                     value={lon}
@@ -963,7 +1055,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   </span>
                   <input
                     type="number"
-                    step="0.5"
+                    step="any"
                     min="0.1"
                     max="24.0"
                     placeholder="e.g. 2.5"
@@ -1611,92 +1703,60 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               )}
             </div>
 
-            {/* Section 12: Rating & Tags */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 2fr",
-                gap: "12px",
-              }}
-            >
-              <div>
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "6px",
-                    color: "var(--text-secondary, #475569)",
-                  }}
-                >
-                  <Star
-                    size={14}
-                    style={{ color: "var(--warning, #f59e0b)" }}
-                  />
-                  Rating
-                </label>
-                <div style={{ display: "flex", gap: "4px" }}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setRating(rating === s ? 0 : s)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "2px",
-                        color:
-                          s <= rating
-                            ? "var(--warning, #f59e0b)"
-                            : "var(--border-color, #cbd5e1)",
-                      }}
-                    >
-                      <Star
-                        size={18}
-                        fill={
-                          s <= rating
-                            ? "var(--warning, #f59e0b)"
-                            : "transparent"
-                        }
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "6px",
-                    color: "var(--text-secondary, #475569)",
-                  }}
-                >
-                  <Tag size={14} style={{ color: "var(--accent, #2563eb)" }} />
-                  Tags (max 30)
-                </label>
-                <input
-                  type="text"
-                  placeholder="scenic, hiking, photography"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: "var(--radius-sm, 6px)",
-                    border: "1px solid var(--border-color, #e2e8f0)",
-                    fontSize: "12px",
-                  }}
+            {/* Section 12: Rating */}
+            <div>
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom: "6px",
+                  color: "var(--text-secondary, #475569)",
+                }}
+              >
+                <Star
+                  size={14}
+                  style={{ color: "var(--warning, #f59e0b)" }}
                 />
+                Rating
+              </label>
+              <div style={{ display: "flex", gap: "4px" }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setRating(rating === s ? 0 : s)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "2px",
+                      color:
+                        s <= rating
+                          ? "var(--warning, #f59e0b)"
+                          : "var(--border-color, #cbd5e1)",
+                    }}
+                  >
+                    <Star
+                      size={18}
+                      fill={
+                        s <= rating
+                          ? "var(--warning, #f59e0b)"
+                          : "transparent"
+                      }
+                    />
+                  </button>
+                ))}
               </div>
             </div>
+
+            {/* Section 13: Tag Selection */}
+            <TagSelector
+              selectedTags={selectedTags}
+              onChange={setSelectedTags}
+            />
 
             {/* Action Buttons */}
             <div

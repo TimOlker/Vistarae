@@ -43,6 +43,7 @@ from vistarae_core.domain.entities import POI
 from vistarae_core.domain.value_objects import DuplicateTriageStatus, VisitState, WGS84Point
 from vistarae_core.ports.embedding import IEmbeddingPort
 from vistarae_core.ports.repositories import IIngestJobRepository, IPOIRepository
+from vistarae_core.services.prompt_cache import UserPromptCache
 
 from services.worker.geocoder import NominatimGeocoder
 from services.worker.idempotency import claim_row_idempotency
@@ -72,6 +73,8 @@ class BatchIngestWorker:
         embedding_port: IEmbeddingPort,
         ingest_repo_factory: Callable[[AsyncSession], IIngestJobRepository] | None = None,
         poi_repo_factory: Callable[[AsyncSession], IPOIRepository] | None = None,
+        prompt_cache: UserPromptCache | None = None,
+        orchestrator: Any | None = None,
     ) -> None:
         """Initializes batch ingest worker.
 
@@ -81,14 +84,18 @@ class BatchIngestWorker:
             embedding_port: IEmbeddingPort vector generator.
             ingest_repo_factory: Optional custom IngestJobRepository factory.
             poi_repo_factory: Optional custom POIRepository factory.
+            prompt_cache: Optional UserPromptCache instance for personalized prompt resolution.
+            orchestrator: Optional ScrapingOrchestrator for web enrichment and personalized synthesis.
         """
         self._session_factory = session_factory
         self._geocoder = geocoder
         self._embedding_port = embedding_port
         self._ingest_repo_factory = ingest_repo_factory or IngestJobRepository
         self._poi_repo_factory = poi_repo_factory or SqlAlchemyPOIRepository
+        self._prompt_cache = prompt_cache
+        self._orchestrator = orchestrator
 
-    async def process_record(
+    async def process_record(  # noqa: C901
         self,
         record: dict[str, Any],
         session: AsyncSession,
@@ -194,11 +201,66 @@ class BatchIngestWorker:
             similarity_threshold=0.60,
         )
 
+        # Resolve prompt directives for user if cache is configured
+        prompt_directives: dict[str, str] = {}
+        if self._prompt_cache:
+            try:
+                cached = self._prompt_cache.get(user_id)
+                if cached:
+                    prompt_directives = {
+                        (k.value if hasattr(k, "value") else str(k)): v for k, v in cached.items()
+                    }
+            except Exception:
+                logger.warning("Failed to retrieve prompt directives for user %s", user_id)
+
+        description = row_data.get("description")
+        reason_to_visit = row_data.get("reason_to_visit") or row_data.get("why_visit")
+        recommended_duration_hours = (
+            float(row_data["recommended_duration_hours"])
+            if row_data.get("recommended_duration_hours")
+            else None
+        )
+        estimated_visit_time_notes = row_data.get("estimated_visit_time_notes")
+
+        if self._orchestrator:
+            url = row_data.get("url") or row_data.get("source_url")
+            if url:
+                extracted = await self._orchestrator.extract_from_url(
+                    url=url,
+                    user_directives=prompt_directives,
+                )
+                if extracted:
+                    if not description and extracted.description:
+                        description = extracted.description
+                    if not reason_to_visit and extracted.reason_to_visit:
+                        reason_to_visit = extracted.reason_to_visit
+                    if recommended_duration_hours is None and getattr(
+                        extracted, "estimated_duration_hours", None
+                    ):
+                        recommended_duration_hours = extracted.estimated_duration_hours
+                    elif recommended_duration_hours is None and getattr(
+                        extracted, "recommended_duration_hours", None
+                    ):
+                        recommended_duration_hours = extracted.recommended_duration_hours
+                    if not estimated_visit_time_notes and getattr(
+                        extracted, "estimated_visit_time_notes", None
+                    ):
+                        estimated_visit_time_notes = extracted.estimated_visit_time_notes
+            elif prompt_directives and not reason_to_visit and description:
+                if hasattr(self._orchestrator, "synthesize_reason_to_visit"):
+                    reason_to_visit = await self._orchestrator.synthesize_reason_to_visit(
+                        name=raw_name,
+                        description=description,
+                        reason_directive=prompt_directives.get("reason_to_visit"),
+                    )
+
         if matches:
             best = matches[0]
             staged_poi_data = {
                 "name": raw_name,
-                "description": row_data.get("description", ""),
+                "description": description or "",
+                "reason_to_visit": reason_to_visit or "",
+                "estimated_visit_time_notes": estimated_visit_time_notes or None,
                 "address": address,
                 "city": row_data.get("city", ""),
                 "states": [row_data["state"]] if row_data.get("state") else [],
@@ -223,7 +285,7 @@ class BatchIngestWorker:
             return
 
         # 4. Unique POI persistence
-        emb_text = f"{raw_name} {row_data.get('description', '')}".strip()
+        emb_text = f"{raw_name} {description or ''} {reason_to_visit or ''}".strip()
         embedding = await self._embedding_port.generate_embedding(emb_text)
 
         visited_date = row_data.get("visited_date")
@@ -236,13 +298,16 @@ class BatchIngestWorker:
             user_id=user_id,
             name=raw_name,
             geom=point,
-            description=row_data.get("description"),
+            description=description,
+            reason_to_visit=reason_to_visit,
             address=address,
             city=row_data.get("city"),
             states=[row_data["state"]] if row_data.get("state") else [],
             countries=[row_data["country"]] if row_data.get("country") else [],
             visited_dates=visited_dates,
             visit_state=visit_state,
+            recommended_duration_hours=recommended_duration_hours,
+            estimated_visit_time_notes=estimated_visit_time_notes,
             embedding=embedding,
         )
         await poi_repo.create(poi)

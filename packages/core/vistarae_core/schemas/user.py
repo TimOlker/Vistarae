@@ -23,7 +23,7 @@ from uuid import UUID
 
 from pydantic import EmailStr, Field
 
-from vistarae_core.domain.value_objects import UserTier
+from vistarae_core.domain.value_objects import PromptType, UserTier
 from vistarae_core.schemas.base import StrictBaseModel
 from vistarae_core.schemas.preferences import UserPreferencesResponse
 
@@ -77,3 +77,34 @@ class UserProfileResponse(StrictBaseModel):
     preferences: UserPreferencesResponse
     metrics: UserMetricsResponse
     quotas: UserQuotaResponse
+
+
+class UserPromptItem(StrictBaseModel):
+    """Personalized prompt directive item for API responses."""
+
+    prompt_type: PromptType = Field(..., description="Target category for the prompt directive")
+    prompt_text: str = Field(..., description="Decomposed prompt directive text")
+    updated_at: datetime = Field(..., description="Timestamp when the prompt was last updated")
+
+
+class TravelStyleUpdateRequest(StrictBaseModel):
+    """Payload to update the traveler's freeform travel style narrative."""
+
+    travel_style_description: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Narrative describing traveler style, interests, pace, and priorities.",
+    )
+
+
+class TravelStyleResponse(StrictBaseModel):
+    """Traveler travel style narrative and synthesized prompt directives."""
+
+    travel_style_description: str | None = Field(
+        default=None,
+        description="Saved travel style narrative",
+    )
+    prompts: list[UserPromptItem] = Field(
+        default_factory=list,
+        description="Active personalized prompt directives",
+    )

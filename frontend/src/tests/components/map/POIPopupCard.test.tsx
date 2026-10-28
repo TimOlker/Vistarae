@@ -34,7 +34,9 @@ describe("POIPopupCard (T-035, T-036 / REQ-MAIN-038, REQ-MAIN-039)", () => {
     country: "France",
     tags: ["museum", "art"],
     image_urls: ["https://example.com/louvre.jpg"],
-    addresses: [{ city: "Paris", country: "France" }],
+    addresses: [
+      { city: "Paris", state_province: "Île-de-France", country: "France" },
+    ],
   };
 
   const multiAddressPoi: POIMapFeature = {
@@ -119,5 +121,36 @@ describe("POIPopupCard (T-035, T-036 / REQ-MAIN-038, REQ-MAIN-039)", () => {
 
     // Image should now be removed from DOM
     expect(screen.queryByTestId("poi-popup-thumbnail")).not.toBeInTheDocument();
+  });
+
+  it("does not display a state when location in DB has no state defined", () => {
+    const eltzCastlePoi: POIMapFeature = {
+      id: "poi-eltz",
+      name: "Eltz Castle",
+      canonical_lat: 50.2052,
+      canonical_lng: 7.3366,
+      render_lat: 50.2052,
+      render_lng: 7.3366,
+      visit_state: "not_visited",
+      rating: 5,
+      city: "Wierschem",
+      country: "Germany",
+      tags: ["castle"],
+      addresses: [
+        {
+          city: "Wierschem",
+          country: "Germany",
+        },
+      ],
+    };
+
+    render(<POIPopupCard poi={eltzCastlePoi} onClose={vi.fn()} />);
+
+    expect(screen.getByTestId("single-address-summary")).toHaveTextContent(
+      "Wierschem, Germany",
+    );
+    expect(screen.getByTestId("single-address-summary")).not.toHaveTextContent(
+      "California",
+    );
   });
 });

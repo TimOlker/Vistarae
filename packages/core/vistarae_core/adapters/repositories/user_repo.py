@@ -259,6 +259,7 @@ class SqlAlchemyUserRepository:
             transit_speed_mode=TransitSpeedMode(row.transit_speed_mode),
             daily_activity_hour_cap=row.daily_activity_hour_cap,
             preferred_currency=row.preferred_currency,
+            travel_style_description=row.travel_style_description,
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
