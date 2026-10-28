@@ -86,10 +86,9 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
                 break
 
     states = poi.states
-    if not states and poi.addresses:
+    if poi.addresses:
         extracted = [a.state_province for a in poi.addresses if a.state_province]
-        if extracted:
-            states = list(dict.fromkeys(extracted))
+        states = list(dict.fromkeys(extracted))
 
     countries = poi.countries
     if not countries and poi.addresses:
@@ -228,10 +227,16 @@ def _resolve_create_addresses(
     states: list[str],
     countries: list[str],
 ) -> tuple[list[AddressRecord], list[str], list[str], str | None, str | None]:
-    """Resolves and normalizes addresses and falls back to geo-derived values."""
     addresses: list[AddressRecord] = []
     if req.addresses:
         addresses = AddressNormalizer.normalize_addresses(req.addresses)
+        resolved_states = [a.state_province for a in addresses if a.state_province]
+        resolved_countries = [a.country for a in addresses if a.country and a.country != "Unknown"]
+        resolved_address = address or (
+            addresses[0].street if addresses and addresses[0].street else None
+        )
+        resolved_city = req.city or (addresses[0].city if addresses and addresses[0].city else None)
+        return addresses, resolved_states, resolved_countries, resolved_address, resolved_city
     elif address or countries:
         addresses = [
             AddressNormalizer.normalize_address(
@@ -442,12 +447,12 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:  # noqa: C901
                     break
         if req.states is None:
             extracted_states = [a.state_province for a in normalized if a.state_province]
-            if extracted_states:
-                poi.states = list(dict.fromkeys(extracted_states))
+            poi.states = list(dict.fromkeys(extracted_states))
         if req.countries is None:
-            extracted_countries = [a.country for a in normalized if a.country]
-            if extracted_countries:
-                poi.countries = list(dict.fromkeys(extracted_countries))
+            extracted_countries = [
+                a.country for a in normalized if a.country and a.country != "Unknown"
+            ]
+            poi.countries = list(dict.fromkeys(extracted_countries))
 
 
 @router.patch("/pois/{poi_id}", response_model=POIResponse)

@@ -247,7 +247,10 @@ export const POIPopupCard: React.FC<POIPopupCardProps> = ({
           </span>
         </div>
       ) : (
-        (poi.city || poi.address || poi.country) && (
+        (poi.city ||
+          poi.address ||
+          poi.country ||
+          (poi.addresses && poi.addresses.length > 0)) && (
           <div
             style={{
               display: "flex",
@@ -259,8 +262,21 @@ export const POIPopupCard: React.FC<POIPopupCardProps> = ({
           >
             <MapPin size={13} style={{ flexShrink: 0, color: "#6B7280" }} />
             <span data-testid="single-address-summary">
-              {[poi.city, poi.state, poi.country].filter(Boolean).join(", ") ||
-                poi.address}
+              {(() => {
+                const addr = poi.addresses?.[0];
+                const city = addr?.city?.trim() || poi.city;
+                // If addresses exist, state_province from the address record is authoritative
+                const state =
+                  poi.addresses && poi.addresses.length > 0
+                    ? addr?.state_province?.trim()
+                    : poi.state;
+                const country = addr?.country?.trim() || poi.country;
+                return (
+                  [city, state, country].filter(Boolean).join(", ") ||
+                  addr?.street ||
+                  poi.address
+                );
+              })()}
             </span>
           </div>
         )

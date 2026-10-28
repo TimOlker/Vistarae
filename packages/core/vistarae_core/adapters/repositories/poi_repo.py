@@ -115,10 +115,9 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
                 break
 
     states = list(row.states) if row.states else []
-    if not states and addresses:
+    if addresses:
         extracted = [a.state_province for a in addresses if a.state_province]
-        if extracted:
-            states = list(dict.fromkeys(extracted))
+        states = list(dict.fromkeys(extracted))
 
     countries = list(row.countries) if row.countries else []
     if not countries and addresses:

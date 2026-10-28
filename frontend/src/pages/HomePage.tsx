@@ -281,17 +281,17 @@ export const HomePage: React.FC<HomePageProps> = ({
               item.address ||
               item.addresses?.find((a: any) => a.street?.trim())?.street,
             city:
-              item.city ||
-              item.addresses?.find((a: any) => a.city?.trim())?.city,
+              item.addresses?.find((a: any) => a.city?.trim())?.city ||
+              item.city,
             state:
-              item.state ||
-              item.states?.[0] ||
-              item.addresses?.find((a: any) => a.state_province?.trim())
-                ?.state_province,
+              item.addresses && item.addresses.length > 0
+                ? item.addresses.find((a: any) => a.state_province?.trim())
+                    ?.state_province
+                : item.state || item.states?.[0],
             country:
+              item.addresses?.find((a: any) => a.country?.trim())?.country ||
               item.country ||
-              item.countries?.[0] ||
-              item.addresses?.find((a: any) => a.country?.trim())?.country,
+              item.countries?.[0],
             addresses:
               item.addresses ||
               (item.address

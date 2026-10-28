@@ -381,8 +381,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       addresses: currentAddrs,
       city: currentAddrs.find((a) => a.city?.trim())?.city || poi.city,
       state:
-        currentAddrs.find((a) => a.state_province?.trim())?.state_province ||
-        poi.state,
+        currentAddrs.length > 0
+          ? currentAddrs.find((a) => a.state_province?.trim())?.state_province
+          : poi.state,
       country:
         currentAddrs.find((a) => a.country?.trim())?.country || poi.country,
       lat,
@@ -506,8 +507,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       const resolvedCity =
         activeAddresses.find((a) => a.city?.trim())?.city?.trim() || poi.city;
       const resolvedState =
-        activeAddresses.find((a) => a.state_province?.trim())?.state_province?.trim() ||
-        poi.state;
+        activeAddresses.length > 0
+          ? activeAddresses.find((a) => a.state_province?.trim())?.state_province?.trim()
+          : poi.state;
       const resolvedCountry =
         activeAddresses.find((a) => a.country?.trim())?.country?.trim() ||
         poi.country;
@@ -519,6 +521,10 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         parent_poi_id: parentPoiId || undefined,
         addresses: activeAddresses.length > 0 ? activeAddresses : undefined,
         city: resolvedCity || undefined,
+        state: resolvedState || undefined,
+        states: resolvedState ? [resolvedState] : [],
+        country: resolvedCountry || undefined,
+        countries: resolvedCountry ? [resolvedCountry] : [],
         latitude: lat,
         longitude: lon,
         rating: rating > 0 ? rating : null,

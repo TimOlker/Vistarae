@@ -55,6 +55,23 @@ class MockGeocodingAdapter(IGeocodingPort):
                 status=EnrichmentStatus.FAILED,
             )
 
+        q_lower = query.lower()
+        if (
+            "germany" in q_lower
+            or "deutschland" in q_lower
+            or "eltz" in q_lower
+            or "wierschem" in q_lower
+        ):
+            return GeocodingResult(
+                lat=50.2052,
+                lon=7.3366,
+                formatted_address=f"{query}, Germany",
+                city="Wierschem",
+                states=[],
+                countries=["Germany"],
+                status=EnrichmentStatus.SUCCESS,
+            )
+
         return GeocodingResult(
             lat=37.8651,
             lon=-119.5383,
@@ -74,6 +91,17 @@ class MockGeocodingAdapter(IGeocodingPort):
                 lon=lon,
                 formatted_address=f"Location ({lat:.4f}, {lon:.4f})",
                 status=EnrichmentStatus.PARTIAL,
+            )
+
+        if 47.0 <= lat <= 55.0 and 5.0 <= lon <= 16.0:
+            return GeocodingResult(
+                lat=lat,
+                lon=lon,
+                formatted_address="Burg-Eltz-Straße 1, 56294 Wierschem, Germany",
+                city="Wierschem",
+                states=[],
+                countries=["Germany"],
+                status=EnrichmentStatus.SUCCESS,
             )
 
         return GeocodingResult(

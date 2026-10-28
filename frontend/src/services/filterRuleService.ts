@@ -112,19 +112,18 @@ export const filterRuleService = {
         typeof t === "string" ? t : t.name,
       ),
       city:
-        p.city ||
         p.addresses?.find((a: any) => a.city?.trim())?.city ||
+        p.city ||
         undefined,
       state:
-        p.state ||
-        p.states?.[0] ||
-        p.addresses?.find((a: any) => a.state_province?.trim())
-          ?.state_province ||
-        undefined,
+        p.addresses && p.addresses.length > 0
+          ? p.addresses.find((a: any) => a.state_province?.trim())
+              ?.state_province
+          : p.state || p.states?.[0] || undefined,
       country:
+        p.addresses?.find((a: any) => a.country?.trim())?.country ||
         p.country ||
         p.countries?.[0] ||
-        p.addresses?.find((a: any) => a.country?.trim())?.country ||
         undefined,
       parent_poi_id: p.parent_poi_id,
       already_visited: p.already_visited,
