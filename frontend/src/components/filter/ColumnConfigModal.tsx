@@ -25,7 +25,7 @@ export interface ColumnConfigModalProps {
   onApply: (updated: TableConfig) => void;
 }
 
-const ALL_COLUMNS: Array<{ id: string; label: string }> = [
+export const ALL_COLUMNS: Array<{ id: string; label: string }> = [
   { id: "name", label: "POI Name" },
   { id: "city", label: "City / Town" },
   { id: "state", label: "State / Province" },
@@ -33,6 +33,12 @@ const ALL_COLUMNS: Array<{ id: string; label: string }> = [
   { id: "rating", label: "Star Rating" },
   { id: "visit_state", label: "Visit Status" },
   { id: "tags", label: "Taxonomy Tags" },
+  { id: "description", label: "Description" },
+  { id: "reason_to_visit", label: "Reason to Visit" },
+  { id: "recommended_duration_hours", label: "Duration (Hours)" },
+  { id: "recommended_visit_days", label: "Itinerary Days" },
+  { id: "visit_pending", label: "Visit Pending" },
+  { id: "visited_date", label: "Visited Date" },
 ];
 
 export const ColumnConfigModal: React.FC<ColumnConfigModalProps> = ({
@@ -44,11 +50,18 @@ export const ColumnConfigModal: React.FC<ColumnConfigModalProps> = ({
   const [visibleCols, setVisibleCols] = useState<string[]>(
     config.visible_columns,
   );
-  const [colOrder, setColOrder] = useState<string[]>(
-    config.column_order.length > 0
-      ? config.column_order
-      : ALL_COLUMNS.map((c) => c.id),
-  );
+  const [colOrder, setColOrder] = useState<string[]>(() => {
+    const initialOrder =
+      config.column_order.length > 0
+        ? [...config.column_order]
+        : ALL_COLUMNS.map((c) => c.id);
+    ALL_COLUMNS.forEach((col) => {
+      if (!initialOrder.includes(col.id)) {
+        initialOrder.push(col.id);
+      }
+    });
+    return initialOrder;
+  });
   const [sortCol, setSortCol] = useState<string>(config.sort.column || "name");
   const [sortDir, setSortDir] = useState<SortDirection>(
     config.sort.direction || "asc",
@@ -56,10 +69,21 @@ export const ColumnConfigModal: React.FC<ColumnConfigModalProps> = ({
 
   if (!isOpen) return null;
 
+  const sortColumns = ALL_COLUMNS.filter((c) => {
+    if (c.id === "visited_date") {
+      return visibleCols.includes("visited_date");
+    }
+    return true;
+  });
+
   const handleToggleVisible = (id: string) => {
     if (visibleCols.includes(id)) {
       if (visibleCols.length === 1) return; // Keep at least one column
-      setVisibleCols(visibleCols.filter((c) => c !== id));
+      const nextVisible = visibleCols.filter((c) => c !== id);
+      setVisibleCols(nextVisible);
+      if (id === "visited_date" && sortCol === "visited_date") {
+        setSortCol("name");
+      }
     } else {
       setVisibleCols([...visibleCols, id]);
     }
@@ -286,7 +310,7 @@ export const ColumnConfigModal: React.FC<ColumnConfigModalProps> = ({
                   fontSize: "13px",
                 }}
               >
-                {ALL_COLUMNS.map((c) => (
+                {sortColumns.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}
                   </option>

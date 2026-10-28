@@ -130,6 +130,11 @@ export const filterRuleService = {
       already_visited: p.already_visited,
       visit_pending: p.visit_pending,
       want_to_visit_again: p.want_to_visit_again,
+      visited_dates: p.visited_dates || [],
+      description: p.description,
+      reason_to_visit: p.reason_to_visit,
+      recommended_duration_hours: p.recommended_duration_hours,
+      recommended_visit_days: p.recommended_visit_days,
     }));
 
     return {

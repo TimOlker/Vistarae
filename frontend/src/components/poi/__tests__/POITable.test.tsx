@@ -96,30 +96,173 @@ describe("POITable Search & Column Toggle (T-029 / REQ-CTX-025, REQ-CTX-037)", (
     expect(screen.queryByText("Cascade Falls")).toBeNull();
   });
 
-  it("toggles Reason to Visit column visibility and renders truncated cell with tooltip", () => {
+  it("does not render obsolete checkbox toggles in header", () => {
     render(
       <POITable
         pois={pois}
         isViewportFilterActive={false}
         onToggleViewportFilter={vi.fn()}
         onSelectPOI={vi.fn()}
-      />
+      />,
     );
 
-    // Initially, Reason to Visit column header is not displayed
-    expect(screen.queryByRole("columnheader", { name: "Reason to Visit" })).toBeNull();
+    expect(screen.queryByTestId("toggle-desc-column")).toBeNull();
+    expect(screen.queryByTestId("toggle-reason-column")).toBeNull();
+  });
 
-    // Toggle column on
-    const toggleReason = screen.getByTestId("toggle-reason-column");
-    fireEvent.click(toggleReason);
+  it("renders Reason to Visit and Description columns when configured in tableConfig", () => {
+    render(
+      <POITable
+        pois={pois}
+        isViewportFilterActive={false}
+        onToggleViewportFilter={vi.fn()}
+        onSelectPOI={vi.fn()}
+        tableConfig={{
+          visible_columns: ["name", "description", "reason_to_visit"],
+          column_order: ["name", "description", "reason_to_visit"],
+          sort: { column: "name", direction: "asc" },
+        }}
+      />,
+    );
 
-    // Column header should now be present
-    expect(screen.getByRole("columnheader", { name: "Reason to Visit" })).toBeDefined();
+    expect(
+      screen.getByRole("columnheader", { name: "Reason to Visit" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("columnheader", { name: "Description" }),
+    ).toBeDefined();
 
-    // Cell with tooltip title should be present
-    const cell = screen.getByTestId("poi-reason-cell-poi-1");
-    expect(cell).toBeDefined();
-    expect(cell.getAttribute("title")).toBe("Hidden swimming hole with pristine mountain water.");
-    expect(cell.textContent).toBe("Hidden swimming hole with pristine mountain water.");
+    const reasonCell = screen.getByTestId("poi-reason-cell-poi-1");
+    expect(reasonCell).toBeDefined();
+    expect(reasonCell.getAttribute("title")).toBe(
+      "Hidden swimming hole with pristine mountain water.",
+    );
+    expect(reasonCell.textContent).toBe(
+      "Hidden swimming hole with pristine mountain water.",
+    );
+
+    const descCell = screen.getByTestId("poi-desc-cell-poi-1");
+    expect(descCell).toBeDefined();
+    expect(descCell.textContent).toBe(
+      "Cascading glacial brook tumbling over granite ledges.",
+    );
+  });
+
+  it("renders duration hours, itinerary days, visit pending, and first visited date", () => {
+    const richPois: POIMapFeature[] = [
+      {
+        ...pois[0],
+        recommended_duration_hours: 3.5,
+        recommended_visit_days: 1,
+        visit_pending: true,
+        visited_dates: ["2023-08-15", "2024-06-20"],
+      },
+    ];
+
+    render(
+      <POITable
+        pois={richPois}
+        isViewportFilterActive={false}
+        onToggleViewportFilter={vi.fn()}
+        onSelectPOI={vi.fn()}
+        tableConfig={{
+          visible_columns: [
+            "name",
+            "recommended_duration_hours",
+            "recommended_visit_days",
+            "visit_pending",
+            "visited_date",
+          ],
+          column_order: [
+            "name",
+            "recommended_duration_hours",
+            "recommended_visit_days",
+            "visit_pending",
+            "visited_date",
+          ],
+          sort: { column: "name", direction: "asc" },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("columnheader", { name: "Duration (Hours)" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("columnheader", { name: "Itinerary Days" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("columnheader", { name: "Visit Pending" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("columnheader", { name: "Visited Date" }),
+    ).toBeDefined();
+
+    expect(screen.getByTestId("poi-duration-cell-poi-1").textContent).toBe(
+      "3.5 hrs",
+    );
+    expect(screen.getByTestId("poi-days-cell-poi-1").textContent).toBe("1 days");
+    expect(
+      screen.getByTestId("poi-visit-pending-cell-poi-1").textContent,
+    ).toBe("Pending");
+    // Verifies that for multiple visited dates, the first entry is selected/rendered
+    expect(screen.getByTestId("poi-visited-date-cell-poi-1").textContent).toBe(
+      "2023-08-15",
+    );
+  });
+
+  it("sorts rows by first visited date when visited_date sort is active", () => {
+    const datedPois: POIMapFeature[] = [
+      {
+        ...pois[0],
+        id: "poi-newer",
+        name: "Newer Visit",
+        visited_dates: ["2024-05-01", "2024-01-01"],
+      },
+      {
+        ...pois[1],
+        id: "poi-older",
+        name: "Older Visit",
+        visited_dates: ["2022-09-10"],
+      },
+    ];
+
+    const { rerender } = render(
+      <POITable
+        pois={datedPois}
+        isViewportFilterActive={false}
+        onToggleViewportFilter={vi.fn()}
+        onSelectPOI={vi.fn()}
+        tableConfig={{
+          visible_columns: ["name", "visited_date"],
+          column_order: ["name", "visited_date"],
+          sort: { column: "visited_date", direction: "asc" },
+        }}
+      />,
+    );
+
+    const rows = screen.getAllByRole("row");
+    // Row 0 is header. Row 1 should be Older Visit (2022), Row 2 should be Newer Visit (2024)
+    expect(rows[1].textContent).toContain("Older Visit");
+    expect(rows[2].textContent).toContain("Newer Visit");
+
+    // Descending sort
+    rerender(
+      <POITable
+        pois={datedPois}
+        isViewportFilterActive={false}
+        onToggleViewportFilter={vi.fn()}
+        onSelectPOI={vi.fn()}
+        tableConfig={{
+          visible_columns: ["name", "visited_date"],
+          column_order: ["name", "visited_date"],
+          sort: { column: "visited_date", direction: "desc" },
+        }}
+      />,
+    );
+
+    const descRows = screen.getAllByRole("row");
+    expect(descRows[1].textContent).toContain("Newer Visit");
+    expect(descRows[2].textContent).toContain("Older Visit");
   });
 });

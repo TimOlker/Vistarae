@@ -65,8 +65,6 @@ export const POITable: React.FC<POITableProps> = ({
   onDeselectAll,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [showReasonColumn, setShowReasonColumn] = useState(false);
-  const [showDescColumn, setShowDescColumn] = useState(false);
 
   // Filter POIs by searchTerm matching name, address, description, reason_to_visit, etc.
   const filteredPois = useMemo(() => {
@@ -151,6 +149,32 @@ export const POITable: React.FC<POITableProps> = ({
         valB = b.reason_to_visit || "";
         return valA.localeCompare(valB) * modifier;
       }
+      if (column === "recommended_duration_hours") {
+        valA = a.recommended_duration_hours ?? -1;
+        valB = b.recommended_duration_hours ?? -1;
+        return (valA - valB) * modifier;
+      }
+      if (column === "recommended_visit_days") {
+        valA = a.recommended_visit_days ?? -1;
+        valB = b.recommended_visit_days ?? -1;
+        return (valA - valB) * modifier;
+      }
+      if (column === "visit_pending") {
+        valA = a.visit_pending ? 1 : 0;
+        valB = b.visit_pending ? 1 : 0;
+        return (valA - valB) * modifier;
+      }
+      if (column === "visited_date") {
+        valA =
+          a.visited_dates && a.visited_dates.length > 0
+            ? a.visited_dates[0]
+            : "";
+        valB =
+          b.visited_dates && b.visited_dates.length > 0
+            ? b.visited_dates[0]
+            : "";
+        return valA.localeCompare(valB) * modifier;
+      }
       return 0;
     });
   }, [filteredPois, tableConfig]);
@@ -158,35 +182,16 @@ export const POITable: React.FC<POITableProps> = ({
   // Determine active columns and order
   const activeColumns = useMemo(() => {
     const defaultCols = ["name", "city", "rating", "visit_state", "tags"];
-    let baseCols: string[];
     if (tableConfig) {
       const visibleSet = new Set(tableConfig.visible_columns);
-      if (showReasonColumn) visibleSet.add("reason_to_visit");
-      if (showDescColumn) visibleSet.add("description");
       const order =
         tableConfig.column_order.length > 0
           ? tableConfig.column_order
           : defaultCols;
-      baseCols = order.filter((col) => visibleSet.has(col));
-      if (showReasonColumn && !baseCols.includes("reason_to_visit")) {
-        baseCols.push("reason_to_visit");
-      }
-      if (showDescColumn && !baseCols.includes("description")) {
-        baseCols.splice(baseCols.indexOf("reason_to_visit") !== -1 ? baseCols.indexOf("reason_to_visit") : baseCols.length, 0, "description");
-      }
-      return baseCols;
+      return order.filter((col) => visibleSet.has(col));
     }
-
-    baseCols = [...defaultCols];
-    if (showDescColumn) {
-      baseCols.splice(2, 0, "description");
-    }
-    if (showReasonColumn) {
-      const idx = baseCols.indexOf("description");
-      baseCols.splice(idx !== -1 ? idx + 1 : 2, 0, "reason_to_visit");
-    }
-    return baseCols;
-  }, [tableConfig, showReasonColumn, showDescColumn]);
+    return [...defaultCols];
+  }, [tableConfig]);
 
   const allFilteredSelected = useMemo(() => {
     if (pois.length === 0) return false;
@@ -282,6 +287,14 @@ export const POITable: React.FC<POITableProps> = ({
         return "Description";
       case "reason_to_visit":
         return "Reason to Visit";
+      case "recommended_duration_hours":
+        return "Duration (Hours)";
+      case "recommended_visit_days":
+        return "Itinerary Days";
+      case "visit_pending":
+        return "Visit Pending";
+      case "visited_date":
+        return "Visited Date";
       default:
         return colId;
     }
@@ -385,6 +398,66 @@ export const POITable: React.FC<POITableProps> = ({
             {poi.reason_to_visit || "—"}
           </span>
         );
+      case "recommended_duration_hours":
+        return (
+          <span
+            data-testid={`poi-duration-cell-${poi.id}`}
+            style={{ color: "var(--text-secondary, #475569)" }}
+          >
+            {poi.recommended_duration_hours != null
+              ? `${poi.recommended_duration_hours} hrs`
+              : "—"}
+          </span>
+        );
+      case "recommended_visit_days":
+        return (
+          <span
+            data-testid={`poi-days-cell-${poi.id}`}
+            style={{ color: "var(--text-secondary, #475569)" }}
+          >
+            {poi.recommended_visit_days != null
+              ? `${poi.recommended_visit_days} days`
+              : "—"}
+          </span>
+        );
+      case "visit_pending":
+        return (
+          <span
+            data-testid={`poi-visit-pending-cell-${poi.id}`}
+            style={{
+              padding: "2px 8px",
+              borderRadius: "9999px",
+              fontSize: "11px",
+              fontWeight: 600,
+              background: poi.visit_pending ? "#fef3c7" : "#f1f5f9",
+              color: poi.visit_pending ? "#b45309" : "#64748b",
+              border: poi.visit_pending
+                ? "1px solid #fde68a"
+                : "1px solid #e2e8f0",
+            }}
+          >
+            {poi.visit_pending ? "Pending" : "No"}
+          </span>
+        );
+      case "visited_date": {
+        const firstVisitedDate =
+          poi.visited_dates && poi.visited_dates.length > 0
+            ? poi.visited_dates[0]
+            : null;
+        return (
+          <span
+            data-testid={`poi-visited-date-cell-${poi.id}`}
+            title={
+              poi.visited_dates && poi.visited_dates.length > 1
+                ? poi.visited_dates.join(", ")
+                : undefined
+            }
+            style={{ color: "var(--text-secondary, #475569)" }}
+          >
+            {firstVisitedDate || "—"}
+          </span>
+        );
+      }
       default:
         return null;
     }
@@ -483,30 +556,6 @@ export const POITable: React.FC<POITableProps> = ({
                 color: "var(--text-primary, #0f172a)",
               }}
             />
-          </div>
-
-          {/* Column Toggles */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                data-testid="toggle-desc-column"
-                checked={showDescColumn}
-                onChange={(e) => setShowDescColumn(e.target.checked)}
-                style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
-              />
-              <span>Description</span>
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                data-testid="toggle-reason-column"
-                checked={showReasonColumn}
-                onChange={(e) => setShowReasonColumn(e.target.checked)}
-                style={{ cursor: "pointer", accentColor: "var(--accent, #2563eb)" }}
-              />
-              <span>Reason to Visit</span>
-            </label>
           </div>
 
           <label
