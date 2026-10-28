@@ -19,6 +19,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { POIDetailDrawer } from "../POIDetailDrawer";
 import type { POIMapFeature } from "../../../types/map";
 
+vi.mock("../../../services/api", () => ({
+  apiFetch: vi.fn().mockResolvedValue([]),
+}));
+
 describe("POIDetailDrawer (T-028 / REQ-CTX-036, SC-005)", () => {
   const samplePoi: POIMapFeature = {
     id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -38,7 +42,7 @@ describe("POIDetailDrawer (T-028 / REQ-CTX-036, SC-005)", () => {
     addresses: [],
   };
 
-  it("renders dedicated Why Visit card immediately following Description block", () => {
+  it("renders dedicated Why Visit card immediately following Description block", async () => {
     render(
       <POIDetailDrawer
         poi={samplePoi}
@@ -47,6 +51,8 @@ describe("POIDetailDrawer (T-028 / REQ-CTX-036, SC-005)", () => {
         onSave={vi.fn()}
       />
     );
+
+    await screen.findByTestId("vistarae-tags-container");
 
     const descTextarea = screen.getByLabelText(/Description/i) as HTMLTextAreaElement;
     const whyVisitCard = screen.getByTestId("detail-why-visit-card");
@@ -67,7 +73,7 @@ describe("POIDetailDrawer (T-028 / REQ-CTX-036, SC-005)", () => {
     );
   });
 
-  it("passes updated reason_to_visit in onSave payload upon form submission", () => {
+  it("passes updated reason_to_visit in onSave payload upon form submission", async () => {
     const onSaveMock = vi.fn();
 
     render(
@@ -78,6 +84,8 @@ describe("POIDetailDrawer (T-028 / REQ-CTX-036, SC-005)", () => {
         onSave={onSaveMock}
       />
     );
+
+    await screen.findByTestId("vistarae-tags-container");
 
     const reasonTextarea = screen.getByLabelText(/Why Visit \(Reason to Visit\)/i);
     fireEvent.change(reasonTextarea, {

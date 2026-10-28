@@ -20,6 +20,7 @@
 import React, { useState, useEffect } from "react";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import { X, Star, Save, Trash2 } from "lucide-react";
+import { TagSelector } from "../tags/TagSelector";
 
 interface POIDetailDrawerProps {
   poi: POIMapFeature | null;
@@ -43,7 +44,7 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
   const [address, setAddress] = useState("");
   const [visitState, setVisitState] = useState<VisitState>("not_visited");
   const [rating, setRating] = useState<number>(0);
-  const [tagsInput, setTagsInput] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (poi) {
@@ -54,7 +55,13 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
       setAddress(poi.address || "");
       setVisitState(poi.visit_state);
       setRating(poi.rating || 0);
-      setTagsInput(poi.tags.join(", "));
+      setSelectedTags(
+        Array.isArray(poi.tags)
+          ? poi.tags
+              .map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+              .filter(Boolean)
+          : [],
+      );
     }
   }, [poi]);
 
@@ -71,10 +78,7 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
       address,
       visit_state: visitState,
       rating: rating > 0 ? rating : null,
-      tags: tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      tags: selectedTags,
     };
     onSave(updated);
     onClose();
@@ -353,31 +357,10 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
             />
           </div>
 
-          <div>
-            <label
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                display: "block",
-                marginBottom: "6px",
-              }}
-            >
-              Tags (comma-separated, max 30)
-            </label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="historic, park, scenic"
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "var(--radius-md, 8px)",
-                border: "1px solid var(--border-color, #e2e8f0)",
-                fontSize: "13px",
-              }}
-            />
-          </div>
+          <TagSelector
+            selectedTags={selectedTags}
+            onChange={setSelectedTags}
+          />
 
           <div
             style={{

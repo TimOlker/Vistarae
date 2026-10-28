@@ -30,10 +30,10 @@ import {
   MapPin,
   Compass,
   FileText,
-  Tag,
   Loader2,
 } from "lucide-react";
 import { apiFetch, ApiError } from "../../services/api";
+import { TagSelector } from "../tags/TagSelector";
 import { ParentPOISelector } from "./ParentPOISelector";
 import { MultiAddressEditor, AddressRecord } from "./MultiAddressEditor";
 import { LocationFinderModal } from "./LocationFinderModal";
@@ -71,7 +71,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   const [description, setDescription] = useState("");
   const [reasonToVisit, setReasonToVisit] = useState("");
   const [rating, setRating] = useState<number>(0);
-  const [tagsInput, setTagsInput] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // Coordinates
   const [lat, setLat] = useState<number>(0);
@@ -192,13 +192,12 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     } else {
       setAddresses([]);
     }
-    setTagsInput(
-      Array.isArray(poi.tags)
-        ? poi.tags
-            .map((t: any) => (typeof t === "string" ? t : t.name))
-            .join(", ")
-        : "",
-    );
+    const initialTags: string[] = Array.isArray(poi.tags)
+      ? poi.tags
+          .map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+          .filter(Boolean)
+      : [];
+    setSelectedTags(initialTags);
 
     // Baseline visit lifecycle tracking
     const rawVisitedDates =
@@ -262,12 +261,11 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         setVisitedDates((fullData.visited_dates || []).map(String).sort());
         setWantToVisitAgain(Boolean(fullData.want_to_visit_again));
         setRating(fullData.rating || 0);
-        if (fullData.tags) {
-          setTagsInput(
-            fullData.tags
-              .map((t: any) => (typeof t === "string" ? t : t.name))
-              .join(", "),
-          );
+        if (fullData.tags && Array.isArray(fullData.tags)) {
+          const fetchedTags = fullData.tags
+            .map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+            .filter(Boolean);
+          setSelectedTags(fetchedTags);
         }
       } catch (err) {
         console.warn(
@@ -358,10 +356,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
 
   // Helper to construct current in-memory draft
   const getCurrentDraft = (currentAddrs: AddressRecord[]) => {
-    const parsedTags = tagsInput
-      .split(",")
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+    const parsedTags = selectedTags;
 
     const isVisited = visitedDates.length > 0;
     const isPending = !isVisited || wantToVisitAgain;
@@ -493,10 +488,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         }
       }
 
-      const parsedTags = tagsInput
-        .split(",")
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
+      const parsedTags = selectedTags;
 
       const validSourceType = (
         ["Web", "CSV", "Manual", "Photo"].includes(sourceType)
@@ -563,8 +555,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       const finalLat = updated.lat ?? updated.latitude ?? lat;
       const finalLng = updated.lon ?? updated.longitude ?? lon;
       const finalTags = Array.isArray(updated.tags)
-        ? updated.tags.map((t: any) => (typeof t === "string" ? t : t.name))
-        : parsedTags;
+        ? updated.tags.map((t: any) => (typeof t === "string" ? t : t.slug || t.name))
+        : selectedTags;
 
       const isVisited = visitedDates.length > 0;
       const isPending = !isVisited || wantToVisitAgain;
@@ -1711,92 +1703,60 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               )}
             </div>
 
-            {/* Section 12: Rating & Tags */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 2fr",
-                gap: "12px",
-              }}
-            >
-              <div>
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "6px",
-                    color: "var(--text-secondary, #475569)",
-                  }}
-                >
-                  <Star
-                    size={14}
-                    style={{ color: "var(--warning, #f59e0b)" }}
-                  />
-                  Rating
-                </label>
-                <div style={{ display: "flex", gap: "4px" }}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setRating(rating === s ? 0 : s)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "2px",
-                        color:
-                          s <= rating
-                            ? "var(--warning, #f59e0b)"
-                            : "var(--border-color, #cbd5e1)",
-                      }}
-                    >
-                      <Star
-                        size={18}
-                        fill={
-                          s <= rating
-                            ? "var(--warning, #f59e0b)"
-                            : "transparent"
-                        }
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "6px",
-                    color: "var(--text-secondary, #475569)",
-                  }}
-                >
-                  <Tag size={14} style={{ color: "var(--accent, #2563eb)" }} />
-                  Tags (max 30)
-                </label>
-                <input
-                  type="text"
-                  placeholder="scenic, hiking, photography"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: "var(--radius-sm, 6px)",
-                    border: "1px solid var(--border-color, #e2e8f0)",
-                    fontSize: "12px",
-                  }}
+            {/* Section 12: Rating */}
+            <div>
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom: "6px",
+                  color: "var(--text-secondary, #475569)",
+                }}
+              >
+                <Star
+                  size={14}
+                  style={{ color: "var(--warning, #f59e0b)" }}
                 />
+                Rating
+              </label>
+              <div style={{ display: "flex", gap: "4px" }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setRating(rating === s ? 0 : s)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "2px",
+                      color:
+                        s <= rating
+                          ? "var(--warning, #f59e0b)"
+                          : "var(--border-color, #cbd5e1)",
+                    }}
+                  >
+                    <Star
+                      size={18}
+                      fill={
+                        s <= rating
+                          ? "var(--warning, #f59e0b)"
+                          : "transparent"
+                      }
+                    />
+                  </button>
+                ))}
               </div>
             </div>
+
+            {/* Section 13: Tag Selection */}
+            <TagSelector
+              selectedTags={selectedTags}
+              onChange={setSelectedTags}
+            />
 
             {/* Action Buttons */}
             <div
