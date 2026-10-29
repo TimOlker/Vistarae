@@ -167,6 +167,19 @@ class POINotFoundError(DomainError):
         self.poi_id = poi_id
 
 
+class IngestCandidateNotFoundError(DomainError):
+    """Raised when a staged candidate cannot be found for the tenant and job."""
+
+    def __init__(self, candidate_id: str) -> None:
+        """Initializes an ingest candidate not found error.
+
+        Args:
+            candidate_id: ID of the requested staged candidate.
+        """
+        super().__init__(f"Staged candidate {candidate_id} not found.")
+        self.candidate_id = candidate_id
+
+
 class IngestJobNotFoundError(DomainError):
     """Raised when an ingestion job cannot be found for the tenant."""
 

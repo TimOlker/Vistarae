@@ -227,15 +227,30 @@ def test_reverse_geocode_route_post() -> None:
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_geocache_repo] = lambda: repo
 
-    # Mock ReverseGeocodeService inside GeocodingService
-    with TestClient(app, raise_server_exceptions=False) as client:
-        payload = {"latitude": 50.2052, "longitude": 7.3366}
-        response = client.post("/api/v1/geocoding/reverse", json=payload)
-        # Should return 200 with structured response
-        assert response.status_code == 200
-        data = response.json()
-        assert "country" in data
-        assert "country_code" in data
-        assert "formatted_address" in data
+    from unittest.mock import patch
+    from vistarae_core.schemas.poi import ReverseGeocodeResponse as CoreReverseGeocodeResponse
+
+    mock_resp = CoreReverseGeocodeResponse(
+        street="Burg Eltz 1",
+        city="Wierschem",
+        state_province="Rheinland-Pfalz",
+        country="Germany",
+        postal_code="56294",
+    )
+
+    with patch(
+        "services.poi.services.geocode_service.ReverseGeocodeService.reverse_geocode",
+        new_callable=AsyncMock,
+        return_value=mock_resp,
+    ):
+        with TestClient(app, raise_server_exceptions=False) as client:
+            payload = {"latitude": 50.2052, "longitude": 7.3366}
+            response = client.post("/api/v1/geocoding/reverse", json=payload)
+            # Should return 200 with structured response
+            assert response.status_code == 200
+            data = response.json()
+            assert "country" in data
+            assert "country_code" in data
+            assert "formatted_address" in data
 
     app.dependency_overrides.clear()

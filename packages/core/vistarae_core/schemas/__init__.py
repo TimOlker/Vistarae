@@ -47,6 +47,14 @@ from vistarae_core.schemas.ingest import (
     TriageDecisionItem,
     TriageRequest,
 )
+from vistarae_core.schemas.ingest_staging import (
+    CandidateItemResponse,
+    CandidateListResponse,
+    CandidateUpdateRequest,
+    CommitSummaryResponse,
+    JobCancellationResponse,
+    PhaseTransitionResponse,
+)
 from vistarae_core.schemas.itinerary import (
     CircuitBreakerWarning,
     ItineraryCreate,
@@ -126,7 +134,10 @@ from vistarae_core.schemas.user import (
     UserResponse,
 )
 
+from vistarae_core.schemas.poi_export import POIExportRecord
+
 __all__ = [
+    "POIExportRecord",
     "AdminMessageRequest",
     "AdminMetricsResponse",
     "AdminUserDetailResponse",
@@ -135,7 +146,11 @@ __all__ = [
     "BulkListsRequest",
     "BulkOperationResponse",
     "BulkTagsRequest",
+    "CandidateItemResponse",
+    "CandidateListResponse",
+    "CandidateUpdateRequest",
     "CircuitBreakerWarning",
+    "CommitSummaryResponse",
     "ConfirmSignUpRequest",
     "ConfirmSignUpResponse",
     "DedupCheckResponse",
@@ -166,6 +181,7 @@ __all__ = [
     "ItineraryStatus",
     "ItinerarySummary",
     "ItineraryUpdate",
+    "JobCancellationResponse",
     "ListCreateRequest",
     "ListResponse",
     "ListUpdateRequest",
@@ -175,6 +191,7 @@ __all__ = [
     "LogoutResponse",
     "MissingMealAdvisory",
     "ParentPOICandidate",
+    "PhaseTransitionResponse",
     "PhotoPOIInference",
     "PlannerPreferencesResponse",
     "POICandidateSchema",

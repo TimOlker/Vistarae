@@ -280,3 +280,21 @@ class PromptType(StrEnum):
     DESCRIPTION = "description"
     REASON_TO_VISIT = "reason_to_visit"
     TIME_SPENT = "time_spent"
+
+
+class IngestDisposition(StrEnum):
+    """Interactive disposition assigned to staged CSV/photo candidates."""
+
+    ACCEPT = "accept"
+    IGNORE = "ignore"
+    UPDATE_EXISTING = "update_existing"
+    SUBLOCATION = "sublocation"
+
+
+class IngestCandidatePhaseState(StrEnum):
+    """Lifecycle stage of a staged candidate record."""
+
+    PHASE_1_TRIAGE = "phase_1_triage"
+    PHASE_2_ENRICHED = "phase_2_enriched"
+    COMMITTED = "committed"
+    ABORTED = "aborted"

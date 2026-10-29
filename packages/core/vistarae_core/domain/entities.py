@@ -33,6 +33,8 @@ from vistarae_core.domain.value_objects import (
     DuplicateTriageStatus,
     EnrichmentStatus,
     IdempotencyStatus,
+    IngestCandidatePhaseState,
+    IngestDisposition,
     IngestJobStatus,
     PacingMode,
     PromptType,
@@ -320,5 +322,39 @@ class FilterRuleEntity:
     query_tree: dict[str, Any]
     table_config: dict[str, Any]
     pin_color_scheme: dict[str, Any]
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class IngestCandidate:
+    """Staged candidate POI record for two-phase interactive CSV/photo ingestion."""
+
+    id: UUID
+    user_id: UUID
+    job_id: UUID
+    row_index: int
+    poi_name: str
+    recommended_disposition: IngestDisposition = IngestDisposition.ACCEPT
+    user_disposition: IngestDisposition | None = None
+    matched_existing_poi_id: UUID | None = None
+    parent_poi_id: UUID | None = None
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    street_address: str | None = None
+    city: str | None = None
+    state_province: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+    addresses: list[dict[str, Any]] = field(default_factory=list)
+    dates_visited: list[str] = field(default_factory=list)
+    photo_directory: str = ""
+    confidence_score: int = 0
+    tags: list[str] = field(default_factory=list)
+    description: str | None = None
+    reason_to_visit: str | None = None
+    update_coordinates: bool = False
+    is_skipped: bool = False
+    phase_state: IngestCandidatePhaseState = IngestCandidatePhaseState.PHASE_1_TRIAGE
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))

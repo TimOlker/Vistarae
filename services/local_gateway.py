@@ -40,6 +40,7 @@ from vistarae_core.schemas.errors import ProblemDetails
 from services.admin.main import app as admin_app
 from services.ingest.main import app as ingest_app
 from services.ingest.routes.jobs import router as ingest_jobs_router
+from services.ingest.routes.staging import router as ingest_staging_router
 from services.ingest.routes.triage import router as ingest_triage_router
 from services.ingest.routes.upload import router as ingest_upload_router
 from services.poi.main import app as poi_app
@@ -145,6 +146,7 @@ gateway.include_router(poi_triage_router, prefix="/api", tags=["poi-triage"])
 gateway.include_router(ingest_upload_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_jobs_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_triage_router, prefix="/api/ingest", tags=["ingest"])
+gateway.include_router(ingest_staging_router, prefix="/api/ingest", tags=["ingest-staging"])
 gateway.mount("/api/poi-service", poi_app)
 gateway.mount("/api/ingest-service", ingest_app)
 

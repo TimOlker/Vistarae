@@ -14,467 +14,433 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2026 Vistarae. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 import React, { useEffect, useState } from "react";
 import { Modal } from "../common/Modal";
-import {
-  triageStorage,
-  type TriageDecision,
-} from "../../services/triageStorage";
-import { apiFetch } from "../../services/api";
+import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { useToast } from "../../context/ToastContext";
-import { Layers, Check, X, ArrowRight, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  X,
+  ArrowRight,
+  MapPin,
+  Folder,
+  Calendar,
+  AlertTriangle,
+  Compass,
+} from "lucide-react";
 
-export interface DuplicatePair {
-  row_number: number;
-  match_type: "POTENTIAL_DUPLICATE" | "NEARBY_PARENT";
-  similarity_score: number;
-  distance_meters: number;
-  staged_poi: {
-    name: string;
-    latitude: number;
-    longitude: number;
-    city?: string;
-    tags?: string[];
-  };
-  existing_poi: {
-    id: string;
-    name: string;
-    latitude: number;
-    longitude: number;
-    city?: string;
-    visit_state?: string;
-  };
+export interface ExistingPOIMarker {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
 }
 
-interface CSVTriageModalProps {
+export interface CSVTriageModalProps {
   jobId: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onTriageComplete: () => void;
+  onProceedToPhase2: () => void;
+  existingPOIs?: ExistingPOIMarker[];
 }
 
 export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
   jobId,
   isOpen,
   onClose,
-  onTriageComplete,
+  onProceedToPhase2,
+  existingPOIs = [],
 }) => {
   const { showToast } = useToast();
 
-  const [duplicates, setDuplicates] = useState<DuplicatePair[]>([]);
-  const [decisions, setDecisions] = useState<Record<number, TriageDecision>>(
-    {},
-  );
+  const [candidates, setCandidates] = useState<CandidateItem[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load candidates and restore persisted decisions from IndexedDB
   useEffect(() => {
     if (!isOpen || !jobId) return;
 
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Fetch duplicate candidate pairs from backend
-        const res = await apiFetch<{ items: DuplicatePair[] }>(
-          `/api/ingest/jobs/${jobId}/duplicates`,
-        );
-        const pairs = res.items || [];
-        setDuplicates(pairs);
-
-        // Restore staged decisions from IndexedDB (survives refreshes)
-        const saved = await triageStorage.getJobRecord(jobId);
-        if (saved && saved.decisions) {
-          setDecisions(saved.decisions);
-        } else {
-          // Default all to COMMITTED (create new)
-          const initial: Record<number, TriageDecision> = {};
-          pairs.forEach((p) => {
-            initial[p.row_number] = "COMMITTED";
-          });
-          setDecisions(initial);
+        const res = await ingestApi.getJobCandidates(jobId, "phase_1_triage");
+        setCandidates(res.candidates || []);
+        if (res.candidates && res.candidates.length > 0) {
+          setSelectedCandidateId(res.candidates[0].id);
         }
-      } catch (err) {
-        console.error("Failed to load duplicate candidates:", err);
+      } catch (err: any) {
+        showToast("error", err?.message || "Failed to load staged candidates");
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [isOpen, jobId]);
+  }, [isOpen, jobId, showToast]);
 
-  const handleDecisionToggle = async (
-    rowNumber: number,
-    decision: TriageDecision,
+  const handleDispositionChange = async (
+    candidateId: string,
+    newDisp: "accept" | "ignore" | "update_existing" | "sublocation",
   ) => {
-    setDecisions((prev) => ({ ...prev, [rowNumber]: decision }));
+    setCandidates((prev) =>
+      prev.map((c) =>
+        c.id === candidateId ? { ...c, user_disposition: newDisp } : c,
+      ),
+    );
 
-    // Persist in IndexedDB immediately
     if (jobId) {
-      await triageStorage.saveDecision(jobId, rowNumber, decision);
+      try {
+        await ingestApi.updateCandidate(jobId, candidateId, {
+          user_disposition: newDisp,
+        });
+      } catch (err: any) {
+        showToast("error", `Failed to save disposition: ${err.message}`);
+      }
     }
   };
 
-  const handleCommitTriage = async () => {
-    if (!jobId) return;
+  const handleUpdateCoordinatesToggle = async (
+    candidateId: string,
+    updateCoords: boolean,
+  ) => {
+    setCandidates((prev) =>
+      prev.map((c) =>
+        c.id === candidateId ? { ...c, update_coordinates: updateCoords } : c,
+      ),
+    );
 
+    if (jobId) {
+      try {
+        await ingestApi.updateCandidate(jobId, candidateId, {
+          update_coordinates: updateCoords,
+        });
+      } catch (err: any) {
+        showToast("error", `Failed to toggle coordinate update: ${err.message}`);
+      }
+    }
+  };
+
+  const handleMarkerClick = async (poi: ExistingPOIMarker) => {
+    if (!selectedCandidateId) return;
+
+    const selected = candidates.find((c) => c.id === selectedCandidateId);
+    if (!selected) return;
+
+    const disp = selected.user_disposition || selected.recommended_disposition;
+    if (disp === "sublocation") {
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === selectedCandidateId
+            ? { ...c, parent_poi_id: poi.id, parent_poi_name: poi.name }
+            : c,
+        ),
+      );
+
+      if (jobId) {
+        try {
+          await ingestApi.updateCandidate(jobId, selectedCandidateId, {
+            parent_poi_id: poi.id,
+          });
+          showToast("success", `Linked '${selected.poi_name}' to parent '${poi.name}'`);
+        } catch (err: any) {
+          showToast("error", `Failed to link parent POI: ${err.message}`);
+        }
+      }
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!jobId) {
+      onClose();
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const items = Object.entries(decisions).map(([row, decision]) => ({
-        row_number: parseInt(row, 10),
-        decision,
-      }));
-
-      await apiFetch(`/api/ingest/jobs/${jobId}/triage`, {
-        method: "POST",
-        body: JSON.stringify({ decisions: items }),
-      });
-
-      // Clear local IndexedDB record upon successful submission
-      await triageStorage.deleteJobRecord(jobId);
-
-      showToast("Duplicate triage submitted successfully!", "success");
-      onTriageComplete();
+      await ingestApi.cancelPhase1(jobId);
+      showToast("info", "Phase 1 triage cancelled. Staged records purged.");
       onClose();
-    } catch (err: unknown) {
-      const errorObj = err as {
-        problem?: { title: string; detail: string };
-        message?: string;
-      };
-      showToast(
-        errorObj.problem ||
-          errorObj.message ||
-          "Failed to submit triage decisions",
-      );
+    } catch (err: any) {
+      showToast("error", `Cancellation failed: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!isOpen || !jobId) return null;
+  const handleProceed = async () => {
+    if (!jobId) return;
+    setIsSubmitting(true);
+    try {
+      const res = await ingestApi.proceedPhase1(jobId);
+      showToast(
+        "success",
+        `Advanced ${res.advanced_count} POIs to Phase 2 (${res.ignored_count} ignored)`,
+      );
+      onProceedToPhase2();
+    } catch (err: any) {
+      showToast("error", `Failed to proceed to Phase 2: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId);
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title="Review Duplicate Candidates"
-      maxWidth="720px"
+      onClose={handleCancel}
+      title="Phase 1: Validation & Triage"
+      maxWidth="1100px"
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontSize: "13px",
-            color: "var(--text-secondary)",
-          }}
-        >
-          <Layers size={18} color="var(--accent, #2563eb)" />
-          <span>
-            {duplicates.length} records matched existing locations within
-            spatial radius. Selections are auto-saved in browser storage.
-          </span>
-        </div>
-
+      <div className="flex flex-col h-[75vh]" data-testid="phase1-triage-modal">
         {isLoading ? (
-          <div
-            style={{
-              padding: "32px",
-              textAlign: "center",
-              color: "var(--text-muted)",
-            }}
-          >
-            Loading duplicate candidates...
-          </div>
-        ) : duplicates.length === 0 ? (
-          <div
-            style={{
-              padding: "24px",
-              textAlign: "center",
-              color: "var(--text-muted)",
-            }}
-          >
-            No duplicates require review for this job.
+          <div className="flex items-center justify-center flex-1">
+            <span className="text-gray-500">Loading staged candidates...</span>
           </div>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "12px",
-              maxHeight: "55vh",
-              overflowY: "auto",
-            }}
-          >
-            {duplicates.map((pair) => {
-              const currentDecision = decisions[pair.row_number] || "COMMITTED";
+          <>
+            {/* Top explanation bar */}
+            <div className="p-3 mb-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Compass className="w-5 h-5 text-blue-600 shrink-0" />
+                <span>
+                  Review candidate dispositions, edit coordinates or addresses, and click existing POI markers on the map to set parent POIs for sublocations.
+                </span>
+              </div>
+              <div className="text-xs font-semibold px-2 py-1 bg-blue-200 rounded text-blue-900">
+                {candidates.length} Candidate(s)
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={pair.row_number}
-                  style={{
-                    border: "1px solid var(--border-color, #e2e8f0)",
-                    borderRadius: "var(--radius-md, 8px)",
-                    padding: "14px",
-                    background: "var(--bg-surface, #ffffff)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                  }}
-                >
-                  {/* Match metrics badge */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      fontSize: "11px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        background:
-                          pair.match_type === "POTENTIAL_DUPLICATE"
-                            ? "#fef2f2"
-                            : "#eff6ff",
-                        color:
-                          pair.match_type === "POTENTIAL_DUPLICATE"
-                            ? "#b91c1c"
-                            : "#1d4ed8",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {pair.match_type.replace(/_/g, " ")}
-                    </span>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      Similarity: {(pair.similarity_score * 100).toFixed(0)}% •
-                      Distance: {pair.distance_meters.toFixed(0)}m
-                    </span>
-                  </div>
+            {/* Split view: Table (Left 60%) + Map / Parent selector (Right 40%) */}
+            <div className="flex flex-1 gap-4 overflow-hidden">
+              {/* Candidates Table */}
+              <div className="flex-1 overflow-auto border border-gray-200 rounded-lg">
+                <table className="w-full text-left text-sm" data-testid="candidates-table">
+                  <thead className="bg-gray-100 text-gray-700 sticky top-0 border-b border-gray-200 z-10">
+                    <tr>
+                      <th className="p-3">POI Name</th>
+                      <th className="p-3">Disposition</th>
+                      <th className="p-3">Confidence</th>
+                      <th className="p-3">Location / Hierarchy</th>
+                      <th className="p-3">Directory / Dates</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {candidates.map((cand) => {
+                      const isSelected = cand.id === selectedCandidateId;
+                      const disp = cand.user_disposition || cand.recommended_disposition;
+                      const isUpdate = disp === "update_existing";
+                      const isSublocation = disp === "sublocation";
 
-                  {/* Side-by-side comparison */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "12px",
-                      fontSize: "12px",
-                    }}
-                  >
-                    {/* Staged POI */}
-                    <div
-                      style={{
-                        padding: "10px",
-                        background: "var(--bg-hover, #f8fafc)",
-                        borderRadius: "6px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "10px",
-                          textTransform: "uppercase",
-                          color: "var(--text-muted)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        From CSV (Row {pair.row_number})
-                      </span>
-                      <p
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {pair.staged_poi.name}
-                      </p>
-                      <p style={{ color: "var(--text-secondary)" }}>
-                        {pair.staged_poi.city ||
-                          `${pair.staged_poi.latitude.toFixed(
-                            4,
-                          )}, ${pair.staged_poi.longitude.toFixed(4)}`}
-                      </p>
+                      return (
+                        <tr
+                          key={cand.id}
+                          onClick={() => setSelectedCandidateId(cand.id)}
+                          className={`cursor-pointer transition-colors ${
+                            isSelected ? "bg-blue-50/70" : "hover:bg-gray-50"
+                          }`}
+                          data-testid={`candidate-row-${cand.id}`}
+                        >
+                          <td className="p-3 font-medium text-gray-900">
+                            <div>{cand.poi_name}</div>
+                            {cand.street_address && (
+                              <div className="text-xs text-gray-500 truncate max-w-xs">
+                                {cand.street_address}, {cand.city || ""}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <select
+                              value={disp}
+                              onChange={(e) =>
+                                handleDispositionChange(
+                                  cand.id,
+                                  e.target.value as any,
+                                )
+                              }
+                              className="px-2 py-1 text-xs border border-gray-300 rounded bg-white font-medium focus:ring-1 focus:ring-blue-500"
+                              data-testid={`disposition-select-${cand.id}`}
+                            >
+                              <option value="accept">Accept</option>
+                              <option value="sublocation">Sublocation</option>
+                              <option value="update_existing">Update Existing POI</option>
+                              <option value="ignore">Ignore</option>
+                            </select>
+                            {isUpdate && (
+                              <label className="flex items-center gap-1.5 mt-1.5 text-xs text-amber-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={cand.update_coordinates}
+                                  onChange={(e) =>
+                                    handleUpdateCoordinatesToggle(
+                                      cand.id,
+                                      e.target.checked,
+                                    )
+                                  }
+                                  data-testid={`update-coords-toggle-${cand.id}`}
+                                  className="rounded border-amber-400 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5"
+                                />
+                                <span>Update Coordinates</span>
+                              </label>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                                cand.confidence_score >= 70
+                                  ? "bg-green-100 text-green-800"
+                                  : cand.confidence_score >= 40
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {cand.confidence_score}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-xs text-gray-600">
+                            {cand.latitude && cand.longitude ? (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                                <span>
+                                  {Number(cand.latitude).toFixed(4)},{" "}
+                                  {Number(cand.longitude).toFixed(4)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-red-500 font-medium">Missing Coordinates</span>
+                            )}
+                            {isSublocation && (
+                              <div className="mt-1 font-medium text-purple-700">
+                                {cand.parent_poi_name ? (
+                                  <span>Parent: {cand.parent_poi_name}</span>
+                                ) : (
+                                  <span className="text-purple-500 italic">
+                                    Click map marker to set parent
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 text-xs text-gray-500">
+                            <div className="flex items-center gap-1 truncate max-w-xs">
+                              <Folder className="w-3 h-3 text-gray-400 shrink-0" />
+                              <span className="truncate">{cand.photo_directory}</span>
+                            </div>
+                            {cand.dates_visited && cand.dates_visited.length > 0 && (
+                              <div className="flex items-center gap-1 mt-0.5 text-gray-400">
+                                <Calendar className="w-3 h-3 shrink-0" />
+                                <span>{cand.dates_visited.join(", ")}</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Map & Parent Selector View (Right Pane) */}
+              <div
+                className="w-80 border border-gray-200 rounded-lg p-3 bg-gray-50 flex flex-col justify-between"
+                data-testid="interactive-map-panel"
+              >
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600 mb-2 flex items-center gap-1">
+                    <MapPin className="w-4 h-4 text-gray-500" /> Map Coordinates & Hierarchy
+                  </h4>
+
+                  {selectedCandidate ? (
+                    <div className="bg-white p-3 rounded border border-gray-200 text-xs mb-3 space-y-1.5">
+                      <div className="font-semibold text-gray-900">{selectedCandidate.poi_name}</div>
+                      <div className="text-gray-600">
+                        Coordinates:{" "}
+                        {selectedCandidate.latitude
+                          ? `${Number(selectedCandidate.latitude).toFixed(5)}, ${Number(
+                              selectedCandidate.longitude,
+                            ).toFixed(5)}`
+                          : "None"}
+                      </div>
+                      {selectedCandidate.parent_poi_name && (
+                        <div className="text-purple-700 font-medium">
+                          Parent POI: {selectedCandidate.parent_poi_name}
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <div className="text-xs text-gray-400 italic mb-3">No candidate selected.</div>
+                  )}
 
-                    {/* Existing POI */}
-                    <div
-                      style={{
-                        padding: "10px",
-                        background: "var(--bg-hover, #f8fafc)",
-                        borderRadius: "6px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "10px",
-                          textTransform: "uppercase",
-                          color: "var(--text-muted)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        Existing in Database
-                      </span>
-                      <p
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {pair.existing_poi.name}
-                      </p>
-                      <p style={{ color: "var(--text-secondary)" }}>
-                        {pair.existing_poi.city ||
-                          `${pair.existing_poi.latitude.toFixed(
-                            4,
-                          )}, ${pair.existing_poi.longitude.toFixed(4)}`}
-                      </p>
-                    </div>
+                  <div className="text-xs font-semibold text-gray-700 mb-1.5">
+                    Existing User POIs (click to link as parent):
                   </div>
-
-                  {/* Decision toggles */}
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      gap: "8px",
-                      paddingTop: "4px",
-                    }}
+                    className="space-y-1.5 max-h-56 overflow-y-auto"
+                    data-testid="existing-poi-list"
                   >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDecisionToggle(pair.row_number, "COMMITTED")
-                      }
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "6px 12px",
-                        borderRadius: "6px",
-                        background:
-                          currentDecision === "COMMITTED"
-                            ? "var(--accent, #2563eb)"
-                            : "var(--bg-hover)",
-                        color:
-                          currentDecision === "COMMITTED"
-                            ? "#ffffff"
-                            : "var(--text-secondary)",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <Check size={14} />
-                      <span>Create New POI</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDecisionToggle(pair.row_number, "REJECTED")
-                      }
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "6px 12px",
-                        borderRadius: "6px",
-                        background:
-                          currentDecision === "REJECTED"
-                            ? "var(--danger, #ef4444)"
-                            : "var(--bg-hover)",
-                        color:
-                          currentDecision === "REJECTED"
-                            ? "#ffffff"
-                            : "var(--text-secondary)",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <X size={14} />
-                      <span>Skip / Ignore</span>
-                    </button>
+                    {existingPOIs.length === 0 ? (
+                      <div className="text-xs text-gray-400 italic">No proximate POIs found.</div>
+                    ) : (
+                      existingPOIs.map((poi) => (
+                        <button
+                          key={poi.id}
+                          type="button"
+                          onClick={() => handleMarkerClick(poi)}
+                          data-testid={`poi-marker-${poi.id}`}
+                          className="w-full text-left p-2 rounded border border-gray-200 bg-white hover:bg-purple-50 hover:border-purple-300 text-xs flex items-center justify-between transition-colors"
+                        >
+                          <span className="font-medium text-gray-800">{poi.name}</span>
+                          <span className="text-[10px] text-gray-400">
+                            {poi.latitude.toFixed(2)}, {poi.longitude.toFixed(2)}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="text-[11px] text-gray-500 border-t border-gray-200 pt-2">
+                  <div className="flex items-center gap-1 text-gray-600">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>Ignored rows will not advance to Phase 2.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200 mt-3">
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={isSubmitting}
+                className="px-4 py-2 border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5"
+                data-testid="cancel-triage-button"
+              >
+                <X className="w-4 h-4 text-gray-500" /> Cancel Import
+              </button>
+
+              <button
+                type="button"
+                onClick={handleProceed}
+                disabled={isSubmitting || candidates.length === 0}
+                className="px-5 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shadow-sm"
+                data-testid="proceed-phase2-button"
+              >
+                {isSubmitting ? (
+                  <span>Processing...</span>
+                ) : (
+                  <>
+                    <span>Proceed to Phase 2</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </>
         )}
-
-        {/* Commit footer */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: "12px",
-            borderTop: "1px solid var(--border-color, #e2e8f0)",
-            paddingTop: "12px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "11px",
-              color: "var(--text-muted)",
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>Persisted locally in IndexedDB (7-day TTL)</span>
-          </div>
-
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "var(--radius-md, 8px)",
-                background: "var(--bg-hover, #f1f5f9)",
-                color: "var(--text-secondary)",
-                fontWeight: 600,
-                fontSize: "13px",
-              }}
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting || duplicates.length === 0}
-              onClick={handleCommitTriage}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 20px",
-                borderRadius: "var(--radius-md, 8px)",
-                background: "var(--accent, #2563eb)",
-                color: "#ffffff",
-                fontWeight: 600,
-                fontSize: "13px",
-                cursor:
-                  isSubmitting || duplicates.length === 0
-                    ? "not-allowed"
-                    : "pointer",
-                opacity: isSubmitting || duplicates.length === 0 ? 0.6 : 1,
-              }}
-            >
-              <span>
-                {isSubmitting ? "Committing..." : "Commit All Decisions"}
-              </span>
-              <ArrowRight size={14} />
-            </button>
-          </div>
-        </div>
       </div>
     </Modal>
   );

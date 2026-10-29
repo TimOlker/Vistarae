@@ -25,18 +25,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.adapters.queue.mock import MockQueueAdapter
 from vistarae_core.adapters.queue.sqs import SQSQueueAdapter
+from vistarae_core.adapters.repositories.ingest_candidate_repo import (
+    SqlAlchemyIngestCandidateRepository,
+)
 from vistarae_core.adapters.repositories.ingest_repo import IngestJobRepository
 from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
 from vistarae_core.ports.queue import IQueuePort
-from vistarae_core.ports.repositories import IIngestJobRepository, IPOIRepository
+from vistarae_core.ports.repositories import (
+    IIngestCandidateRepository,
+    IIngestJobRepository,
+    IPOIRepository,
+)
 
+from services.ingest.services.staging_service import StagingService
 from services.user.dependencies import get_current_user
 
 __all__ = [
+    "get_candidate_repo",
     "get_current_user",
     "get_ingest_repo",
     "get_poi_repo",
     "get_queue_port",
+    "get_staging_service",
 ]
 
 # Global queue adapter instance
@@ -72,3 +82,21 @@ def get_poi_repo(
 ) -> IPOIRepository:
     """Provides an active POI repository instance."""
     return SqlAlchemyPOIRepository(session)
+
+
+def get_candidate_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> IIngestCandidateRepository:
+    """Provides an active IngestCandidateRepository instance."""
+    return SqlAlchemyIngestCandidateRepository(session)
+
+
+def get_staging_service(
+    candidate_repo: IIngestCandidateRepository = Depends(get_candidate_repo),
+    poi_repo: IPOIRepository = Depends(get_poi_repo),
+) -> StagingService:
+    """Provides an active StagingService instance."""
+    return StagingService(
+        candidate_repo=candidate_repo,
+        poi_repo=poi_repo,
+    )

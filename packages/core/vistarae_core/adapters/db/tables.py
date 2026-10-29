@@ -997,3 +997,104 @@ class FilterRuleTable(Base):
         UniqueConstraint("user_id", "name", name="uq_filter_rules_user_name"),
         Index("ix_filter_rules_user_id_name", "user_id", "name"),
     )
+
+
+class IngestCandidateTable(Base):
+    """PostgreSQL staging table for two-phase interactive CSV/photo ingestion (T-006)."""
+
+    __tablename__ = "ingest_candidates"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ingest_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    row_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    poi_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    recommended_disposition: Mapped[str] = mapped_column(
+        String(32),
+        server_default=text("'accept'"),
+        default="accept",
+        nullable=False,
+    )
+    user_disposition: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    matched_existing_poi_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pois.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    parent_poi_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pois.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    geom: Mapped[Any | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326, spatial_index=False),
+        nullable=True,
+    )
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    street_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    state_province: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    addresses: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False
+    )
+    dates_visited: Mapped[list[str]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False
+    )
+    photo_directory: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence_score: Mapped[int] = mapped_column(
+        Integer, server_default=text("0"), default=0, nullable=False
+    )
+    tags: Mapped[list[str]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reason_to_visit: Mapped[str | None] = mapped_column(Text, nullable=True)
+    update_coordinates: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), default=False, nullable=False
+    )
+    is_skipped: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), default=False, nullable=False
+    )
+    phase_state: Mapped[str] = mapped_column(
+        String(32),
+        server_default=text("'phase_1_triage'"),
+        default="phase_1_triage",
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_ingest_candidates_user_job", "user_id", "job_id"),
+        Index("idx_ingest_candidates_geom", "geom", postgresql_using="gist"),
+    )
+
+
+ingest_candidates_table = IngestCandidateTable.__table__
