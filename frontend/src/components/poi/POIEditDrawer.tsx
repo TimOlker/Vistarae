@@ -44,7 +44,7 @@ import {
   type ReverseGeocodeResponse,
 } from "../../services/geocodeService";
 import type { POIMapFeature, VisitState } from "../../types/map";
-import type { components } from "../../types/poi-edit-api";
+import type { components } from "../../types/api";
 
 type POIUpdateRequest = components["schemas"]["POIUpdateRequest"];
 

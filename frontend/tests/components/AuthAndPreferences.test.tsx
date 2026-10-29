@@ -325,6 +325,8 @@ describe("User Profile & GDPR Account Deletion (REQ-UI-015)", () => {
       login: vi.fn(),
       logout: vi.fn(),
       refreshUser: vi.fn(),
+      isOnboardingModalOpen: false,
+      closeOnboardingModal: vi.fn(),
     });
 
     vi.spyOn(authService, "deleteAccount").mockResolvedValue(undefined);

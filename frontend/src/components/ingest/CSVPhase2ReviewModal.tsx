@@ -22,8 +22,6 @@ import {
   Save,
   X,
   MapPin,
-  Tag,
-  Edit3,
   CheckCircle,
   EyeOff,
   Sparkles,
@@ -76,7 +74,7 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
           setSelectedCandidateId(active[0].id);
         }
       } catch (err: any) {
-        showToast("error", err?.message || "Failed to load enriched candidates");
+        showToast(err?.message || "Failed to load enriched candidates", "error");
       } finally {
         setIsLoading(false);
       }
@@ -97,11 +95,11 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
           is_skipped: nextSkipped,
         });
         showToast(
-          "info",
           nextSkipped ? `Skipped '${cand.poi_name}'` : `Unskipped '${cand.poi_name}'`,
+          "info",
         );
       } catch (err: any) {
-        showToast("error", `Failed to toggle skip: ${err.message}`);
+        showToast(`Failed to toggle skip: ${err.message}`, "error");
       }
     }
   };
@@ -142,9 +140,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
         prev.map((c) => (c.id === editingCandidate.id ? { ...c, ...updated } : c)),
       );
       setEditingCandidate(null);
-      showToast("success", `Updated '${editForm.poi_name}'`);
+      showToast(`Updated '${editForm.poi_name}'`, "success");
     } catch (err: any) {
-      showToast("error", `Failed to save changes: ${err.message}`);
+      showToast(`Failed to save changes: ${err.message}`, "error");
     }
   };
 
@@ -154,12 +152,12 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
     try {
       const res = await ingestApi.commitPhase2(jobId);
       showToast(
-        "success",
         `Saved ${res.committed_count} POIs to your map! (${res.created_pois.length} created, ${res.merged_pois.length} merged)`,
+        "success",
       );
       onCommitComplete();
     } catch (err: any) {
-      showToast("error", `Database commit failed: ${err.message}`);
+      showToast(`Database commit failed: ${err.message}`, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -173,10 +171,10 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
     setIsSubmitting(true);
     try {
       await ingestApi.cancelPhase2(jobId);
-      showToast("info", "Phase 2 review cancelled; staged records purged.");
+      showToast("Phase 2 review cancelled; staged records purged.", "info");
       onClose();
     } catch (err: any) {
-      showToast("error", `Cancellation failed: ${err.message}`);
+      showToast(`Cancellation failed: ${err.message}`, "error");
     } finally {
       setIsSubmitting(false);
     }

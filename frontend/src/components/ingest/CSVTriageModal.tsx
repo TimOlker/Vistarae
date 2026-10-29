@@ -19,7 +19,6 @@ import { Modal } from "../common/Modal";
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { useToast } from "../../context/ToastContext";
 import {
-  Check,
   X,
   ArrowRight,
   MapPin,
@@ -40,7 +39,8 @@ export interface CSVTriageModalProps {
   jobId: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onProceedToPhase2: () => void;
+  onProceedToPhase2?: () => void;
+  onTriageComplete?: () => void;
   existingPOIs?: ExistingPOIMarker[];
 }
 
@@ -49,6 +49,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
   isOpen,
   onClose,
   onProceedToPhase2,
+  onTriageComplete,
   existingPOIs = [],
 }) => {
   const { showToast } = useToast();
@@ -70,7 +71,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
           setSelectedCandidateId(res.candidates[0].id);
         }
       } catch (err: any) {
-        showToast("error", err?.message || "Failed to load staged candidates");
+        showToast(err?.message || "Failed to load staged candidates", "error");
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +96,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
           user_disposition: newDisp,
         });
       } catch (err: any) {
-        showToast("error", `Failed to save disposition: ${err.message}`);
+        showToast(`Failed to save disposition: ${err.message}`, "error");
       }
     }
   };
@@ -116,7 +117,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
           update_coordinates: updateCoords,
         });
       } catch (err: any) {
-        showToast("error", `Failed to toggle coordinate update: ${err.message}`);
+        showToast(`Failed to toggle coordinate update: ${err.message}`, "error");
       }
     }
   };
@@ -142,9 +143,9 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
           await ingestApi.updateCandidate(jobId, selectedCandidateId, {
             parent_poi_id: poi.id,
           });
-          showToast("success", `Linked '${selected.poi_name}' to parent '${poi.name}'`);
+          showToast(`Linked '${selected.poi_name}' to parent '${poi.name}'`, "success");
         } catch (err: any) {
-          showToast("error", `Failed to link parent POI: ${err.message}`);
+          showToast(`Failed to link parent POI: ${err.message}`, "error");
         }
       }
     }
@@ -158,10 +159,10 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
     setIsSubmitting(true);
     try {
       await ingestApi.cancelPhase1(jobId);
-      showToast("info", "Phase 1 triage cancelled. Staged records purged.");
+      showToast("Phase 1 triage cancelled. Staged records purged.", "info");
       onClose();
     } catch (err: any) {
-      showToast("error", `Cancellation failed: ${err.message}`);
+      showToast(`Cancellation failed: ${err.message}`, "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -173,12 +174,12 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
     try {
       const res = await ingestApi.proceedPhase1(jobId);
       showToast(
-        "success",
         `Advanced ${res.advanced_count} POIs to Phase 2 (${res.ignored_count} ignored)`,
+        "success",
       );
-      onProceedToPhase2();
+      (onProceedToPhase2 || onTriageComplete)?.();
     } catch (err: any) {
-      showToast("error", `Failed to proceed to Phase 2: ${err.message}`);
+      showToast(`Failed to proceed to Phase 2: ${err.message}`, "error");
     } finally {
       setIsSubmitting(false);
     }
