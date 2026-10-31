@@ -114,6 +114,16 @@ class BatchIngestWorker:
 
         job_id = UUID(str(body["job_id"]))
         user_id = UUID(str(body["user_id"]))
+
+        # Action routing: Modular Candidate Enrichment
+        if body.get("action") == "enrich_candidate":
+            candidate_id = UUID(str(body["candidate_id"]))
+            from services.worker.candidate_enricher import CandidateEnricher
+
+            enricher = CandidateEnricher(orchestrator=self._orchestrator)
+            await enricher.enrich_candidate(user_id=user_id, candidate_id=candidate_id, job_id=job_id)
+            return
+
         absolute_row_number = int(body["absolute_row_number"])
         target_list_id = UUID(str(body["target_list_id"])) if body.get("target_list_id") else None
         row_data = body.get("row_data", {})

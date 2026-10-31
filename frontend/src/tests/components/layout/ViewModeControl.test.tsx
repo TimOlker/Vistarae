@@ -57,7 +57,7 @@ vi.mock("../../../context/PreferencesContext", () => ({
 }));
 
 import { ViewModeControl } from "../../../components/layout/ViewModeControl";
-import { HomePage } from "../../../pages/HomePage";
+import { HomePage, INITIAL_DEMO_POIS } from "../../../pages/HomePage";
 import { PreferencesProvider } from "../../../context/PreferencesContext";
 
 // Mock MapView to avoid WebGL context requirements in jsdom
@@ -168,7 +168,7 @@ describe("HomePage Layout Mode Integration (T-013, T-014 / REQ-MAIN-001 to REQ-M
   it("defaults to split view on mount with both map and table displayed", () => {
     render(
       <PreferencesProvider>
-        <HomePage />
+        <HomePage pois={INITIAL_DEMO_POIS} />
       </PreferencesProvider>,
     );
 
@@ -186,7 +186,7 @@ describe("HomePage Layout Mode Integration (T-013, T-014 / REQ-MAIN-001 to REQ-M
   it("hides table and expands map when switching to Map Only mode", () => {
     render(
       <PreferencesProvider>
-        <HomePage />
+        <HomePage pois={INITIAL_DEMO_POIS} />
       </PreferencesProvider>,
     );
 
@@ -206,7 +206,7 @@ describe("HomePage Layout Mode Integration (T-013, T-014 / REQ-MAIN-001 to REQ-M
   it("hides map and expands table when switching to Table Only mode", () => {
     render(
       <PreferencesProvider>
-        <HomePage />
+        <HomePage pois={INITIAL_DEMO_POIS} />
       </PreferencesProvider>,
     );
 
@@ -226,7 +226,7 @@ describe("HomePage Layout Mode Integration (T-013, T-014 / REQ-MAIN-001 to REQ-M
   it("restores split view when switching back from Table Only", () => {
     render(
       <PreferencesProvider>
-        <HomePage />
+        <HomePage pois={INITIAL_DEMO_POIS} />
       </PreferencesProvider>,
     );
 
@@ -243,7 +243,7 @@ describe("HomePage Layout Mode Integration (T-013, T-014 / REQ-MAIN-001 to REQ-M
   it("preserves active POI selection across layout mode transitions (REQ-MAIN-005)", () => {
     render(
       <PreferencesProvider>
-        <HomePage />
+        <HomePage pois={INITIAL_DEMO_POIS} />
       </PreferencesProvider>,
     );
 

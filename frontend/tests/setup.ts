@@ -34,3 +34,55 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: vi.fn(),
   })),
 });
+
+// Mock URL.createObjectURL and revokeObjectURL for maplibre-gl in JSDOM
+if (typeof window !== "undefined") {
+  if (!window.URL.createObjectURL) {
+    window.URL.createObjectURL = vi.fn(() => "blob:mock-url");
+  }
+  if (!window.URL.revokeObjectURL) {
+    window.URL.revokeObjectURL = vi.fn();
+  }
+}
+
+// Global mock for maplibre-gl in JSDOM tests
+vi.mock("maplibre-gl", () => {
+  const mockMap = {
+    on: vi.fn(),
+    once: vi.fn(),
+    off: vi.fn(),
+    loaded: vi.fn(() => true),
+    isStyleLoaded: vi.fn(() => true),
+    remove: vi.fn(),
+    addControl: vi.fn(),
+    addSource: vi.fn(),
+    addLayer: vi.fn(),
+    getSource: vi.fn(),
+    getLayer: vi.fn(),
+    removeLayer: vi.fn(),
+    removeSource: vi.fn(),
+    flyTo: vi.fn(),
+    resize: vi.fn(),
+    jumpTo: vi.fn(),
+  };
+
+  const mockMarker = {
+    setLngLat: vi.fn().mockReturnThis(),
+    addTo: vi.fn().mockReturnThis(),
+    remove: vi.fn(),
+    getElement: vi.fn(() => document.createElement("div")),
+  };
+
+  return {
+    default: {
+      Map: vi.fn(() => mockMap),
+      Marker: vi.fn(() => mockMarker),
+      NavigationControl: vi.fn(),
+      setWorkerUrl: vi.fn(),
+    },
+    Map: vi.fn(() => mockMap),
+    Marker: vi.fn(() => mockMarker),
+    NavigationControl: vi.fn(),
+    setWorkerUrl: vi.fn(),
+  };
+});

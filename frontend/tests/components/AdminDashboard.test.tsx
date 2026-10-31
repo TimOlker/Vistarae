@@ -52,6 +52,8 @@ describe("AdminRoute Component (REQ-UI-019)", () => {
       login: vi.fn(),
       logout: vi.fn(),
       refreshUser: vi.fn(),
+      isOnboardingModalOpen: false,
+      closeOnboardingModal: vi.fn(),
     });
 
     render(
@@ -80,6 +82,8 @@ describe("AdminRoute Component (REQ-UI-019)", () => {
       login: vi.fn(),
       logout: vi.fn(),
       refreshUser: vi.fn(),
+      isOnboardingModalOpen: false,
+      closeOnboardingModal: vi.fn(),
     });
 
     render(

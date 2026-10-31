@@ -27,7 +27,7 @@ import { PreferencesProvider } from "./context/PreferencesContext";
 import { Navbar } from "./components/common/Navbar";
 import { AdminRoute } from "./components/common/AdminRoute";
 
-import { HomePage, INITIAL_DEMO_POIS } from "./pages/HomePage";
+import { HomePage } from "./pages/HomePage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignUpPage } from "./pages/SignUpPage";
@@ -44,8 +44,11 @@ import { ManualAddPOIModal } from "./components/poi/ManualAddPOIModal";
 import { CSVUploadModal } from "./components/ingest/CSVUploadModal";
 import { CSVProgressModal } from "./components/ingest/CSVProgressModal";
 import { CSVTriageModal } from "./components/ingest/CSVTriageModal";
+import { CSVPhase2ReviewModal } from "./components/ingest/CSVPhase2ReviewModal";
+import { CSVEnrichmentProgressModal } from "./components/ingest/CSVEnrichmentProgressModal";
 
 import { triageStorage } from "./services/triageStorage";
+import { apiFetch } from "./services/api";
 import type { POIMapFeature } from "./types/map";
 
 const AppContent: React.FC = () => {
@@ -82,7 +85,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   // POI state
-  const [pois, setPois] = useState<POIMapFeature[]>(INITIAL_DEMO_POIS);
+  const [pois, setPois] = useState<POIMapFeature[]>([]);
 
   // Manual POI modal and map-picking state
   const [isAddPOIModalOpen, setIsAddPOIModalOpen] = useState(false);
@@ -98,6 +101,10 @@ const AppContent: React.FC = () => {
   const [isCSVProgressOpen, setIsCSVProgressOpen] = useState(false);
   const [isCSVTriageOpen, setIsCSVTriageOpen] = useState(false);
   const [triageJobId, setTriageJobId] = useState<string | null>(null);
+  const [isCSVPhase2Open, setIsCSVPhase2Open] = useState(false);
+  const [phase2JobId, setPhase2JobId] = useState<string | null>(null);
+  const [isEnrichmentProgressOpen, setIsEnrichmentProgressOpen] = useState(false);
+  const [enrichmentJobId, setEnrichmentJobId] = useState<string | null>(null);
 
   // Opportunistic triage eviction on startup (REQ-UI-027a)
   useEffect(() => {
@@ -133,6 +140,59 @@ const AppContent: React.FC = () => {
     setIsCSVProgressOpen(false);
     setTriageJobId(jobId);
     setIsCSVTriageOpen(true);
+  };
+
+  const handleProceedToPhase2 = (jobId?: string) => {
+    setIsCSVTriageOpen(false);
+    const id = jobId || triageJobId;
+    setTriageJobId(null);
+    if (id) {
+      setEnrichmentJobId(id);
+      setIsEnrichmentProgressOpen(true);
+    }
+  };
+
+  const handleEnrichmentComplete = () => {
+    setIsEnrichmentProgressOpen(false);
+    if (enrichmentJobId) {
+      setPhase2JobId(enrichmentJobId);
+      setIsCSVPhase2Open(true);
+    }
+  };
+
+
+  const handleBackToPhase1 = (jobId?: string) => {
+    setIsCSVPhase2Open(false);
+    const id = jobId || phase2JobId;
+    setPhase2JobId(null);
+    if (id) {
+      setTriageJobId(id);
+      setIsCSVTriageOpen(true);
+    }
+  };
+
+
+  const handleResumeJob = (jobId: string, phase: "phase_1_triage" | "phase_2_enriched") => {
+    setIsCSVUploadOpen(false);
+    if (phase === "phase_2_enriched") {
+      setPhase2JobId(jobId);
+      setIsCSVPhase2Open(true);
+    } else {
+      setTriageJobId(jobId);
+      setIsCSVTriageOpen(true);
+    }
+  };
+
+  const handlePhase2CommitComplete = () => {
+    setIsCSVPhase2Open(false);
+    setPhase2JobId(null);
+    apiFetch<POIMapFeature[]>("/api/pois")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPois(data);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleTriageComplete = () => {
@@ -279,6 +339,16 @@ const AppContent: React.FC = () => {
               onNavigateForgotPassword={() => navigateTo("forgot-password")}
             />
           ))}
+        {currentView === "settings/exclusion" &&
+          (user ? (
+            <SettingsPage initialTab="exclusion" />
+          ) : (
+            <LoginPage
+              onSuccess={() => navigateTo("settings/exclusion")}
+              onNavigateSignUp={() => navigateTo("signup")}
+              onNavigateForgotPassword={() => navigateTo("forgot-password")}
+            />
+          ))}
 
         {(currentView === "planner" || currentView === "trips") &&
           (user ? (
@@ -337,16 +407,25 @@ const AppContent: React.FC = () => {
         isOpen={isCSVUploadOpen}
         onClose={() => setIsCSVUploadOpen(false)}
         onJobCreated={handleJobCreated}
+        onResumeJob={handleResumeJob}
       />
 
       <CSVProgressModal
         jobId={activeJobId}
         isOpen={isCSVProgressOpen}
-        onClose={() => setIsCSVProgressOpen(false)}
+        onClose={() => {
+          setIsCSVProgressOpen(false);
+          setActiveJobId(null);
+        }}
         onOpenTriage={handleOpenTriage}
         onJobComplete={() => {
           setIsCSVProgressOpen(false);
           setActiveJobId(null);
+        }}
+        onReupload={() => {
+          setIsCSVProgressOpen(false);
+          setActiveJobId(null);
+          setIsCSVUploadOpen(true);
         }}
       />
 
@@ -357,7 +436,38 @@ const AppContent: React.FC = () => {
           setIsCSVTriageOpen(false);
           setTriageJobId(null);
         }}
+        onProceedToPhase2={handleProceedToPhase2}
         onTriageComplete={handleTriageComplete}
+        existingPOIs={pois.map((p) => ({
+          id: p.id,
+          name: p.name,
+          latitude: p.render_lat,
+          longitude: p.render_lng,
+        }))}
+      />
+
+      <CSVEnrichmentProgressModal
+        jobId={enrichmentJobId}
+        isOpen={isEnrichmentProgressOpen}
+        onComplete={handleEnrichmentComplete}
+        onCancel={() => {
+          setIsEnrichmentProgressOpen(false);
+          if (enrichmentJobId) {
+            setPhase2JobId(enrichmentJobId);
+            setIsCSVPhase2Open(true);
+          }
+        }}
+      />
+
+      <CSVPhase2ReviewModal
+        jobId={phase2JobId}
+        isOpen={isCSVPhase2Open}
+        onClose={() => {
+          setIsCSVPhase2Open(false);
+          setPhase2JobId(null);
+        }}
+        onCommitComplete={handlePhase2CommitComplete}
+        onBackToPhase1={handleBackToPhase1}
       />
     </div>
   );

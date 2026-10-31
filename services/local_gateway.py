@@ -22,10 +22,16 @@ dual-probe health endpoints with unified Starlette LIFO middleware pipeline and 
 
 from __future__ import annotations
 
+import logging
+import sys
+
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, status
+import os
+import subprocess
+from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -40,6 +46,7 @@ from vistarae_core.schemas.errors import ProblemDetails
 from services.admin.main import app as admin_app
 from services.ingest.main import app as ingest_app
 from services.ingest.routes.jobs import router as ingest_jobs_router
+from services.ingest.routes.staging import router as ingest_staging_router
 from services.ingest.routes.triage import router as ingest_triage_router
 from services.ingest.routes.upload import router as ingest_upload_router
 from services.poi.main import app as poi_app
@@ -50,10 +57,40 @@ from services.poi.routes.geocode import router as geocode_router
 from services.poi.routes.itineraries import router as itineraries_router
 from services.poi.routes.lists import router as lists_router
 from services.poi.routes.pois import router as pois_router
+from services.poi.routes.preferences import router as poi_preferences_router
 from services.poi.routes.tags import router as tags_router
 from services.poi.routes.triage import router as poi_triage_router
 from services.user.main import app as user_app
 from services.user.routes.auth import router as auth_router
+from services.user.routes.exclusion_zones import router as exclusion_zones_router
+
+
+LOG_FORMAT = "%(asctime)s | %(levelname)-7s | [%(funcName)s:%(lineno)d] | %(message)s"
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def configure_logging() -> None:
+    """Configures structured console logging with timestamp, function, and line numbers."""
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    if not root_logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
+    else:
+        for handler in root_logger.handlers:
+            handler.setFormatter(formatter)
+
+    for uvi_name in ("uvicorn", "uvicorn.error", "uvicorn.access", "vistarae_core", "services"):
+        l = logging.getLogger(uvi_name)
+        l.setLevel(logging.INFO)
+        for h in l.handlers:
+            h.setFormatter(formatter)
+
+
+configure_logging()
 
 
 @asynccontextmanager
@@ -66,6 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Yields:
         None — yields control to request handling pipeline.
     """
+    configure_logging()
     await init_engine()
     yield
     engine = get_engine()
@@ -133,6 +171,8 @@ gateway.mount("/api/user", user_app)
 gateway.mount("/api/users", user_app)
 gateway.mount("/api/admin", admin_app)
 gateway.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+gateway.include_router(exclusion_zones_router, prefix="/api/user", tags=["exclusion-zones"])
+gateway.include_router(poi_preferences_router, prefix="/api", tags=["preferences"])
 gateway.include_router(dedup_router, prefix="/api", tags=["dedup"])
 gateway.include_router(bulk_router, prefix="/api", tags=["bulk"])
 gateway.include_router(lists_router, prefix="/api", tags=["lists"])
@@ -145,8 +185,42 @@ gateway.include_router(poi_triage_router, prefix="/api", tags=["poi-triage"])
 gateway.include_router(ingest_upload_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_jobs_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_triage_router, prefix="/api/ingest", tags=["ingest"])
+gateway.include_router(ingest_staging_router, prefix="/api/ingest", tags=["ingest-staging"])
 gateway.mount("/api/poi-service", poi_app)
 gateway.mount("/api/ingest-service", ingest_app)
+
+
+class OpenFolderRequest(BaseModel):
+    path: str
+
+
+@gateway.post("/api/system/open-folder", tags=["system"])
+async def open_folder_endpoint(req: OpenFolderRequest):
+    """Opens a local folder in the native OS file explorer (Windows Explorer, macOS Finder, Linux)."""
+    raw_path = req.path.strip().strip("'\"")
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="Folder path is required")
+
+    norm_path = os.path.normpath(raw_path)
+    target = norm_path
+    if not os.path.exists(target):
+        parent = os.path.dirname(target)
+        if os.path.exists(parent):
+            target = parent
+        else:
+            raise HTTPException(status_code=404, detail=f"Directory not found on disk: {norm_path}")
+
+    try:
+        if sys.platform == "win32":
+            os.startfile(target)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", target])
+        else:
+            subprocess.Popen(["xdg-open", target])
+        return {"success": True, "path": target}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to open folder: {exc}")
+
 
 
 # 4. Middleware registration:

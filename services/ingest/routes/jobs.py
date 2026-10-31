@@ -69,20 +69,27 @@ async def get_job_progress(
     if job is None:
         raise IngestJobNotFoundError(str(job_id))
 
+    import contextlib
+    import uuid as _uuid_mod
+
     duplicates: list[DuplicateItemResponse] = []
     for item in job.duplicate_payloads:
-        duplicates.append(
-            DuplicateItemResponse(
-                row_number=item["row_number"],
-                raw_name=item["raw_name"],
-                candidate_poi_id=UUID(str(item["candidate_poi_id"])),
-                match_type=item.get("match_type", "POTENTIAL_DUPLICATE"),
-                similarity_score=float(item.get("similarity_score", 0.0)),
-                distance_meters=float(item.get("distance_meters", 0.0)),
-                triage_status=item["triage_status"],
-                staged_poi_data=item.get("staged_poi_data", {}),
+        with contextlib.suppress(Exception):
+            cand_id_raw = (
+                item.get("candidate_poi_id") or item.get("candidate_id") or _uuid_mod.uuid4()
             )
-        )
+            duplicates.append(
+                DuplicateItemResponse(
+                    row_number=item.get("row_number", 1),
+                    raw_name=item.get("raw_name", "Unknown"),
+                    candidate_poi_id=UUID(str(cand_id_raw)),
+                    match_type=item.get("match_type", "POTENTIAL_DUPLICATE"),
+                    similarity_score=float(item.get("similarity_score", 0.0)),
+                    distance_meters=float(item.get("distance_meters", 0.0)),
+                    triage_status=item.get("triage_status", "PENDING_REVIEW"),
+                    staged_poi_data=item.get("staged_poi_data", {}),
+                )
+            )
 
     return IngestJobProgressResponse(
         job_id=job.id,

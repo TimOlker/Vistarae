@@ -75,3 +75,24 @@ class TestLocalGatewayPipeline:
                 mock_init.assert_called_once()
                 mock_engine.dispose.assert_not_called()
             mock_engine.dispose.assert_called_once()
+
+    def test_open_folder_endpoint(self, client: TestClient) -> None:
+        """Verifies POST /api/system/open-folder endpoint accepts valid local directory."""
+        import os
+        from unittest.mock import patch
+
+        test_dir = os.path.dirname(__file__)
+        with patch("os.startfile", create=True) as mock_startfile:
+            resp = client.post(
+                "/api/system/open-folder",
+                json={"path": test_dir},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["success"] is True
+
+        resp_bad = client.post(
+            "/api/system/open-folder",
+            json={"path": "Z:\nonexistent_volume_vistarae\test_folder"},
+        )
+        assert resp_bad.status_code == 404

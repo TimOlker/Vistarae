@@ -46,6 +46,7 @@ vistarae_pgdata/
 *.swo
 
 photo_scraper/output
+csv_output/
 
 # Frontend & Node.js
 node_modules/
@@ -57,4 +58,4 @@ frontend/.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
+pnpm-debug.log*

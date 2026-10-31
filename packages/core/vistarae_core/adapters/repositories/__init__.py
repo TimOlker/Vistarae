@@ -25,6 +25,9 @@ from vistarae_core.adapters.repositories.geocache_repo import (
 from vistarae_core.adapters.repositories.idempotency_repo import (
     SqlAlchemyIdempotencyRepository,
 )
+from vistarae_core.adapters.repositories.ingest_candidate_repo import (
+    SqlAlchemyIngestCandidateRepository,
+)
 from vistarae_core.adapters.repositories.ingest_repo import IngestJobRepository
 from vistarae_core.adapters.repositories.itinerary_repo import (
     SqlAlchemyItineraryRepository,
@@ -40,6 +43,7 @@ from vistarae_core.adapters.repositories.user_repo import SqlAlchemyUserReposito
 
 __all__ = [
     "IngestJobRepository",
+    "SqlAlchemyIngestCandidateRepository",
     "SqlAlchemyFilterRuleRepository",
     "SqlAlchemyGeocodingCacheRepository",
     "SqlAlchemyIdempotencyRepository",

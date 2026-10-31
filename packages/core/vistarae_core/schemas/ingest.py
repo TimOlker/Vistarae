@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from vistarae_core.domain.value_objects import DuplicateTriageStatus, IngestJobStatus
 from vistarae_core.schemas.base import StrictBaseModel
@@ -66,6 +66,16 @@ class IngestJobProgressResponse(StrictBaseModel):
     error_summary: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def status(self) -> str:
+        return self.job_status.value if hasattr(self.job_status, "value") else str(self.job_status)
+
+    @computed_field
+    @property
+    def duplicates_pending_count(self) -> int:
+        return len(self.duplicate_payloads)
 
 
 class TriageDecisionItem(StrictBaseModel):

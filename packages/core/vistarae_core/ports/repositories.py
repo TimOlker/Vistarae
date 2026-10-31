@@ -32,6 +32,7 @@ from vistarae_core.domain.entities import (
     FilterRuleEntity,
     GeocodingCacheEntry,
     IdempotencyRecord,
+    IngestCandidate,
     IngestJob,
     ListEntity,
     PotentialDuplicateMatch,
@@ -41,10 +42,12 @@ from vistarae_core.domain.entities import (
     UserPreferences,
     UserPrompt,
     UserQuota,
+    UserExclusionZone,
 )
 from vistarae_core.domain.value_objects import (
     BoundingBox,
     IdempotencyStatus,
+    IngestCandidatePhaseState,
     IngestJobStatus,
     MergeResolutionRule,
     PromptType,
@@ -1048,4 +1051,204 @@ class IUserPromptRepository(Protocol):
         Args:
             user_id: Owning tenant UUID.
         """
+        ...
+
+
+class IIngestCandidateRepository(Protocol):
+    """Persistence contract for staged two-phase CSV and photo candidates (T-007)."""
+
+    async def create_batch(
+        self,
+        candidates: Sequence[IngestCandidate],
+    ) -> Sequence[IngestCandidate]:
+        """Persists a collection of candidate POI records for an ingest job.
+
+        Args:
+            candidates: Collection of IngestCandidate entities to persist.
+
+        Returns:
+            Collection of persisted IngestCandidate entities.
+        """
+        ...
+
+    async def list_by_job(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+        phase_state: IngestCandidatePhaseState | None = None,
+    ) -> Sequence[IngestCandidate]:
+        """Retrieves all candidates for an ingest job scoped to tenant user.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+            phase_state: Optional lifecycle state filter.
+
+        Returns:
+            Sequence of IngestCandidate entities.
+        """
+        ...
+
+    async def get_candidate(
+        self,
+        candidate_id: UUID,
+        user_id: UUID,
+    ) -> IngestCandidate | None:
+        """Retrieves a single candidate record by primary key and tenant.
+
+        Args:
+            candidate_id: Primary key UUID of candidate.
+            user_id: Tenant user UUID.
+
+        Returns:
+            IngestCandidate entity or None if not found or tenant mismatch.
+        """
+        ...
+
+    async def get_by_id(
+        self,
+        arg1: UUID,
+        arg2: UUID,
+    ) -> IngestCandidate | None:
+        """Alias for get_candidate supporting candidate lookup."""
+        ...
+
+    async def update_candidate(
+        self,
+        user_id: UUID,
+        candidate: IngestCandidate,
+    ) -> IngestCandidate:
+        """Updates a candidate record enforcing tenant isolation.
+
+        Args:
+            user_id: Tenant user UUID.
+            candidate: Updated IngestCandidate domain entity.
+
+        Returns:
+            Persisted updated IngestCandidate entity.
+        """
+        ...
+
+    async def advance_to_phase2(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+    ) -> int:
+        """Transitions all active candidates for a job from Phase 1 to Phase 2.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+
+        Returns:
+            Count of candidates transitioned.
+        """
+        ...
+
+    async def revert_to_phase1(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+    ) -> int:
+        """Reverts all candidates for a job from Phase 2 back to Phase 1.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+
+        Returns:
+            Count of candidates reverted.
+        """
+        ...
+
+    async def commit_job(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+    ) -> Sequence[IngestCandidate]:
+        """Marks all unskipped candidates for a job as committed.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+
+        Returns:
+            Sequence of committed IngestCandidate entities.
+        """
+        ...
+
+    async def purge_by_job(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+    ) -> int:
+        """Deletes all staged candidate records for an ingest job.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+
+        Returns:
+            Count of rows deleted.
+        """
+        ...
+
+    async def get_active_session_job(
+        self,
+        user_id: UUID,
+    ) -> tuple[UUID, IngestCandidatePhaseState, int, datetime] | None:
+        """Finds the most recent uncommitted candidate session for tenant.
+
+        Args:
+            user_id: Tenant user UUID.
+
+        Returns:
+            Tuple of (job_id, effective_phase_state, total_candidates, created_at) or None.
+        """
+        ...
+
+    async def purge_active_sessions(
+        self,
+        user_id: UUID,
+    ) -> int:
+        """Purges any uncommitted candidate records across all active jobs for tenant.
+
+        Args:
+            user_id: Tenant user UUID.
+
+        Returns:
+            Count of rows deleted.
+        """
+        ...
+
+
+class IUserExclusionZoneRepository(Protocol):
+    """Port for persisting and querying tenant geographic exclusion zones."""
+
+    async def list_by_user(self, user_id: UUID) -> Sequence[UserExclusionZone]:
+        """Lists all exclusion zones for a tenant."""
+        ...
+
+    async def get_by_id(self, zone_id: UUID, user_id: UUID) -> UserExclusionZone | None:
+        """Retrieves a single exclusion zone by ID."""
+        ...
+
+    async def create(self, zone: UserExclusionZone) -> UserExclusionZone:
+        """Persists a new exclusion zone."""
+        ...
+
+    async def update(
+        self,
+        zone_id: UUID,
+        user_id: UUID,
+        name: str | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_km: float | None = None,
+    ) -> UserExclusionZone | None:
+        """Updates an existing exclusion zone."""
+        ...
+
+    async def delete(self, zone_id: UUID, user_id: UUID) -> bool:
+        """Deletes an exclusion zone."""
         ...

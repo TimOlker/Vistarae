@@ -1115,12 +1115,12 @@
         }
       }
     },
-    "/api/tags": {
+    "/api/pois/tags": {
       "get": {
         "tags": ["tags", "tags"],
         "summary": "List Tags",
-        "description": "Retrieves all taxonomy tags created by the current tenant.",
-        "operationId": "list_tags_api_tags_get",
+        "description": "Retrieves all taxonomy tags for tenant in strict alphabetical order.",
+        "operationId": "list_tags_api_pois_tags_get",
         "parameters": [
           {
             "name": "Authorization",
@@ -1165,7 +1165,7 @@
                   "items": {
                     "$ref": "#/components/schemas/TagResponse"
                   },
-                  "title": "Response List Tags Api Tags Get"
+                  "title": "Response List Tags Api Pois Tags Get"
                 }
               }
             }
@@ -1185,8 +1185,8 @@
       "post": {
         "tags": ["tags", "tags"],
         "summary": "Create Tag",
-        "description": "Creates a new taxonomy tag or returns existing tag with same name.",
-        "operationId": "create_tag_api_tags_post",
+        "description": "Creates a new taxonomy tag with unique slug and search aliases.",
+        "operationId": "create_tag_api_pois_tags_post",
         "parameters": [
           {
             "name": "Authorization",
@@ -1242,6 +1242,16 @@
               }
             }
           },
+          "409": {
+            "description": "Tag slug already exists in user library",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1255,12 +1265,12 @@
         }
       }
     },
-    "/api/tags/{tag_id}": {
+    "/api/pois/tags/{tag_id}": {
       "delete": {
         "tags": ["tags", "tags"],
         "summary": "Delete Tag",
-        "description": "Deletes a taxonomy tag owned by the current tenant.",
-        "operationId": "delete_tag_api_tags__tag_id__delete",
+        "description": "Deletes a taxonomy tag if not referenced by any POIs.\n\nEnforces referential integrity check: returns RFC 7807 409 Conflict with\nremediation link if referenced by one or more POIs.",
+        "operationId": "delete_tag_api_pois_tags__tag_id__delete",
         "parameters": [
           {
             "name": "tag_id",
@@ -1308,6 +1318,545 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "Tag is currently referenced by one or more POIs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagInUseProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tag not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pois/filter-rules": {
+      "get": {
+        "tags": ["filter-rules", "filter-rules"],
+        "summary": "List Filter Rules",
+        "description": "Retrieves all saved filter rules owned by the authenticated traveler.",
+        "operationId": "list_filter_rules_api_pois_filter_rules_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilterRuleListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["filter-rules", "filter-rules"],
+        "summary": "Create Filter Rule",
+        "description": "Persists a new named filter rule.\n\nReturns 409 Conflict if a rule with the same name already exists for the user.",
+        "operationId": "create_filter_rule_api_pois_filter_rules_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilterRuleCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilterRuleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pois/filter-rules/{rule_id}": {
+      "get": {
+        "tags": ["filter-rules", "filter-rules"],
+        "summary": "Get Filter Rule",
+        "description": "Retrieves a single saved filter rule by ID scoped to current user.",
+        "operationId": "get_filter_rule_api_pois_filter_rules__rule_id__get",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilterRuleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["filter-rules", "filter-rules"],
+        "summary": "Update Filter Rule",
+        "description": "Updates/overwrites an existing filter rule scoped to current user.",
+        "operationId": "update_filter_rule_api_pois_filter_rules__rule_id__put",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilterRuleUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilterRuleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["filter-rules", "filter-rules"],
+        "summary": "Delete Filter Rule",
+        "description": "Deletes an existing filter rule record under tenant verification.",
+        "operationId": "delete_filter_rule_api_pois_filter_rules__rule_id__delete",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pois/geocode/reverse": {
+      "get": {
+        "tags": ["geocoding", "geocoding"],
+        "summary": "Reverse Geocode Endpoint",
+        "description": "Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.",
+        "operationId": "reverse_geocode_endpoint_api_pois_geocode_reverse_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0,
+              "description": "Latitude in degrees (-90.0 to 90.0)",
+              "title": "Lat"
+            },
+            "description": "Latitude in degrees (-90.0 to 90.0)"
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0,
+              "description": "Longitude in degrees (-180.0 to 180.0)",
+              "title": "Lng"
+            },
+            "description": "Longitude in degrees (-180.0 to 180.0)"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/vistarae_core__schemas__poi__ReverseGeocodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["poi-triage", "triage"],
+        "summary": "Reverse-geocode coordinates to structured address line and sovereign country (legacy path)",
+        "description": "Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.",
+        "operationId": "reverse_geocode_v1_api_pois_geocode_reverse_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseGeocodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/vistarae_core__schemas__scraping__ReverseGeocodeResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -2487,6 +3036,154 @@
         }
       }
     },
+    "/api/pois/extract-and-check": {
+      "post": {
+        "tags": ["poi-triage", "triage"],
+        "summary": "Extract destination details from webpage and evaluate duplicate/nesting triage",
+        "description": "Performs multi-source scraping, geocoding, tag recommendation, and duplicate triage.\n\nEnforces:\n- REQ-EXT-017 (Standard English location name normalization)\n- REQ-EXT-018 (Query only authorized user_preferences.valid_scraping_domains)\n- REQ-EXT-020 (3.0s timeout ceiling with graceful partial fallback)\n- REQ-EXT-022 to REQ-EXT-027 (PostGIS SHA-256 caching & 1 req/sec rate limit)\n- REQ-EXT-028 (Gemini Flash-Lite summary synthesis)\n- REQ-EXT-029 (Tag matching against user's vetted taxonomy)\n- REQ-EXT-030 to REQ-EXT-032 (Scale-aware early duplicate and parent-child triage)",
+        "operationId": "extract_and_check_api_pois_extract_and_check_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractAndCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractAndCheckResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/geocoding/reverse": {
+      "post": {
+        "tags": ["poi-triage", "triage"],
+        "summary": "Reverse-geocode coordinates to structured address line and sovereign country",
+        "description": "Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.",
+        "operationId": "reverse_geocode_v1_api_v1_geocoding_reverse_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseGeocodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/vistarae_core__schemas__scraping__ReverseGeocodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/csv": {
       "post": {
         "tags": ["ingest", "ingest"],
@@ -2702,6 +3399,486 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/IngestJobProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/candidates": {
+      "get": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Retrieve staged candidates for an ingest job",
+        "description": "Returns staged candidate records for the specified job.",
+        "operationId": "get_job_candidates_api_ingest_jobs__job_id__candidates_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/IngestCandidatePhaseState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Phase"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/candidates/{candidate_id}": {
+      "patch": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Update details, disposition, or coordinates for a candidate",
+        "description": "Updates fields or disposition on an individual candidate.",
+        "operationId": "update_candidate_api_ingest_jobs__job_id__candidates__candidate_id__patch",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateItemResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/phase1/proceed": {
+      "post": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Advance confirmed Phase 1 triage records to Phase 2 enrichment",
+        "description": "Transitions active candidates to Phase 2.",
+        "operationId": "proceed_phase1_api_ingest_jobs__job_id__phase1_proceed_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhaseTransitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/phase1/cancel": {
+      "post": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Abort Phase 1 triage and purge staged candidate records",
+        "description": "Purges staging table for the job upon Phase 1 cancellation.",
+        "operationId": "cancel_phase1_api_ingest_jobs__job_id__phase1_cancel_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCancellationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/phase2/commit": {
+      "post": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Commit confirmed candidates to database pois table",
+        "description": "Executes final database transaction committing accepted, child, and merged POIs.",
+        "operationId": "commit_phase2_api_ingest_jobs__job_id__phase2_commit_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/phase2/cancel": {
+      "post": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Abort Phase 2 review and purge staged candidate records",
+        "description": "Purges staging table for the job upon Phase 2 cancellation.",
+        "operationId": "cancel_phase2_api_ingest_jobs__job_id__phase2_cancel_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCancellationResponse"
                 }
               }
             }
@@ -3107,6 +4284,487 @@
         "title": "BulkTagsRequest",
         "description": "Request payload for bulk tag association or disassociation."
       },
+      "CandidateItemResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "row_index": {
+            "type": "integer",
+            "title": "Row Index"
+          },
+          "poi_name": {
+            "type": "string",
+            "title": "Poi Name"
+          },
+          "recommended_disposition": {
+            "$ref": "#/components/schemas/IngestDisposition"
+          },
+          "user_disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestDisposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matched_existing_poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Existing Poi Id"
+          },
+          "matched_existing_poi_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Existing Poi Name"
+          },
+          "parent_poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Poi Id"
+          },
+          "parent_poi_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Poi Name"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "street_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street Address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state_province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Province"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "dates_visited": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dates Visited"
+          },
+          "photo_directory": {
+            "type": "string",
+            "title": "Photo Directory"
+          },
+          "confidence_score": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Confidence Score",
+            "default": 0
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "reason_to_visit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason To Visit"
+          },
+          "update_coordinates": {
+            "type": "boolean",
+            "title": "Update Coordinates",
+            "default": false
+          },
+          "is_skipped": {
+            "type": "boolean",
+            "title": "Is Skipped",
+            "default": false
+          },
+          "phase_state": {
+            "$ref": "#/components/schemas/IngestCandidatePhaseState"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "job_id",
+          "row_index",
+          "poi_name",
+          "recommended_disposition",
+          "photo_directory",
+          "phase_state",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CandidateItemResponse",
+        "description": "Staged candidate POI record presented for Phase 1 triage and Phase 2 review."
+      },
+      "CandidateListResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "total_candidates": {
+            "type": "integer",
+            "title": "Total Candidates"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateItemResponse"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["job_id", "total_candidates"],
+        "title": "CandidateListResponse",
+        "description": "Collection response containing staged candidate items for an ingest job."
+      },
+      "CandidateUpdateRequest": {
+        "properties": {
+          "poi_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poi Name"
+          },
+          "user_disposition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestDisposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matched_existing_poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Existing Poi Id"
+          },
+          "parent_poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Poi Id"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "street_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street Address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state_province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Province"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "dates_visited": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dates Visited"
+          },
+          "photo_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Directory"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "reason_to_visit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason To Visit"
+          },
+          "update_coordinates": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Coordinates"
+          },
+          "is_skipped": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Skipped"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CandidateUpdateRequest",
+        "description": "Client payload for modifying an individual candidate's attributes or disposition."
+      },
       "CircuitBreakerWarning": {
         "properties": {
           "day_number": {
@@ -3134,6 +4792,44 @@
         "required": ["day_number", "total_active_hours", "message"],
         "title": "CircuitBreakerWarning",
         "description": "Warning emitted when active daily exploration exceeds circuit breaker threshold."
+      },
+      "CommitSummaryResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "committed_count": {
+            "type": "integer",
+            "title": "Committed Count"
+          },
+          "created_pois": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Created Pois"
+          },
+          "merged_pois": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Merged Pois"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["job_id", "committed_count", "message"],
+        "title": "CommitSummaryResponse",
+        "description": "Summary of committed POIs and database modifications upon completing Phase 2."
       },
       "ConfirmSignUpRequest": {
         "properties": {
@@ -3217,6 +4913,90 @@
         "title": "DeduplicationPreset",
         "description": "Proximity search preset for duplicate detection."
       },
+      "DeduplicationVerdictSchema": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["UNIQUE_LOCATION", "POTENTIAL_DUPLICATE", "NEARBY_PARENT"],
+            "title": "Status",
+            "description": "Spatial triage classification"
+          },
+          "distance_meters": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Meters",
+            "description": "Distance to closest POI in meters"
+          },
+          "similarity_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity Score",
+            "description": "Trigram name similarity score (0.0 to 1.0)"
+          },
+          "existing_poi_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Poi Id",
+            "description": "UUID of matched existing POI"
+          },
+          "existing_poi_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Poi Name",
+            "description": "Display name of matched existing POI"
+          },
+          "scale_classification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["macro", "medium", "micro"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Classification",
+            "description": "Inferred spatial footprint scale"
+          },
+          "recommended_action": {
+            "type": "string",
+            "enum": ["proceed", "make_child", "abort"],
+            "title": "Recommended Action",
+            "description": "Recommended user triage workflow action",
+            "default": "proceed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status"],
+        "title": "DeduplicationVerdictSchema",
+        "description": "Scale-aware duplicate and parent-child nesting triage verdict."
+      },
       "DuplicateItemResponse": {
         "properties": {
           "row_number": {
@@ -3280,6 +5060,274 @@
         "title": "EnrichmentStatus",
         "description": "Enrichment and geocoding resolution status."
       },
+      "ExtractAndCheckRequest": {
+        "properties": {
+          "source_url": {
+            "type": "string",
+            "title": "Source Url",
+            "description": "Canonical URL of the captured page"
+          },
+          "page_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Title",
+            "description": "Raw HTML document title"
+          },
+          "selected_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Text",
+            "description": "User highlighted or selection snippet"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude",
+            "description": "Latitude detected by client-side parser"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude",
+            "description": "Longitude detected by client-side parser"
+          },
+          "raw_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Address",
+            "description": "Raw address text scraped on client before cleansing"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category",
+            "description": "Place category inferred by client-side parser"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source_url"],
+        "title": "ExtractAndCheckRequest",
+        "description": "Request payload for multi-source web extraction and deduplication triage."
+      },
+      "ExtractAndCheckResponse": {
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/POICandidateSchema",
+            "description": "Structured POI candidate extracted from web"
+          },
+          "recommended_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommended Tags",
+            "description": "Matched user tag slugs"
+          },
+          "available_tags": {
+            "items": {
+              "$ref": "#/components/schemas/UserTagItemSchema"
+            },
+            "type": "array",
+            "title": "Available Tags",
+            "description": "All configured tags for the authenticated user"
+          },
+          "deduplication": {
+            "$ref": "#/components/schemas/DeduplicationVerdictSchema",
+            "description": "Deduplication and nesting verdict"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["candidate", "deduplication"],
+        "title": "ExtractAndCheckResponse",
+        "description": "Comprehensive extraction candidate, tag recommendations, and duplicate verdict response."
+      },
+      "FilterConjunction": {
+        "type": "string",
+        "enum": ["AND", "OR"],
+        "title": "FilterConjunction",
+        "description": "Boolean conjunctions for joining query builder clauses."
+      },
+      "FilterOperator": {
+        "type": "string",
+        "enum": [
+          "equals",
+          "not_equals",
+          "contains",
+          "is_empty",
+          "is_not_empty",
+          "greater_than",
+          "less_than",
+          "greater_than_or_equal",
+          "less_than_or_equal",
+          "has_tag",
+          "lacks_tag",
+          "in_list",
+          "not_in_list"
+        ],
+        "title": "FilterOperator",
+        "description": "Comparison operators supported by the POI visual filter query builder."
+      },
+      "FilterRuleCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "query_tree": {
+            "$ref": "#/components/schemas/QueryTreeSchema-Input"
+          },
+          "table_config": {
+            "$ref": "#/components/schemas/TableConfigSchema"
+          },
+          "pin_color_scheme": {
+            "$ref": "#/components/schemas/PinColorSchemeSchema"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name"],
+        "title": "FilterRuleCreateRequest",
+        "description": "Payload to create a new named filter rule."
+      },
+      "FilterRuleListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FilterRuleResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items", "total"],
+        "title": "FilterRuleListResponse",
+        "description": "List response containing filter rules for the current tenant."
+      },
+      "FilterRuleResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "query_tree": {
+            "$ref": "#/components/schemas/QueryTreeSchema-Output"
+          },
+          "table_config": {
+            "$ref": "#/components/schemas/TableConfigSchema"
+          },
+          "pin_color_scheme": {
+            "$ref": "#/components/schemas/PinColorSchemeSchema"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "query_tree",
+          "table_config",
+          "pin_color_scheme",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FilterRuleResponse",
+        "description": "Serialised filter rule record."
+      },
+      "FilterRuleUpdateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "query_tree": {
+            "$ref": "#/components/schemas/QueryTreeSchema-Input"
+          },
+          "table_config": {
+            "$ref": "#/components/schemas/TableConfigSchema"
+          },
+          "pin_color_scheme": {
+            "$ref": "#/components/schemas/PinColorSchemeSchema"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "query_tree", "table_config", "pin_color_scheme"],
+        "title": "FilterRuleUpdateRequest",
+        "description": "Payload to overwrite an existing filter rule."
+      },
       "ForgotPasswordRequest": {
         "properties": {
           "email": {
@@ -3321,6 +5369,18 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IngestCandidatePhaseState": {
+        "type": "string",
+        "enum": ["phase_1_triage", "phase_2_enriched", "committed", "aborted"],
+        "title": "IngestCandidatePhaseState",
+        "description": "Lifecycle stage of a staged candidate record."
+      },
+      "IngestDisposition": {
+        "type": "string",
+        "enum": ["accept", "ignore", "update_existing", "sublocation"],
+        "title": "IngestDisposition",
+        "description": "Interactive disposition assigned to staged CSV/photo candidates."
       },
       "IngestJobProgressResponse": {
         "properties": {
@@ -3420,6 +5480,25 @@
         "required": ["job_id", "job_status", "total_rows", "message"],
         "title": "IngestUploadResponse",
         "description": "Response returned upon accepting a bulk CSV upload."
+      },
+      "InvalidParam": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Field path or parameter name"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Explanation of validation failure"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "reason"],
+        "title": "InvalidParam",
+        "description": "Granular error breakdown for schema validation failures."
       },
       "ItineraryCreate": {
         "properties": {
@@ -4316,6 +6395,28 @@
         "title": "ItineraryUpdate",
         "description": "Payload for updating itinerary metadata."
       },
+      "JobCancellationResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "purged_count": {
+            "type": "integer",
+            "title": "Purged Count"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["job_id", "purged_count", "message"],
+        "title": "JobCancellationResponse",
+        "description": "Acknowledgment payload upon aborting triage/review and purging staging records."
+      },
       "ListCreateRequest": {
         "properties": {
           "title": {
@@ -4637,6 +6738,174 @@
         "title": "MissingMealAdvisory",
         "description": "Advisory emitted when lunch or dinner window lacks a meal."
       },
+      "POICandidateSchema": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Normalized standard English POI name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Concise multi-line summary of the destination"
+          },
+          "reason_to_visit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason To Visit",
+            "description": "Experiential rationale explaining why a tourist should visit"
+          },
+          "addresses": {
+            "items": {
+              "$ref": "#/components/schemas/AddressRecord"
+            },
+            "type": "array",
+            "title": "Addresses",
+            "description": "Array of resolved address objects"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude",
+            "description": "Geographic latitude in decimal degrees"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude",
+            "description": "Geographic longitude in decimal degrees"
+          },
+          "official_website_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Website Url",
+            "description": "Official attraction website URL"
+          },
+          "wikipedia_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wikipedia Url",
+            "description": "English Wikipedia article URL"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url",
+            "description": "High-resolution hero photo thumbnail"
+          },
+          "estimated_duration_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Hours",
+            "description": "Estimated visit duration hours"
+          },
+          "estimated_duration_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Days",
+            "description": "Estimated visit duration days"
+          },
+          "estimated_visit_time_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Visit Time Notes",
+            "description": "Explanation or reasoning for estimated visit duration"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "User manual rating (null on web capture)"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type",
+            "description": "Origin source type",
+            "default": "Web"
+          },
+          "source_value": {
+            "type": "string",
+            "title": "Source Value",
+            "description": "Source page URL"
+          },
+          "extraction_sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extraction Sources",
+            "description": "List of source domains consulted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "description", "source_value"],
+        "title": "POICandidateSchema",
+        "description": "Normalized POI extraction candidate schema maintaining 1:1 parity with POI Editor."
+      },
       "POICreateRequest": {
         "properties": {
           "name": {
@@ -4684,6 +6953,33 @@
             ],
             "title": "Description",
             "description": "Rich description or markdown"
+          },
+          "reason_to_visit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason To Visit",
+            "description": "Experiential rationale explaining why a tourist should visit"
+          },
+          "addresses": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AddressRecord"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Addresses",
+            "description": "Array of structured international address records"
           },
           "address": {
             "anyOf": [
@@ -4810,6 +7106,32 @@
             "description": "Visit tracking state",
             "default": "not_visited"
           },
+          "source_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceType"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Source Type",
+            "description": "Provenance source type (Web, CSV, Manual, Photo)",
+            "default": "Manual"
+          },
+          "source_value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Value",
+            "description": "Provenance source value (URL, file path, etc.)"
+          },
           "rating": {
             "anyOf": [
               {
@@ -4868,6 +7190,18 @@
             "title": "Recommended Visit Days",
             "description": "Recommended days to spend at POI",
             "default": 1
+          },
+          "estimated_visit_time_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Visit Time Notes",
+            "description": "Explanation or reasoning for estimated visit duration"
           }
         },
         "additionalProperties": false,
@@ -4990,6 +7324,18 @@
             ],
             "title": "Description",
             "description": "Rich description or markdown"
+          },
+          "reason_to_visit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason To Visit",
+            "description": "Experiential rationale explaining why a tourist should visit"
           },
           "address": {
             "anyOf": [
@@ -5201,6 +7547,18 @@
             "description": "Recommended days to spend at POI",
             "default": 1
           },
+          "estimated_visit_time_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Visit Time Notes",
+            "description": "Explanation or reasoning for estimated visit duration"
+          },
           "enrichment_status": {
             "$ref": "#/components/schemas/EnrichmentStatus",
             "description": "Address geocoding enrichment status",
@@ -5334,6 +7692,19 @@
             ],
             "title": "Description",
             "description": "Rich description or markdown"
+          },
+          "reason_to_visit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason To Visit",
+            "description": "Experiential rationale explaining why a tourist should visit"
           },
           "addresses": {
             "anyOf": [
@@ -5485,6 +7856,18 @@
             ],
             "title": "Recommended Visit Days",
             "description": "Recommended days to spend at POI"
+          },
+          "estimated_visit_time_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Visit Time Notes",
+            "description": "Explanation or reasoning for estimated visit duration"
           },
           "source_type": {
             "anyOf": [
@@ -5676,6 +8059,72 @@
         "title": "POIUpdateRequest",
         "description": "Request payload for updating an existing Point of Interest."
       },
+      "PhaseTransitionResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "advanced_count": {
+            "type": "integer",
+            "title": "Advanced Count"
+          },
+          "ignored_count": {
+            "type": "integer",
+            "title": "Ignored Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["job_id", "message", "advanced_count", "ignored_count"],
+        "title": "PhaseTransitionResponse",
+        "description": "Acknowledgment payload upon advancing candidates from Phase 1 to Phase 2."
+      },
+      "PinColorMode": {
+        "type": "string",
+        "enum": ["uniform", "rating", "visit_status", "custom"],
+        "title": "PinColorMode",
+        "description": "Map pin marker coloring schemes."
+      },
+      "PinColorSchemeSchema": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/PinColorMode",
+            "default": "uniform"
+          },
+          "default_color": {
+            "type": "string",
+            "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$",
+            "title": "Default Color",
+            "default": "#2563eb"
+          },
+          "palette": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Palette",
+            "description": "Value-to-hex mappings for rating (1-5) or visit status"
+          },
+          "rule_mappings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rule Mappings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PinColorSchemeSchema",
+        "description": "Map pin coloring preferences."
+      },
       "PotentialDuplicateItem": {
         "properties": {
           "existing_poi": {
@@ -5708,6 +8157,115 @@
         ],
         "title": "PotentialDuplicateItem",
         "description": "Individual candidate duplicate match."
+      },
+      "ProblemDetails": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "URI reference that identifies the problem type",
+            "default": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Short, human-readable summary of problem"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status",
+            "description": "HTTP status code generated by server"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Human-readable explanation specific to occurrence"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance",
+            "description": "URI reference identifying specific occurrence of problem"
+          },
+          "invalid_params": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InvalidParam"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalid Params",
+            "description": "Detailed list of parameter or field validation errors"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["title", "status", "detail"],
+        "title": "ProblemDetails",
+        "description": "RFC 7807 / RFC 9457 error representation envelope."
+      },
+      "QueryTreeSchema-Input": {
+        "properties": {
+          "conjunction": {
+            "$ref": "#/components/schemas/FilterConjunction",
+            "default": "AND"
+          },
+          "rules": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RuleClauseSchema"
+                },
+                {
+                  "$ref": "#/components/schemas/QueryTreeSchema-Input"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Rules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "QueryTreeSchema",
+        "description": "Recursive query builder AST tree node."
+      },
+      "QueryTreeSchema-Output": {
+        "properties": {
+          "conjunction": {
+            "$ref": "#/components/schemas/FilterConjunction",
+            "default": "AND"
+          },
+          "rules": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RuleClauseSchema"
+                },
+                {
+                  "$ref": "#/components/schemas/QueryTreeSchema-Output"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Rules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "QueryTreeSchema",
+        "description": "Recursive query builder AST tree node."
       },
       "RegisterRequest": {
         "properties": {
@@ -5809,6 +8367,57 @@
         "title": "ResetPasswordResponse",
         "description": "Acknowledgement of successful password reset."
       },
+      "ReverseGeocodeRequest": {
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "description": "WGS-84 latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "description": "WGS-84 longitude"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["latitude", "longitude"],
+        "title": "ReverseGeocodeRequest",
+        "description": "Payload to reverse-geocode coordinates into a structured address."
+      },
+      "RuleClauseSchema": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field",
+            "description": "Target POI field (e.g. 'country', 'rating', 'visit_state')"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/FilterOperator",
+            "description": "Comparison operator"
+          },
+          "value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Operand value (string, number, boolean, or null)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["field", "operator"],
+        "title": "RuleClauseSchema",
+        "description": "Single condition rule in the query builder AST."
+      },
       "SharedListResponse": {
         "properties": {
           "pois": {
@@ -5830,11 +8439,60 @@
         "title": "SharedListResponse",
         "description": "Public read-only curated list view containing member POIs."
       },
+      "SortDirection": {
+        "type": "string",
+        "enum": ["asc", "desc", "unsorted"],
+        "title": "SortDirection",
+        "description": "Table column sorting directions."
+      },
       "SourceType": {
         "type": "string",
         "enum": ["Web", "CSV", "Manual", "Photo"],
         "title": "SourceType",
         "description": "Source provenance of POI discovery or capture."
+      },
+      "TableColumnSortSchema": {
+        "properties": {
+          "column": {
+            "type": "string",
+            "title": "Column",
+            "description": "Target column identifier"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SortDirection",
+            "default": "unsorted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["column"],
+        "title": "TableColumnSortSchema",
+        "description": "Table column sorting specification."
+      },
+      "TableConfigSchema": {
+        "properties": {
+          "visible_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Visible Columns"
+          },
+          "column_order": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Column Order"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/TableColumnSortSchema"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TableConfigSchema",
+        "description": "POI table view settings: visible columns, sequence, and sorting."
       },
       "TagCreateRequest": {
         "properties": {
@@ -5843,34 +8501,151 @@
             "maxLength": 64,
             "minLength": 1,
             "title": "Name",
-            "description": "Unique tag name"
+            "description": "Human readable display name"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9_]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug",
+            "description": "Immutable slug identifier (auto-derived from name if omitted)"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases",
+            "description": "Array of searchable synonym aliases"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": ["name"],
         "title": "TagCreateRequest",
-        "description": "Request model for creating a tag."
+        "description": "Payload to create or register a new user-scoped tag."
+      },
+      "TagInUseProblemDetails": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Problem type identifier for tag referential integrity conflicts",
+            "default": "urn:vistarae:error:tag-in-use"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Short summary of error",
+            "default": "Tag in use"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status",
+            "description": "HTTP status code (409 Conflict)",
+            "default": 409
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Human-readable explanation specific to occurrence"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance",
+            "description": "URI reference identifying specific occurrence of problem"
+          },
+          "invalid_params": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InvalidParam"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalid Params",
+            "description": "Detailed list of parameter or field validation errors"
+          },
+          "referencing_poi_count": {
+            "type": "integer",
+            "title": "Referencing Poi Count",
+            "description": "Number of POIs referencing this tag"
+          },
+          "remediation_filter_url": {
+            "type": "string",
+            "title": "Remediation Filter Url",
+            "description": "Direct link to filter the POI Table by this tag for bulk remediation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "detail",
+          "referencing_poi_count",
+          "remediation_filter_url"
+        ],
+        "title": "TagInUseProblemDetails",
+        "description": "RFC 7807 problem details when tag deletion is blocked by referential integrity."
       },
       "TagResponse": {
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
-            "title": "Id",
-            "description": "Unique tag identifier"
+            "title": "Id"
           },
           "name": {
             "type": "string",
-            "title": "Name",
-            "description": "Tag name"
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "default": ""
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "poi_count": {
+            "type": "integer",
+            "title": "Poi Count",
+            "description": "Count of POIs currently associated with this tag",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": ["id", "name"],
         "title": "TagResponse",
-        "description": "Tag entity response model."
+        "description": "Detailed tag representation returned to clients."
       },
       "TriageDecisionItem": {
         "properties": {
@@ -5903,6 +8678,46 @@
         "required": ["decisions"],
         "title": "TriageRequest",
         "description": "Batch payload containing duplicate triage decisions."
+      },
+      "UserTagItemSchema": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Tag UUID"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Tag display name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "description": "Tag slug identifier"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases",
+            "description": "Synonym search aliases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "slug"],
+        "title": "UserTagItemSchema",
+        "description": "Configured user tag schema returned to extension."
       },
       "ValidationError": {
         "properties": {
@@ -5945,6 +8760,136 @@
         "enum": ["not_visited", "visited_do_not_return", "visited_return"],
         "title": "VisitState",
         "description": "User visit status of a POI."
+      },
+      "vistarae_core__schemas__poi__ReverseGeocodeResponse": {
+        "properties": {
+          "street": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street",
+            "description": "Street address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City",
+            "description": "City or municipality"
+          },
+          "state_province": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Province",
+            "description": "State or province"
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Country",
+            "description": "Normalized English country name"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code",
+            "description": "Postal / ZIP code"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "description": "True if resolved from PostGIS geocache",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["country"],
+        "title": "ReverseGeocodeResponse",
+        "description": "Response payload for reverse geocoding."
+      },
+      "vistarae_core__schemas__scraping__ReverseGeocodeResponse": {
+        "properties": {
+          "formatted_address": {
+            "type": "string",
+            "title": "Formatted Address",
+            "description": "Clean, human-readable address line"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country",
+            "description": "Sovereign country name (e.g. Germany)"
+          },
+          "country_code": {
+            "type": "string",
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 country code (e.g. DE)"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City",
+            "description": "Locality or municipality"
+          },
+          "postcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postcode",
+            "description": "Postal or ZIP code"
+          },
+          "addresses": {
+            "items": {
+              "$ref": "#/components/schemas/AddressRecord"
+            },
+            "type": "array",
+            "title": "Addresses",
+            "description": "Structured address records"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["formatted_address", "country", "country_code"],
+        "title": "ReverseGeocodeResponse",
+        "description": "Structured reverse-geocoded address result."
       }
     }
   }

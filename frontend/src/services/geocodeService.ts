@@ -157,3 +157,39 @@ export async function reverseGeocode(
     `/api/pois/geocode/reverse?lat=${roundedLat}&lng=${roundedLng}`,
   );
 }
+
+export interface ForwardGeocodeResponse {
+  latitude: number | null;
+  longitude: number | null;
+  street: string | null;
+  city: string | null;
+  state_province: string | null;
+  country: string | null;
+  postal_code: string | null;
+  cached: boolean;
+}
+
+/**
+ * Calls backend cached forward geocode endpoint.
+ */
+export async function forwardGeocode(
+  query: string,
+): Promise<ForwardGeocodeResponse> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return {
+      latitude: null,
+      longitude: null,
+      street: null,
+      city: null,
+      state_province: null,
+      country: null,
+      postal_code: null,
+      cached: false,
+    };
+  }
+  return await apiFetch<ForwardGeocodeResponse>(
+    `/api/pois/geocode/forward?q=${encodeURIComponent(trimmed)}`,
+  );
+}
+

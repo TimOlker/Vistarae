@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Tim Olker
+﻿# Copyright (c) 2026 Tim Olker
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -161,6 +161,11 @@ class UserTagItemSchema(StrictBaseModel):
     aliases: list[str] = Field(default_factory=list, description="Synonym search aliases")
 
 
+class ExclusionVerdictSchema(StrictBaseModel):
+    is_excluded: bool = Field(default=False, description="Whether coordinates fall within a privacy exclusion zone")
+    matched_zone_names: list[str] = Field(default_factory=list, description="Names of matched exclusion zones")
+
+
 class ExtractAndCheckResponse(StrictBaseModel):
     """Comprehensive extraction candidate, tag recommendations, and duplicate verdict response."""
 
@@ -173,4 +178,7 @@ class ExtractAndCheckResponse(StrictBaseModel):
     )
     deduplication: DeduplicationVerdictSchema = Field(
         ..., description="Deduplication and nesting verdict"
+    )
+    exclusion: ExclusionVerdictSchema = Field(
+        default_factory=lambda: ExclusionVerdictSchema(), description="Privacy exclusion zone verdict"
     )

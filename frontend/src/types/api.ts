@@ -19,3680 +19,5312 @@
  * Do not make direct changes to the file.
  */
 
-
 export interface paths {
-  "/health/live": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health Live
+         * @description Zero-IO liveness probe for container alive checks.
+         *
+         *     Returns:
+         *         Dict with status 'alive'.
+         */
+        get: operations["health_live_health_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Health Live
-     * @description Zero-IO liveness probe for container alive checks.
-     *
-     *     Returns:
-     *         Dict with status 'alive'.
-     */
-    get: operations["health_live_health_live_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/health/ready": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health Ready
+         * @description Database readiness probe executing SELECT 1.
+         *
+         *     Args:
+         *         session: Active database session.
+         *
+         *     Returns:
+         *         200 OK with status 'ready' or 503 Service Unavailable if database is unreachable.
+         */
+        get: operations["health_ready_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Health Ready
-     * @description Database readiness probe executing SELECT 1.
-     *
-     *     Args:
-     *         session: Active database session.
-     *
-     *     Returns:
-     *         200 OK with status 'ready' or 503 Service Unavailable if database is unreachable.
-     */
-    get: operations["health_ready_health_ready_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/register": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Registers a new user in the identity provider.
+         *
+         *     Args:
+         *         body: Registration parameters (email, password, full_name).
+         *         id_provider: Injected identity provider.
+         *
+         *     Returns:
+         *         RegisterResponse with Cognito subject and confirmation status.
+         *
+         *     Raises:
+         *         HTTPException: 400 or 409 if validation or registration fails.
+         */
+        post: operations["register_api_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Register
-     * @description Registers a new user in the identity provider.
-     *
-     *     Args:
-     *         body: Registration parameters (email, password, full_name).
-     *         id_provider: Injected identity provider.
-     *
-     *     Returns:
-     *         RegisterResponse with Cognito subject and confirmation status.
-     *
-     *     Raises:
-     *         HTTPException: 400 or 409 if validation or registration fails.
-     */
-    post: operations["register_api_auth_register_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/confirm-signup": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/auth/confirm-signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Signup
+         * @description Confirms signup and provisions local database tenant records.
+         *
+         *     Args:
+         *         body: Confirmation parameters (email, confirmation_code, full_name).
+         *         id_provider: Injected identity provider.
+         *         session: Active database session.
+         *
+         *     Returns:
+         *         ConfirmSignUpResponse with tenant user UUID.
+         *
+         *     Raises:
+         *         HTTPException: 400 if verification code is invalid.
+         */
+        post: operations["confirm_signup_api_auth_confirm_signup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Confirm Signup
-     * @description Confirms signup and provisions local database tenant records.
-     *
-     *     Args:
-     *         body: Confirmation parameters (email, confirmation_code, full_name).
-     *         id_provider: Injected identity provider.
-     *         session: Active database session.
-     *
-     *     Returns:
-     *         ConfirmSignUpResponse with tenant user UUID.
-     *
-     *     Raises:
-     *         HTTPException: 400 if verification code is invalid.
-     */
-    post: operations["confirm_signup_api_auth_confirm_signup_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/login": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Authenticates credentials against identity provider.
+         *
+         *     Args:
+         *         body: Login credentials.
+         *         id_provider: Injected identity provider.
+         *
+         *     Returns:
+         *         LoginResponse with JWT bearer tokens.
+         *
+         *     Raises:
+         *         HTTPException: 401 if credentials are invalid.
+         */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Login
-     * @description Authenticates credentials against identity provider.
-     *
-     *     Args:
-     *         body: Login credentials.
-     *         id_provider: Injected identity provider.
-     *
-     *     Returns:
-     *         LoginResponse with JWT bearer tokens.
-     *
-     *     Raises:
-     *         HTTPException: 401 if credentials are invalid.
-     */
-    post: operations["login_api_auth_login_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/forgot-password": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description Initiates password reset code dispatch.
+         *
+         *     Args:
+         *         body: Registered email.
+         *         id_provider: Injected identity provider.
+         *
+         *     Returns:
+         *         ForgotPasswordResponse acknowledgement.
+         *
+         *     Raises:
+         *         HTTPException: 404 if email not found.
+         */
+        post: operations["forgot_password_api_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Forgot Password
-     * @description Initiates password reset code dispatch.
-     *
-     *     Args:
-     *         body: Registered email.
-     *         id_provider: Injected identity provider.
-     *
-     *     Returns:
-     *         ForgotPasswordResponse acknowledgement.
-     *
-     *     Raises:
-     *         HTTPException: 404 if email not found.
-     */
-    post: operations["forgot_password_api_auth_forgot_password_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/reset-password": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Confirms password reset with code and new password.
+         *
+         *     Args:
+         *         body: Password reset parameters.
+         *         id_provider: Injected identity provider.
+         *
+         *     Returns:
+         *         ResetPasswordResponse acknowledgement.
+         *
+         *     Raises:
+         *         HTTPException: 400 if code is invalid or password rejected.
+         */
+        post: operations["reset_password_api_auth_reset_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Reset Password
-     * @description Confirms password reset with code and new password.
-     *
-     *     Args:
-     *         body: Password reset parameters.
-     *         id_provider: Injected identity provider.
-     *
-     *     Returns:
-     *         ResetPasswordResponse acknowledgement.
-     *
-     *     Raises:
-     *         HTTPException: 400 if code is invalid or password rejected.
-     */
-    post: operations["reset_password_api_auth_reset_password_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/auth/logout": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Revokes active user session via GlobalSignOut.
+         *
+         *     Args:
+         *         body: Optional body containing access_token.
+         *         authorization: Optional Authorization header with Bearer token.
+         *         id_provider: Injected identity provider.
+         *
+         *     Returns:
+         *         LogoutResponse confirming sign out.
+         *
+         *     Raises:
+         *         HTTPException: 400 if no access token was supplied.
+         */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Logout
-     * @description Revokes active user session via GlobalSignOut.
-     *
-     *     Args:
-     *         body: Optional body containing access_token.
-     *         authorization: Optional Authorization header with Bearer token.
-     *         id_provider: Injected identity provider.
-     *
-     *     Returns:
-     *         LogoutResponse confirming sign out.
-     *
-     *     Raises:
-     *         HTTPException: 400 if no access token was supplied.
-     */
-    post: operations["logout_api_auth_logout_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois/dedup-check": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/dedup-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Duplicates
+         * @description Probes existing tenant POIs for duplicates within spatial radius exceeding 0.60 similarity.
+         */
+        get: operations["check_duplicates_api_pois_dedup_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Check Duplicates
-     * @description Probes existing tenant POIs for duplicates within spatial radius exceeding 0.60 similarity.
-     */
-    get: operations["check_duplicates_api_pois_dedup_check_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois/bulk-edit": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/bulk-edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Edit
+         * @description Applies bulk mutations across up to 500 POIs atomically in a single transaction (REQ-MAIN-026 to REQ-MAIN-035).
+         */
+        post: operations["bulk_edit_api_pois_bulk_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Bulk Edit
-     * @description Applies bulk mutations across up to 500 POIs atomically in a single transaction (REQ-MAIN-026 to REQ-MAIN-035).
-     */
-    post: operations["bulk_edit_api_pois_bulk_edit_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois/bulk-tags": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/bulk-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Tags
+         * @description Attaches or detaches multiple tags across target POIs in a single transaction.
+         */
+        post: operations["bulk_tags_api_pois_bulk_tags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Bulk Tags
-     * @description Attaches or detaches multiple tags across target POIs in a single transaction.
-     */
-    post: operations["bulk_tags_api_pois_bulk_tags_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois/bulk-lists": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/bulk-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Lists
+         * @description Attaches or detaches multiple curated list memberships in a single transaction.
+         */
+        post: operations["bulk_lists_api_pois_bulk_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Bulk Lists
-     * @description Attaches or detaches multiple curated list memberships in a single transaction.
-     */
-    post: operations["bulk_lists_api_pois_bulk_lists_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois/bulk-delete": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Delete
+         * @description Deletes multiple POIs in a single atomic transaction (REQ-MAIN-034, REQ-MAIN-035).
+         */
+        post: operations["bulk_delete_api_pois_bulk_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Bulk Delete
-     * @description Deletes multiple POIs in a single atomic transaction (REQ-MAIN-034, REQ-MAIN-035).
-     */
-    post: operations["bulk_delete_api_pois_bulk_delete_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/lists": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User Lists
+         * @description Retrieves all curated lists owned by the current tenant.
+         */
+        get: operations["list_user_lists_api_lists_get"];
+        put?: never;
+        /**
+         * Create List
+         * @description Creates a new curated list owned by the current tenant.
+         */
+        post: operations["create_list_api_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List User Lists
-     * @description Retrieves all curated lists owned by the current tenant.
-     */
-    get: operations["list_user_lists_api_lists_get"];
-    put?: never;
-    /**
-     * Create List
-     * @description Creates a new curated list owned by the current tenant.
-     */
-    post: operations["create_list_api_lists_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/lists/{list_id}/shared": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/lists/{list_id}/shared": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Shared List
+         * @description Public read-only endpoint for shared lists and member POIs (no authentication required).
+         */
+        get: operations["get_shared_list_api_lists__list_id__shared_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get Shared List
-     * @description Public read-only endpoint for shared lists and member POIs (no authentication required).
-     */
-    get: operations["get_shared_list_api_lists__list_id__shared_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/lists/{list_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/lists/{list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get List
+         * @description Retrieves a single curated list by ID.
+         */
+        get: operations["get_list_api_lists__list_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete List
+         * @description Deletes an owned curated list.
+         */
+        delete: operations["delete_list_api_lists__list_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update List
+         * @description Updates title, description, or visibility of an owned list.
+         */
+        patch: operations["update_list_api_lists__list_id__patch"];
+        trace?: never;
     };
-    /**
-     * Get List
-     * @description Retrieves a single curated list by ID.
-     */
-    get: operations["get_list_api_lists__list_id__get"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete List
-     * @description Deletes an owned curated list.
-     */
-    delete: operations["delete_list_api_lists__list_id__delete"];
-    options?: never;
-    head?: never;
-    /**
-     * Update List
-     * @description Updates title, description, or visibility of an owned list.
-     */
-    patch: operations["update_list_api_lists__list_id__patch"];
-    trace?: never;
-  };
-  "/api/tags": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tags
+         * @description Retrieves all taxonomy tags for tenant in strict alphabetical order.
+         */
+        get: operations["list_tags_api_pois_tags_get"];
+        put?: never;
+        /**
+         * Create Tag
+         * @description Creates a new taxonomy tag with unique slug and search aliases.
+         */
+        post: operations["create_tag_api_pois_tags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List Tags
-     * @description Retrieves all taxonomy tags created by the current tenant.
-     */
-    get: operations["list_tags_api_tags_get"];
-    put?: never;
-    /**
-     * Create Tag
-     * @description Creates a new taxonomy tag or returns existing tag with same name.
-     */
-    post: operations["create_tag_api_tags_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/tags/{tag_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/tags/{tag_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Tag
+         * @description Deletes a taxonomy tag if not referenced by any POIs.
+         *
+         *     Enforces referential integrity check: returns RFC 7807 409 Conflict with
+         *     remediation link if referenced by one or more POIs.
+         */
+        delete: operations["delete_tag_api_pois_tags__tag_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Delete Tag
-     * @description Deletes a taxonomy tag owned by the current tenant.
-     */
-    delete: operations["delete_tag_api_tags__tag_id__delete"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/filter-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Filter Rules
+         * @description Retrieves all saved filter rules owned by the authenticated traveler.
+         */
+        get: operations["list_filter_rules_api_pois_filter_rules_get"];
+        put?: never;
+        /**
+         * Create Filter Rule
+         * @description Persists a new named filter rule.
+         *
+         *     Returns 409 Conflict if a rule with the same name already exists for the user.
+         */
+        post: operations["create_filter_rule_api_pois_filter_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List Pois
-     * @description Queries POIs with planar viewport bounding box, taxonomic filters, and semantic search.
-     */
-    get: operations["list_pois_api_pois_get"];
-    put?: never;
-    /**
-     * Create Poi
-     * @description Creates a new Point of Interest with geocoding and vector embedding.
-     */
-    post: operations["create_poi_api_pois_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/pois/{poi_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/filter-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Filter Rule
+         * @description Retrieves a single saved filter rule by ID scoped to current user.
+         */
+        get: operations["get_filter_rule_api_pois_filter_rules__rule_id__get"];
+        /**
+         * Update Filter Rule
+         * @description Updates/overwrites an existing filter rule scoped to current user.
+         */
+        put: operations["update_filter_rule_api_pois_filter_rules__rule_id__put"];
+        post?: never;
+        /**
+         * Delete Filter Rule
+         * @description Deletes an existing filter rule record under tenant verification.
+         */
+        delete: operations["delete_filter_rule_api_pois_filter_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get Poi
-     * @description Retrieves a single POI by ID with its attached tags.
-     */
-    get: operations["get_poi_api_pois__poi_id__get"];
-    put?: never;
-    post?: never;
-    /**
-     * Delete Poi
-     * @description Deletes a POI record scoped to current tenant.
-     */
-    delete: operations["delete_poi_api_pois__poi_id__delete"];
-    options?: never;
-    head?: never;
-    /**
-     * Update Poi
-     * @description Updates attributes of an existing POI with cycle prevention and embedding re-sync.
-     */
-    patch: operations["update_poi_api_pois__poi_id__patch"];
-    trace?: never;
-  };
-  "/api/pois/query": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/geocode/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reverse Geocode Endpoint
+         * @description Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.
+         */
+        get: operations["reverse_geocode_endpoint_api_pois_geocode_reverse_get"];
+        put?: never;
+        /**
+         * Reverse-geocode coordinates to structured address line and sovereign country (legacy path)
+         * @description Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.
+         */
+        post: operations["reverse_geocode_v1_api_pois_geocode_reverse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Query Pois
-     * @description Evaluates a structured query tree AST against tenant POIs with optional bounding box.
-     */
-    post: operations["query_pois_api_pois_query_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/itineraries": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pois
+         * @description Queries POIs with planar viewport bounding box, taxonomic filters, and semantic search.
+         */
+        get: operations["list_pois_api_pois_get"];
+        put?: never;
+        /**
+         * Create Poi
+         * @description Creates a new Point of Interest with geocoding and vector embedding.
+         */
+        post: operations["create_poi_api_pois_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List Itineraries
-     * @description Lists all travel itineraries belonging to the authenticated user.
-     */
-    get: operations["list_itineraries_api_itineraries_get"];
-    put?: never;
-    /**
-     * Create Itinerary
-     * @description Manually creates a new travel itinerary.
-     */
-    post: operations["create_itinerary_api_itineraries_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/itineraries/generate": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/{poi_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Poi
+         * @description Retrieves a single POI by ID with its attached tags.
+         */
+        get: operations["get_poi_api_pois__poi_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Poi
+         * @description Deletes a POI record scoped to current tenant.
+         */
+        delete: operations["delete_poi_api_pois__poi_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Poi
+         * @description Updates attributes of an existing POI with cycle prevention and embedding re-sync.
+         */
+        patch: operations["update_poi_api_pois__poi_id__patch"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Generate Itinerary
-     * @description Generates an AI-synthesized itinerary using hybrid PostGIS + pgvector RAG.
-     */
-    post: operations["generate_itinerary_api_itineraries_generate_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/itineraries/{itinerary_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/pois/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Query Pois
+         * @description Evaluates a structured query tree AST against tenant POIs with optional bounding box.
+         */
+        post: operations["query_pois_api_pois_query_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Get Itinerary
-     * @description Retrieves full details of a specific itinerary.
-     */
-    get: operations["get_itinerary_api_itineraries__itinerary_id__get"];
-    /**
-     * Update Itinerary
-     * @description Updates itinerary title, dates, budget, or status.
-     */
-    put: operations["update_itinerary_api_itineraries__itinerary_id__put"];
-    post?: never;
-    /**
-     * Delete Itinerary
-     * @description Deletes an itinerary and all its child days and items.
-     */
-    delete: operations["delete_itinerary_api_itineraries__itinerary_id__delete"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/itineraries/{itinerary_id}/items/reorder": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/itineraries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Itineraries
+         * @description Lists all travel itineraries belonging to the authenticated user.
+         */
+        get: operations["list_itineraries_api_itineraries_get"];
+        put?: never;
+        /**
+         * Create Itinerary
+         * @description Manually creates a new travel itinerary.
+         */
+        post: operations["create_itinerary_api_itineraries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /**
-     * Reorder Itinerary Items
-     * @description Batch reorders scheduled items across days and time slots.
-     */
-    put: operations["reorder_itinerary_items_api_itineraries__itinerary_id__items_reorder_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/ingest/csv": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/itineraries/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Itinerary
+         * @description Generates an AI-synthesized itinerary using hybrid PostGIS + pgvector RAG.
+         */
+        post: operations["generate_itinerary_api_itineraries_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Accept bulk CSV upload for asynchronous processing
-     * @description Accepts CSV file upload, applies security guardrails, and dispatches to queue.
-     *
-     *     Args:
-     *         request: HTTP request context.
-     *         file: Multipart uploaded file.
-     *         target_list_id: Optional UUID of list to attach imported POIs.
-     *         user: Authenticated tenant user.
-     *         ingest_repo: Active IngestJobRepository instance.
-     *         queue_port: Active IQueuePort adapter.
-     *
-     *     Returns:
-     *         IngestUploadResponse with HTTP 202 Accepted.
-     */
-    post: operations["upload_csv_api_ingest_csv_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/ingest/jobs/{job_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/itineraries/{itinerary_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Itinerary
+         * @description Retrieves full details of a specific itinerary.
+         */
+        get: operations["get_itinerary_api_itineraries__itinerary_id__get"];
+        /**
+         * Update Itinerary
+         * @description Updates itinerary title, dates, budget, or status.
+         */
+        put: operations["update_itinerary_api_itineraries__itinerary_id__put"];
+        post?: never;
+        /**
+         * Delete Itinerary
+         * @description Deletes an itinerary and all its child days and items.
+         */
+        delete: operations["delete_itinerary_api_itineraries__itinerary_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Poll ingestion job status and retrieve staged duplicates
-     * @description Retrieves ingestion job state enforcing tenant isolation.
-     *
-     *     Args:
-     *         job_id: Unique ingestion job UUID.
-     *         user: Authenticated tenant user.
-     *         ingest_repo: Active IngestJobRepository port.
-     *
-     *     Returns:
-     *         IngestJobProgressResponse containing progress metrics and staged duplicates.
-     *
-     *     Raises:
-     *         IngestJobNotFoundError: If job does not exist or belongs to another tenant.
-     */
-    get: operations["get_job_progress_api_ingest_jobs__job_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/ingest/jobs/{job_id}/triage": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/itineraries/{itinerary_id}/items/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Itinerary Items
+         * @description Batch reorders scheduled items across days and time slots.
+         */
+        put: operations["reorder_itinerary_items_api_itineraries__itinerary_id__items_reorder_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Submit interactive triage decisions for suspected duplicates
-     * @description Applies triage decisions, persists committed POIs, and recalculates job status.
-     *
-     *     Args:
-     *         job_id: Ingest job UUID.
-     *         body: TriageRequest payload with list of decision items.
-     *         user: Authenticated tenant user.
-     *         ingest_repo: Active IngestJobRepository port.
-     *         poi_repo: Active IPOIRepository port.
-     *
-     *     Returns:
-     *         Updated IngestJobProgressResponse.
-     *
-     *     Raises:
-     *         IngestJobNotFoundError: If job is not found for tenant.
-     */
-    post: operations["submit_triage_decisions_api_ingest_jobs__job_id__triage_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/api/pois/extract-and-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract destination details from webpage and evaluate duplicate/nesting triage
+         * @description Performs multi-source scraping, geocoding, tag recommendation, and duplicate triage.
+         *
+         *     Enforces:
+         *     - REQ-EXT-017 (Standard English location name normalization)
+         *     - REQ-EXT-018 (Query only authorized user_preferences.valid_scraping_domains)
+         *     - REQ-EXT-020 (3.0s timeout ceiling with graceful partial fallback)
+         *     - REQ-EXT-022 to REQ-EXT-027 (PostGIS SHA-256 caching & 1 req/sec rate limit)
+         *     - REQ-EXT-028 (Gemini Flash-Lite summary synthesis)
+         *     - REQ-EXT-029 (Tag matching against user's vetted taxonomy)
+         *     - REQ-EXT-030 to REQ-EXT-032 (Scale-aware early duplicate and parent-child triage)
+         */
+        post: operations["extract_and_check_api_pois_extract_and_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geocoding/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverse-geocode coordinates to structured address line and sovereign country
+         * @description Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.
+         */
+        post: operations["reverse_geocode_v1_api_v1_geocoding_reverse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept bulk CSV upload for asynchronous processing
+         * @description Accepts CSV file upload, applies security guardrails, and dispatches to queue.
+         *
+         *     Args:
+         *         request: HTTP request context.
+         *         file: Multipart uploaded file.
+         *         target_list_id: Optional UUID of list to attach imported POIs.
+         *         user: Authenticated tenant user.
+         *         ingest_repo: Active IngestJobRepository instance.
+         *         queue_port: Active IQueuePort adapter.
+         *
+         *     Returns:
+         *         IngestUploadResponse with HTTP 202 Accepted.
+         */
+        post: operations["upload_csv_api_ingest_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll ingestion job status and retrieve staged duplicates
+         * @description Retrieves ingestion job state enforcing tenant isolation.
+         *
+         *     Args:
+         *         job_id: Unique ingestion job UUID.
+         *         user: Authenticated tenant user.
+         *         ingest_repo: Active IngestJobRepository port.
+         *
+         *     Returns:
+         *         IngestJobProgressResponse containing progress metrics and staged duplicates.
+         *
+         *     Raises:
+         *         IngestJobNotFoundError: If job does not exist or belongs to another tenant.
+         */
+        get: operations["get_job_progress_api_ingest_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit interactive triage decisions for suspected duplicates
+         * @description Applies triage decisions, persists committed POIs, and recalculates job status.
+         *
+         *     Args:
+         *         job_id: Ingest job UUID.
+         *         body: TriageRequest payload with list of decision items.
+         *         user: Authenticated tenant user.
+         *         ingest_repo: Active IngestJobRepository port.
+         *         poi_repo: Active IPOIRepository port.
+         *
+         *     Returns:
+         *         Updated IngestJobProgressResponse.
+         *
+         *     Raises:
+         *         IngestJobNotFoundError: If job is not found for tenant.
+         */
+        post: operations["submit_triage_decisions_api_ingest_jobs__job_id__triage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve staged candidates for an ingest job
+         * @description Returns staged candidate records for the specified job.
+         */
+        get: operations["get_job_candidates_api_ingest_jobs__job_id__candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update details, disposition, or coordinates for a candidate
+         * @description Updates fields or disposition on an individual candidate.
+         */
+        patch: operations["update_candidate_api_ingest_jobs__job_id__candidates__candidate_id__patch"];
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/phase1/proceed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Advance confirmed Phase 1 triage records to Phase 2 enrichment
+         * @description Transitions active candidates to Phase 2.
+         */
+        post: operations["proceed_phase1_api_ingest_jobs__job_id__phase1_proceed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/phase1/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abort Phase 1 triage and purge staged candidate records
+         * @description Purges staging table for the job upon Phase 1 cancellation.
+         */
+        post: operations["cancel_phase1_api_ingest_jobs__job_id__phase1_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/phase2/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Commit confirmed candidates to database pois table
+         * @description Executes final database transaction committing accepted, child, and merged POIs.
+         */
+        post: operations["commit_phase2_api_ingest_jobs__job_id__phase2_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/phase2/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abort Phase 2 review and purge staged candidate records
+         * @description Purges staging table for the job upon Phase 2 cancellation.
+         */
+        post: operations["cancel_phase2_api_ingest_jobs__job_id__phase2_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /**
-     * AddressRecord
-     * @description Immutable structured address value object representing a geographic location.
-     */
-    AddressRecord: {
-      /**
-       * Street
-       * @description Street address line
-       */
-      street?: string | null;
-      /**
-       * City
-       * @description Municipality or locality
-       */
-      city?: string | null;
-      /**
-       * State Province
-       * @description Normalized state/province
-       */
-      state_province?: string | null;
-      /**
-       * Country
-       * @description Normalized English standard country name
-       */
-      country: string;
-      /**
-       * Postal Code
-       * @description Postal or ZIP code
-       */
-      postal_code?: string | null;
+    schemas: {
+        /**
+         * AddressRecord
+         * @description Immutable structured address value object representing a geographic location.
+         */
+        AddressRecord: {
+            /**
+             * Street
+             * @description Street address line
+             */
+            street?: string | null;
+            /**
+             * City
+             * @description Municipality or locality
+             */
+            city?: string | null;
+            /**
+             * State Province
+             * @description Normalized state/province
+             */
+            state_province?: string | null;
+            /**
+             * Country
+             * @description Normalized English standard country name
+             */
+            country: string;
+            /**
+             * Postal Code
+             * @description Postal or ZIP code
+             */
+            postal_code?: string | null;
+        };
+        /** Body_upload_csv_api_ingest_csv_post */
+        Body_upload_csv_api_ingest_csv_post: {
+            /**
+             * File
+             * @description CSV file to ingest
+             */
+            file: string;
+            /**
+             * Target List Id
+             * @description Optional target list ID
+             */
+            target_list_id?: string | null;
+        };
+        /**
+         * BulkAddressUpdatePayload
+         * @description Address fields for bulk location updating.
+         */
+        BulkAddressUpdatePayload: {
+            /** City */
+            city?: string | null;
+            /** State Province */
+            state_province?: string | null;
+            /** Country */
+            country?: string | null;
+            /**
+             * Clear Fields
+             * @description Fields explicitly cleared to null
+             */
+            clear_fields?: string[];
+        };
+        /**
+         * BulkDeleteRequest
+         * @description Request payload for bulk deletion of POIs.
+         */
+        BulkDeleteRequest: {
+            /**
+             * Poi Ids
+             * @description Target POI UUIDs to delete (max 500)
+             */
+            poi_ids: string[];
+        };
+        /**
+         * BulkDeleteResponse
+         * @description Response payload for bulk deletion.
+         */
+        BulkDeleteResponse: {
+            /**
+             * Deleted Count
+             * @description Count of deleted POI records
+             */
+            deleted_count: number;
+        };
+        /**
+         * BulkEditAction
+         * @description Enumeration of supported bulk POI mutation actions.
+         * @enum {string}
+         */
+        BulkEditAction: "set_rating" | "add_visit_date" | "set_visit_again" | "add_tag" | "remove_tag" | "add_to_list" | "remove_from_list" | "update_address";
+        /**
+         * BulkEditPayload
+         * @description Context-specific parameters for bulk POI mutations.
+         */
+        BulkEditPayload: {
+            /** Rating */
+            rating?: number | null;
+            /** Visit Date */
+            visit_date?: string | null;
+            /** Want To Visit Again */
+            want_to_visit_again?: boolean | null;
+            /** Tag Name */
+            tag_name?: string | null;
+            /** List Id */
+            list_id?: string | null;
+            address?: components["schemas"]["BulkAddressUpdatePayload"] | null;
+        };
+        /**
+         * BulkEditRequest
+         * @description Request payload for atomic bulk POI editing.
+         */
+        BulkEditRequest: {
+            /**
+             * Poi Ids
+             * @description Target POI UUIDs (max 500)
+             */
+            poi_ids: string[];
+            /** @description Action to execute */
+            action: components["schemas"]["BulkEditAction"];
+            /** @description Action parameters */
+            payload: components["schemas"]["BulkEditPayload"];
+        };
+        /**
+         * BulkListsRequest
+         * @description Request payload for bulk list membership association or disassociation.
+         */
+        BulkListsRequest: {
+            /**
+             * Poi Ids
+             * @description Target POI UUIDs
+             */
+            poi_ids: string[];
+            /**
+             * List Ids
+             * @description List UUIDs
+             */
+            list_ids: string[];
+            /**
+             * Action
+             * @description Action to perform: attach or detach
+             * @enum {string}
+             */
+            action: "attach" | "detach";
+        };
+        /**
+         * BulkOperationResponse
+         * @description Response payload for bulk mutations.
+         */
+        BulkOperationResponse: {
+            /**
+             * Modified Count
+             * @description Count of modified associations
+             */
+            modified_count: number;
+        };
+        /**
+         * BulkTagsRequest
+         * @description Request payload for bulk tag association or disassociation.
+         */
+        BulkTagsRequest: {
+            /**
+             * Poi Ids
+             * @description Target POI UUIDs
+             */
+            poi_ids: string[];
+            /**
+             * Tag Ids
+             * @description Tag UUIDs
+             */
+            tag_ids: string[];
+            /**
+             * Action
+             * @description Action to perform: attach or detach
+             * @enum {string}
+             */
+            action: "attach" | "detach";
+        };
+        /**
+         * CandidateItemResponse
+         * @description Staged candidate POI record presented for Phase 1 triage and Phase 2 review.
+         */
+        CandidateItemResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Row Index */
+            row_index: number;
+            /** Poi Name */
+            poi_name: string;
+            recommended_disposition: components["schemas"]["IngestDisposition"];
+            user_disposition?: components["schemas"]["IngestDisposition"] | null;
+            /** Matched Existing Poi Id */
+            matched_existing_poi_id?: string | null;
+            /** Matched Existing Poi Name */
+            matched_existing_poi_name?: string | null;
+            /** Parent Poi Id */
+            parent_poi_id?: string | null;
+            /** Parent Poi Name */
+            parent_poi_name?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+            /** Street Address */
+            street_address?: string | null;
+            /** City */
+            city?: string | null;
+            /** State Province */
+            state_province?: string | null;
+            /** Postal Code */
+            postal_code?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Dates Visited */
+            dates_visited?: string[];
+            /** Photo Directory */
+            photo_directory: string;
+            /**
+             * Confidence Score
+             * @default 0
+             */
+            confidence_score: number;
+            /** Tags */
+            tags?: string[];
+            /** Description */
+            description?: string | null;
+            /** Reason To Visit */
+            reason_to_visit?: string | null;
+            /**
+             * Update Coordinates
+             * @default false
+             */
+            update_coordinates: boolean;
+            /**
+             * Is Skipped
+             * @default false
+             */
+            is_skipped: boolean;
+            phase_state: components["schemas"]["IngestCandidatePhaseState"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CandidateListResponse
+         * @description Collection response containing staged candidate items for an ingest job.
+         */
+        CandidateListResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Total Candidates */
+            total_candidates: number;
+            /** Candidates */
+            candidates?: components["schemas"]["CandidateItemResponse"][];
+        };
+        /**
+         * CandidateUpdateRequest
+         * @description Client payload for modifying an individual candidate's attributes or disposition.
+         */
+        CandidateUpdateRequest: {
+            /** Poi Name */
+            poi_name?: string | null;
+            user_disposition?: components["schemas"]["IngestDisposition"] | null;
+            /** Matched Existing Poi Id */
+            matched_existing_poi_id?: string | null;
+            /** Parent Poi Id */
+            parent_poi_id?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+            /** Street Address */
+            street_address?: string | null;
+            /** City */
+            city?: string | null;
+            /** State Province */
+            state_province?: string | null;
+            /** Postal Code */
+            postal_code?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Dates Visited */
+            dates_visited?: string[] | null;
+            /** Photo Directory */
+            photo_directory?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Description */
+            description?: string | null;
+            /** Reason To Visit */
+            reason_to_visit?: string | null;
+            /** Update Coordinates */
+            update_coordinates?: boolean | null;
+            /** Is Skipped */
+            is_skipped?: boolean | null;
+        };
+        /**
+         * CircuitBreakerWarning
+         * @description Warning emitted when active daily exploration exceeds circuit breaker threshold.
+         */
+        CircuitBreakerWarning: {
+            /** Day Number */
+            day_number: number;
+            /** Total Active Hours */
+            total_active_hours: string;
+            /**
+             * Threshold Hours
+             * @default 10.00
+             */
+            threshold_hours: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * CommitSummaryResponse
+         * @description Summary of committed POIs and database modifications upon completing Phase 2.
+         */
+        CommitSummaryResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Committed Count */
+            committed_count: number;
+            /** Created Pois */
+            created_pois?: string[];
+            /** Merged Pois */
+            merged_pois?: string[];
+            /** Message */
+            message: string;
+        };
+        /**
+         * ConfirmSignUpRequest
+         * @description Payload for confirming user signup via verification code.
+         */
+        ConfirmSignUpRequest: {
+            /**
+             * Email
+             * Format: email
+             * @description User's email address
+             */
+            email: string;
+            /**
+             * Confirmation Code
+             * @description Verification code
+             */
+            confirmation_code: string;
+            /**
+             * Full Name
+             * @description Optional full name override
+             */
+            full_name?: string | null;
+        };
+        /**
+         * ConfirmSignUpResponse
+         * @description Response returned upon successful account confirmation and provisioning.
+         */
+        ConfirmSignUpResponse: {
+            /**
+             * Confirmed
+             * @description Confirmation outcome
+             */
+            confirmed: boolean;
+            /**
+             * User Id
+             * Format: uuid
+             * @description Internal tenant user UUID
+             */
+            user_id: string;
+            /**
+             * Message
+             * @description Status message
+             */
+            message: string;
+        };
+        /**
+         * DedupCheckResponse
+         * @description Response payload for duplicate candidate probing.
+         */
+        DedupCheckResponse: {
+            /**
+             * Matches
+             * @description Candidate duplicate POIs
+             */
+            matches?: components["schemas"]["PotentialDuplicateItem"][];
+        };
+        /**
+         * DeduplicationPreset
+         * @description Proximity search preset for duplicate detection.
+         * @enum {string}
+         */
+        DeduplicationPreset: "urban" | "macro";
+        /**
+         * DeduplicationVerdictSchema
+         * @description Scale-aware duplicate and parent-child nesting triage verdict.
+         */
+        DeduplicationVerdictSchema: {
+            /**
+             * Status
+             * @description Spatial triage classification
+             * @enum {string}
+             */
+            status: "UNIQUE_LOCATION" | "POTENTIAL_DUPLICATE" | "NEARBY_PARENT";
+            /**
+             * Distance Meters
+             * @description Distance to closest POI in meters
+             */
+            distance_meters?: number | null;
+            /**
+             * Similarity Score
+             * @description Trigram name similarity score (0.0 to 1.0)
+             */
+            similarity_score?: number | null;
+            /**
+             * Existing Poi Id
+             * @description UUID of matched existing POI
+             */
+            existing_poi_id?: string | null;
+            /**
+             * Existing Poi Name
+             * @description Display name of matched existing POI
+             */
+            existing_poi_name?: string | null;
+            /**
+             * Scale Classification
+             * @description Inferred spatial footprint scale
+             */
+            scale_classification?: ("macro" | "medium" | "micro") | null;
+            /**
+             * Recommended Action
+             * @description Recommended user triage workflow action
+             * @default proceed
+             * @enum {string}
+             */
+            recommended_action: "proceed" | "make_child" | "abort";
+        };
+        /**
+         * DuplicateItemResponse
+         * @description Suspected duplicate POI record presented for interactive triage.
+         */
+        DuplicateItemResponse: {
+            /** Row Number */
+            row_number: number;
+            /** Raw Name */
+            raw_name: string;
+            /**
+             * Candidate Poi Id
+             * Format: uuid
+             */
+            candidate_poi_id: string;
+            /** Match Type */
+            match_type: string;
+            /** Similarity Score */
+            similarity_score: number;
+            /** Distance Meters */
+            distance_meters: number;
+            triage_status: components["schemas"]["DuplicateTriageStatus"];
+            /** Staged Poi Data */
+            staged_poi_data: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * DuplicateTriageStatus
+         * @description Review status for suspected duplicate POIs discovered during ingestion.
+         * @enum {string}
+         */
+        DuplicateTriageStatus: "PENDING_REVIEW" | "COMMITTED" | "REJECTED";
+        /**
+         * EnrichmentStatus
+         * @description Enrichment and geocoding resolution status.
+         * @enum {string}
+         */
+        EnrichmentStatus: "SUCCESS" | "PARTIAL" | "FAILED";
+        /**
+         * ExtractAndCheckRequest
+         * @description Request payload for multi-source web extraction and deduplication triage.
+         */
+        ExtractAndCheckRequest: {
+            /**
+             * Source Url
+             * @description Canonical URL of the captured page
+             */
+            source_url: string;
+            /**
+             * Page Title
+             * @description Raw HTML document title
+             */
+            page_title?: string | null;
+            /**
+             * Selected Text
+             * @description User highlighted or selection snippet
+             */
+            selected_text?: string | null;
+            /**
+             * Latitude
+             * @description Latitude detected by client-side parser
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Longitude detected by client-side parser
+             */
+            longitude?: number | null;
+            /**
+             * Raw Address
+             * @description Raw address text scraped on client before cleansing
+             */
+            raw_address?: string | null;
+            /**
+             * Category
+             * @description Place category inferred by client-side parser
+             */
+            category?: string | null;
+        };
+        /**
+         * ExtractAndCheckResponse
+         * @description Comprehensive extraction candidate, tag recommendations, and duplicate verdict response.
+         */
+        ExtractAndCheckResponse: {
+            /** @description Structured POI candidate extracted from web */
+            candidate: components["schemas"]["POICandidateSchema"];
+            /**
+             * Recommended Tags
+             * @description Matched user tag slugs
+             */
+            recommended_tags?: string[];
+            /**
+             * Available Tags
+             * @description All configured tags for the authenticated user
+             */
+            available_tags?: components["schemas"]["UserTagItemSchema"][];
+            /** @description Deduplication and nesting verdict */
+            deduplication: components["schemas"]["DeduplicationVerdictSchema"];
+        };
+        /**
+         * FilterConjunction
+         * @description Boolean conjunctions for joining query builder clauses.
+         * @enum {string}
+         */
+        FilterConjunction: "AND" | "OR";
+        /**
+         * FilterOperator
+         * @description Comparison operators supported by the POI visual filter query builder.
+         * @enum {string}
+         */
+        FilterOperator: "equals" | "not_equals" | "contains" | "is_empty" | "is_not_empty" | "greater_than" | "less_than" | "greater_than_or_equal" | "less_than_or_equal" | "has_tag" | "lacks_tag" | "in_list" | "not_in_list";
+        /**
+         * FilterRuleCreateRequest
+         * @description Payload to create a new named filter rule.
+         */
+        FilterRuleCreateRequest: {
+            /** Name */
+            name: string;
+            query_tree?: components["schemas"]["QueryTreeSchema-Input"];
+            table_config?: components["schemas"]["TableConfigSchema"];
+            pin_color_scheme?: components["schemas"]["PinColorSchemeSchema"];
+        };
+        /**
+         * FilterRuleListResponse
+         * @description List response containing filter rules for the current tenant.
+         */
+        FilterRuleListResponse: {
+            /** Items */
+            items: components["schemas"]["FilterRuleResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * FilterRuleResponse
+         * @description Serialised filter rule record.
+         */
+        FilterRuleResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Name */
+            name: string;
+            query_tree: components["schemas"]["QueryTreeSchema-Output"];
+            table_config: components["schemas"]["TableConfigSchema"];
+            pin_color_scheme: components["schemas"]["PinColorSchemeSchema"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * FilterRuleUpdateRequest
+         * @description Payload to overwrite an existing filter rule.
+         */
+        FilterRuleUpdateRequest: {
+            /** Name */
+            name: string;
+            query_tree: components["schemas"]["QueryTreeSchema-Input"];
+            table_config: components["schemas"]["TableConfigSchema"];
+            pin_color_scheme: components["schemas"]["PinColorSchemeSchema"];
+        };
+        /**
+         * ForgotPasswordRequest
+         * @description Payload to initiate a password reset code dispatch.
+         */
+        ForgotPasswordRequest: {
+            /**
+             * Email
+             * Format: email
+             * @description User's registered email address
+             */
+            email: string;
+        };
+        /**
+         * ForgotPasswordResponse
+         * @description Acknowledgement of password reset dispatch.
+         */
+        ForgotPasswordResponse: {
+            /**
+             * Message
+             * @description Status message confirming code dispatch
+             */
+            message: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IngestCandidatePhaseState
+         * @description Lifecycle stage of a staged candidate record.
+         * @enum {string}
+         */
+        IngestCandidatePhaseState: "phase_1_triage" | "phase_2_enriched" | "committed" | "aborted";
+        /**
+         * IngestDisposition
+         * @description Interactive disposition assigned to staged CSV/photo candidates.
+         * @enum {string}
+         */
+        IngestDisposition: "accept" | "ignore" | "update_existing" | "sublocation";
+        /**
+         * IngestJobProgressResponse
+         * @description Progress status, counts, and duplicate items for an ingestion job.
+         */
+        IngestJobProgressResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            job_status: components["schemas"]["IngestJobStatus"];
+            /** Total Rows */
+            total_rows: number;
+            /** Processed Rows */
+            processed_rows: number;
+            /** Percent Complete */
+            percent_complete: number;
+            /** Duplicate Payloads */
+            duplicate_payloads?: components["schemas"]["DuplicateItemResponse"][];
+            /** Error Summary */
+            error_summary?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * IngestJobStatus
+         * @description Lifecycle state of an asynchronous bulk ingestion job.
+         * @enum {string}
+         */
+        IngestJobStatus: "PENDING" | "PROCESSING" | "COMPLETED" | "PARTIAL_SUCCESS" | "FAILED";
+        /**
+         * IngestUploadResponse
+         * @description Response returned upon accepting a bulk CSV upload.
+         */
+        IngestUploadResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            job_status: components["schemas"]["IngestJobStatus"];
+            /** Total Rows */
+            total_rows: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * InvalidParam
+         * @description Granular error breakdown for schema validation failures.
+         */
+        InvalidParam: {
+            /**
+             * Name
+             * @description Field path or parameter name
+             */
+            name: string;
+            /**
+             * Reason
+             * @description Explanation of validation failure
+             */
+            reason: string;
+        };
+        /**
+         * ItineraryCreate
+         * @description Manual itinerary creation payload.
+         */
+        ItineraryCreate: {
+            /** Title */
+            title: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Budget Cents */
+            budget_cents?: number | null;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Days */
+            days?: components["schemas"]["ItineraryDayCreate"][];
+        };
+        /**
+         * ItineraryDayCreate
+         * @description Payload to create an itinerary day with items.
+         */
+        ItineraryDayCreate: {
+            /** Day Number */
+            day_number: number;
+            /**
+             * Calendar Date
+             * Format: date
+             */
+            calendar_date: string;
+            /** Notes */
+            notes?: string | null;
+            /** Target Budget Cents */
+            target_budget_cents?: number | null;
+            /** Items */
+            items?: components["schemas"]["ItineraryItemCreate"][];
+        };
+        /**
+         * ItineraryDayResponse
+         * @description Response payload for an itinerary day with populated items.
+         */
+        ItineraryDayResponse: {
+            /** Day Number */
+            day_number: number;
+            /**
+             * Calendar Date
+             * Format: date
+             */
+            calendar_date: string;
+            /** Notes */
+            notes?: string | null;
+            /** Target Budget Cents */
+            target_budget_cents?: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Itinerary Id
+             * Format: uuid
+             */
+            itinerary_id: string;
+            /**
+             * Total Cost Cents
+             * @default 0
+             */
+            total_cost_cents: number;
+            /** Items */
+            items?: components["schemas"]["ItineraryItemResponse"][];
+        };
+        /**
+         * ItineraryGenerateRequest
+         * @description Request payload for AI natural language prompt + PostGIS pgvector RAG itinerary generation.
+         */
+        ItineraryGenerateRequest: {
+            /** Prompt */
+            prompt: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Budget Cents */
+            budget_cents?: number | null;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+        };
+        /**
+         * ItineraryItemCreate
+         * @description Payload to create an itinerary item.
+         */
+        ItineraryItemCreate: {
+            /** Title */
+            title: string;
+            /**
+             * Category
+             * @default attraction
+             */
+            category: string;
+            /** @default USER_SAVED */
+            source_type: components["schemas"]["ItineraryItemSource"];
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Order Index */
+            order_index: number;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Duration Hours
+             * @default 1.00
+             */
+            duration_hours: number | string;
+            /**
+             * Cost Cents
+             * @default 0
+             */
+            cost_cents: number;
+            /** Travel Time Prev Minutes */
+            travel_time_prev_minutes?: number | null;
+            /** Travel Distance Prev Meters */
+            travel_distance_prev_meters?: number | null;
+            /** Notes */
+            notes?: string | null;
+            /** Poi Id */
+            poi_id?: string | null;
+            /** Is Backup For Id */
+            is_backup_for_id?: string | null;
+        };
+        /**
+         * ItineraryItemReorderItem
+         * @description Single item position specification in batch reorder.
+         */
+        ItineraryItemReorderItem: {
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /**
+             * Itinerary Day Id
+             * Format: uuid
+             */
+            itinerary_day_id: string;
+            /** Order Index */
+            order_index: number;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
+        };
+        /**
+         * ItineraryItemReorderRequest
+         * @description Batch reorder request across days and time slots.
+         */
+        ItineraryItemReorderRequest: {
+            /** Items */
+            items: components["schemas"]["ItineraryItemReorderItem"][];
+        };
+        /**
+         * ItineraryItemResponse
+         * @description Response payload for a persisted itinerary item.
+         */
+        ItineraryItemResponse: {
+            /** Title */
+            title: string;
+            /**
+             * Category
+             * @default attraction
+             */
+            category: string;
+            /** @default USER_SAVED */
+            source_type: components["schemas"]["ItineraryItemSource"];
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Order Index */
+            order_index: number;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Duration Hours
+             * @default 1.00
+             */
+            duration_hours: string;
+            /**
+             * Cost Cents
+             * @default 0
+             */
+            cost_cents: number;
+            /** Travel Time Prev Minutes */
+            travel_time_prev_minutes?: number | null;
+            /** Travel Distance Prev Meters */
+            travel_distance_prev_meters?: number | null;
+            /** Notes */
+            notes?: string | null;
+            /** Poi Id */
+            poi_id?: string | null;
+            /** Is Backup For Id */
+            is_backup_for_id?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Itinerary Day Id
+             * Format: uuid
+             */
+            itinerary_day_id: string;
+        };
+        /**
+         * ItineraryItemSource
+         * @description Source classification for scheduled itinerary items.
+         * @enum {string}
+         */
+        ItineraryItemSource: "USER_SAVED" | "AI_RECOMMENDED" | "MANUAL";
+        /**
+         * ItineraryResponse
+         * @description Complete detail response for an itinerary with days, items, and smart advisories.
+         */
+        ItineraryResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Title */
+            title: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Budget Cents */
+            budget_cents: number | null;
+            /** Currency */
+            currency: string;
+            status: components["schemas"]["ItineraryStatus"];
+            /** Total Estimated Cost Cents */
+            total_estimated_cost_cents: number;
+            /** Days */
+            days: components["schemas"]["ItineraryDayResponse"][];
+            /** Advisories */
+            advisories?: components["schemas"]["MissingMealAdvisory"][];
+            /** Circuit Breaker Warnings */
+            circuit_breaker_warnings?: components["schemas"]["CircuitBreakerWarning"][];
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * ItineraryStatus
+         * @description Itinerary state transition status.
+         * @enum {string}
+         */
+        ItineraryStatus: "draft" | "confirmed" | "archived";
+        /**
+         * ItinerarySummary
+         * @description High-level summary of an itinerary for listing views.
+         */
+        ItinerarySummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Title */
+            title: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Budget Cents */
+            budget_cents: number | null;
+            /** Currency */
+            currency: string;
+            status: components["schemas"]["ItineraryStatus"];
+            /** Total Estimated Cost Cents */
+            total_estimated_cost_cents: number;
+            /** Total Days */
+            total_days: number;
+            /** Total Activities */
+            total_activities: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ItineraryUpdate
+         * @description Payload for updating itinerary metadata.
+         */
+        ItineraryUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Destination */
+            destination?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Budget Cents */
+            budget_cents?: number | null;
+            /** Currency */
+            currency?: string | null;
+            status?: components["schemas"]["ItineraryStatus"] | null;
+        };
+        /**
+         * JobCancellationResponse
+         * @description Acknowledgment payload upon aborting triage/review and purging staging records.
+         */
+        JobCancellationResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Purged Count */
+            purged_count: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * ListCreateRequest
+         * @description Request model for creating a curated list.
+         */
+        ListCreateRequest: {
+            /**
+             * Title
+             * @description List title
+             */
+            title: string;
+            /**
+             * Description
+             * @description List description
+             */
+            description?: string | null;
+            /**
+             * Is Public
+             * @description Public shareability flag
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /**
+         * ListResponse
+         * @description Curated list response model.
+         */
+        ListResponse: {
+            /**
+             * Id
+             * Format: uuid
+             * @description List unique identifier
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             * @description Owner user identifier
+             */
+            user_id: string;
+            /**
+             * Title
+             * @description List title
+             */
+            title: string;
+            /**
+             * Description
+             * @description List description
+             */
+            description?: string | null;
+            /**
+             * Is Public
+             * @description Public shareability flag
+             * @default false
+             */
+            is_public: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             * @description Creation timestamp
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Last update timestamp
+             */
+            updated_at: string;
+        };
+        /**
+         * ListUpdateRequest
+         * @description Request model for updating a curated list.
+         */
+        ListUpdateRequest: {
+            /**
+             * Title
+             * @description List title
+             */
+            title?: string | null;
+            /**
+             * Description
+             * @description List description
+             */
+            description?: string | null;
+            /**
+             * Is Public
+             * @description Public shareability flag
+             */
+            is_public?: boolean | null;
+        };
+        /**
+         * LoginRequest
+         * @description Payload for authenticating with credentials.
+         */
+        LoginRequest: {
+            /**
+             * Email
+             * Format: email
+             * @description User's email address
+             */
+            email: string;
+            /**
+             * Password
+             * @description User's account password
+             */
+            password: string;
+        };
+        /**
+         * LoginResponse
+         * @description Tokens returned upon successful login.
+         */
+        LoginResponse: {
+            /**
+             * Access Token
+             * @description JWT Bearer access token
+             */
+            access_token: string;
+            /**
+             * Id Token
+             * @description OpenID Connect ID token
+             */
+            id_token: string;
+            /**
+             * Refresh Token
+             * @description Cognito refresh token
+             */
+            refresh_token?: string | null;
+            /**
+             * Token Type
+             * @description Token scheme
+             * @default Bearer
+             */
+            token_type: string;
+            /**
+             * Expires In
+             * @description Token validity duration in seconds
+             * @default 3600
+             */
+            expires_in: number;
+        };
+        /**
+         * LogoutRequest
+         * @description Payload to invalidate sessions via GlobalSignOut.
+         */
+        LogoutRequest: {
+            /**
+             * Access Token
+             * @description Optional access token to revoke (falls back to Authorization header)
+             */
+            access_token?: string | null;
+        };
+        /**
+         * LogoutResponse
+         * @description Acknowledgement of successful logout.
+         */
+        LogoutResponse: {
+            /**
+             * Logged Out
+             * @description Logout outcome
+             */
+            logged_out: boolean;
+            /**
+             * Message
+             * @description Status message confirming sign out
+             */
+            message: string;
+        };
+        /**
+         * MissingMealAdvisory
+         * @description Advisory emitted when lunch or dinner window lacks a meal.
+         */
+        MissingMealAdvisory: {
+            /** Day Number */
+            day_number: number;
+            /** Meal Type */
+            meal_type: string;
+            /**
+             * Gap Start
+             * Format: time
+             */
+            gap_start: string;
+            /**
+             * Gap End
+             * Format: time
+             */
+            gap_end: string;
+            /** Suggested Poi Id */
+            suggested_poi_id?: string | null;
+            /** Suggested Poi Title */
+            suggested_poi_title?: string | null;
+            /** Suggested Poi Address */
+            suggested_poi_address?: string | null;
+            /** Suggested Poi Lat */
+            suggested_poi_lat?: number | null;
+            /** Suggested Poi Lng */
+            suggested_poi_lng?: number | null;
+        };
+        /**
+         * POICandidateSchema
+         * @description Normalized POI extraction candidate schema maintaining 1:1 parity with POI Editor.
+         */
+        POICandidateSchema: {
+            /**
+             * Name
+             * @description Normalized standard English POI name
+             */
+            name: string;
+            /**
+             * Description
+             * @description Concise multi-line summary of the destination
+             */
+            description: string;
+            /**
+             * Reason To Visit
+             * @description Experiential rationale explaining why a tourist should visit
+             */
+            reason_to_visit?: string | null;
+            /**
+             * Addresses
+             * @description Array of resolved address objects
+             */
+            addresses?: components["schemas"]["AddressRecord"][];
+            /**
+             * Latitude
+             * @description Geographic latitude in decimal degrees
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Geographic longitude in decimal degrees
+             */
+            longitude?: number | null;
+            /**
+             * Official Website Url
+             * @description Official attraction website URL
+             */
+            official_website_url?: string | null;
+            /**
+             * Wikipedia Url
+             * @description English Wikipedia article URL
+             */
+            wikipedia_url?: string | null;
+            /**
+             * Hero Image Url
+             * @description High-resolution hero photo thumbnail
+             */
+            hero_image_url?: string | null;
+            /**
+             * Estimated Duration Hours
+             * @description Estimated visit duration hours
+             */
+            estimated_duration_hours?: number | null;
+            /**
+             * Estimated Duration Days
+             * @description Estimated visit duration days
+             */
+            estimated_duration_days?: number | null;
+            /**
+             * Estimated Visit Time Notes
+             * @description Explanation or reasoning for estimated visit duration
+             */
+            estimated_visit_time_notes?: string | null;
+            /**
+             * Rating
+             * @description User manual rating (null on web capture)
+             */
+            rating?: number | null;
+            /**
+             * Source Type
+             * @description Origin source type
+             * @default Web
+             */
+            source_type: string;
+            /**
+             * Source Value
+             * @description Source page URL
+             */
+            source_value: string;
+            /**
+             * Extraction Sources
+             * @description List of source domains consulted
+             */
+            extraction_sources?: string[];
+        };
+        /**
+         * POICreateRequest
+         * @description Request payload for creating a new Point of Interest.
+         */
+        POICreateRequest: {
+            /**
+             * Name
+             * @description POI canonical name
+             */
+            name: string;
+            /**
+             * Lon
+             * @description Longitude in degrees (WGS-84)
+             */
+            lon: number;
+            /**
+             * Lat
+             * @description Latitude in degrees (WGS-84)
+             */
+            lat: number;
+            /**
+             * Parent Poi Id
+             * @description Optional macro-site parent UUID
+             */
+            parent_poi_id?: string | null;
+            /**
+             * Description
+             * @description Rich description or markdown
+             */
+            description?: string | null;
+            /**
+             * Reason To Visit
+             * @description Experiential rationale explaining why a tourist should visit
+             */
+            reason_to_visit?: string | null;
+            /**
+             * Addresses
+             * @description Array of structured international address records
+             */
+            addresses?: components["schemas"]["AddressRecord"][] | null;
+            /**
+             * Address
+             * @description Street address
+             */
+            address?: string | null;
+            /**
+             * City
+             * @description City or municipality
+             */
+            city?: string | null;
+            /**
+             * States
+             * @description Array of states or provinces spanned by the POI
+             */
+            states?: string[] | null;
+            /**
+             * Countries
+             * @description Array of countries spanned by the POI
+             */
+            countries?: string[] | null;
+            /**
+             * State
+             * @description Optional convenience alias for single-state POIs
+             */
+            state?: string | null;
+            /**
+             * Country
+             * @description Optional convenience alias for single-country POIs
+             */
+            country?: string | null;
+            /**
+             * Official Url
+             * @description Official website URL
+             */
+            official_url?: string | null;
+            /**
+             * Wiki Url
+             * @description Wikipedia URL
+             */
+            wiki_url?: string | null;
+            /**
+             * Image Urls
+             * @description Image URLs
+             */
+            image_urls?: string[];
+            /**
+             * Tag Names
+             * @description Initial tag names to attach
+             */
+            tag_names?: string[];
+            /**
+             * @description Visit tracking state
+             * @default not_visited
+             */
+            visit_state: components["schemas"]["VisitState"];
+            /**
+             * Source Type
+             * @description Provenance source type (Web, CSV, Manual, Photo)
+             * @default Manual
+             */
+            source_type: components["schemas"]["SourceType"] | string;
+            /**
+             * Source Value
+             * @description Provenance source value (URL, file path, etc.)
+             */
+            source_value?: string | null;
+            /**
+             * Rating
+             * @description User rating (1-5)
+             */
+            rating?: number | null;
+            /**
+             * Estimated Cost
+             * @description Estimated activity cost
+             */
+            estimated_cost?: number | null;
+            /**
+             * Pricing Unit
+             * @description Pricing unit
+             */
+            pricing_unit?: string | null;
+            /**
+             * Recommended Duration Hours
+             * @description Recommended duration in hours
+             */
+            recommended_duration_hours?: number | null;
+            /**
+             * Recommended Visit Days
+             * @description Recommended days to spend at POI
+             * @default 1
+             */
+            recommended_visit_days: number;
+            /**
+             * Estimated Visit Time Notes
+             * @description Explanation or reasoning for estimated visit duration
+             */
+            estimated_visit_time_notes?: string | null;
+        };
+        /**
+         * POIListResponse
+         * @description Paginated collection of Point of Interest records.
+         */
+        POIListResponse: {
+            /**
+             * Items
+             * @description Matching POI items
+             */
+            items: components["schemas"]["POIResponse"][];
+            /**
+             * Total
+             * @description Total count of matching records
+             */
+            total: number;
+            /**
+             * Limit
+             * @description Page size limit
+             */
+            limit: number;
+            /**
+             * Offset
+             * @description Pagination offset
+             */
+            offset: number;
+        };
+        /**
+         * POIQueryRequest
+         * @description Request payload for evaluated query builder AST search.
+         */
+        POIQueryRequest: {
+            /**
+             * Query Tree
+             * @description Structured query tree AST
+             */
+            query_tree: {
+                [key: string]: unknown;
+            };
+            /**
+             * Bbox
+             * @description Comma-separated minLng,minLat,maxLng,maxLat
+             */
+            bbox?: string | null;
+        };
+        /**
+         * POIResponse
+         * @description Point of Interest response schema.
+         */
+        POIResponse: {
+            /**
+             * Id
+             * Format: uuid
+             * @description Unique POI identifier
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             * @description Owning tenant UUID
+             */
+            user_id: string;
+            /**
+             * Parent Poi Id
+             * @description Parent macro-site POI UUID
+             */
+            parent_poi_id?: string | null;
+            /**
+             * Parent Poi Name
+             * @description Resolved parent macro-site POI canonical name
+             */
+            parent_poi_name?: string | null;
+            /**
+             * Name
+             * @description POI canonical name
+             */
+            name: string;
+            /**
+             * Description
+             * @description Rich description or markdown
+             */
+            description?: string | null;
+            /**
+             * Reason To Visit
+             * @description Experiential rationale explaining why a tourist should visit
+             */
+            reason_to_visit?: string | null;
+            /**
+             * Address
+             * @description Geocoded street address
+             */
+            address?: string | null;
+            /**
+             * City
+             * @description City or municipality
+             */
+            city?: string | null;
+            /**
+             * States
+             * @description Administrative subdivisions or states spanned by POI
+             */
+            states?: string[];
+            /**
+             * Countries
+             * @description Sovereign nations spanned by POI
+             */
+            countries?: string[];
+            /**
+             * Addresses
+             * @description Array of structured international address records
+             */
+            addresses?: components["schemas"]["AddressRecord"][];
+            /**
+             * Official Url
+             * @description Official entity website
+             */
+            official_url?: string | null;
+            /**
+             * Wiki Url
+             * @description Wikipedia or Wikidata reference
+             */
+            wiki_url?: string | null;
+            /**
+             * Image Urls
+             * @description Array of image URLs
+             */
+            image_urls?: string[];
+            /**
+             * Directory Paths
+             * @description Associated local file directory paths
+             */
+            directory_paths?: string[];
+            /**
+             * Creation Metadata
+             * @description Metadata captured during creation
+             */
+            creation_metadata?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Visit tracking state
+             * @default not_visited
+             */
+            visit_state: components["schemas"]["VisitState"];
+            /**
+             * Visited Dates
+             * @description Dates on which the POI was visited
+             */
+            visited_dates?: (string)[];
+            /**
+             * Want To Visit Again
+             * @description Flag indicating future travel intent
+             * @default false
+             */
+            want_to_visit_again: boolean;
+            /**
+             * Already Visited
+             * @description True if visited_dates contains one or more entries
+             * @default false
+             */
+            already_visited: boolean;
+            /**
+             * Visit Pending
+             * @description True if unvisited or want_to_visit_again is True
+             * @default true
+             */
+            visit_pending: boolean;
+            /**
+             * Source Type
+             * @description Origin provenance (Web, CSV, Manual, Photo)
+             * @default Manual
+             */
+            source_type: string;
+            /**
+             * Source Value
+             * @description Provenance origin details
+             */
+            source_value?: string | null;
+            /**
+             * Rating
+             * @description User rating (1-5)
+             */
+            rating?: number | null;
+            /**
+             * Estimated Cost
+             * @description Estimated activity cost
+             */
+            estimated_cost?: number | null;
+            /**
+             * Pricing Unit
+             * @description Currency or unit
+             */
+            pricing_unit?: string | null;
+            /**
+             * Recommended Duration Hours
+             * @description Duration in hours
+             */
+            recommended_duration_hours?: number | null;
+            /**
+             * Recommended Visit Days
+             * @description Recommended days to spend at POI
+             * @default 1
+             */
+            recommended_visit_days: number;
+            /**
+             * Estimated Visit Time Notes
+             * @description Explanation or reasoning for estimated visit duration
+             */
+            estimated_visit_time_notes?: string | null;
+            /**
+             * @description Address geocoding enrichment status
+             * @default PARTIAL
+             */
+            enrichment_status: components["schemas"]["EnrichmentStatus"];
+            /**
+             * Lon
+             * @description Longitude in degrees (WGS-84)
+             */
+            lon: number;
+            /**
+             * Lat
+             * @description Latitude in degrees (WGS-84)
+             */
+            lat: number;
+            /**
+             * Longitude
+             * @description Longitude in degrees (alias for lon)
+             */
+            longitude?: number | null;
+            /**
+             * Latitude
+             * @description Latitude in degrees (alias for lat)
+             */
+            latitude?: number | null;
+            /**
+             * Similarity Score
+             * @description Semantic vector cosine similarity score
+             */
+            similarity_score?: number | null;
+            /**
+             * Tags
+             * @description Attached tags
+             */
+            tags?: components["schemas"]["TagResponse"][];
+            /**
+             * Created At
+             * Format: date-time
+             * @description Record creation timestamp
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Record last modification timestamp
+             */
+            updated_at: string;
+        };
+        /**
+         * POIUpdateRequest
+         * @description Request payload for updating an existing Point of Interest.
+         */
+        POIUpdateRequest: {
+            /**
+             * Name
+             * @description POI canonical name
+             */
+            name?: string | null;
+            /**
+             * Parent Poi Id
+             * @description Optional macro-site parent UUID
+             */
+            parent_poi_id?: string | null;
+            /**
+             * Description
+             * @description Rich description or markdown
+             */
+            description?: string | null;
+            /**
+             * Reason To Visit
+             * @description Experiential rationale explaining why a tourist should visit
+             */
+            reason_to_visit?: string | null;
+            /**
+             * Addresses
+             * @description Structured international address records
+             */
+            addresses?: components["schemas"]["AddressRecord"][] | null;
+            /**
+             * Address
+             * @description Street address
+             */
+            address?: string | null;
+            /**
+             * City
+             * @description City or municipality
+             */
+            city?: string | null;
+            /**
+             * States
+             * @description Array of states or provinces spanned by the POI
+             */
+            states?: string[] | null;
+            /**
+             * Countries
+             * @description Array of countries spanned by the POI
+             */
+            countries?: string[] | null;
+            /**
+             * State
+             * @description Optional convenience alias for single-state updates
+             */
+            state?: string | null;
+            /**
+             * Country
+             * @description Optional convenience alias for single-country updates
+             */
+            country?: string | null;
+            /**
+             * Latitude
+             * @description Updated latitude in degrees
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Updated longitude in degrees
+             */
+            longitude?: number | null;
+            /**
+             * Recommended Duration Hours
+             * @description Recommended duration in hours
+             */
+            recommended_duration_hours?: number | null;
+            /**
+             * Recommended Visit Days
+             * @description Recommended days to spend at POI
+             */
+            recommended_visit_days?: number | null;
+            /**
+             * Estimated Visit Time Notes
+             * @description Explanation or reasoning for estimated visit duration
+             */
+            estimated_visit_time_notes?: string | null;
+            /**
+             * Source Type
+             * @description Provenance source type (Web, CSV, Manual, Photo)
+             */
+            source_type?: components["schemas"]["SourceType"] | string | null;
+            /**
+             * Source Value
+             * @description Provenance source value
+             */
+            source_value?: string | null;
+            /**
+             * Official Url
+             * @description Official website URL
+             */
+            official_url?: string | null;
+            /**
+             * Wiki Url
+             * @description Wikipedia URL
+             */
+            wiki_url?: string | null;
+            /**
+             * Directory Paths
+             * @description Associated local file directory paths
+             */
+            directory_paths?: string[] | null;
+            /**
+             * Image Urls
+             * @description Image URLs
+             */
+            image_urls?: string[] | null;
+            /**
+             * Visited Dates
+             * @description Array of ISO-8601 visit dates
+             */
+            visited_dates?: (string)[] | null;
+            /**
+             * Want To Visit Again
+             * @description Future travel intent
+             */
+            want_to_visit_again?: boolean | null;
+            /** @description Visit tracking state */
+            visit_state?: components["schemas"]["VisitState"] | null;
+            /**
+             * Rating
+             * @description User rating (1-5)
+             */
+            rating?: number | null;
+            /**
+             * Tags
+             * @description Attached taxonomy tags
+             */
+            tags?: string[] | null;
+            /**
+             * Estimated Cost
+             * @description Estimated activity cost
+             */
+            estimated_cost?: number | null;
+            /**
+             * Pricing Unit
+             * @description Pricing unit
+             */
+            pricing_unit?: string | null;
+        };
+        /**
+         * PhaseTransitionResponse
+         * @description Acknowledgment payload upon advancing candidates from Phase 1 to Phase 2.
+         */
+        PhaseTransitionResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Message */
+            message: string;
+            /** Advanced Count */
+            advanced_count: number;
+            /** Ignored Count */
+            ignored_count: number;
+        };
+        /**
+         * PinColorMode
+         * @description Map pin marker coloring schemes.
+         * @enum {string}
+         */
+        PinColorMode: "uniform" | "rating" | "visit_status" | "custom";
+        /**
+         * PinColorSchemeSchema
+         * @description Map pin coloring preferences.
+         */
+        PinColorSchemeSchema: {
+            /** @default uniform */
+            mode: components["schemas"]["PinColorMode"];
+            /**
+             * Default Color
+             * @default #2563eb
+             */
+            default_color: string;
+            /**
+             * Palette
+             * @description Value-to-hex mappings for rating (1-5) or visit status
+             */
+            palette?: {
+                [key: string]: string;
+            };
+            /** Rule Mappings */
+            rule_mappings?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * PotentialDuplicateItem
+         * @description Individual candidate duplicate match.
+         */
+        PotentialDuplicateItem: {
+            /** @description Existing collision POI */
+            existing_poi: components["schemas"]["POIResponse"];
+            /**
+             * Distance Meters
+             * @description Geodesic distance in meters
+             */
+            distance_meters: number;
+            /**
+             * Name Similarity
+             * @description Trigram similarity score (0.0 to 1.0)
+             */
+            name_similarity: number;
+            /**
+             * Match Confidence
+             * @description Composite match confidence (0.0 to 1.0)
+             */
+            match_confidence: number;
+        };
+        /**
+         * ProblemDetails
+         * @description RFC 7807 / RFC 9457 error representation envelope.
+         */
+        ProblemDetails: {
+            /**
+             * Type
+             * @description URI reference that identifies the problem type
+             * @default about:blank
+             */
+            type: string;
+            /**
+             * Title
+             * @description Short, human-readable summary of problem
+             */
+            title: string;
+            /**
+             * Status
+             * @description HTTP status code generated by server
+             */
+            status: number;
+            /**
+             * Detail
+             * @description Human-readable explanation specific to occurrence
+             */
+            detail: string;
+            /**
+             * Instance
+             * @description URI reference identifying specific occurrence of problem
+             */
+            instance?: string | null;
+            /**
+             * Invalid Params
+             * @description Detailed list of parameter or field validation errors
+             */
+            invalid_params?: components["schemas"]["InvalidParam"][] | null;
+        };
+        /**
+         * QueryTreeSchema
+         * @description Recursive query builder AST tree node.
+         */
+        "QueryTreeSchema-Input": {
+            /** @default AND */
+            conjunction: components["schemas"]["FilterConjunction"];
+            /** Rules */
+            rules?: (components["schemas"]["RuleClauseSchema"] | components["schemas"]["QueryTreeSchema-Input"])[];
+        };
+        /**
+         * QueryTreeSchema
+         * @description Recursive query builder AST tree node.
+         */
+        "QueryTreeSchema-Output": {
+            /** @default AND */
+            conjunction: components["schemas"]["FilterConjunction"];
+            /** Rules */
+            rules?: (components["schemas"]["RuleClauseSchema"] | components["schemas"]["QueryTreeSchema-Output"])[];
+        };
+        /**
+         * RegisterRequest
+         * @description Payload for user registration.
+         */
+        RegisterRequest: {
+            /**
+             * Email
+             * Format: email
+             * @description User's email address
+             */
+            email: string;
+            /**
+             * Password
+             * @description User's password (min 8 chars)
+             */
+            password: string;
+            /**
+             * Full Name
+             * @description Optional full name
+             */
+            full_name?: string | null;
+        };
+        /**
+         * RegisterResponse
+         * @description Response returned upon successful registration.
+         */
+        RegisterResponse: {
+            /**
+             * User Sub
+             * @description Unique Cognito subject identifier
+             */
+            user_sub: string;
+            /**
+             * User Confirmed
+             * @description Whether user account is pre-confirmed
+             */
+            user_confirmed: boolean;
+            /**
+             * Message
+             * @description Instruction message
+             */
+            message: string;
+        };
+        /**
+         * ResetPasswordRequest
+         * @description Payload to complete password reset with received code.
+         */
+        ResetPasswordRequest: {
+            /**
+             * Email
+             * Format: email
+             * @description User's email address
+             */
+            email: string;
+            /**
+             * Confirmation Code
+             * @description Reset code
+             */
+            confirmation_code: string;
+            /**
+             * New Password
+             * @description New password
+             */
+            new_password: string;
+        };
+        /**
+         * ResetPasswordResponse
+         * @description Acknowledgement of successful password reset.
+         */
+        ResetPasswordResponse: {
+            /**
+             * Message
+             * @description Status message confirming password reset
+             */
+            message: string;
+        };
+        /**
+         * ReverseGeocodeRequest
+         * @description Payload to reverse-geocode coordinates into a structured address.
+         */
+        ReverseGeocodeRequest: {
+            /**
+             * Latitude
+             * @description WGS-84 latitude
+             */
+            latitude: number;
+            /**
+             * Longitude
+             * @description WGS-84 longitude
+             */
+            longitude: number;
+        };
+        /**
+         * RuleClauseSchema
+         * @description Single condition rule in the query builder AST.
+         */
+        RuleClauseSchema: {
+            /**
+             * Field
+             * @description Target POI field (e.g. 'country', 'rating', 'visit_state')
+             */
+            field: string;
+            /** @description Comparison operator */
+            operator: components["schemas"]["FilterOperator"];
+            /**
+             * Value
+             * @description Operand value (string, number, boolean, or null)
+             */
+            value?: unknown | null;
+        };
+        /**
+         * SharedListResponse
+         * @description Public read-only curated list view containing member POIs.
+         */
+        SharedListResponse: {
+            /**
+             * Pois
+             * @description Member POIs
+             */
+            pois?: components["schemas"]["POIResponse"][];
+            /** @description Curated list metadata */
+            list: components["schemas"]["ListResponse"];
+        };
+        /**
+         * SortDirection
+         * @description Table column sorting directions.
+         * @enum {string}
+         */
+        SortDirection: "asc" | "desc" | "unsorted";
+        /**
+         * SourceType
+         * @description Source provenance of POI discovery or capture.
+         * @enum {string}
+         */
+        SourceType: "Web" | "CSV" | "Manual" | "Photo";
+        /**
+         * TableColumnSortSchema
+         * @description Table column sorting specification.
+         */
+        TableColumnSortSchema: {
+            /**
+             * Column
+             * @description Target column identifier
+             */
+            column: string;
+            /** @default unsorted */
+            direction: components["schemas"]["SortDirection"];
+        };
+        /**
+         * TableConfigSchema
+         * @description POI table view settings: visible columns, sequence, and sorting.
+         */
+        TableConfigSchema: {
+            /** Visible Columns */
+            visible_columns?: string[];
+            /** Column Order */
+            column_order?: string[];
+            sort?: components["schemas"]["TableColumnSortSchema"];
+        };
+        /**
+         * TagCreateRequest
+         * @description Payload to create or register a new user-scoped tag.
+         */
+        TagCreateRequest: {
+            /**
+             * Name
+             * @description Human readable display name
+             */
+            name: string;
+            /**
+             * Slug
+             * @description Immutable slug identifier (auto-derived from name if omitted)
+             */
+            slug?: string | null;
+            /**
+             * Aliases
+             * @description Array of searchable synonym aliases
+             */
+            aliases?: string[];
+        };
+        /**
+         * TagInUseProblemDetails
+         * @description RFC 7807 problem details when tag deletion is blocked by referential integrity.
+         */
+        TagInUseProblemDetails: {
+            /**
+             * Type
+             * @description Problem type identifier for tag referential integrity conflicts
+             * @default urn:vistarae:error:tag-in-use
+             */
+            type: string;
+            /**
+             * Title
+             * @description Short summary of error
+             * @default Tag in use
+             */
+            title: string;
+            /**
+             * Status
+             * @description HTTP status code (409 Conflict)
+             * @default 409
+             */
+            status: number;
+            /**
+             * Detail
+             * @description Human-readable explanation specific to occurrence
+             */
+            detail: string;
+            /**
+             * Instance
+             * @description URI reference identifying specific occurrence of problem
+             */
+            instance?: string | null;
+            /**
+             * Invalid Params
+             * @description Detailed list of parameter or field validation errors
+             */
+            invalid_params?: components["schemas"]["InvalidParam"][] | null;
+            /**
+             * Referencing Poi Count
+             * @description Number of POIs referencing this tag
+             */
+            referencing_poi_count: number;
+            /**
+             * Remediation Filter Url
+             * @description Direct link to filter the POI Table by this tag for bulk remediation
+             */
+            remediation_filter_url: string;
+        };
+        /**
+         * TagResponse
+         * @description Detailed tag representation returned to clients.
+         */
+        TagResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /** Aliases */
+            aliases?: string[];
+            /**
+             * Poi Count
+             * @description Count of POIs currently associated with this tag
+             * @default 0
+             */
+            poi_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+        };
+        /**
+         * TriageDecisionItem
+         * @description User triage decision for an individual suspected duplicate row.
+         */
+        TriageDecisionItem: {
+            /** Row Number */
+            row_number: number;
+            decision: components["schemas"]["DuplicateTriageStatus"];
+        };
+        /**
+         * TriageRequest
+         * @description Batch payload containing duplicate triage decisions.
+         */
+        TriageRequest: {
+            /** Decisions */
+            decisions: components["schemas"]["TriageDecisionItem"][];
+        };
+        /**
+         * UserTagItemSchema
+         * @description Configured user tag schema returned to extension.
+         */
+        UserTagItemSchema: {
+            /**
+             * Id
+             * @description Tag UUID
+             */
+            id?: string | null;
+            /**
+             * Name
+             * @description Tag display name
+             */
+            name: string;
+            /**
+             * Slug
+             * @description Tag slug identifier
+             */
+            slug: string;
+            /**
+             * Aliases
+             * @description Synonym search aliases
+             */
+            aliases?: string[];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /**
+         * VisitState
+         * @description User visit status of a POI.
+         * @enum {string}
+         */
+        VisitState: "not_visited" | "visited_do_not_return" | "visited_return";
+        /**
+         * ReverseGeocodeResponse
+         * @description Response payload for reverse geocoding.
+         */
+        vistarae_core__schemas__poi__ReverseGeocodeResponse: {
+            /**
+             * Street
+             * @description Street address
+             */
+            street?: string | null;
+            /**
+             * City
+             * @description City or municipality
+             */
+            city?: string | null;
+            /**
+             * State Province
+             * @description State or province
+             */
+            state_province?: string | null;
+            /**
+             * Country
+             * @description Normalized English country name
+             */
+            country: string;
+            /**
+             * Postal Code
+             * @description Postal / ZIP code
+             */
+            postal_code?: string | null;
+            /**
+             * Cached
+             * @description True if resolved from PostGIS geocache
+             * @default false
+             */
+            cached: boolean;
+        };
+        /**
+         * ReverseGeocodeResponse
+         * @description Structured reverse-geocoded address result.
+         */
+        vistarae_core__schemas__scraping__ReverseGeocodeResponse: {
+            /**
+             * Formatted Address
+             * @description Clean, human-readable address line
+             */
+            formatted_address: string;
+            /**
+             * Country
+             * @description Sovereign country name (e.g. Germany)
+             */
+            country: string;
+            /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 country code (e.g. DE)
+             */
+            country_code: string;
+            /**
+             * City
+             * @description Locality or municipality
+             */
+            city?: string | null;
+            /**
+             * Postcode
+             * @description Postal or ZIP code
+             */
+            postcode?: string | null;
+            /**
+             * Addresses
+             * @description Structured address records
+             */
+            addresses?: components["schemas"]["AddressRecord"][];
+        };
     };
-    /** Body_upload_csv_api_ingest_csv_post */
-    Body_upload_csv_api_ingest_csv_post: {
-      /**
-       * File
-       * @description CSV file to ingest
-       */
-      file: string;
-      /**
-       * Target List Id
-       * @description Optional target list ID
-       */
-      target_list_id?: string | null;
-    };
-    /**
-     * BulkAddressUpdatePayload
-     * @description Address fields for bulk location updating.
-     */
-    BulkAddressUpdatePayload: {
-      /** City */
-      city?: string | null;
-      /** State Province */
-      state_province?: string | null;
-      /** Country */
-      country?: string | null;
-      /**
-       * Clear Fields
-       * @description Fields explicitly cleared to null
-       */
-      clear_fields?: string[];
-    };
-    /**
-     * BulkDeleteRequest
-     * @description Request payload for bulk deletion of POIs.
-     */
-    BulkDeleteRequest: {
-      /**
-       * Poi Ids
-       * @description Target POI UUIDs to delete (max 500)
-       */
-      poi_ids: string[];
-    };
-    /**
-     * BulkDeleteResponse
-     * @description Response payload for bulk deletion.
-     */
-    BulkDeleteResponse: {
-      /**
-       * Deleted Count
-       * @description Count of deleted POI records
-       */
-      deleted_count: number;
-    };
-    /**
-     * BulkEditAction
-     * @description Enumeration of supported bulk POI mutation actions.
-     * @enum {string}
-     */
-    BulkEditAction:
-      | "set_rating"
-      | "add_visit_date"
-      | "set_visit_again"
-      | "add_tag"
-      | "remove_tag"
-      | "add_to_list"
-      | "remove_from_list"
-      | "update_address";
-    /**
-     * BulkEditPayload
-     * @description Context-specific parameters for bulk POI mutations.
-     */
-    BulkEditPayload: {
-      /** Rating */
-      rating?: number | null;
-      /** Visit Date */
-      visit_date?: string | null;
-      /** Want To Visit Again */
-      want_to_visit_again?: boolean | null;
-      /** Tag Name */
-      tag_name?: string | null;
-      /** List Id */
-      list_id?: string | null;
-      address?: components["schemas"]["BulkAddressUpdatePayload"] | null;
-    };
-    /**
-     * BulkEditRequest
-     * @description Request payload for atomic bulk POI editing.
-     */
-    BulkEditRequest: {
-      /**
-       * Poi Ids
-       * @description Target POI UUIDs (max 500)
-       */
-      poi_ids: string[];
-      /** @description Action to execute */
-      action: components["schemas"]["BulkEditAction"];
-      /** @description Action parameters */
-      payload: components["schemas"]["BulkEditPayload"];
-    };
-    /**
-     * BulkListsRequest
-     * @description Request payload for bulk list membership association or disassociation.
-     */
-    BulkListsRequest: {
-      /**
-       * Poi Ids
-       * @description Target POI UUIDs
-       */
-      poi_ids: string[];
-      /**
-       * List Ids
-       * @description List UUIDs
-       */
-      list_ids: string[];
-      /**
-       * Action
-       * @description Action to perform: attach or detach
-       * @enum {string}
-       */
-      action: "attach" | "detach";
-    };
-    /**
-     * BulkOperationResponse
-     * @description Response payload for bulk mutations.
-     */
-    BulkOperationResponse: {
-      /**
-       * Modified Count
-       * @description Count of modified associations
-       */
-      modified_count: number;
-    };
-    /**
-     * BulkTagsRequest
-     * @description Request payload for bulk tag association or disassociation.
-     */
-    BulkTagsRequest: {
-      /**
-       * Poi Ids
-       * @description Target POI UUIDs
-       */
-      poi_ids: string[];
-      /**
-       * Tag Ids
-       * @description Tag UUIDs
-       */
-      tag_ids: string[];
-      /**
-       * Action
-       * @description Action to perform: attach or detach
-       * @enum {string}
-       */
-      action: "attach" | "detach";
-    };
-    /**
-     * CircuitBreakerWarning
-     * @description Warning emitted when active daily exploration exceeds circuit breaker threshold.
-     */
-    CircuitBreakerWarning: {
-      /** Day Number */
-      day_number: number;
-      /** Total Active Hours */
-      total_active_hours: string;
-      /**
-       * Threshold Hours
-       * @default 10.00
-       */
-      threshold_hours: string;
-      /** Message */
-      message: string;
-    };
-    /**
-     * ConfirmSignUpRequest
-     * @description Payload for confirming user signup via verification code.
-     */
-    ConfirmSignUpRequest: {
-      /**
-       * Email
-       * Format: email
-       * @description User's email address
-       */
-      email: string;
-      /**
-       * Confirmation Code
-       * @description Verification code
-       */
-      confirmation_code: string;
-      /**
-       * Full Name
-       * @description Optional full name override
-       */
-      full_name?: string | null;
-    };
-    /**
-     * ConfirmSignUpResponse
-     * @description Response returned upon successful account confirmation and provisioning.
-     */
-    ConfirmSignUpResponse: {
-      /**
-       * Confirmed
-       * @description Confirmation outcome
-       */
-      confirmed: boolean;
-      /**
-       * User Id
-       * Format: uuid
-       * @description Internal tenant user UUID
-       */
-      user_id: string;
-      /**
-       * Message
-       * @description Status message
-       */
-      message: string;
-    };
-    /**
-     * DedupCheckResponse
-     * @description Response payload for duplicate candidate probing.
-     */
-    DedupCheckResponse: {
-      /**
-       * Matches
-       * @description Candidate duplicate POIs
-       */
-      matches?: components["schemas"]["PotentialDuplicateItem"][];
-    };
-    /**
-     * DeduplicationPreset
-     * @description Proximity search preset for duplicate detection.
-     * @enum {string}
-     */
-    DeduplicationPreset: "urban" | "macro";
-    /**
-     * DuplicateItemResponse
-     * @description Suspected duplicate POI record presented for interactive triage.
-     */
-    DuplicateItemResponse: {
-      /** Row Number */
-      row_number: number;
-      /** Raw Name */
-      raw_name: string;
-      /**
-       * Candidate Poi Id
-       * Format: uuid
-       */
-      candidate_poi_id: string;
-      /** Match Type */
-      match_type: string;
-      /** Similarity Score */
-      similarity_score: number;
-      /** Distance Meters */
-      distance_meters: number;
-      triage_status: components["schemas"]["DuplicateTriageStatus"];
-      /** Staged Poi Data */
-      staged_poi_data: {
-        [key: string]: unknown;
-      };
-    };
-    /**
-     * DuplicateTriageStatus
-     * @description Review status for suspected duplicate POIs discovered during ingestion.
-     * @enum {string}
-     */
-    DuplicateTriageStatus: "PENDING_REVIEW" | "COMMITTED" | "REJECTED";
-    /**
-     * EnrichmentStatus
-     * @description Enrichment and geocoding resolution status.
-     * @enum {string}
-     */
-    EnrichmentStatus: "SUCCESS" | "PARTIAL" | "FAILED";
-    /**
-     * ForgotPasswordRequest
-     * @description Payload to initiate a password reset code dispatch.
-     */
-    ForgotPasswordRequest: {
-      /**
-       * Email
-       * Format: email
-       * @description User's registered email address
-       */
-      email: string;
-    };
-    /**
-     * ForgotPasswordResponse
-     * @description Acknowledgement of password reset dispatch.
-     */
-    ForgotPasswordResponse: {
-      /**
-       * Message
-       * @description Status message confirming code dispatch
-       */
-      message: string;
-    };
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components["schemas"]["ValidationError"][];
-    };
-    /**
-     * IngestJobProgressResponse
-     * @description Progress status, counts, and duplicate items for an ingestion job.
-     */
-    IngestJobProgressResponse: {
-      /**
-       * Job Id
-       * Format: uuid
-       */
-      job_id: string;
-      job_status: components["schemas"]["IngestJobStatus"];
-      /** Total Rows */
-      total_rows: number;
-      /** Processed Rows */
-      processed_rows: number;
-      /** Percent Complete */
-      percent_complete: number;
-      /** Duplicate Payloads */
-      duplicate_payloads?: components["schemas"]["DuplicateItemResponse"][];
-      /** Error Summary */
-      error_summary?: {
-        [key: string]: unknown;
-      }[];
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at: string;
-    };
-    /**
-     * IngestJobStatus
-     * @description Lifecycle state of an asynchronous bulk ingestion job.
-     * @enum {string}
-     */
-    IngestJobStatus:
-      | "PENDING"
-      | "PROCESSING"
-      | "COMPLETED"
-      | "PARTIAL_SUCCESS"
-      | "FAILED";
-    /**
-     * IngestUploadResponse
-     * @description Response returned upon accepting a bulk CSV upload.
-     */
-    IngestUploadResponse: {
-      /**
-       * Job Id
-       * Format: uuid
-       */
-      job_id: string;
-      job_status: components["schemas"]["IngestJobStatus"];
-      /** Total Rows */
-      total_rows: number;
-      /** Message */
-      message: string;
-    };
-    /**
-     * ItineraryCreate
-     * @description Manual itinerary creation payload.
-     */
-    ItineraryCreate: {
-      /** Title */
-      title: string;
-      /** Destination */
-      destination: string;
-      /**
-       * Start Date
-       * Format: date
-       */
-      start_date: string;
-      /**
-       * End Date
-       * Format: date
-       */
-      end_date: string;
-      /** Budget Cents */
-      budget_cents?: number | null;
-      /**
-       * Currency
-       * @default USD
-       */
-      currency: string;
-      /** Days */
-      days?: components["schemas"]["ItineraryDayCreate"][];
-    };
-    /**
-     * ItineraryDayCreate
-     * @description Payload to create an itinerary day with items.
-     */
-    ItineraryDayCreate: {
-      /** Day Number */
-      day_number: number;
-      /**
-       * Calendar Date
-       * Format: date
-       */
-      calendar_date: string;
-      /** Notes */
-      notes?: string | null;
-      /** Target Budget Cents */
-      target_budget_cents?: number | null;
-      /** Items */
-      items?: components["schemas"]["ItineraryItemCreate"][];
-    };
-    /**
-     * ItineraryDayResponse
-     * @description Response payload for an itinerary day with populated items.
-     */
-    ItineraryDayResponse: {
-      /** Day Number */
-      day_number: number;
-      /**
-       * Calendar Date
-       * Format: date
-       */
-      calendar_date: string;
-      /** Notes */
-      notes?: string | null;
-      /** Target Budget Cents */
-      target_budget_cents?: number | null;
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Itinerary Id
-       * Format: uuid
-       */
-      itinerary_id: string;
-      /**
-       * Total Cost Cents
-       * @default 0
-       */
-      total_cost_cents: number;
-      /** Items */
-      items?: components["schemas"]["ItineraryItemResponse"][];
-    };
-    /**
-     * ItineraryGenerateRequest
-     * @description Request payload for AI natural language prompt + PostGIS pgvector RAG itinerary generation.
-     */
-    ItineraryGenerateRequest: {
-      /** Prompt */
-      prompt: string;
-      /** Destination */
-      destination: string;
-      /**
-       * Start Date
-       * Format: date
-       */
-      start_date: string;
-      /**
-       * End Date
-       * Format: date
-       */
-      end_date: string;
-      /** Budget Cents */
-      budget_cents?: number | null;
-      /**
-       * Currency
-       * @default USD
-       */
-      currency: string;
-    };
-    /**
-     * ItineraryItemCreate
-     * @description Payload to create an itinerary item.
-     */
-    ItineraryItemCreate: {
-      /** Title */
-      title: string;
-      /**
-       * Category
-       * @default attraction
-       */
-      category: string;
-      /** @default USER_SAVED */
-      source_type: components["schemas"]["ItineraryItemSource"];
-      /** Latitude */
-      latitude: number;
-      /** Longitude */
-      longitude: number;
-      /** Order Index */
-      order_index: number;
-      /** Start Time */
-      start_time?: string | null;
-      /** End Time */
-      end_time?: string | null;
-      /**
-       * Duration Hours
-       * @default 1.00
-       */
-      duration_hours: number | string;
-      /**
-       * Cost Cents
-       * @default 0
-       */
-      cost_cents: number;
-      /** Travel Time Prev Minutes */
-      travel_time_prev_minutes?: number | null;
-      /** Travel Distance Prev Meters */
-      travel_distance_prev_meters?: number | null;
-      /** Notes */
-      notes?: string | null;
-      /** Poi Id */
-      poi_id?: string | null;
-      /** Is Backup For Id */
-      is_backup_for_id?: string | null;
-    };
-    /**
-     * ItineraryItemReorderItem
-     * @description Single item position specification in batch reorder.
-     */
-    ItineraryItemReorderItem: {
-      /**
-       * Item Id
-       * Format: uuid
-       */
-      item_id: string;
-      /**
-       * Itinerary Day Id
-       * Format: uuid
-       */
-      itinerary_day_id: string;
-      /** Order Index */
-      order_index: number;
-      /** Start Time */
-      start_time?: string | null;
-      /** End Time */
-      end_time?: string | null;
-    };
-    /**
-     * ItineraryItemReorderRequest
-     * @description Batch reorder request across days and time slots.
-     */
-    ItineraryItemReorderRequest: {
-      /** Items */
-      items: components["schemas"]["ItineraryItemReorderItem"][];
-    };
-    /**
-     * ItineraryItemResponse
-     * @description Response payload for a persisted itinerary item.
-     */
-    ItineraryItemResponse: {
-      /** Title */
-      title: string;
-      /**
-       * Category
-       * @default attraction
-       */
-      category: string;
-      /** @default USER_SAVED */
-      source_type: components["schemas"]["ItineraryItemSource"];
-      /** Latitude */
-      latitude: number;
-      /** Longitude */
-      longitude: number;
-      /** Order Index */
-      order_index: number;
-      /** Start Time */
-      start_time?: string | null;
-      /** End Time */
-      end_time?: string | null;
-      /**
-       * Duration Hours
-       * @default 1.00
-       */
-      duration_hours: string;
-      /**
-       * Cost Cents
-       * @default 0
-       */
-      cost_cents: number;
-      /** Travel Time Prev Minutes */
-      travel_time_prev_minutes?: number | null;
-      /** Travel Distance Prev Meters */
-      travel_distance_prev_meters?: number | null;
-      /** Notes */
-      notes?: string | null;
-      /** Poi Id */
-      poi_id?: string | null;
-      /** Is Backup For Id */
-      is_backup_for_id?: string | null;
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Itinerary Day Id
-       * Format: uuid
-       */
-      itinerary_day_id: string;
-    };
-    /**
-     * ItineraryItemSource
-     * @description Source classification for scheduled itinerary items.
-     * @enum {string}
-     */
-    ItineraryItemSource: "USER_SAVED" | "AI_RECOMMENDED" | "MANUAL";
-    /**
-     * ItineraryResponse
-     * @description Complete detail response for an itinerary with days, items, and smart advisories.
-     */
-    ItineraryResponse: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * User Id
-       * Format: uuid
-       */
-      user_id: string;
-      /** Title */
-      title: string;
-      /** Destination */
-      destination: string;
-      /**
-       * Start Date
-       * Format: date
-       */
-      start_date: string;
-      /**
-       * End Date
-       * Format: date
-       */
-      end_date: string;
-      /** Budget Cents */
-      budget_cents: number | null;
-      /** Currency */
-      currency: string;
-      status: components["schemas"]["ItineraryStatus"];
-      /** Total Estimated Cost Cents */
-      total_estimated_cost_cents: number;
-      /** Days */
-      days: components["schemas"]["ItineraryDayResponse"][];
-      /** Advisories */
-      advisories?: components["schemas"]["MissingMealAdvisory"][];
-      /** Circuit Breaker Warnings */
-      circuit_breaker_warnings?: components["schemas"]["CircuitBreakerWarning"][];
-      /** Created At */
-      created_at?: string | null;
-      /** Updated At */
-      updated_at?: string | null;
-    };
-    /**
-     * ItineraryStatus
-     * @description Itinerary state transition status.
-     * @enum {string}
-     */
-    ItineraryStatus: "draft" | "confirmed" | "archived";
-    /**
-     * ItinerarySummary
-     * @description High-level summary of an itinerary for listing views.
-     */
-    ItinerarySummary: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * User Id
-       * Format: uuid
-       */
-      user_id: string;
-      /** Title */
-      title: string;
-      /** Destination */
-      destination: string;
-      /**
-       * Start Date
-       * Format: date
-       */
-      start_date: string;
-      /**
-       * End Date
-       * Format: date
-       */
-      end_date: string;
-      /** Budget Cents */
-      budget_cents: number | null;
-      /** Currency */
-      currency: string;
-      status: components["schemas"]["ItineraryStatus"];
-      /** Total Estimated Cost Cents */
-      total_estimated_cost_cents: number;
-      /** Total Days */
-      total_days: number;
-      /** Total Activities */
-      total_activities: number;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at: string;
-    };
-    /**
-     * ItineraryUpdate
-     * @description Payload for updating itinerary metadata.
-     */
-    ItineraryUpdate: {
-      /** Title */
-      title?: string | null;
-      /** Destination */
-      destination?: string | null;
-      /** Start Date */
-      start_date?: string | null;
-      /** End Date */
-      end_date?: string | null;
-      /** Budget Cents */
-      budget_cents?: number | null;
-      /** Currency */
-      currency?: string | null;
-      status?: components["schemas"]["ItineraryStatus"] | null;
-    };
-    /**
-     * ListCreateRequest
-     * @description Request model for creating a curated list.
-     */
-    ListCreateRequest: {
-      /**
-       * Title
-       * @description List title
-       */
-      title: string;
-      /**
-       * Description
-       * @description List description
-       */
-      description?: string | null;
-      /**
-       * Is Public
-       * @description Public shareability flag
-       * @default false
-       */
-      is_public: boolean;
-    };
-    /**
-     * ListResponse
-     * @description Curated list response model.
-     */
-    ListResponse: {
-      /**
-       * Id
-       * Format: uuid
-       * @description List unique identifier
-       */
-      id: string;
-      /**
-       * User Id
-       * Format: uuid
-       * @description Owner user identifier
-       */
-      user_id: string;
-      /**
-       * Title
-       * @description List title
-       */
-      title: string;
-      /**
-       * Description
-       * @description List description
-       */
-      description?: string | null;
-      /**
-       * Is Public
-       * @description Public shareability flag
-       * @default false
-       */
-      is_public: boolean;
-      /**
-       * Created At
-       * Format: date-time
-       * @description Creation timestamp
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       * @description Last update timestamp
-       */
-      updated_at: string;
-    };
-    /**
-     * ListUpdateRequest
-     * @description Request model for updating a curated list.
-     */
-    ListUpdateRequest: {
-      /**
-       * Title
-       * @description List title
-       */
-      title?: string | null;
-      /**
-       * Description
-       * @description List description
-       */
-      description?: string | null;
-      /**
-       * Is Public
-       * @description Public shareability flag
-       */
-      is_public?: boolean | null;
-    };
-    /**
-     * LoginRequest
-     * @description Payload for authenticating with credentials.
-     */
-    LoginRequest: {
-      /**
-       * Email
-       * Format: email
-       * @description User's email address
-       */
-      email: string;
-      /**
-       * Password
-       * @description User's account password
-       */
-      password: string;
-    };
-    /**
-     * LoginResponse
-     * @description Tokens returned upon successful login.
-     */
-    LoginResponse: {
-      /**
-       * Access Token
-       * @description JWT Bearer access token
-       */
-      access_token: string;
-      /**
-       * Id Token
-       * @description OpenID Connect ID token
-       */
-      id_token: string;
-      /**
-       * Refresh Token
-       * @description Cognito refresh token
-       */
-      refresh_token?: string | null;
-      /**
-       * Token Type
-       * @description Token scheme
-       * @default Bearer
-       */
-      token_type: string;
-      /**
-       * Expires In
-       * @description Token validity duration in seconds
-       * @default 3600
-       */
-      expires_in: number;
-    };
-    /**
-     * LogoutRequest
-     * @description Payload to invalidate sessions via GlobalSignOut.
-     */
-    LogoutRequest: {
-      /**
-       * Access Token
-       * @description Optional access token to revoke (falls back to Authorization header)
-       */
-      access_token?: string | null;
-    };
-    /**
-     * LogoutResponse
-     * @description Acknowledgement of successful logout.
-     */
-    LogoutResponse: {
-      /**
-       * Logged Out
-       * @description Logout outcome
-       */
-      logged_out: boolean;
-      /**
-       * Message
-       * @description Status message confirming sign out
-       */
-      message: string;
-    };
-    /**
-     * MissingMealAdvisory
-     * @description Advisory emitted when lunch or dinner window lacks a meal.
-     */
-    MissingMealAdvisory: {
-      /** Day Number */
-      day_number: number;
-      /** Meal Type */
-      meal_type: string;
-      /**
-       * Gap Start
-       * Format: time
-       */
-      gap_start: string;
-      /**
-       * Gap End
-       * Format: time
-       */
-      gap_end: string;
-      /** Suggested Poi Id */
-      suggested_poi_id?: string | null;
-      /** Suggested Poi Title */
-      suggested_poi_title?: string | null;
-      /** Suggested Poi Address */
-      suggested_poi_address?: string | null;
-      /** Suggested Poi Lat */
-      suggested_poi_lat?: number | null;
-      /** Suggested Poi Lng */
-      suggested_poi_lng?: number | null;
-    };
-    /**
-     * POICreateRequest
-     * @description Request payload for creating a new Point of Interest.
-     */
-    POICreateRequest: {
-      /**
-       * Name
-       * @description POI canonical name
-       */
-      name: string;
-      /**
-       * Lon
-       * @description Longitude in degrees (WGS-84)
-       */
-      lon: number;
-      /**
-       * Lat
-       * @description Latitude in degrees (WGS-84)
-       */
-      lat: number;
-      /**
-       * Parent Poi Id
-       * @description Optional macro-site parent UUID
-       */
-      parent_poi_id?: string | null;
-      /**
-       * Description
-       * @description Rich description or markdown
-       */
-      description?: string | null;
-      /**
-       * Reason To Visit
-       * @description Why a traveler should visit
-       */
-      reason_to_visit?: string | null;
-      /**
-       * Address
-       * @description Street address
-       */
-      address?: string | null;
-      /**
-       * City
-       * @description City or municipality
-       */
-      city?: string | null;
-      /**
-       * States
-       * @description Array of states or provinces spanned by the POI
-       */
-      states?: string[] | null;
-      /**
-       * Countries
-       * @description Array of countries spanned by the POI
-       */
-      countries?: string[] | null;
-      /**
-       * State
-       * @description Optional convenience alias for single-state POIs
-       */
-      state?: string | null;
-      /**
-       * Country
-       * @description Optional convenience alias for single-country POIs
-       */
-      country?: string | null;
-      /**
-       * Official Url
-       * @description Official website URL
-       */
-      official_url?: string | null;
-      /**
-       * Wiki Url
-       * @description Wikipedia URL
-       */
-      wiki_url?: string | null;
-      /**
-       * Image Urls
-       * @description Image URLs
-       */
-      image_urls?: string[];
-      /**
-       * Tag Names
-       * @description Initial tag names to attach
-       */
-      tag_names?: string[];
-      /**
-       * @description Visit tracking state
-       * @default not_visited
-       */
-      visit_state: components["schemas"]["VisitState"];
-      /**
-       * Rating
-       * @description User rating (1-5)
-       */
-      rating?: number | null;
-      /**
-       * Estimated Cost
-       * @description Estimated activity cost
-       */
-      estimated_cost?: number | null;
-      /**
-       * Pricing Unit
-       * @description Pricing unit
-       */
-      pricing_unit?: string | null;
-      /**
-       * Recommended Duration Hours
-       * @description Recommended duration in hours
-       */
-      recommended_duration_hours?: number | null;
-      /**
-       * Recommended Visit Days
-       * @description Recommended days to spend at POI
-       * @default 1
-       */
-      recommended_visit_days: number;
-    };
-    /**
-     * POIListResponse
-     * @description Paginated collection of Point of Interest records.
-     */
-    POIListResponse: {
-      /**
-       * Items
-       * @description Matching POI items
-       */
-      items: components["schemas"]["POIResponse"][];
-      /**
-       * Total
-       * @description Total count of matching records
-       */
-      total: number;
-      /**
-       * Limit
-       * @description Page size limit
-       */
-      limit: number;
-      /**
-       * Offset
-       * @description Pagination offset
-       */
-      offset: number;
-    };
-    /**
-     * POIQueryRequest
-     * @description Request payload for evaluated query builder AST search.
-     */
-    POIQueryRequest: {
-      /**
-       * Query Tree
-       * @description Structured query tree AST
-       */
-      query_tree: {
-        [key: string]: unknown;
-      };
-      /**
-       * Bbox
-       * @description Comma-separated minLng,minLat,maxLng,maxLat
-       */
-      bbox?: string | null;
-    };
-    /**
-     * POIResponse
-     * @description Point of Interest response schema.
-     */
-    POIResponse: {
-      /**
-       * Id
-       * Format: uuid
-       * @description Unique POI identifier
-       */
-      id: string;
-      /**
-       * User Id
-       * Format: uuid
-       * @description Owning tenant UUID
-       */
-      user_id: string;
-      /**
-       * Parent Poi Id
-       * @description Parent macro-site POI UUID
-       */
-      parent_poi_id?: string | null;
-      /**
-       * Parent Poi Name
-       * @description Resolved parent macro-site POI canonical name
-       */
-      parent_poi_name?: string | null;
-      /**
-       * Name
-       * @description POI canonical name
-       */
-      name: string;
-      /**
-       * Description
-       * @description Rich description or markdown
-       */
-      description?: string | null;
-      /**
-       * Reason To Visit
-       * @description Why a traveler should visit
-       */
-      reason_to_visit?: string | null;
-      /**
-       * Address
-       * @description Geocoded street address
-       */
-      address?: string | null;
-      /**
-       * City
-       * @description City or municipality
-       */
-      city?: string | null;
-      /**
-       * States
-       * @description Administrative subdivisions or states spanned by POI
-       */
-      states?: string[];
-      /**
-       * Countries
-       * @description Sovereign nations spanned by POI
-       */
-      countries?: string[];
-      /**
-       * Addresses
-       * @description Array of structured international address records
-       */
-      addresses?: components["schemas"]["AddressRecord"][];
-      /**
-       * Official Url
-       * @description Official entity website
-       */
-      official_url?: string | null;
-      /**
-       * Wiki Url
-       * @description Wikipedia or Wikidata reference
-       */
-      wiki_url?: string | null;
-      /**
-       * Image Urls
-       * @description Array of image URLs
-       */
-      image_urls?: string[];
-      /**
-       * Directory Paths
-       * @description Associated local file directory paths
-       */
-      directory_paths?: string[];
-      /**
-       * Creation Metadata
-       * @description Metadata captured during creation
-       */
-      creation_metadata?: {
-        [key: string]: unknown;
-      };
-      /**
-       * @description Visit tracking state
-       * @default not_visited
-       */
-      visit_state: components["schemas"]["VisitState"];
-      /**
-       * Visited Dates
-       * @description Dates on which the POI was visited
-       */
-      visited_dates?: string[];
-      /**
-       * Want To Visit Again
-       * @description Flag indicating future travel intent
-       * @default false
-       */
-      want_to_visit_again: boolean;
-      /**
-       * Already Visited
-       * @description True if visited_dates contains one or more entries
-       * @default false
-       */
-      already_visited: boolean;
-      /**
-       * Visit Pending
-       * @description True if unvisited or want_to_visit_again is True
-       * @default true
-       */
-      visit_pending: boolean;
-      /**
-       * Source Type
-       * @description Origin provenance (Web, CSV, Manual, Photo)
-       * @default Manual
-       */
-      source_type: string;
-      /**
-       * Source Value
-       * @description Provenance origin details
-       */
-      source_value?: string | null;
-      /**
-       * Rating
-       * @description User rating (1-5)
-       */
-      rating?: number | null;
-      /**
-       * Estimated Cost
-       * @description Estimated activity cost
-       */
-      estimated_cost?: number | null;
-      /**
-       * Pricing Unit
-       * @description Currency or unit
-       */
-      pricing_unit?: string | null;
-      /**
-       * Recommended Duration Hours
-       * @description Duration in hours
-       */
-      recommended_duration_hours?: number | null;
-      /**
-       * Recommended Visit Days
-       * @description Recommended days to spend at POI
-       * @default 1
-       */
-      recommended_visit_days: number;
-      /**
-       * @description Address geocoding enrichment status
-       * @default PARTIAL
-       */
-      enrichment_status: components["schemas"]["EnrichmentStatus"];
-      /**
-       * Lon
-       * @description Longitude in degrees (WGS-84)
-       */
-      lon: number;
-      /**
-       * Lat
-       * @description Latitude in degrees (WGS-84)
-       */
-      lat: number;
-      /**
-       * Longitude
-       * @description Longitude in degrees (alias for lon)
-       */
-      longitude?: number | null;
-      /**
-       * Latitude
-       * @description Latitude in degrees (alias for lat)
-       */
-      latitude?: number | null;
-      /**
-       * Similarity Score
-       * @description Semantic vector cosine similarity score
-       */
-      similarity_score?: number | null;
-      /**
-       * Tags
-       * @description Attached tags
-       */
-      tags?: components["schemas"]["TagResponse"][];
-      /**
-       * Created At
-       * Format: date-time
-       * @description Record creation timestamp
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       * @description Record last modification timestamp
-       */
-      updated_at: string;
-    };
-    /**
-     * POIUpdateRequest
-     * @description Request payload for updating an existing Point of Interest.
-     */
-    POIUpdateRequest: {
-      /**
-       * Name
-       * @description POI canonical name
-       */
-      name?: string | null;
-      /**
-       * Parent Poi Id
-       * @description Optional macro-site parent UUID
-       */
-      parent_poi_id?: string | null;
-      /**
-       * Description
-       * @description Rich description or markdown
-       */
-      description?: string | null;
-      /**
-       * Addresses
-       * @description Structured international address records
-       */
-      addresses?: components["schemas"]["AddressRecord"][] | null;
-      /**
-       * Address
-       * @description Street address
-       */
-      address?: string | null;
-      /**
-       * City
-       * @description City or municipality
-       */
-      city?: string | null;
-      /**
-       * States
-       * @description Array of states or provinces spanned by the POI
-       */
-      states?: string[] | null;
-      /**
-       * Countries
-       * @description Array of countries spanned by the POI
-       */
-      countries?: string[] | null;
-      /**
-       * State
-       * @description Optional convenience alias for single-state updates
-       */
-      state?: string | null;
-      /**
-       * Country
-       * @description Optional convenience alias for single-country updates
-       */
-      country?: string | null;
-      /**
-       * Latitude
-       * @description Updated latitude in degrees
-       */
-      latitude?: number | null;
-      /**
-       * Longitude
-       * @description Updated longitude in degrees
-       */
-      longitude?: number | null;
-      /**
-       * Recommended Duration Hours
-       * @description Recommended duration in hours
-       */
-      recommended_duration_hours?: number | null;
-      /**
-       * Recommended Visit Days
-       * @description Recommended days to spend at POI
-       */
-      recommended_visit_days?: number | null;
-      /**
-       * Source Type
-       * @description Provenance source type (Web, CSV, Manual, Photo)
-       */
-      source_type?: components["schemas"]["SourceType"] | string | null;
-      /**
-       * Source Value
-       * @description Provenance source value
-       */
-      source_value?: string | null;
-      /**
-       * Official Url
-       * @description Official website URL
-       */
-      official_url?: string | null;
-      /**
-       * Wiki Url
-       * @description Wikipedia URL
-       */
-      wiki_url?: string | null;
-      /**
-       * Directory Paths
-       * @description Associated local file directory paths
-       */
-      directory_paths?: string[] | null;
-      /**
-       * Image Urls
-       * @description Image URLs
-       */
-      image_urls?: string[] | null;
-      /**
-       * Visited Dates
-       * @description Array of ISO-8601 visit dates
-       */
-      visited_dates?: string[] | null;
-      /**
-       * Want To Visit Again
-       * @description Future travel intent
-       */
-      want_to_visit_again?: boolean | null;
-      /** @description Visit tracking state */
-      visit_state?: components["schemas"]["VisitState"] | null;
-      /**
-       * Rating
-       * @description User rating (1-5)
-       */
-      rating?: number | null;
-      /**
-       * Tags
-       * @description Attached taxonomy tags
-       */
-      tags?: string[] | null;
-      /**
-       * Estimated Cost
-       * @description Estimated activity cost
-       */
-      estimated_cost?: number | null;
-      /**
-       * Pricing Unit
-       * @description Pricing unit
-       */
-      pricing_unit?: string | null;
-    };
-    /**
-     * PotentialDuplicateItem
-     * @description Individual candidate duplicate match.
-     */
-    PotentialDuplicateItem: {
-      /** @description Existing collision POI */
-      existing_poi: components["schemas"]["POIResponse"];
-      /**
-       * Distance Meters
-       * @description Geodesic distance in meters
-       */
-      distance_meters: number;
-      /**
-       * Name Similarity
-       * @description Trigram similarity score (0.0 to 1.0)
-       */
-      name_similarity: number;
-      /**
-       * Match Confidence
-       * @description Composite match confidence (0.0 to 1.0)
-       */
-      match_confidence: number;
-    };
-    /**
-     * RegisterRequest
-     * @description Payload for user registration.
-     */
-    RegisterRequest: {
-      /**
-       * Email
-       * Format: email
-       * @description User's email address
-       */
-      email: string;
-      /**
-       * Password
-       * @description User's password (min 8 chars)
-       */
-      password: string;
-      /**
-       * Full Name
-       * @description Optional full name
-       */
-      full_name?: string | null;
-    };
-    /**
-     * RegisterResponse
-     * @description Response returned upon successful registration.
-     */
-    RegisterResponse: {
-      /**
-       * User Sub
-       * @description Unique Cognito subject identifier
-       */
-      user_sub: string;
-      /**
-       * User Confirmed
-       * @description Whether user account is pre-confirmed
-       */
-      user_confirmed: boolean;
-      /**
-       * Message
-       * @description Instruction message
-       */
-      message: string;
-    };
-    /**
-     * ResetPasswordRequest
-     * @description Payload to complete password reset with received code.
-     */
-    ResetPasswordRequest: {
-      /**
-       * Email
-       * Format: email
-       * @description User's email address
-       */
-      email: string;
-      /**
-       * Confirmation Code
-       * @description Reset code
-       */
-      confirmation_code: string;
-      /**
-       * New Password
-       * @description New password
-       */
-      new_password: string;
-    };
-    /**
-     * ResetPasswordResponse
-     * @description Acknowledgement of successful password reset.
-     */
-    ResetPasswordResponse: {
-      /**
-       * Message
-       * @description Status message confirming password reset
-       */
-      message: string;
-    };
-    /**
-     * SharedListResponse
-     * @description Public read-only curated list view containing member POIs.
-     */
-    SharedListResponse: {
-      /**
-       * Pois
-       * @description Member POIs
-       */
-      pois?: components["schemas"]["POIResponse"][];
-      /** @description Curated list metadata */
-      list: components["schemas"]["ListResponse"];
-    };
-    /**
-     * SourceType
-     * @description Source provenance of POI discovery or capture.
-     * @enum {string}
-     */
-    SourceType: "Web" | "CSV" | "Manual" | "Photo";
-    /**
-     * TagCreateRequest
-     * @description Request model for creating a tag.
-     */
-    TagCreateRequest: {
-      /**
-       * Name
-       * @description Unique tag name
-       */
-      name: string;
-    };
-    /**
-     * TagResponse
-     * @description Tag entity response model.
-     */
-    TagResponse: {
-      /**
-       * Id
-       * Format: uuid
-       * @description Unique tag identifier
-       */
-      id: string;
-      /**
-       * Name
-       * @description Tag name
-       */
-      name: string;
-    };
-    /**
-     * TriageDecisionItem
-     * @description User triage decision for an individual suspected duplicate row.
-     */
-    TriageDecisionItem: {
-      /** Row Number */
-      row_number: number;
-      decision: components["schemas"]["DuplicateTriageStatus"];
-    };
-    /**
-     * TriageRequest
-     * @description Batch payload containing duplicate triage decisions.
-     */
-    TriageRequest: {
-      /** Decisions */
-      decisions: components["schemas"]["TriageDecisionItem"][];
-    };
-    /** ValidationError */
-    ValidationError: {
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
-    };
-    /**
-     * VisitState
-     * @description User visit status of a POI.
-     * @enum {string}
-     */
-    VisitState: "not_visited" | "visited_do_not_return" | "visited_return";
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  health_live_health_live_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: string;
-          };
-        };
-      };
-    };
-  };
-  health_ready_health_ready_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  register_api_auth_register_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RegisterRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RegisterResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  confirm_signup_api_auth_confirm_signup_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ConfirmSignUpRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ConfirmSignUpResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  login_api_auth_login_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LoginResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  forgot_password_api_auth_forgot_password_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ForgotPasswordRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ForgotPasswordResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  reset_password_api_auth_reset_password_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ResetPasswordRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ResetPasswordResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  logout_api_auth_logout_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: {
-      content: {
-        "application/json": components["schemas"]["LogoutRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LogoutResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  check_duplicates_api_pois_dedup_check_get: {
-    parameters: {
-      query: {
-        /** @description Candidate POI name */
-        name: string;
-        /** @description Longitude in degrees */
-        lon: number;
-        /** @description Latitude in degrees */
-        lat: number;
-        /** @description Proximity radius preset: urban (805m) or macro (80,467m) */
-        preset?: components["schemas"]["DeduplicationPreset"];
-      };
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DedupCheckResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  bulk_edit_api_pois_bulk_edit_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BulkEditRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BulkOperationResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  bulk_tags_api_pois_bulk_tags_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BulkTagsRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BulkOperationResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  bulk_lists_api_pois_bulk_lists_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BulkListsRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BulkOperationResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  bulk_delete_api_pois_bulk_delete_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BulkDeleteRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BulkDeleteResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  list_user_lists_api_lists_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ListResponse"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  create_list_api_lists_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ListCreateRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_shared_list_api_lists__list_id__shared_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        list_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SharedListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_list_api_lists__list_id__get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        list_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  delete_list_api_lists__list_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        list_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  update_list_api_lists__list_id__patch: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        list_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ListUpdateRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  list_tags_api_tags_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TagResponse"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  create_tag_api_tags_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TagCreateRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TagResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  delete_tag_api_tags__tag_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        tag_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  list_pois_api_pois_get: {
-    parameters: {
-      query?: {
-        /** @description Planar bbox (minLng,minLat,maxLng,maxLat) */
-        bbox?: string | null;
-        list_id?: string | null;
-        /** @description Comma-separated tag UUIDs */
-        tag_ids?: string | null;
-        /** @description State/province JSONB containment */
-        state?: string | null;
-        /** @description Country JSONB containment */
-        country?: string | null;
-        visit_state?: components["schemas"]["VisitState"] | null;
-        hierarchy?: "all" | "root_only" | "children_only";
-        parent_id?: string | null;
-        /** @description Text filter for name/address */
-        q?: string | null;
-        /** @description Natural language semantic search */
-        semantic_q?: string | null;
-        limit?: number;
-        offset?: number;
-      };
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["POIListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  create_poi_api_pois_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["POICreateRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["POIResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_poi_api_pois__poi_id__get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        poi_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["POIResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  delete_poi_api_pois__poi_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        poi_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  update_poi_api_pois__poi_id__patch: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        poi_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["POIUpdateRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["POIResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  query_pois_api_pois_query_post: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-      };
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["POIQueryRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["POIListResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  list_itineraries_api_itineraries_get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ItinerarySummary"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  create_itinerary_api_itineraries_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ItineraryCreate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ItineraryResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  generate_itinerary_api_itineraries_generate_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ItineraryGenerateRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ItineraryResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_itinerary_api_itineraries__itinerary_id__get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        itinerary_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ItineraryResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  update_itinerary_api_itineraries__itinerary_id__put: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        itinerary_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ItineraryUpdate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ItineraryResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  delete_itinerary_api_itineraries__itinerary_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        itinerary_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  reorder_itinerary_items_api_itineraries__itinerary_id__items_reorder_put: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        itinerary_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ItineraryItemReorderRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ItineraryResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  upload_csv_api_ingest_csv_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["Body_upload_csv_api_ingest_csv_post"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["IngestUploadResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_job_progress_api_ingest_jobs__job_id__get: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        job_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["IngestJobProgressResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  submit_triage_decisions_api_ingest_jobs__job_id__triage_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        Authorization?: string | null;
-        "X-Mock-User-Id"?: string | null;
-      };
-      path: {
-        job_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TriageRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["IngestJobProgressResponse"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
+    health_live_health_live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    health_ready_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    register_api_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_signup_api_auth_confirm_signup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmSignUpRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmSignUpResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forgot_password_api_auth_forgot_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgotPasswordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetPasswordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LogoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoutResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_duplicates_api_pois_dedup_check_get: {
+        parameters: {
+            query: {
+                /** @description Candidate POI name */
+                name: string;
+                /** @description Longitude in degrees */
+                lon: number;
+                /** @description Latitude in degrees */
+                lat: number;
+                /** @description Proximity radius preset: urban (805m) or macro (80,467m) */
+                preset?: components["schemas"]["DeduplicationPreset"];
+            };
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedupCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_edit_api_pois_bulk_edit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkOperationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_tags_api_pois_bulk_tags_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkOperationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_lists_api_pois_bulk_lists_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkListsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkOperationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_delete_api_pois_bulk_delete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_user_lists_api_lists_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_list_api_lists_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_shared_list_api_lists__list_id__shared_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_list_api_lists__list_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_list_api_lists__list_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_list_api_lists__list_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tags_api_pois_tags_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_tag_api_pois_tags_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagResponse"];
+                };
+            };
+            /** @description Tag slug already exists in user library */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_tag_api_pois_tags__tag_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                tag_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Tag not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Tag is currently referenced by one or more POIs */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagInUseProblemDetails"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_filter_rules_api_pois_filter_rules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilterRuleListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_filter_rule_api_pois_filter_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilterRuleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilterRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_filter_rule_api_pois_filter_rules__rule_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilterRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_filter_rule_api_pois_filter_rules__rule_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilterRuleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilterRuleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_filter_rule_api_pois_filter_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reverse_geocode_endpoint_api_pois_geocode_reverse_get: {
+        parameters: {
+            query: {
+                /** @description Latitude in degrees (-90.0 to 90.0) */
+                lat: number;
+                /** @description Longitude in degrees (-180.0 to 180.0) */
+                lng: number;
+            };
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["vistarae_core__schemas__poi__ReverseGeocodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reverse_geocode_v1_api_pois_geocode_reverse_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseGeocodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["vistarae_core__schemas__scraping__ReverseGeocodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pois_api_pois_get: {
+        parameters: {
+            query?: {
+                /** @description Planar bbox (minLng,minLat,maxLng,maxLat) */
+                bbox?: string | null;
+                list_id?: string | null;
+                /** @description Comma-separated tag UUIDs */
+                tag_ids?: string | null;
+                /** @description State/province JSONB containment */
+                state?: string | null;
+                /** @description Country JSONB containment */
+                country?: string | null;
+                visit_state?: components["schemas"]["VisitState"] | null;
+                hierarchy?: "all" | "root_only" | "children_only";
+                parent_id?: string | null;
+                /** @description Text filter for name/address */
+                q?: string | null;
+                /** @description Natural language semantic search */
+                semantic_q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["POIListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_poi_api_pois_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["POICreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["POIResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_poi_api_pois__poi_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                poi_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["POIResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_poi_api_pois__poi_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                poi_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_poi_api_pois__poi_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                poi_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["POIUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["POIResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    query_pois_api_pois_query_post: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["POIQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["POIListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_itineraries_api_itineraries_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItinerarySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_itinerary_api_itineraries_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItineraryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItineraryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_itinerary_api_itineraries_generate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItineraryGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItineraryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_itinerary_api_itineraries__itinerary_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                itinerary_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItineraryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_itinerary_api_itineraries__itinerary_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                itinerary_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItineraryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItineraryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_itinerary_api_itineraries__itinerary_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                itinerary_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_itinerary_items_api_itineraries__itinerary_id__items_reorder_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                itinerary_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItineraryItemReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItineraryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_and_check_api_pois_extract_and_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractAndCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractAndCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reverse_geocode_v1_api_v1_geocoding_reverse_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReverseGeocodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["vistarae_core__schemas__scraping__ReverseGeocodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_csv_api_ingest_csv_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_csv_api_ingest_csv_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_progress_api_ingest_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestJobProgressResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_triage_decisions_api_ingest_jobs__job_id__triage_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestJobProgressResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_candidates_api_ingest_jobs__job_id__candidates_get: {
+        parameters: {
+            query?: {
+                phase?: components["schemas"]["IngestCandidatePhaseState"] | null;
+            };
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_candidate_api_ingest_jobs__job_id__candidates__candidate_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proceed_phase1_api_ingest_jobs__job_id__phase1_proceed_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseTransitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_phase1_api_ingest_jobs__job_id__phase1_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCancellationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_phase2_api_ingest_jobs__job_id__phase2_commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommitSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_phase2_api_ingest_jobs__job_id__phase2_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCancellationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }

@@ -1,0 +1,457 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Two-Phase Ingestion & Photo Scraper API
+  version: 1.0.0
+  description: >
+    API contracts for Phase 12 two-phase interactive CSV/photo ingestion,
+    candidate staging, Phase 1 triage, Phase 2 AI enrichment, and final database commit.
+
+servers:
+  - url: /api/ingest
+    description: Ingestion microservice base URL
+
+paths:
+  /jobs/{job_id}/candidates:
+    get:
+      summary: Retrieve staged candidates for a job
+      operationId: getJobCandidates
+      tags:
+        - ingest-staging
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: phase
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [phase_1_triage, phase_2_enriched]
+            default: phase_1_triage
+      responses:
+        '200':
+          description: List of staged candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateListResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+        '401':
+          $ref: '#/components/responses/ProblemDetails401'
+
+  /jobs/{job_id}/candidates/{candidate_id}:
+    patch:
+      summary: Update details, disposition, or coordinates for a candidate
+      operationId: updateCandidate
+      tags:
+        - ingest-staging
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateUpdateRequest'
+      responses:
+        '200':
+          description: Updated candidate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateItemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+        '422':
+          $ref: '#/components/responses/ProblemDetails422'
+
+  /jobs/{job_id}/phase1/proceed:
+    post:
+      summary: Advance confirmed Phase 1 triage records to Phase 2 enrichment
+      operationId: proceedPhase1
+      tags:
+        - ingest-staging
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Phase 2 asynchronous enrichment initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhaseTransitionResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+        '409':
+          $ref: '#/components/responses/ProblemDetails409'
+
+  /jobs/{job_id}/phase1/cancel:
+    post:
+      summary: Abort Phase 1 triage and purge staged candidate records
+      operationId: cancelPhase1
+      tags:
+        - ingest-staging
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Staging purged and job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCancellationResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+
+  /jobs/{job_id}/phase2/commit:
+    post:
+      summary: Execute atomic commit of enriched candidates into pois table
+      operationId: commitPhase2
+      tags:
+        - ingest-staging
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Candidates committed and staging purged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitSummaryResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+
+  /jobs/{job_id}/phase2/cancel:
+    post:
+      summary: Abort Phase 2 review and purge staged candidate records
+      operationId: cancelPhase2
+      tags:
+        - ingest-staging
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Staging purged and job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCancellationResponse'
+        '404':
+          $ref: '#/components/responses/ProblemDetails404'
+
+components:
+  schemas:
+    CandidateItemResponse:
+      type: object
+      required:
+        - id
+        - job_id
+        - row_index
+        - poi_name
+        - recommended_disposition
+        - user_disposition
+        - photo_directory
+        - confidence_score
+        - phase_state
+        - is_skipped
+        - update_coordinates
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        row_index:
+          type: integer
+        poi_name:
+          type: string
+        recommended_disposition:
+          type: string
+          enum: [accept, ignore, update_existing, sublocation]
+        user_disposition:
+          type: string
+          nullable: true
+          enum: [accept, ignore, update_existing, sublocation]
+        matched_existing_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        matched_existing_poi_name:
+          type: string
+          nullable: true
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        parent_poi_name:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        street_address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state_province:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        dates_visited:
+          type: array
+          items:
+            type: string
+        photo_directory:
+          type: string
+        confidence_score:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        reason_to_visit:
+          type: string
+          nullable: true
+        update_coordinates:
+          type: boolean
+        is_skipped:
+          type: boolean
+        phase_state:
+          type: string
+          enum: [phase_1_triage, phase_2_enriched, committed, aborted]
+
+    CandidateListResponse:
+      type: object
+      required:
+        - job_id
+        - total_count
+        - candidates
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        total_count:
+          type: integer
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateItemResponse'
+
+    CandidateUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        poi_name:
+          type: string
+          maxLength: 255
+        user_disposition:
+          type: string
+          enum: [accept, ignore, update_existing, sublocation]
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        street_address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state_province:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        dates_visited:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        reason_to_visit:
+          type: string
+          nullable: true
+        update_coordinates:
+          type: boolean
+        is_skipped:
+          type: boolean
+
+    PhaseTransitionResponse:
+      type: object
+      required:
+        - job_id
+        - phase
+        - eligible_candidates_count
+        - status
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        phase:
+          type: string
+        eligible_candidates_count:
+          type: integer
+        status:
+          type: string
+
+    CommitSummaryResponse:
+      type: object
+      required:
+        - job_id
+        - created_count
+        - updated_count
+        - sublocation_count
+        - skipped_count
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        created_count:
+          type: integer
+        updated_count:
+          type: integer
+        sublocation_count:
+          type: integer
+        skipped_count:
+          type: integer
+
+    JobCancellationResponse:
+      type: object
+      required:
+        - job_id
+        - status
+        - message
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        message:
+          type: string
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+
+  responses:
+    ProblemDetails401:
+      description: Unauthorized
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ProblemDetails404:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ProblemDetails409:
+      description: Conflict in job transition state
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ProblemDetails422:
+      description: Unprocessable entity / validation error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+

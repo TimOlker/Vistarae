@@ -149,6 +149,11 @@ export async function apiFetch<T = unknown>(
       (err as Error)?.name === "AbortError" ||
       (err as Error)?.message?.includes("timed out");
 
+    let detailMessage = (err as Error)?.message || "Failed to communicate with the backend server.";
+    if (detailMessage === "Failed to fetch" || detailMessage.includes("NetworkError") || detailMessage.includes("Load failed")) {
+      detailMessage = "Failed to fetch: Unable to reach the backend server (connection refused or interrupted). Please verify that the backend server is running on http://localhost:8000 (or :8030).";
+    }
+
     const problem: ProblemDetails = {
       type: isTimeout
         ? "https://errors.vistarae.com/gateway-timeout"
@@ -157,10 +162,9 @@ export async function apiFetch<T = unknown>(
       status: isTimeout ? 504 : 503,
       detail: isTimeout
         ? `The backend server did not respond within ${
-            timeoutMs / 1000
+            Math.round(timeoutMs / 1000)
           } seconds. Please verify the backend service is running.`
-        : (err as Error)?.message ||
-          "Failed to communicate with the backend server.",
+        : detailMessage,
     };
     throw new ApiError(problem);
   } finally {

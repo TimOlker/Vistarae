@@ -103,6 +103,16 @@ CATEGORY_DURATION_HEURISTICS: Final[dict[str, tuple[float, int | None]]] = {
 _UNSET = object()
 
 
+def _build_thinking_config() -> Any:
+    """Returns thinking config disabling reasoning thoughts (-1 budget) or None if unsupported."""
+    try:
+        from google.genai import types
+
+        return types.ThinkingConfig(thinking_budget=-1)
+    except Exception:
+        return None
+
+
 class ScrapingOrchestrator:
     """Coordinates primary web extraction, secondary source augmentation, and Gemini synthesis."""
 
@@ -257,7 +267,7 @@ class ScrapingOrchestrator:
         if name:
             double_prefix = f"{name} {name}"
             if cleaned.lower().startswith(double_prefix.lower()):
-                cleaned = f"{name}{cleaned[len(double_prefix):]}"
+                cleaned = f"{name}{cleaned[len(double_prefix) :]}"
         return cleaned.strip()
 
     async def synthesize_summary(
@@ -304,9 +314,9 @@ class ScrapingOrchestrator:
 
             config = types.GenerateContentConfig(
                 temperature=0.2,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
+                thinking_config=_build_thinking_config(),
             )
-            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
             resp = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
@@ -372,9 +382,9 @@ class ScrapingOrchestrator:
 
             config = types.GenerateContentConfig(
                 temperature=0.2,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
+                thinking_config=_build_thinking_config(),
             )
-            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
             resp = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
@@ -507,9 +517,9 @@ class ScrapingOrchestrator:
 
             config = types.GenerateContentConfig(
                 temperature=0.2,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
+                thinking_config=_build_thinking_config(),
             )
-            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
             resp = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
@@ -695,7 +705,7 @@ class ScrapingOrchestrator:
         if dur_h is None:
             dur_h, dur_d = cls.infer_duration(category=category, name=name, description=desc)
         else:
-            dur_d = 0 if dur_h < 24 else int(dur_h // 24)
+            dur_d = 1 if dur_h <= 24 else int((dur_h + 23) // 24)
 
         if dur_h is not None and time_spent_directive:
             dir_lower = time_spent_directive.lower()
@@ -706,8 +716,9 @@ class ScrapingOrchestrator:
                 dur_h = dur_h * 2.0 if dur_h <= 2.0 else min(dur_h * 1.5, 24.0)
             elif any(k in dir_lower for k in ("quick", "brisk", "fast", "short", "half")):
                 dur_h = max(dur_h * 0.75, 0.5)
-            dur_d = 0 if dur_h < 24 else int(dur_h // 24)
+            dur_d = 1 if dur_h <= 24 else int((dur_h + 23) // 24)
 
+        dur_d = max(1, dur_d or 1)
         return dur_h, dur_d
 
     async def extract(

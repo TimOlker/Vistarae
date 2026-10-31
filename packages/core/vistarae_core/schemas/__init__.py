@@ -39,6 +39,14 @@ from vistarae_core.schemas.auth import (
 )
 from vistarae_core.schemas.base import StrictBaseModel
 from vistarae_core.schemas.errors import InvalidParam, ProblemDetails
+from vistarae_core.schemas.exclusion_zone import (
+    ExclusionCheckRequest,
+    ExclusionCheckResponse,
+    ExclusionZoneCreateRequest,
+    ExclusionZoneListResponse,
+    ExclusionZoneResponse,
+    ExclusionZoneUpdateRequest,
+)
 from vistarae_core.schemas.ingest import (
     DuplicateItemResponse,
     IngestJobProgressResponse,
@@ -46,6 +54,15 @@ from vistarae_core.schemas.ingest import (
     PhotoPOIInference,
     TriageDecisionItem,
     TriageRequest,
+)
+from vistarae_core.schemas.ingest_staging import (
+    ActiveSessionResponse,
+    CandidateItemResponse,
+    CandidateListResponse,
+    CandidateUpdateRequest,
+    CommitSummaryResponse,
+    JobCancellationResponse,
+    PhaseTransitionResponse,
 )
 from vistarae_core.schemas.itinerary import (
     CircuitBreakerWarning,
@@ -83,6 +100,7 @@ from vistarae_core.schemas.poi import (
     POIResponse,
     POIUpdateRequest,
     PotentialDuplicateItem,
+    ForwardGeocodeResponse,
     ReverseGeocodeResponse,
     SharedListResponse,
 )
@@ -91,6 +109,7 @@ from vistarae_core.schemas.poi_duplicate import (
     DuplicateCheckRequest,
     DuplicateCheckResponse,
 )
+from vistarae_core.schemas.poi_export import POIExportRecord
 from vistarae_core.schemas.poi_merge import (
     POIMergeRequest,
     POIMergeResponse,
@@ -127,6 +146,8 @@ from vistarae_core.schemas.user import (
 )
 
 __all__ = [
+    "ActiveSessionResponse",
+    "POIExportRecord",
     "AdminMessageRequest",
     "AdminMetricsResponse",
     "AdminUserDetailResponse",
@@ -135,7 +156,11 @@ __all__ = [
     "BulkListsRequest",
     "BulkOperationResponse",
     "BulkTagsRequest",
+    "CandidateItemResponse",
+    "CandidateListResponse",
+    "CandidateUpdateRequest",
     "CircuitBreakerWarning",
+    "CommitSummaryResponse",
     "ConfirmSignUpRequest",
     "ConfirmSignUpResponse",
     "DedupCheckResponse",
@@ -144,6 +169,12 @@ __all__ = [
     "DuplicateCheckRequest",
     "DuplicateCheckResponse",
     "DuplicateItemResponse",
+    "ExclusionCheckRequest",
+    "ExclusionCheckResponse",
+    "ExclusionZoneCreateRequest",
+    "ExclusionZoneListResponse",
+    "ExclusionZoneResponse",
+    "ExclusionZoneUpdateRequest",
     "ExtractAndCheckRequest",
     "ExtractAndCheckResponse",
     "ForgotPasswordRequest",
@@ -166,6 +197,7 @@ __all__ = [
     "ItineraryStatus",
     "ItinerarySummary",
     "ItineraryUpdate",
+    "JobCancellationResponse",
     "ListCreateRequest",
     "ListResponse",
     "ListUpdateRequest",
@@ -175,6 +207,7 @@ __all__ = [
     "LogoutResponse",
     "MissingMealAdvisory",
     "ParentPOICandidate",
+    "PhaseTransitionResponse",
     "PhotoPOIInference",
     "PlannerPreferencesResponse",
     "POICandidateSchema",
@@ -194,6 +227,7 @@ __all__ = [
     "RegisterResponse",
     "ResetPasswordRequest",
     "ResetPasswordResponse",
+    "ForwardGeocodeResponse",
     "ReverseGeocodeResponse",
     "SharedListResponse",
     "StrictBaseModel",

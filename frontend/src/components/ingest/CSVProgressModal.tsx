@@ -20,14 +20,16 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "../common/Modal";
 import { apiFetch } from "../../services/api";
-import { Loader2, CheckCircle2, AlertCircle, Layers } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Layers, Clock, ArrowRight } from "lucide-react";
 
 export interface IngestJobStatus {
   job_id: string;
-  status: "PENDING" | "PROCESSING" | "COMPLETED" | "PARTIAL_SUCCESS" | "FAILED";
+  status?: "PENDING" | "PROCESSING" | "COMPLETED" | "PARTIAL_SUCCESS" | "FAILED";
+  job_status?: "PENDING" | "PROCESSING" | "COMPLETED" | "PARTIAL_SUCCESS" | "FAILED";
   total_rows: number;
   processed_rows: number;
-  duplicates_pending_count: number;
+  duplicates_pending_count?: number;
+  duplicate_payloads?: any[];
   error_message?: string;
 }
 
@@ -37,6 +39,7 @@ interface CSVProgressModalProps {
   onClose: () => void;
   onOpenTriage: (jobId: string) => void;
   onJobComplete: () => void;
+  onReupload?: () => void;
 }
 
 export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
@@ -45,9 +48,28 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
   onClose,
   onOpenTriage,
   onJobComplete,
+  onReupload,
 }) => {
   const [job, setJob] = useState<IngestJobStatus | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [pollError, setPollError] = useState<string | null>(null);
 
+  // Timer: Track elapsed seconds while modal is open
+  useEffect(() => {
+    if (!isOpen || !jobId) {
+      setElapsedSeconds(0);
+      setPollError(null);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, jobId]);
+
+  // Polling loop for job status
   useEffect(() => {
     if (!isOpen || !jobId) return;
 
@@ -60,22 +82,34 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
         );
         if (!isMounted) return;
         setJob(res);
+        setPollError(null);
 
-        if (res.status === "COMPLETED" || res.status === "PARTIAL_SUCCESS") {
-          if (res.duplicates_pending_count > 0) {
+        const currentStatus = res.status || res.job_status;
+        const isFinished =
+          currentStatus === "COMPLETED" ||
+          currentStatus === "PARTIAL_SUCCESS" ||
+          (res.total_rows > 0 && res.processed_rows >= res.total_rows);
+
+        if (isFinished) {
+          const dupCount = res.duplicates_pending_count ?? res.duplicate_payloads?.length ?? 0;
+          if (dupCount > 0 || res.total_rows > 0) {
             onOpenTriage(jobId);
             onClose();
           } else {
             onJobComplete();
           }
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        if (!isMounted) return;
+        const errObj = err as { message?: string; problem?: { detail?: string } };
+        const msg = errObj.problem?.detail || errObj.message || "Unable to reach ingestion service";
+        setPollError(msg);
         console.error("Error polling ingest job:", err);
       }
     };
 
     pollJob();
-    const interval = setInterval(pollJob, 2000); // 2-second polling interval
+    const interval = setInterval(pollJob, 1500); // 1.5-second polling interval
 
     return () => {
       isMounted = false;
@@ -85,10 +119,24 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
 
   if (!isOpen || !jobId) return null;
 
+  const currentStatus = job?.status || job?.job_status;
   const percent =
     job && job.total_rows > 0
       ? Math.round((job.processed_rows / job.total_rows) * 100)
       : 0;
+
+  const isCompleted =
+    currentStatus === "COMPLETED" ||
+    (job !== null && job.total_rows > 0 && job.processed_rows >= job.total_rows);
+  const isFailed = currentStatus === "FAILED";
+
+  const formatElapsed = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const dupCount = job?.duplicates_pending_count ?? job?.duplicate_payloads?.length ?? 0;
 
   return (
     <Modal
@@ -106,9 +154,9 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
           padding: "12px 0",
         }}
       >
-        {job?.status === "FAILED" ? (
+        {isFailed ? (
           <AlertCircle size={44} color="var(--danger, #ef4444)" />
-        ) : job?.status === "COMPLETED" ? (
+        ) : isCompleted ? (
           <CheckCircle2 size={44} color="var(--success, #10b981)" />
         ) : (
           <Loader2
@@ -121,10 +169,10 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
 
         <div style={{ textAlign: "center" }}>
           <h4 style={{ fontSize: "16px", fontWeight: 700 }}>
-            {job?.status === "FAILED"
+            {isFailed
               ? "Ingestion Failed"
-              : job?.status === "COMPLETED"
-                ? "Ingestion Complete"
+              : isCompleted
+                ? "Ingestion Complete!"
                 : "Processing Travel Records..."}
           </h4>
           <p
@@ -138,7 +186,7 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
           </p>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Bar & Counters */}
         <div style={{ width: "100%" }}>
           <div
             style={{
@@ -166,15 +214,58 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
               style={{
                 width: `${percent}%`,
                 height: "100%",
-                background: "var(--accent, #2563eb)",
+                background: isCompleted ? "var(--success, #10b981)" : "var(--accent, #2563eb)",
                 transition: "width 300ms ease",
               }}
             />
           </div>
+
+          {/* Time Elapsed & Status Subtext */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: "8px",
+              fontSize: "11px",
+              color: "var(--text-muted)",
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <Clock size={12} />
+              <span>Elapsed: <strong>{formatElapsed(elapsedSeconds)}</strong></span>
+            </span>
+            <span>
+              {isCompleted
+                ? "Ready for Phase 1 Triage"
+                : percent === 100
+                  ? "Finalizing..."
+                  : elapsedSeconds > 10 && percent === 0
+                    ? "Staging & analyzing duplicates..."
+                    : "Active"}
+            </span>
+          </div>
         </div>
 
+        {/* Polling Error Alert if Backend Unreachable */}
+        {pollError && (
+          <div
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "6px",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              fontSize: "12px",
+            }}
+          >
+            Connection warning: {pollError}. Retrying...
+          </div>
+        )}
+
         {/* Duplicate Warning */}
-        {job && job.duplicates_pending_count > 0 && (
+        {dupCount > 0 && (
           <div
             style={{
               display: "flex",
@@ -191,23 +282,25 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
           >
             <Layers size={16} />
             <span>
-              {job.duplicates_pending_count} duplicate candidates awaiting
-              triage
+              {dupCount} duplicate candidates awaiting triage
             </span>
           </div>
         )}
 
-        {job?.status === "FAILED" && (
+        {isFailed && (
           <p style={{ fontSize: "13px", color: "var(--danger)" }}>
-            {job.error_message ||
+            {job?.error_message ||
               "An error occurred during asynchronous CSV processing."}
           </p>
         )}
 
+        {/* Action Buttons */}
         <div
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            alignItems: "center",
+            gap: "8px",
             width: "100%",
             marginTop: "8px",
           }}
@@ -222,10 +315,57 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
               color: "var(--text-secondary)",
               fontWeight: 600,
               fontSize: "13px",
+              border: "none",
+              cursor: "pointer",
             }}
           >
             Close
           </button>
+
+          {isCompleted ? (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenTriage(jobId);
+                onClose();
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 16px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "var(--success, #10b981)",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: "13px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <span>View Candidates</span>
+              <ArrowRight size={14} />
+            </button>
+          ) : (
+            onReupload && (
+              <button
+                type="button"
+                onClick={onReupload}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background: "var(--accent, #2563eb)",
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Re-upload CSV
+              </button>
+            )
+          )}
         </div>
       </div>
     </Modal>

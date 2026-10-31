@@ -284,6 +284,7 @@ describe("Preferences & Settings Tabs (REQ-UI-016, REQ-UI-017)", () => {
     expect(screen.getByText("Account & UI")).toBeInTheDocument();
     expect(screen.getByText("POI Mode")).toBeInTheDocument();
     expect(screen.getByText("Planner Mode")).toBeInTheDocument();
+    expect(screen.getByText("Exclusion Zones")).toBeInTheDocument();
 
     // Switch to POI Tab
     const poiTabBtn = screen.getByText("POI Mode");
@@ -299,6 +300,13 @@ describe("Preferences & Settings Tabs (REQ-UI-016, REQ-UI-017)", () => {
     expect(screen.getByText(/Trip Pacing Mode/i)).toBeInTheDocument();
     expect(screen.getByText(/Meal Interval:/i)).toBeInTheDocument();
     expect(screen.getByText(/Preferred Currency/i)).toBeInTheDocument();
+
+    // Switch to Exclusion Zones Tab
+    const exclusionTabBtn = screen.getByText("Exclusion Zones");
+    fireEvent.click(exclusionTabBtn);
+
+    expect(screen.getByTestId("exclusion-zones-section")).toBeInTheDocument();
+    expect(screen.getByText(/Privacy & Exclusion Zones/i)).toBeInTheDocument();
   });
 });
 
@@ -325,6 +333,8 @@ describe("User Profile & GDPR Account Deletion (REQ-UI-015)", () => {
       login: vi.fn(),
       logout: vi.fn(),
       refreshUser: vi.fn(),
+      isOnboardingModalOpen: false,
+      closeOnboardingModal: vi.fn(),
     });
 
     vi.spyOn(authService, "deleteAccount").mockResolvedValue(undefined);
@@ -340,6 +350,7 @@ describe("User Profile & GDPR Account Deletion (REQ-UI-015)", () => {
     expect(screen.getByText("Privacy Advocate")).toBeInTheDocument();
     expect(screen.getByText("privacy@vistarae.com")).toBeInTheDocument();
     expect(screen.getByText("HIGH TIER")).toBeInTheDocument();
+    expect(screen.queryByTestId("exclusion-zones-section")).toBeNull();
 
     // Open Delete Account modal
     const deleteBtn = screen.getByRole("button", { name: /delete account/i });
