@@ -34,12 +34,11 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from vistarae_core.domain.entities import IngestCandidate, POI
+from vistarae_core.domain.entities import IngestCandidate
 from vistarae_core.domain.value_objects import (
     AddressRecord,
     IngestCandidatePhaseState,
     IngestDisposition,
-    WGS84Point,
 )
 from vistarae_core.schemas.ingest_staging import CandidateUpdateRequest
 from vistarae_core.schemas.poi_export import POIExportRecord
@@ -441,3 +440,53 @@ async def test_update_and_advance_candidates(
     adv, ign = await staging_service.advance_to_phase2(user_id, job_id)
     assert adv == 1
     assert ign == 0
+
+
+@pytest.mark.asyncio
+async def test_stage_candidates_forward_geocoding_with_street_address(
+    staging_service: StagingService,
+    mock_geocoding_service: MagicMock,
+) -> None:
+    """Tests forward geocoding utilizes street address and city when coordinates are missing."""
+    user_id = uuid4()
+    job_id = uuid4()
+
+    mock_geocoding_service.geocode.return_value = (
+        55.9497,
+        -3.1909,
+        [
+            AddressRecord(
+                street="Royal Mile",
+                city="Edinburgh",
+                state_province="Scotland",
+                country="United Kingdom",
+                postal_code="EH1 2PB",
+            )
+        ],
+        False,
+    )
+
+    record = POIExportRecord(
+        poi_name="Adam Smith Statue",
+        street_address=["Royal Mile"],
+        town_city=["Edinburgh"],
+        state_province=["Scotland"],
+        zip_code=[],
+        country=["United Kingdom"],
+        latitude=None,
+        longitude=None,
+        dates_visited=["2025-05-15"],
+        photo_directory="Great Britain/Edinburgh/Adam Smith Statue",
+        location_confidence_percent=95,
+    )
+
+    staged = await staging_service.stage_records(user_id, job_id, [record])
+    assert len(staged) == 1
+    item = staged[0]
+    assert item.latitude == Decimal("55.9497")
+    assert item.longitude == Decimal("-3.1909")
+    assert item.recommended_disposition == IngestDisposition.ACCEPT
+
+    # Assert geocode was called with queries containing street and city
+    called_queries = [call.args[0] for call in mock_geocoding_service.geocode.await_args_list]
+    assert any("Royal Mile" in q and "Edinburgh" in q for q in called_queries)

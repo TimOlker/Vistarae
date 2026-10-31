@@ -29,6 +29,7 @@ Enforces upload guardrails:
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import re
@@ -54,6 +55,7 @@ _COLUMN_MAPPINGS: dict[str, str] = {
     "street address": "street_address",
     "street_address": "street_address",
     "street": "street_address",
+    "address": "street_address",
     "town/city": "city",
     "town_city": "city",
     "town": "city",
@@ -81,9 +83,12 @@ _COLUMN_MAPPINGS: dict[str, str] = {
     "location_confidence_percent": "confidence_score",
     "confidence_score": "confidence_score",
     "confidence": "confidence_score",
+    "confidence_source": "confidence_source",
+    "confidence_calculation_source": "confidence_source",
     "description": "description",
     "reason_to_visit": "reason_to_visit",
     "why_visit": "reason_to_visit",
+    "rating": "rating",
 }
 
 
@@ -140,7 +145,11 @@ def _build_aligned_addresses(
         city = cities[i] if i < len(cities) else (cities[0] if len(cities) == 1 else None)
         state = states[i] if i < len(states) else (states[0] if len(states) == 1 else None)
         postal = zips[i] if i < len(zips) else (zips[0] if len(zips) == 1 else None)
-        country = countries[i] if i < len(countries) else (countries[0] if len(countries) == 1 else "Unknown")
+        country = (
+            countries[i]
+            if i < len(countries)
+            else (countries[0] if len(countries) == 1 else "Unknown")
+        )
 
         addresses.append(
             {
@@ -232,37 +241,18 @@ def parse_and_sanitize_csv(  # noqa: C901
             cell_val = raw_row[idx] if idx < len(raw_row) else ""
             sanitized = sanitize_text_field(cell_val)
             target_key = _COLUMN_MAPPINGS.get(col_name, col_name)
-            if (
-                target_key in ("description", "reason_to_visit")
-                and len(sanitized) > 4000
-            ):
+            if target_key in ("description", "reason_to_visit") and len(sanitized) > 4000:
                 sanitized = sanitized[:4000]
             raw_dict[target_key] = sanitized
 
         # Extract normalized POI name
         poi_name = raw_dict.get("poi_name") or raw_dict.get("name", "")
 
-        # Extract coordinates
-        lat_val: float | None = None
-        lon_val: float | None = None
-        if raw_dict.get("latitude"):
-            try:
-                lat_val = float(raw_dict["latitude"])
-            except ValueError:
-                pass
-        if raw_dict.get("longitude"):
-            try:
-                lon_val = float(raw_dict["longitude"])
-            except ValueError:
-                pass
-
         # Parse confidence score
         conf_val = 0
         if raw_dict.get("confidence_score"):
-            try:
+            with contextlib.suppress(ValueError):
                 conf_val = int(raw_dict["confidence_score"])
-            except ValueError:
-                pass
 
         # Build aligned addresses
         addrs = _build_aligned_addresses(
@@ -283,15 +273,21 @@ def parse_and_sanitize_csv(  # noqa: C901
         row_data: dict[str, Any] = {
             "name": poi_name,
             "poi_name": poi_name,
+            "address": raw_dict.get("street_address", ""),
             "street_address": raw_dict.get("street_address", ""),
             "city": raw_dict.get("city", ""),
+            "state": raw_dict.get("state_province", ""),
             "state_province": raw_dict.get("state_province", ""),
             "postal_code": raw_dict.get("postal_code", ""),
+            "zip_code": raw_dict.get("postal_code", ""),
             "country": raw_dict.get("country", ""),
             "addresses": addrs,
             "dates_visited": dates_list,
+            "visited_date": dates_list[0] if dates_list else None,
             "photo_directory": raw_dict.get("photo_directory", ""),
             "confidence_score": conf_val,
+            "location_confidence_percent": conf_val,
+            "confidence_source": raw_dict.get("confidence_source", ""),
             "latitude": raw_dict.get("latitude", ""),
             "longitude": raw_dict.get("longitude", ""),
             "tags": tags_list,

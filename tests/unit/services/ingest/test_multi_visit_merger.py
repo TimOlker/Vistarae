@@ -33,7 +33,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from vistarae_core.domain.entities import IngestCandidate, POI
+from vistarae_core.domain.entities import POI, IngestCandidate
 from vistarae_core.domain.value_objects import (
     AddressRecord,
     IngestCandidatePhaseState,
@@ -124,7 +124,10 @@ async def test_multi_visit_merge_preserves_coordinates_by_default() -> None:
     assert updated.address == "300 N Central Park Ave"
 
     # Preserved curated descriptions
-    assert updated.description == "Historic botanical conservatory featuring glasshouses and rare plants."
+    assert (
+        updated.description
+        == "Historic botanical conservatory featuring glasshouses and rare plants."
+    )
     assert updated.reason_to_visit == "Admire world-class tropical flora in historic glasshouses."
 
     # Union of visited dates and directory paths

@@ -45,6 +45,7 @@ CSV_HEADERS: list[str] = [
     "dates visited",
     "Photo directory",
     "location_confidence_percent",
+    "confidence_source",
 ]
 
 _FORMULA_INJECTION_PREFIXES: tuple[str, ...] = ("=", "+", "-", "@", "\t", "\r")
@@ -113,6 +114,7 @@ def generate_standard_poi_csv(records: Sequence[POIExportRecord]) -> str:
             _join_and_sanitize(rec.dates_visited),
             sanitize_csv_cell(rec.photo_directory),
             conf_str,
+            sanitize_csv_cell(rec.confidence_source or ""),
         ]
         writer.writerow(row)
 

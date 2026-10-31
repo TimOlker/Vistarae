@@ -33,6 +33,7 @@ from vistarae_core.domain.value_objects import (
 from vistarae_core.schemas.base import StrictBaseModel
 
 __all__ = [
+    "ActiveSessionResponse",
     "CandidateItemResponse",
     "CandidateListResponse",
     "CandidateUpdateRequest",
@@ -40,6 +41,18 @@ __all__ = [
     "JobCancellationResponse",
     "PhaseTransitionResponse",
 ]
+
+
+class ActiveSessionResponse(StrictBaseModel):
+    """Details of an active, uncommitted staging session for the current user."""
+
+    has_active_session: bool
+    job_id: UUID | None = None
+    phase_state: IngestCandidatePhaseState | None = None
+    total_candidates: int = 0
+    created_at: datetime | None = None
+    target_list_id: UUID | None = None
+    target_list_name: str | None = None
 
 
 class CandidateItemResponse(StrictBaseModel):
@@ -68,6 +81,12 @@ class CandidateItemResponse(StrictBaseModel):
     tags: list[str] = Field(default_factory=list)
     description: str | None = None
     reason_to_visit: str | None = None
+    official_url: str | None = None
+    wiki_url: str | None = None
+    hero_image_url: str | None = None
+    recommended_duration_hours: float | None = None
+    recommended_visit_days: int | None = None
+    estimated_visit_time_notes: str | None = None
     update_coordinates: bool = False
     is_skipped: bool = False
     phase_state: IngestCandidatePhaseState
@@ -102,8 +121,26 @@ class CandidateUpdateRequest(StrictBaseModel):
     tags: list[str] | None = None
     description: str | None = None
     reason_to_visit: str | None = None
+    official_url: str | None = None
+    wiki_url: str | None = None
+    hero_image_url: str | None = None
+    recommended_duration_hours: float | None = None
+    recommended_visit_days: int | None = None
+    estimated_visit_time_notes: str | None = None
     update_coordinates: bool | None = None
     is_skipped: bool | None = None
+
+
+class Phase2ProgressResponse(StrictBaseModel):
+    """Real-time progress reporting during asynchronous parallel AI/web enrichment."""
+
+    job_id: UUID
+    total_count: int
+    enriched_count: int
+    is_complete: bool
+    percent_complete: int
+    status_message: str
+
 
 
 class PhaseTransitionResponse(StrictBaseModel):
@@ -131,4 +168,3 @@ class JobCancellationResponse(StrictBaseModel):
     job_id: UUID
     purged_count: int
     message: str
-

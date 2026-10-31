@@ -27,10 +27,21 @@ from vistarae_core.adapters.repositories.ingest_repo import IngestJobRepository
 from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
 
 from services.ingest.dependencies import (
+    get_candidate_repo,
+    get_duplicate_service,
+    get_geocache_repo,
+    get_geocoding_service,
     get_ingest_repo,
     get_poi_repo,
     get_queue_port,
+    get_staging_service,
 )
+from vistarae_core.adapters.repositories.geocache_repo import SqlAlchemyGeocodingCacheRepository
+from vistarae_core.adapters.repositories.ingest_candidate_repo import SqlAlchemyIngestCandidateRepository
+from services.poi.services.duplicate_service import DuplicateTriageService
+from services.poi.services.geocoding_service import GeocodingService
+from services.ingest.services.staging_service import StagingService
+
 
 
 def test_get_queue_port_testing_stage(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -63,3 +74,36 @@ def test_get_poi_repo() -> None:
     mock_session = AsyncMock()
     repo = get_poi_repo(mock_session)
     assert isinstance(repo, SqlAlchemyPOIRepository)
+
+
+def test_get_candidate_repo() -> None:
+    mock_session = AsyncMock()
+    repo = get_candidate_repo(mock_session)
+    assert isinstance(repo, SqlAlchemyIngestCandidateRepository)
+
+
+def test_get_geocache_repo() -> None:
+    mock_session = AsyncMock()
+    repo = get_geocache_repo(mock_session)
+    assert isinstance(repo, SqlAlchemyGeocodingCacheRepository)
+
+
+def test_get_geocoding_service() -> None:
+    mock_cache_repo = AsyncMock()
+    service = get_geocoding_service(mock_cache_repo)
+    assert isinstance(service, GeocodingService)
+
+
+def test_get_duplicate_service() -> None:
+    mock_session = AsyncMock()
+    service = get_duplicate_service(mock_session)
+    assert isinstance(service, DuplicateTriageService)
+
+
+def test_get_staging_service() -> None:
+    mock_cand_repo = AsyncMock()
+    mock_poi_repo = AsyncMock()
+    mock_geo_svc = AsyncMock()
+    mock_dup_svc = AsyncMock()
+    svc = get_staging_service(mock_cand_repo, mock_poi_repo, mock_geo_svc, mock_dup_svc)
+    assert isinstance(svc, StagingService)

@@ -26,6 +26,7 @@ export interface ModalProps {
   title?: string;
   children: React.ReactNode;
   maxWidth?: string;
+  closeOnBackdropClick?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -34,6 +35,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   maxWidth = "500px",
+  closeOnBackdropClick = true,
 }) => {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -63,7 +65,7 @@ export const Modal: React.FC<ModalProps> = ({
       aria-modal="true"
       aria-labelledby={title ? "modal-title" : undefined}
       className="modal-backdrop fade-in"
-      onClick={onClose}
+      onClick={closeOnBackdropClick ? onClose : undefined}
       style={{
         position: "fixed",
         top: 0,

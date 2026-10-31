@@ -89,3 +89,7 @@ class POIExportRecord(StrictBaseModel):
         le=100,
         description="Location certainty score (0-100)",
     )
+    confidence_source: str | None = Field(
+        default=None,
+        description="Signals and sources contributing to location confidence",
+    )

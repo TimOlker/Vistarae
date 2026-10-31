@@ -61,9 +61,7 @@ async def test_commit_phase2(
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(f"/api/ingest/jobs/{job_id}/phase2/commit")
 
     app.dependency_overrides.clear()
@@ -87,9 +85,7 @@ async def test_cancel_phase2(
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(f"/api/ingest/jobs/{job_id}/phase2/cancel")
 
     app.dependency_overrides.clear()
@@ -99,4 +95,3 @@ async def test_cancel_phase2(
     assert data["job_id"] == str(job_id)
     assert data["purged_count"] == 3
     mock_staging_service.cancel_staging.assert_awaited_once_with(mock_user.id, job_id)
-

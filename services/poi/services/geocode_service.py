@@ -85,6 +85,15 @@ class ReverseGeocodeService:
         cached_entry = await self._cache_repo.get(coord_hash)
         if cached_entry is not None:
             logger.info("MSG ->| Geocache hit for hash=%s", coord_hash)
+            if cached_entry.status == "NOT_FOUND":
+                return ReverseGeocodeResponse(
+                    street=None,
+                    city=None,
+                    state_province=None,
+                    country="Unknown",
+                    postal_code=None,
+                    cached=True,
+                )
             try:
                 data = json.loads(cached_entry.formatted_address)
                 return ReverseGeocodeResponse(

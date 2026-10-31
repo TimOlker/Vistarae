@@ -30,7 +30,6 @@ Validates the complete workflow:
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import os
 import tempfile
@@ -41,12 +40,10 @@ from uuid import uuid4
 
 import pytest
 from PIL import Image
-from vistarae_core.domain.entities import IngestCandidate, POI, User
+from vistarae_core.domain.entities import POI, IngestCandidate
 from vistarae_core.domain.value_objects import (
-    IngestCandidatePhaseState,
     IngestDisposition,
     PromptType,
-    WGS84Point,
 )
 from vistarae_core.schemas.poi_export import POIExportRecord
 
@@ -117,7 +114,9 @@ async def test_photo_scraper_e2e_pipeline() -> None:
         mock_ai_resp.location_confidence_percent = 95
         mock_ai_resp.confidence_rationale = "Recognized historic Asakusa Buddhist temple"
 
-        with patch("services.scraper.location_resolver.LocationResolver.resolve", return_value=mock_ai_resp):
+        with patch(
+            "services.scraper.location_resolver.LocationResolver.resolve", return_value=mock_ai_resp
+        ):
             exit_code = run_photo_scraper(
                 input_dir=photo_dir,
                 output_csv=output_csv,
@@ -153,7 +152,9 @@ async def test_photo_scraper_e2e_pipeline() -> None:
                 zip_code=[row["postal_code"]] if row.get("postal_code") else [],
                 country=[row["country"]] if row.get("country") else [],
                 latitude=Decimal(str(row["latitude"])) if row.get("latitude") is not None else None,
-                longitude=Decimal(str(row["longitude"])) if row.get("longitude") is not None else None,
+                longitude=Decimal(str(row["longitude"]))
+                if row.get("longitude") is not None
+                else None,
                 dates_visited=row.get("dates_visited", []),
                 photo_directory=row.get("photo_directory", ""),
                 location_confidence_percent=row.get("confidence_score", 0),
@@ -165,7 +166,9 @@ async def test_photo_scraper_e2e_pipeline() -> None:
 
         mock_candidate_repo = MagicMock()
         mock_candidate_repo.create_batch = AsyncMock(side_effect=lambda cands: cands)
-        mock_candidate_repo.list_by_job = AsyncMock(side_effect=lambda uid, jid, state=None: staged_candidates)
+        mock_candidate_repo.list_by_job = AsyncMock(
+            side_effect=lambda uid, jid, state=None: staged_candidates
+        )
         mock_candidate_repo.update_candidate = AsyncMock(side_effect=lambda uid, c: c)
         mock_candidate_repo.advance_to_phase2 = AsyncMock(return_value=1)
         mock_candidate_repo.purge_by_job = AsyncMock(return_value=1)

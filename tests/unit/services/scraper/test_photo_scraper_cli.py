@@ -100,6 +100,7 @@ def test_photo_scraper_e2e_traversal(tmp_path: Path) -> None:
     assert header[0] == "POI Name"
     assert header[10] == "Photo directory"
     assert header[11] == "location_confidence_percent"
+    assert header[12] == "confidence_source"
 
     poi_names = [row[0] for row in reader[1:]]
     assert "Red Fort" in poi_names
@@ -177,11 +178,16 @@ def test_photo_scraper_cli_main(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
             location_confidence_percent=85,
         )
         with pytest.raises(SystemExit) as exc:
-            main([
-                "--input-dir", str(fixture_dir),
-                "--output-csv", str(out_csv),
-                "--cache-dir", str(cache_file),
-            ])
+            main(
+                [
+                    "--input-dir",
+                    str(fixture_dir),
+                    "--output-csv",
+                    str(out_csv),
+                    "--cache-dir",
+                    str(cache_file),
+                ]
+            )
         assert exc.value.code == 0
 
 
@@ -230,3 +236,69 @@ def test_rescan_existing_override(tmp_path: Path) -> None:
         reader = list(csv.reader(f))
     poi_names = [row[0] for row in reader[1:]]
     assert "Senso-ji" in poi_names
+
+
+def test_photo_scraper_aborts_on_client_error(tmp_path: Path) -> None:
+    """Verifies scraper terminates immediately if a ClientError occurs (REQ-SCR-028)."""
+    from google.genai.errors import ClientError
+
+    fixture_dir = Path("tests/fixtures/sample_photos")
+    output_csv = tmp_path / "output_abort.csv"
+    cache_db = tmp_path / "test_cache.db"
+
+    with patch(
+        "services.scraper.location_resolver.LocationResolver.resolve",
+        side_effect=ClientError(404, {"message": "Model not found"}),
+    ):
+        exit_code = run_photo_scraper(
+            input_dir=fixture_dir,
+            output_csv=output_csv,
+            cache_db=cache_db,
+            api_key="mock-key",
+        )
+
+    assert exit_code == 1
+
+
+def test_format_duration() -> None:
+    """Verifies duration formatting for MM:SS and HH:MM:SS."""
+    from services.scraper.photo_scraper import _format_duration
+
+    assert _format_duration(45.2) == "00:45"
+    assert _format_duration(125.6) == "02:06"
+    assert _format_duration(3665.0) == "01:01:05"
+
+
+def test_log_ingestion_summary(tmp_path: Path) -> None:
+    """Verifies ingestion summary logging with unique location counting."""
+    from services.scraper.photo_scraper import _log_ingestion_summary
+
+    records = [
+        POIExportRecord(
+            poi_name="Place A",
+            town_city=["Chicago"],
+            state_province=["Illinois"],
+            country=["United States"],
+            location_confidence_percent=90,
+            photo_directory="dir_a",
+        ),
+        POIExportRecord(
+            poi_name="Place B",
+            town_city=["Chicago", "Evanston"],
+            state_province=["Illinois"],
+            country=["United States"],
+            location_confidence_percent=80,
+            photo_directory="dir_b",
+        ),
+    ]
+
+    out_file = tmp_path / "out.csv"
+    # Should execute cleanly without error
+    _log_ingestion_summary(
+        records=records,
+        processed_count=2,
+        skipped_count=0,
+        total_photos=15,
+        total_duration=12.5,
+        out_path=out_file,
+    )

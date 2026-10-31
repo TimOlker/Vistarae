@@ -249,3 +249,7 @@ class SqlAlchemyTagRepository(ITagRepository):
         if existing:
             return existing
         return await self.create(user_id=user_id, name=clean_name)
+
+
+# Alias for compatibility
+TagRepository = SqlAlchemyTagRepository

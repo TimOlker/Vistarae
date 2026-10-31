@@ -67,7 +67,7 @@ class TestCSVParserReasonToVisit:
         """Asserts HTML stripping, formula neutralization, and 4,000 character truncation."""
         long_text = "Spectacular view! " * 300  # 5,400 chars
         csv_content = (
-            "name,reason_to_visit\n" f'Lookout Peak,"<b>=HYPERLINK(evil)</b>{long_text}"\n'
+            f'name,reason_to_visit\nLookout Peak,"<b>=HYPERLINK(evil)</b>{long_text}"\n'
         ).encode()
 
         rows = parse_and_sanitize_csv(csv_content, content_type="text/csv")

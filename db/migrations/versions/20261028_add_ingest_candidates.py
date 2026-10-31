@@ -166,4 +166,3 @@ def downgrade() -> None:
     op.drop_index("idx_ingest_candidates_geom", table_name="ingest_candidates")
     op.drop_index("idx_ingest_candidates_user_job", table_name="ingest_candidates")
     op.drop_table("ingest_candidates")
-

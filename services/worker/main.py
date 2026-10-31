@@ -106,6 +106,40 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return asyncio.run(worker.process_batch(records))
 
 
+def candidate_enrichment_lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    """AWS Lambda entrypoint triggered by Candidate Enrichment SQS event source mapping.
+
+    Processes staged POI enrichment events concurrently across horizontally scalable Lambda instances.
+    """
+    import json
+    from uuid import UUID
+    from services.worker.candidate_enricher import CandidateEnricher
+
+    records = event.get("Records", [])
+    if not records:
+        return {"batchItemFailures": []}
+
+    enricher = CandidateEnricher()
+    failures: list[dict[str, str]] = []
+
+    async def _process_all() -> None:
+        for record in records:
+            msg_id = str(record.get("messageId", record.get("MessageId", "")))
+            try:
+                body_raw = record.get("body", "{}")
+                body = json.loads(body_raw) if isinstance(body_raw, str) else body_raw
+                user_id = UUID(str(body["user_id"]))
+                candidate_id = UUID(str(body["candidate_id"]))
+                job_id = UUID(str(body["job_id"]))
+                await enricher.enrich_candidate(user_id=user_id, candidate_id=candidate_id, job_id=job_id)
+            except Exception as exc:
+                logger.exception("Failed enriching candidate record in Lambda: %s", exc)
+                failures.append({"itemIdentifier": msg_id})
+
+    asyncio.run(_process_all())
+    return {"batchItemFailures": failures}
+
+
 async def run_local_worker(
     max_iterations: int | None = None,
     poll_wait_seconds: int = 5,

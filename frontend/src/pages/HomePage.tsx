@@ -143,8 +143,8 @@ export const HomePage: React.FC<HomePageProps> = ({
 }) => {
   const { poi } = usePreferences();
   const [internalPois, setInternalPois] =
-    useState<POIMapFeature[]>(INITIAL_DEMO_POIS);
-  const pois = propsPois || internalPois;
+    useState<POIMapFeature[]>([]);
+  const pois = propsPois ?? internalPois;
 
   const setPois = useCallback(
     (newPois: POIMapFeature[]) => {
@@ -165,7 +165,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const [isViewportFilterActive, setIsViewportFilterActive] =
     useState<boolean>(true);
   const [visibleViewportPois, setVisibleViewportPois] =
-    useState<POIMapFeature[]>(INITIAL_DEMO_POIS);
+    useState<POIMapFeature[]>([]);
   const [currentBbox, setCurrentBbox] = useState<BoundingBox | null>(null);
 
   // Detail drawer state
@@ -262,8 +262,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         if (
           isMounted &&
           res &&
-          Array.isArray(res.items) &&
-          res.items.length > 0
+          Array.isArray(res.items)
+
         ) {
           const mapped: POIMapFeature[] = res.items.map((item) => ({
             id: String(item.id),
@@ -325,7 +325,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         }
       })
       .catch((err) => {
-        console.warn("Could not fetch POIs from backend, using demo POIs:", err);
+        console.warn("Could not fetch POIs from backend:", err);
       });
     return () => {
       isMounted = false;

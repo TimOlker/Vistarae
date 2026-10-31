@@ -39,6 +39,14 @@ from vistarae_core.schemas.auth import (
 )
 from vistarae_core.schemas.base import StrictBaseModel
 from vistarae_core.schemas.errors import InvalidParam, ProblemDetails
+from vistarae_core.schemas.exclusion_zone import (
+    ExclusionCheckRequest,
+    ExclusionCheckResponse,
+    ExclusionZoneCreateRequest,
+    ExclusionZoneListResponse,
+    ExclusionZoneResponse,
+    ExclusionZoneUpdateRequest,
+)
 from vistarae_core.schemas.ingest import (
     DuplicateItemResponse,
     IngestJobProgressResponse,
@@ -48,6 +56,7 @@ from vistarae_core.schemas.ingest import (
     TriageRequest,
 )
 from vistarae_core.schemas.ingest_staging import (
+    ActiveSessionResponse,
     CandidateItemResponse,
     CandidateListResponse,
     CandidateUpdateRequest,
@@ -91,6 +100,7 @@ from vistarae_core.schemas.poi import (
     POIResponse,
     POIUpdateRequest,
     PotentialDuplicateItem,
+    ForwardGeocodeResponse,
     ReverseGeocodeResponse,
     SharedListResponse,
 )
@@ -99,6 +109,7 @@ from vistarae_core.schemas.poi_duplicate import (
     DuplicateCheckRequest,
     DuplicateCheckResponse,
 )
+from vistarae_core.schemas.poi_export import POIExportRecord
 from vistarae_core.schemas.poi_merge import (
     POIMergeRequest,
     POIMergeResponse,
@@ -134,9 +145,8 @@ from vistarae_core.schemas.user import (
     UserResponse,
 )
 
-from vistarae_core.schemas.poi_export import POIExportRecord
-
 __all__ = [
+    "ActiveSessionResponse",
     "POIExportRecord",
     "AdminMessageRequest",
     "AdminMetricsResponse",
@@ -159,6 +169,12 @@ __all__ = [
     "DuplicateCheckRequest",
     "DuplicateCheckResponse",
     "DuplicateItemResponse",
+    "ExclusionCheckRequest",
+    "ExclusionCheckResponse",
+    "ExclusionZoneCreateRequest",
+    "ExclusionZoneListResponse",
+    "ExclusionZoneResponse",
+    "ExclusionZoneUpdateRequest",
     "ExtractAndCheckRequest",
     "ExtractAndCheckResponse",
     "ForgotPasswordRequest",
@@ -211,6 +227,7 @@ __all__ = [
     "RegisterResponse",
     "ResetPasswordRequest",
     "ResetPasswordResponse",
+    "ForwardGeocodeResponse",
     "ReverseGeocodeResponse",
     "SharedListResponse",
     "StrictBaseModel",

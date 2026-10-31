@@ -93,7 +93,8 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
             app: Inner ASGI application to wrap.
         """
         super().__init__(app)
-        self._stage = os.getenv("STAGE", "local")
+        stage_val = os.getenv("STAGE", os.getenv("APP_ENV", "local")).lower()
+        self._is_local = stage_val in ("local", "dev", "development", "testing")
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         """Processes inbound request: extracts/generates trace context and wraps response.
@@ -111,7 +112,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         source = request.headers.get("X-Source", "client")
         destination = request.headers.get("X-Destination", "gateway")
 
-        if self._stage == "local":
+        if self._is_local:
             logger.info(
                 "MSG -->| [%s -> %s] [trace=%s] %s %s",
                 source,
@@ -128,7 +129,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         response.headers["X-Current-Span-ID"] = span_id
         response.headers["X-Parent-Transaction-ID"] = parent_span_id
 
-        if self._stage == "local":
+        if self._is_local:
             if response.status_code < 400:
                 logger.info(
                     "MSG <--| [%s -> %s] [trace=%s] [status=%d]",

@@ -27,11 +27,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vistarae_core.adapters.db.tables import IngestCandidateTable
@@ -69,6 +68,14 @@ def _row_to_entity(row: IngestCandidateTable) -> IngestCandidate:
         tags=list(row.tags or []),
         description=row.description,
         reason_to_visit=row.reason_to_visit,
+        official_url=row.official_url,
+        wiki_url=row.wiki_url,
+        hero_image_url=row.hero_image_url,
+        recommended_duration_hours=Decimal(str(row.recommended_duration_hours))
+        if row.recommended_duration_hours is not None
+        else None,
+        recommended_visit_days=row.recommended_visit_days,
+        estimated_visit_time_notes=row.estimated_visit_time_notes,
         update_coordinates=row.update_coordinates,
         is_skipped=row.is_skipped,
         phase_state=IngestCandidatePhaseState(row.phase_state),
@@ -134,6 +141,14 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
                 tags=cand.tags,
                 description=cand.description,
                 reason_to_visit=cand.reason_to_visit,
+                official_url=cand.official_url,
+                wiki_url=cand.wiki_url,
+                hero_image_url=cand.hero_image_url,
+                recommended_duration_hours=Decimal(str(cand.recommended_duration_hours))
+                if cand.recommended_duration_hours is not None
+                else None,
+                recommended_visit_days=cand.recommended_visit_days,
+                estimated_visit_time_notes=cand.estimated_visit_time_notes,
                 update_coordinates=cand.update_coordinates,
                 is_skipped=cand.is_skipped,
                 phase_state=cand.phase_state.value,
@@ -198,6 +213,17 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         row = res.scalar_one_or_none()
         return _row_to_entity(row) if row else None
 
+    async def get_by_id(
+        self,
+        arg1: UUID,
+        arg2: UUID,
+    ) -> IngestCandidate | None:
+        """Alias for get_candidate supporting either (candidate_id, user_id) or (user_id, candidate_id)."""
+        cand = await self.get_candidate(arg1, arg2)
+        if cand is not None:
+            return cand
+        return await self.get_candidate(arg2, arg1)
+
     async def update_candidate(
         self,
         user_id: UUID,
@@ -240,6 +266,16 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         row.tags = candidate.tags
         row.description = candidate.description
         row.reason_to_visit = candidate.reason_to_visit
+        row.official_url = candidate.official_url
+        row.wiki_url = candidate.wiki_url
+        row.hero_image_url = candidate.hero_image_url
+        row.recommended_duration_hours = (
+            Decimal(str(candidate.recommended_duration_hours))
+            if candidate.recommended_duration_hours is not None
+            else None
+        )
+        row.recommended_visit_days = candidate.recommended_visit_days
+        row.estimated_visit_time_notes = candidate.estimated_visit_time_notes
         row.update_coordinates = candidate.update_coordinates
         row.is_skipped = candidate.is_skipped
         row.phase_state = candidate.phase_state.value
@@ -279,6 +315,36 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
             )
             .values(
                 phase_state=IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+                updated_at=datetime.now(UTC),
+            )
+        )
+        res = await self._session.execute(stmt)
+        await self._session.flush()
+        return res.rowcount
+
+    async def revert_to_phase1(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+    ) -> int:
+        """Reverts all candidates for a job from Phase 2 back to Phase 1.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+
+        Returns:
+            Count of candidates reverted.
+        """
+        stmt = (
+            update(IngestCandidateTable)
+            .where(
+                IngestCandidateTable.user_id == user_id,
+                IngestCandidateTable.job_id == job_id,
+                IngestCandidateTable.phase_state == IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+            )
+            .values(
+                phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
                 updated_at=datetime.now(UTC),
             )
         )
@@ -343,4 +409,66 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         res = await self._session.execute(stmt)
         await self._session.flush()
         return res.rowcount
+
+    async def get_active_session_job(
+        self,
+        user_id: UUID,
+    ) -> tuple[UUID, IngestCandidatePhaseState, int, datetime] | None:
+        """Finds the most recent uncommitted candidate session for tenant."""
+        stmt = (
+            select(
+                IngestCandidateTable.job_id,
+                func.max(IngestCandidateTable.created_at).label("last_created"),
+            )
+            .where(
+                IngestCandidateTable.user_id == user_id,
+                IngestCandidateTable.phase_state.in_([
+                    IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
+                    IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+                ]),
+            )
+            .group_by(IngestCandidateTable.job_id)
+            .order_by(text("last_created DESC"))
+            .limit(1)
+        )
+        res = await self._session.execute(stmt)
+        latest_job = res.first()
+        if not latest_job:
+            return None
+
+        job_id, created_at = latest_job[0], latest_job[1]
+
+        cand_stmt = select(IngestCandidateTable.phase_state).where(
+            IngestCandidateTable.user_id == user_id,
+            IngestCandidateTable.job_id == job_id,
+        )
+        cands_res = await self._session.execute(cand_stmt)
+        states = [row[0] for row in cands_res.all()]
+        if not states:
+            return None
+
+        total_count = len(states)
+        if IngestCandidatePhaseState.PHASE_2_ENRICHED.value in states:
+            effective_state = IngestCandidatePhaseState.PHASE_2_ENRICHED
+        else:
+            effective_state = IngestCandidatePhaseState.PHASE_1_TRIAGE
+
+        return (job_id, effective_state, total_count, created_at)
+
+    async def purge_active_sessions(
+        self,
+        user_id: UUID,
+    ) -> int:
+        """Purges any uncommitted candidate records across all active jobs for tenant."""
+        stmt = delete(IngestCandidateTable).where(
+            IngestCandidateTable.user_id == user_id,
+            IngestCandidateTable.phase_state.in_([
+                IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
+                IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+            ]),
+        )
+        res = await self._session.execute(stmt)
+        await self._session.flush()
+        return res.rowcount
+
 

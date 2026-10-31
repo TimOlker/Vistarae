@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Tim Olker
+﻿# Copyright (c) 2026 Tim Olker
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app: FastAPI application instance (unused but required by protocol).
 
     Yields:
-        None — yields control to request handlers.
+        None â€” yields control to request handlers.
     """
     await init_engine()
     yield
@@ -67,12 +67,17 @@ app = FastAPI(
 # Register RFC 7807 problem details exception handlers.
 add_problem_details_handlers(app)
 
-# ── Route registration ────────────────────────────────────────────────────
+# â”€â”€ Route registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Routes are imported lazily to prevent import-time DB connections.
 from services.user.routes import auth as auth_routes  # noqa: E402
 from services.user.routes import me as me_routes  # noqa: E402
 from services.user.routes import preferences as preferences_routes  # noqa: E402
 from services.user.routes import profile as profile_routes  # noqa: E402
+from services.user.routes import exclusion_zones as exclusion_zones_routes  # noqa: E402
+
+app.include_router(exclusion_zones_routes.router, prefix="/api/user", tags=["exclusion-zones"])
+app.include_router(exclusion_zones_routes.router, prefix="/api/users", tags=["exclusion-zones"])
+app.include_router(exclusion_zones_routes.router, tags=["exclusion-zones"])
 
 app.include_router(me_routes.router, prefix="/api/users", tags=["user-profile"])
 app.include_router(preferences_routes.router, prefix="/api/users", tags=["user-preferences"])
@@ -84,7 +89,7 @@ app.include_router(profile_routes.router, tags=["travel-style"])
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["auth"])
 app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
 
-# ── AWS Lambda serverless entry point ────────────────────────────────────
+# â”€â”€ AWS Lambda serverless entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # lifespan="off" is required because Lambda invocations do not support the
 # ASGI lifespan protocol; connection management is handled by the lifespan
 # context manager above for local and container deployments.

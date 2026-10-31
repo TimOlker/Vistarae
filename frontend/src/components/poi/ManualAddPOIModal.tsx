@@ -32,7 +32,13 @@ import {
   Compass,
   AlertCircle,
   CheckCircle2,
+  ShieldAlert,
 } from "lucide-react";
+import {
+  exclusionZoneService,
+  checkCoordinatesAgainstExclusionZones,
+  type ExclusionZoneItem,
+} from "../../services/exclusionZoneService";
 
 interface ManualAddPOIModalProps {
   isOpen: boolean;
@@ -65,6 +71,22 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
   const [photoMetadata, setPhotoMetadata] =
     useState<ExtractedPhotoMetadata | null>(null);
   const [isParsingPhoto, setIsParsingPhoto] = useState(false);
+
+  const [exclusionZones, setExclusionZones] = useState<ExclusionZoneItem[]>([]);
+  const [pendingExclusionWarning, setPendingExclusionWarning] = useState<{
+    isOpen: boolean;
+    zoneNames: string[];
+    pendingPOI: POIMapFeature | null;
+  }>({ isOpen: false, zoneNames: [], pendingPOI: null });
+
+  useEffect(() => {
+    if (isOpen) {
+      exclusionZoneService
+        .getExclusionZones()
+        .then(setExclusionZones)
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   // Sync coords from map picker if user picked a point
   useEffect(() => {
@@ -168,6 +190,16 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
         .filter(Boolean),
     };
 
+    const check = checkCoordinatesAgainstExclusionZones(lat, lng, exclusionZones);
+    if (check.isExcluded) {
+      setPendingExclusionWarning({
+        isOpen: true,
+        zoneNames: check.matchedZones.map((z) => z.name),
+        pendingPOI: newPOI,
+      });
+      return;
+    }
+
     onAddPOI(newPOI);
     showToast(`Added POI "${name}"!`, "success");
     handleClose();
@@ -190,7 +222,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
   };
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title="Add Point of Interest"
@@ -262,7 +295,7 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
                   {photoMetadata.fileName}
                 </p>
                 <p style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                  {(photoMetadata.fileSizeBytes / 1024).toFixed(1)} KB • Memory
+                  {(photoMetadata.fileSizeBytes / 1024).toFixed(1)} KB â€¢ Memory
                   parsed only (Zero AWS egress)
                 </p>
                 {photoMetadata.hasGps ? (
@@ -308,7 +341,7 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
                   : "Drop a photo to auto-fill location from EXIF"}
               </p>
               <p style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                Supports JPEG, PNG, WebP, HEIC/HEIF • Zero cloud bandwidth
+                Supports JPEG, PNG, WebP, HEIC/HEIF â€¢ Zero cloud bandwidth
               </p>
             </div>
           )}
@@ -685,5 +718,85 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
         </div>
       </form>
     </Modal>
+
+    {/* Exclusion Zone Warning Confirmation Modal */}
+    {pendingExclusionWarning.isOpen && (
+      <Modal
+        isOpen={true}
+        onClose={() =>
+          setPendingExclusionWarning({ isOpen: false, zoneNames: [], pendingPOI: null })
+        }
+        title="Privacy Exclusion Zone Warning"
+        maxWidth="440px"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#dc2626" }}>
+            <ShieldAlert size={24} />
+            <div style={{ fontWeight: 700, fontSize: "14px" }}>
+              Exclusion Zone Detected
+            </div>
+          </div>
+          <p style={{ fontSize: "13px", color: "#334155", lineHeight: 1.5 }}>
+            This location is within your configured privacy exclusion zone:{" "}
+            <strong>&ldquo;{pendingExclusionWarning.zoneNames.join(", ")}&rdquo;</strong>.
+          </p>
+          <p style={{ fontSize: "12px", color: "#64748b" }}>
+            Are you sure you want to proceed with creating this Point of Interest?
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+            <button
+              type="button"
+              data-testid="cancel-exclusion-warning-btn"
+              onClick={() =>
+                setPendingExclusionWarning({ isOpen: false, zoneNames: [], pendingPOI: null })
+              }
+              style={{
+                padding: "8px 14px",
+                borderRadius: "6px",
+                backgroundColor: "#f1f5f9",
+                border: "1px solid #cbd5e1",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              data-testid="proceed-exclusion-warning-btn"
+              onClick={() => {
+                if (pendingExclusionWarning.pendingPOI) {
+                  onAddPOI(pendingExclusionWarning.pendingPOI);
+                  showToast(
+                    `Added POI "${pendingExclusionWarning.pendingPOI.name}"!`,
+                    "success",
+                  );
+                  setPendingExclusionWarning({
+                    isOpen: false,
+                    zoneNames: [],
+                    pendingPOI: null,
+                  });
+                  handleClose();
+                }
+              }}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                backgroundColor: "#dc2626",
+                color: "#ffffff",
+                border: "none",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Proceed &amp; Save
+            </button>
+          </div>
+        </div>
+      </Modal>
+    )}
+  </>
   );
 };

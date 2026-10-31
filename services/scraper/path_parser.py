@@ -53,19 +53,13 @@ _NOISE_FOLDER_NAMES: Final[set[str]] = {
 _PERSONAL_NAMES: Final[set[str]] = {"tim", "maria"}
 
 # Prefix stripping pattern: number or single letter followed by dash, underscore, or space
-_PREFIX_PATTERN: Final[re.Pattern] = re.compile(
-    r"^\s*(?:\d+|[A-Za-z])\s*[-_ ]\s*(.+)$"
-)
+_PREFIX_PATTERN: Final[re.Pattern] = re.compile(r"^\s*(?:\d+|[A-Za-z])\s*[-_ ]\s*(.+)$")
 
 # Alternate name parenthetical pattern
-_ALTERNATE_NAME_PATTERN: Final[re.Pattern] = re.compile(
-    r"^(.*?)\s*\((.*?)\)\s*$"
-)
+_ALTERNATE_NAME_PATTERN: Final[re.Pattern] = re.compile(r"^(.*?)\s*\((.*?)\)\s*$")
 
 # Country date suffix pattern (e.g. "Japan 4-03", "Italy 2018", "France 10-05")
-_COUNTRY_DATE_PATTERN: Final[re.Pattern] = re.compile(
-    r"^([A-Za-z\s]+?)\s+\d+(?:[-/]\d+)?$"
-)
+_COUNTRY_DATE_PATTERN: Final[re.Pattern] = re.compile(r"^([A-Za-z\s]+?)\s+\d+(?:[-/]\d+)?$")
 
 # Known regional Illinois landmarks without coordinates (REQ-SCR-016)
 _ILLINOIS_LANDMARKS: Final[dict[str, str]] = {

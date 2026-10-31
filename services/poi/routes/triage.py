@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Tim Olker
+﻿# Copyright (c) 2026 Tim Olker
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -172,7 +172,19 @@ async def extract_and_check(
         verdict.recommended_action,
     )
 
-    from vistarae_core.schemas.scraping import UserTagItemSchema
+    from vistarae_core.schemas.scraping import UserTagItemSchema, ExclusionVerdictSchema
+    from vistarae_core.adapters.repositories.exclusion_zone_repo import SqlAlchemyUserExclusionZoneRepository
+
+    exclusion_verdict = ExclusionVerdictSchema(is_excluded=False, matched_zone_names=[])
+    if candidate.latitude is not None and candidate.longitude is not None:
+        excl_repo = SqlAlchemyUserExclusionZoneRepository(session)
+        matched_zones = await excl_repo.find_matching_zones(current_user.id, candidate.latitude, candidate.longitude)
+        if matched_zones:
+            exclusion_verdict = ExclusionVerdictSchema(
+                is_excluded=True,
+                matched_zone_names=[z.name for z in matched_zones],
+            )
+            logger.info('MSG   |<- Exclusion zone match for candidate: %s', exclusion_verdict.matched_zone_names)
 
     available_tags = [
         UserTagItemSchema(id=t.id, name=t.name, slug=t.slug, aliases=t.aliases or [])
@@ -184,6 +196,7 @@ async def extract_and_check(
         recommended_tags=recommended_tags,
         available_tags=available_tags,
         deduplication=verdict,
+        exclusion=exclusion_verdict,
     )
 
 

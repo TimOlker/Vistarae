@@ -75,6 +75,7 @@ class DirectoryMetadata:
     earliest_date: str | None = None
     all_dates: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    photos_inspected: int = 0
 
 
 def _to_float(val: Any) -> float:
@@ -190,7 +191,9 @@ def _extract_exif_metadata(
                     tags.extend([k.strip() for k in kw.split(";") if k.strip()])
 
             # GPS Info (34853)
-            gps_info = exif.get_ifd(ExifTags.IFD.GPSInfo) if hasattr(ExifTags, "IFD") else exif.get(34853)
+            gps_info = (
+                exif.get_ifd(ExifTags.IFD.GPSInfo) if hasattr(ExifTags, "IFD") else exif.get(34853)
+            )
             if gps_info:
                 lat_raw = gps_info.get(2)  # GPSLatitude
                 lat_ref = gps_info.get(1, "N")  # GPSLatitudeRef
@@ -233,7 +236,12 @@ def parse_xmp_sidecar(
                     lat_dec = _parse_coordinate_string(attr_val)
                 elif "gpslongitude" in attr_lower and lon_dec is None:
                     lon_dec = _parse_coordinate_string(attr_val)
-                elif ("datecreated" in attr_lower or "createdate" in attr_lower or "datetimeoriginal" in attr_lower or "datetime" in attr_lower) and date_val is None:
+                elif (
+                    "datecreated" in attr_lower
+                    or "createdate" in attr_lower
+                    or "datetimeoriginal" in attr_lower
+                    or "datetime" in attr_lower
+                ) and date_val is None:
                     date_val = _clean_date_str(attr_val)
 
             # Check text
@@ -242,9 +250,26 @@ def parse_xmp_sidecar(
                 lat_dec = _parse_coordinate_string(elem.text)
             elif "gpslongitude" in tag_lower and elem.text and lon_dec is None:
                 lon_dec = _parse_coordinate_string(elem.text)
-            elif ("datecreated" in tag_lower or "createdate" in tag_lower or "datetimeoriginal" in tag_lower or "datetime" in tag_lower) and elem.text and date_val is None:
+            elif (
+                (
+                    "datecreated" in tag_lower
+                    or "createdate" in tag_lower
+                    or "datetimeoriginal" in tag_lower
+                    or "datetime" in tag_lower
+                )
+                and elem.text
+                and date_val is None
+            ):
                 date_val = _clean_date_str(elem.text)
-            elif (tag_lower.endswith("title") or tag_lower.endswith("subject") or tag_lower.endswith("li")) and elem.text and elem.text.strip():
+            elif (
+                (
+                    tag_lower.endswith("title")
+                    or tag_lower.endswith("subject")
+                    or tag_lower.endswith("li")
+                )
+                and elem.text
+                and elem.text.strip()
+            ):
                 tags.append(elem.text.strip())
 
         if lat_dec is not None and lon_dec is not None:
@@ -320,13 +345,45 @@ def _find_sidecars(image_file: Path) -> list[Path]:
     return sidecars
 
 
-def extract_directory_metadata(directory: Path | str) -> DirectoryMetadata:
-    """Aggregates metadata across all media and companion sidecars in a directory.
+def _process_sidecar_items(
+    sidecar_items: list[Path],
+    all_dates: set[str],
+    all_tags: set[str],
+    early_exit: bool,
+) -> tuple[Decimal, Decimal] | None:
+    """Extracts metadata from sidecar files, returning primary GPS coordinates."""
+    primary_gps: tuple[Decimal, Decimal] | None = None
+    for sc in sidecar_items:
+        sc_ext = sc.suffix.lower()
+        sc_gps, sc_date, sc_tags = (
+            parse_xmp_sidecar(sc) if sc_ext in (".xmp", ".xml") else _parse_json_sidecar(sc)
+        )
+        if sc_date:
+            all_dates.add(sc_date)
+        all_tags.update(sc_tags)
+        if primary_gps is None and sc_gps is not None:
+            primary_gps = sc_gps
 
+        if early_exit and primary_gps is not None and len(all_dates) > 0:
+            break
+    return primary_gps
+
+
+def extract_directory_metadata(
+    directory: Path | str,
+    early_exit: bool = True,
+    max_photos_per_dir: int = 50,
+) -> DirectoryMetadata:
+    """Aggregates metadata across media and companion sidecars in a directory.
+
+    Supports smart early-exit once GPS coordinates and a calendar date are anchored,
+    and sidecars-first inspection to significantly minimize network I/O on NAS volumes.
     Strictly enforces read-only access per REQ-SCR-027.
 
     Args:
         directory: Filesystem path of the candidate POI directory.
+        early_exit: Flag enabling early exit once GPS and date are found.
+        max_photos_per_dir: Upper bound of photos inspected when GPS is absent.
 
     Returns:
         DirectoryMetadata with coordinates, earliest date, and aggregated tags.
@@ -335,58 +392,46 @@ def extract_directory_metadata(directory: Path | str) -> DirectoryMetadata:
     if not folder.is_dir():
         return DirectoryMetadata()
 
-    primary_gps: tuple[Decimal, Decimal] | None = None
     all_dates: set[str] = set()
     all_tags: set[str] = set()
 
-    for item in sorted(folder.iterdir()):
-        if not item.is_file():
-            continue
+    try:
+        entries = sorted(folder.iterdir())
+    except (PermissionError, OSError) as exc:
+        logger.debug("Cannot list directory %s: %s", folder, exc)
+        return DirectoryMetadata()
 
-        ext_lower = item.suffix.lower()
+    sidecar_items = [
+        item
+        for item in entries
+        if item.is_file() and item.suffix.lower() in SUPPORTED_SIDECAR_EXTENSIONS
+    ]
+    image_items = [
+        item
+        for item in entries
+        if item.is_file() and item.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
+    ]
 
-        # Handle supported images
-        if ext_lower in SUPPORTED_IMAGE_EXTENSIONS:
-            exif_gps, exif_date, exif_tags = _extract_exif_metadata(item)
-            if exif_date:
-                all_dates.add(exif_date)
-            all_tags.update(exif_tags)
+    # 1. Process lightweight sidecar files first (< 2KB text files)
+    primary_gps = _process_sidecar_items(sidecar_items, all_dates, all_tags, early_exit)
 
-            current_gps = exif_gps
+    # 2. Process image files if early-exit condition not already satisfied
+    photos_inspected_count = 0
+    for photos_inspected, item in enumerate(image_items):
+        if early_exit and primary_gps is not None and len(all_dates) > 0:
+            break
 
-            # Inspect companion sidecars
-            for sidecar in _find_sidecars(item):
-                sc_ext = sidecar.suffix.lower()
-                sc_gps: tuple[Decimal, Decimal] | None = None
-                sc_date: str | None = None
-                sc_tags: list[str] = []
+        if early_exit and primary_gps is None and photos_inspected >= max_photos_per_dir:
+            break
 
-                if sc_ext in (".xmp", ".xml"):
-                    sc_gps, sc_date, sc_tags = parse_xmp_sidecar(sidecar)
-                elif sc_ext == ".json":
-                    sc_gps, sc_date, sc_tags = _parse_json_sidecar(sidecar)
+        photos_inspected_count += 1
+        exif_gps, exif_date, exif_tags = _extract_exif_metadata(item)
+        if exif_date:
+            all_dates.add(exif_date)
+        all_tags.update(exif_tags)
 
-                if sc_date:
-                    all_dates.add(sc_date)
-                all_tags.update(sc_tags)
-
-                # Sidecar fallback for GPS if embedded is absent (REQ-SCR-021)
-                if current_gps is None and sc_gps is not None:
-                    current_gps = sc_gps
-
-            if primary_gps is None and current_gps is not None:
-                primary_gps = current_gps
-
-        # Handle standalone sidecars in folder
-        elif ext_lower in SUPPORTED_SIDECAR_EXTENSIONS:
-            sc_gps, sc_date, sc_tags = (
-                parse_xmp_sidecar(item) if ext_lower in (".xmp", ".xml") else _parse_json_sidecar(item)
-            )
-            if sc_date:
-                all_dates.add(sc_date)
-            all_tags.update(sc_tags)
-            if primary_gps is None and sc_gps is not None:
-                primary_gps = sc_gps
+        if primary_gps is None and exif_gps is not None:
+            primary_gps = exif_gps
 
     sorted_dates = sorted(all_dates)
     earliest = sorted_dates[0] if sorted_dates else None
@@ -400,4 +445,5 @@ def extract_directory_metadata(directory: Path | str) -> DirectoryMetadata:
         earliest_date=earliest,
         all_dates=sorted_dates,
         tags=sorted(all_tags),
+        photos_inspected=photos_inspected_count,
     )

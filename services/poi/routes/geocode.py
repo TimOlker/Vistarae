@@ -28,10 +28,11 @@ from vistarae_core.adapters.repositories.geocache_repo import (
     SqlAlchemyGeocodingCacheRepository,
 )
 from vistarae_core.domain.entities import User
-from vistarae_core.schemas.poi import ReverseGeocodeResponse
+from vistarae_core.schemas.poi import ForwardGeocodeResponse, ReverseGeocodeResponse
 
 from services.poi.dependencies import get_current_user
 from services.poi.services.geocode_service import ReverseGeocodeService
+from services.poi.services.geocoding_service import GeocodingService
 
 router = APIRouter(tags=["geocoding"])
 
@@ -49,3 +50,30 @@ async def reverse_geocode_endpoint(
     cache_repo = SqlAlchemyGeocodingCacheRepository(session)
     service = ReverseGeocodeService(cache_repo=cache_repo)
     return await service.reverse_geocode(lat=lat, lng=lng)
+
+
+@router.get("/pois/geocode/forward", response_model=ForwardGeocodeResponse)
+async def forward_geocode_endpoint(
+    q: str = Query(..., min_length=1, max_length=500, description="Address or destination query"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> ForwardGeocodeResponse:
+    """Forward geocodes an address or query via internal PostGIS cache and rate-limited OSM Nominatim."""
+    cache_repo = SqlAlchemyGeocodingCacheRepository(session)
+    service = GeocodingService(cache_repo=cache_repo)
+    lat, lon, addrs, cached = await service.geocode(q)
+    street = addrs[0].street if addrs else None
+    city = addrs[0].city if addrs else None
+    state_prov = addrs[0].state_province if addrs else None
+    country = addrs[0].country if addrs else None
+    postal = addrs[0].postal_code if addrs else None
+    return ForwardGeocodeResponse(
+        latitude=lat,
+        longitude=lon,
+        street=street,
+        city=city,
+        state_province=state_prov,
+        country=country,
+        postal_code=postal,
+        cached=cached,
+    )

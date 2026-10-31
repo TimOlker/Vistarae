@@ -57,7 +57,8 @@ def test_generate_standard_poi_csv_headers_and_empty() -> None:
     rows = list(reader)
     assert len(rows) == 1
     assert rows[0] == CSV_HEADERS
-    assert len(CSV_HEADERS) == 12
+    assert len(CSV_HEADERS) == 13
+    assert "confidence_source" in CSV_HEADERS
 
 
 def test_generate_standard_poi_csv_single_record() -> None:
@@ -92,6 +93,7 @@ def test_generate_standard_poi_csv_single_record() -> None:
     assert row[9] == "2024-05-20"
     assert row[10] == "/photos/Japan/Tokyo/Senso-ji"
     assert row[11] == "95"
+    assert row[12] == ""
 
 
 def test_generate_standard_poi_csv_multi_address_alignment() -> None:

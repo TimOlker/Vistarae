@@ -353,8 +353,28 @@ class IngestCandidate:
     tags: list[str] = field(default_factory=list)
     description: str | None = None
     reason_to_visit: str | None = None
+    official_url: str | None = None
+    wiki_url: str | None = None
+    hero_image_url: str | None = None
+    recommended_duration_hours: Decimal | float | None = None
+    recommended_visit_days: int | None = None
+    estimated_visit_time_notes: str | None = None
     update_coordinates: bool = False
     is_skipped: bool = False
     phase_state: IngestCandidatePhaseState = IngestCandidatePhaseState.PHASE_1_TRIAGE
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class UserExclusionZone:
+    """Geographic exclusion zone to protect user privacy (home, school, office, etc.)."""
+
+    id: UUID
+    user_id: UUID
+    name: str
+    latitude: float
+    longitude: float
+    radius_km: float = 1.0
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))

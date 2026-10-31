@@ -29,10 +29,18 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
-from alembic import context
-from sqlalchemy.ext.asyncio import create_async_engine
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_REPO_ROOT / "packages" / "core") not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT / "packages" / "core"))
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from alembic import context  # noqa: E402
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 # Alembic Config object providing access to alembic.ini values.
 config = context.config

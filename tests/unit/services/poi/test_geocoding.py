@@ -228,6 +228,7 @@ def test_reverse_geocode_route_post() -> None:
     app.dependency_overrides[get_geocache_repo] = lambda: repo
 
     from unittest.mock import patch
+
     from vistarae_core.schemas.poi import ReverseGeocodeResponse as CoreReverseGeocodeResponse
 
     mock_resp = CoreReverseGeocodeResponse(
@@ -238,19 +239,72 @@ def test_reverse_geocode_route_post() -> None:
         postal_code="56294",
     )
 
-    with patch(
-        "services.poi.services.geocode_service.ReverseGeocodeService.reverse_geocode",
-        new_callable=AsyncMock,
-        return_value=mock_resp,
+    with (
+        patch(
+            "services.poi.services.geocode_service.ReverseGeocodeService.reverse_geocode",
+            new_callable=AsyncMock,
+            return_value=mock_resp,
+        ),
+        TestClient(app, raise_server_exceptions=False) as client,
     ):
-        with TestClient(app, raise_server_exceptions=False) as client:
-            payload = {"latitude": 50.2052, "longitude": 7.3366}
-            response = client.post("/api/v1/geocoding/reverse", json=payload)
-            # Should return 200 with structured response
-            assert response.status_code == 200
-            data = response.json()
-            assert "country" in data
-            assert "country_code" in data
-            assert "formatted_address" in data
+        payload = {"latitude": 50.2052, "longitude": 7.3366}
+        response = client.post("/api/v1/geocoding/reverse", json=payload)
+        # Should return 200 with structured response
+        assert response.status_code == 200
+        data = response.json()
+        assert "country" in data
+        assert "country_code" in data
+        assert "formatted_address" in data
+
+    app.dependency_overrides.clear()
+
+
+def test_forward_geocode_endpoint() -> None:
+    """Verifies GET /api/pois/geocode/forward resolves coordinates and address."""
+    from uuid import uuid4
+    from starlette.testclient import TestClient
+    from vistarae_core.domain.entities import User
+    from vistarae_core.domain.value_objects import AddressRecord
+    from vistarae_core.adapters.db.session import get_db_session
+    from services.local_gateway import app
+    from services.poi.dependencies import get_current_user
+
+    mock_user = User(
+        id=uuid4(),
+        cognito_sub="sub-test-forward-geocoding",
+        email="forward_geo@vistarae.internal",
+    )
+
+    mock_session = AsyncMock()
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_db_session] = lambda: mock_session
+
+    from unittest.mock import patch
+
+    mock_addr = AddressRecord(
+        street="1106 W Lawrence Ave",
+        city="Chicago",
+        state_province="Illinois",
+        country="United States",
+        postal_code="60640",
+    )
+
+    with (
+        patch(
+            "services.poi.services.geocoding_service.GeocodingService.geocode",
+            new_callable=AsyncMock,
+            return_value=(41.9691, -87.6581, [mock_addr], True),
+        ),
+        TestClient(app, raise_server_exceptions=False) as client,
+    ):
+        response = client.get("/api/pois/geocode/forward?q=Aragon+Ballroom+Chicago")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["latitude"] == 41.9691
+        assert data["longitude"] == -87.6581
+        assert data["city"] == "Chicago"
+        assert data["state_province"] == "Illinois"
+        assert data["country"] == "United States"
+        assert data["cached"] is True
 
     app.dependency_overrides.clear()

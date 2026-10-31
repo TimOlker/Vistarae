@@ -20,11 +20,12 @@
 import React, { useState, useEffect } from "react";
 import { usePreferences } from "../context/PreferencesContext";
 import { useToast } from "../context/ToastContext";
-import { Palette, Map, Calendar, Save, Tag, Globe, Plus, Trash2 } from "lucide-react";
+import { Palette, Map, Calendar, Save, Tag, Globe, Plus, Trash2, ShieldAlert } from "lucide-react";
 import { ThemeSwitcher } from "../components/common/ThemeSwitcher";
 import { TagManager } from "../components/tags/TagManager";
+import { ExclusionZoneManager } from "../components/profile/ExclusionZoneManager";
 
-export type SettingsTab = "account" | "poi" | "planner" | "tags" | "scraping";
+export type SettingsTab = "account" | "poi" | "planner" | "tags" | "scraping" | "exclusion";
 
 export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   initialTab = "account",
@@ -142,7 +143,14 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   };
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "32px 16px" }}>
+    <div
+      style={{
+        maxWidth: activeTab === "exclusion" ? "1000px" : "800px",
+        margin: "0 auto",
+        padding: "32px 16px",
+        transition: "max-width 200ms ease",
+      }}
+    >
       <h1 style={{ fontSize: "24px", fontWeight: 800, marginBottom: "20px" }}>
         Preferences
       </h1>
@@ -154,6 +162,7 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
           gap: "8px",
           borderBottom: "1px solid var(--border-color, #e2e8f0)",
           marginBottom: "24px",
+          overflowX: "auto",
         }}
       >
         <button
@@ -270,10 +279,37 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
                 : "var(--text-secondary, #64748b)",
             fontWeight: 600,
             fontSize: "14px",
+            whiteSpace: "nowrap",
           }}
         >
           <Globe size={16} />
           <span>Scraping Sources</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("exclusion")}
+          data-testid="tab-exclusion-zones"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "10px 16px",
+            borderBottom:
+              activeTab === "exclusion"
+                ? "2px solid var(--accent, #2563eb)"
+                : "2px solid transparent",
+            color:
+              activeTab === "exclusion"
+                ? "var(--accent, #2563eb)"
+                : "var(--text-secondary, #64748b)",
+            fontWeight: 600,
+            fontSize: "14px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <ShieldAlert size={16} />
+          <span>Exclusion Zones</span>
         </button>
       </div>
 
@@ -970,6 +1006,13 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
             <Save size={15} />
             <span>{saving ? "Saving..." : "Save Scraping Sources"}</span>
           </button>
+        </div>
+      )}
+
+      {/* Exclusion Zones Tab */}
+      {activeTab === "exclusion" && (
+        <div className="slide-up">
+          <ExclusionZoneManager />
         </div>
       )}
     </div>

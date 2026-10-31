@@ -289,6 +289,7 @@ class IngestDisposition(StrEnum):
     IGNORE = "ignore"
     UPDATE_EXISTING = "update_existing"
     SUBLOCATION = "sublocation"
+    EXCLUDE = "exclude"
 
 
 class IngestCandidatePhaseState(StrEnum):

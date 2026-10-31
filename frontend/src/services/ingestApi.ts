@@ -47,6 +47,26 @@ export interface JobCancellationResult {
   message: string;
 }
 
+export interface ActiveSessionResult {
+  has_active_session: boolean;
+  job_id: string | null;
+  phase_state: "phase_1_triage" | "phase_2_enriched" | null;
+  total_candidates: number;
+  created_at: string | null;
+  target_list_id?: string | null;
+  target_list_name?: string | null;
+}
+
+export interface Phase2ProgressResult {
+  job_id: string;
+  total_count: number;
+  enriched_count: number;
+  is_complete: boolean;
+  percent_complete: number;
+  status_message: string;
+}
+
+
 export const ingestApi = {
   async getJobCandidates(
     jobId: string,
@@ -106,6 +126,47 @@ export const ingestApi = {
         method: "POST",
       },
     );
+  },
+
+  async enrichPhase2(jobId: string): Promise<PhaseTransitionResult> {
+    return apiFetch<PhaseTransitionResult>(
+      `/api/ingest/jobs/${jobId}/phase2/enrich`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
+  async getPhase2Progress(jobId: string): Promise<Phase2ProgressResult> {
+    return apiFetch<Phase2ProgressResult>(
+      `/api/ingest/jobs/${jobId}/phase2/progress`,
+      {
+        method: "GET",
+      },
+    );
+  },
+
+
+  async backToPhase1(jobId: string): Promise<PhaseTransitionResult> {
+    return apiFetch<PhaseTransitionResult>(
+      `/api/ingest/jobs/${jobId}/phase2/back-to-phase1`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
+
+  async getActiveSession(): Promise<ActiveSessionResult> {
+    return apiFetch<ActiveSessionResult>("/api/ingest/active-session", {
+      method: "GET",
+    });
+  },
+
+  async wipeActiveSession(): Promise<JobCancellationResult> {
+    return apiFetch<JobCancellationResult>("/api/ingest/active-session", {
+      method: "DELETE",
+    });
   },
 };
 

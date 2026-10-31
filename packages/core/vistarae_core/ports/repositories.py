@@ -42,12 +42,12 @@ from vistarae_core.domain.entities import (
     UserPreferences,
     UserPrompt,
     UserQuota,
+    UserExclusionZone,
 )
 from vistarae_core.domain.value_objects import (
     BoundingBox,
     IdempotencyStatus,
     IngestCandidatePhaseState,
-    IngestDisposition,
     IngestJobStatus,
     MergeResolutionRule,
     PromptType,
@@ -1105,6 +1105,14 @@ class IIngestCandidateRepository(Protocol):
         """
         ...
 
+    async def get_by_id(
+        self,
+        arg1: UUID,
+        arg2: UUID,
+    ) -> IngestCandidate | None:
+        """Alias for get_candidate supporting candidate lookup."""
+        ...
+
     async def update_candidate(
         self,
         user_id: UUID,
@@ -1134,6 +1142,22 @@ class IIngestCandidateRepository(Protocol):
 
         Returns:
             Count of candidates transitioned.
+        """
+        ...
+
+    async def revert_to_phase1(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+    ) -> int:
+        """Reverts all candidates for a job from Phase 2 back to Phase 1.
+
+        Args:
+            user_id: Tenant user UUID.
+            job_id: Ingest job UUID.
+
+        Returns:
+            Count of candidates reverted.
         """
         ...
 
@@ -1167,4 +1191,64 @@ class IIngestCandidateRepository(Protocol):
         Returns:
             Count of rows deleted.
         """
+        ...
+
+    async def get_active_session_job(
+        self,
+        user_id: UUID,
+    ) -> tuple[UUID, IngestCandidatePhaseState, int, datetime] | None:
+        """Finds the most recent uncommitted candidate session for tenant.
+
+        Args:
+            user_id: Tenant user UUID.
+
+        Returns:
+            Tuple of (job_id, effective_phase_state, total_candidates, created_at) or None.
+        """
+        ...
+
+    async def purge_active_sessions(
+        self,
+        user_id: UUID,
+    ) -> int:
+        """Purges any uncommitted candidate records across all active jobs for tenant.
+
+        Args:
+            user_id: Tenant user UUID.
+
+        Returns:
+            Count of rows deleted.
+        """
+        ...
+
+
+class IUserExclusionZoneRepository(Protocol):
+    """Port for persisting and querying tenant geographic exclusion zones."""
+
+    async def list_by_user(self, user_id: UUID) -> Sequence[UserExclusionZone]:
+        """Lists all exclusion zones for a tenant."""
+        ...
+
+    async def get_by_id(self, zone_id: UUID, user_id: UUID) -> UserExclusionZone | None:
+        """Retrieves a single exclusion zone by ID."""
+        ...
+
+    async def create(self, zone: UserExclusionZone) -> UserExclusionZone:
+        """Persists a new exclusion zone."""
+        ...
+
+    async def update(
+        self,
+        zone_id: UUID,
+        user_id: UUID,
+        name: str | None = None,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        radius_km: float | None = None,
+    ) -> UserExclusionZone | None:
+        """Updates an existing exclusion zone."""
+        ...
+
+    async def delete(self, zone_id: UUID, user_id: UUID) -> bool:
+        """Deletes an exclusion zone."""
         ...

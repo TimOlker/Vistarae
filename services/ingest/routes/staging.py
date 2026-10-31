@@ -34,11 +34,13 @@ from vistarae_core.domain.entities import IngestCandidate, User
 from vistarae_core.domain.value_objects import IngestCandidatePhaseState
 from vistarae_core.ports.repositories import IPOIRepository
 from vistarae_core.schemas.ingest_staging import (
+    ActiveSessionResponse,
     CandidateItemResponse,
     CandidateListResponse,
     CandidateUpdateRequest,
     CommitSummaryResponse,
     JobCancellationResponse,
+    Phase2ProgressResponse,
     PhaseTransitionResponse,
 )
 
@@ -89,6 +91,14 @@ def _to_candidate_response(
         tags=candidate.tags,
         description=candidate.description,
         reason_to_visit=candidate.reason_to_visit,
+        official_url=candidate.official_url,
+        wiki_url=candidate.wiki_url,
+        hero_image_url=candidate.hero_image_url,
+        recommended_duration_hours=float(candidate.recommended_duration_hours)
+        if candidate.recommended_duration_hours is not None
+        else None,
+        recommended_visit_days=candidate.recommended_visit_days,
+        estimated_visit_time_notes=candidate.estimated_visit_time_notes,
         update_coordinates=candidate.update_coordinates,
         is_skipped=candidate.is_skipped,
         phase_state=candidate.phase_state,
@@ -116,6 +126,52 @@ async def _resolve_poi_names(
         if poi:
             name_map[pid] = poi.name
     return name_map
+
+
+@router.get(
+    "/active-session",
+    response_model=ActiveSessionResponse,
+    summary="Check if tenant has an in-progress uncommitted ingest session",
+)
+@router.get(
+    "/api/ingest/active-session",
+    response_model=ActiveSessionResponse,
+    include_in_schema=False,
+)
+async def get_active_session(
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> ActiveSessionResponse:
+    """Returns details of any in-progress uncommitted staging session."""
+    return await staging_service.get_active_session(user.id)
+
+
+@router.delete(
+    "/active-session",
+    response_model=JobCancellationResponse,
+    summary="Wipe out active uncommitted ingest session progress",
+)
+@router.delete(
+    "/api/ingest/active-session",
+    response_model=JobCancellationResponse,
+    include_in_schema=False,
+)
+@router.post(
+    "/api/ingest/active-session/wipe",
+    response_model=JobCancellationResponse,
+    include_in_schema=False,
+)
+async def wipe_active_session(
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> JobCancellationResponse:
+    """Purges all uncommitted staged candidate records for the tenant."""
+    purged = await staging_service.wipe_active_session(user.id)
+    return JobCancellationResponse(
+        job_id=UUID("00000000-0000-0000-0000-000000000000"),
+        purged_count=purged,
+        message=f"Wiped {purged} staged candidate record(s).",
+    )
 
 
 @router.get(
@@ -187,14 +243,17 @@ async def proceed_phase1(
     user: User = Depends(get_current_user),
     staging_service: StagingService = Depends(get_staging_service),
 ) -> PhaseTransitionResponse:
-    """Transitions active candidates to Phase 2."""
+    """Transitions active candidates to Phase 2 and launches background parallel AI/web enrichment."""
     adv, ign = await staging_service.advance_to_phase2(user.id, job_id)
+    import asyncio
+    asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
     return PhaseTransitionResponse(
         job_id=job_id,
-        message=f"Advanced {adv} candidate(s) to Phase 2; ignored {ign} candidate(s).",
+        message=f"Advanced {adv} candidate(s) to Phase 2; background enrichment queued.",
         advanced_count=adv,
         ignored_count=ign,
     )
+
 
 
 @router.post(
@@ -268,5 +327,78 @@ async def cancel_phase2(
         job_id=job_id,
         purged_count=purged,
         message="Phase 2 review cancelled; staged records purged.",
+    )
+
+
+@router.post(
+    "/jobs/{job_id}/phase2/enrich",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=PhaseTransitionResponse,
+    summary="Queue background AI and web enrichment for active Phase 2 candidates",
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/phase2/enrich",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=PhaseTransitionResponse,
+    include_in_schema=False,
+)
+async def enrich_phase2(
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> PhaseTransitionResponse:
+    """Launches parallel background enrichment for Phase 2 candidates."""
+    import asyncio
+    asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
+    return PhaseTransitionResponse(
+        job_id=job_id,
+        message="Queued parallel AI and web enrichment.",
+        advanced_count=0,
+        ignored_count=0,
+    )
+
+
+@router.get(
+    "/jobs/{job_id}/phase2/progress",
+    response_model=Phase2ProgressResponse,
+    summary="Poll real-time progress of Phase 2 AI and web enrichment",
+)
+@router.get(
+    "/api/ingest/jobs/{job_id}/phase2/progress",
+    response_model=Phase2ProgressResponse,
+    include_in_schema=False,
+)
+async def get_phase2_progress(
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> Phase2ProgressResponse:
+    """Retrieves real-time progress percentage and status of Phase 2 enrichment."""
+    return staging_service.get_phase2_progress(user.id, job_id)
+
+
+
+@router.post(
+    "/jobs/{job_id}/phase2/back-to-phase1",
+    response_model=PhaseTransitionResponse,
+    summary="Revert candidate records from Phase 2 back to Phase 1 triage",
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/phase2/back-to-phase1",
+    response_model=PhaseTransitionResponse,
+    include_in_schema=False,
+)
+async def back_to_phase1(
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> PhaseTransitionResponse:
+    """Reverts candidates from Phase 2 to Phase 1."""
+    reverted = await staging_service.revert_to_phase1(user.id, job_id)
+    return PhaseTransitionResponse(
+        job_id=job_id,
+        message=f"Reverted {reverted} candidate(s) back to Phase 1.",
+        advanced_count=reverted,
+        ignored_count=0,
     )
 

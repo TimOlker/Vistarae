@@ -25,8 +25,12 @@ from services.scraper.cache import ScraperCacheManager, compute_cache_key
 
 def test_compute_cache_key_deterministic() -> None:
     """Verifies that cache keys normalize tokens, coordinates, and tag ordering."""
-    k1 = compute_cache_key(["Japan", "Tokyo", "Senso-ji"], 35.714801, 139.796701, ["temple", "tokyo"])
-    k2 = compute_cache_key(["japan", "tokyo", "senso-ji"], 35.714804, 139.796704, ["tokyo", "temple"])
+    k1 = compute_cache_key(
+        ["Japan", "Tokyo", "Senso-ji"], 35.714801, 139.796701, ["temple", "tokyo"]
+    )
+    k2 = compute_cache_key(
+        ["japan", "tokyo", "senso-ji"], 35.714804, 139.796704, ["tokyo", "temple"]
+    )
     assert k1 == k2
     assert len(k1) == 64
 
@@ -53,4 +57,3 @@ def test_scraper_cache_manager_crud(tmp_path: Path) -> None:
     updated = manager.get(key)
     assert updated is not None
     assert updated["confidence"] == 99
-

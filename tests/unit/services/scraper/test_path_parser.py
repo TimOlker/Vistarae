@@ -127,4 +127,3 @@ def test_parse_path_hierarchy_illinois_landmark_fallback() -> None:
     assert ctx2.poi_name in ("Herrik Lake", "Herrick Lake")
     assert ctx2.state_province == "Illinois"
     assert ctx2.country == "United States"
-

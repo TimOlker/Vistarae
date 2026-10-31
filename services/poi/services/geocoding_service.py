@@ -108,6 +108,8 @@ class GeocodingService:
         cached_entry = await self._cache_repo.get(query_hash)
         if cached_entry is not None:
             logger.info("MSG ->| Geocache forward hit for hash=%s", query_hash)
+            if cached_entry.status == "NOT_FOUND":
+                return None, None, [], True
             try:
                 data = json.loads(cached_entry.formatted_address)
                 lat = cached_entry.lat
@@ -209,9 +211,9 @@ class GeocodingService:
         else:
             addresses = AddressNormalizer.expand_transboundary_addresses(division_source)
 
-        # 6. Cache successful result with 90-day TTL (REQ-EXT-022, REQ-EXT-027)
+        # 6. Cache result (positive or negative) with TTL (REQ-EXT-022, REQ-EXT-027)
+        now = datetime.now(UTC)
         if lat is not None and lon is not None and addresses:
-            now = datetime.now(UTC)
             cache_payload = {
                 "addresses": [a.model_dump() for a in addresses],
             }
@@ -223,6 +225,18 @@ class GeocodingService:
                 status="SUCCESS",
                 created_at=now,
                 expires_at=now + timedelta(days=90),
+            )
+            await self._cache_repo.set(entry)
+        else:
+            # Negative caching: cache NOT_FOUND with 30-day TTL to avoid re-querying Nominatim for non-existent POIs
+            entry = GeocodingCacheEntry(
+                query_hash=query_hash,
+                lat=0.0,
+                lon=0.0,
+                formatted_address=json.dumps({"addresses": []}),
+                status="NOT_FOUND",
+                created_at=now,
+                expires_at=now + timedelta(days=30),
             )
             await self._cache_repo.set(entry)
 

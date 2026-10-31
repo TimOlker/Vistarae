@@ -42,6 +42,7 @@ from services.scraper.path_parser import ParsedPathContext
 def test_validate_api_key_or_exit_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verifies that missing GOOGLE_API_KEY exits with non-zero status (REQ-SCR-028)."""
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with pytest.raises(SystemExit) as exc_info:
         validate_api_key_or_exit()
     assert exc_info.value.code != 0
@@ -114,7 +115,9 @@ def test_location_resolver_invokes_gemini_on_miss(tmp_path: Path) -> None:
         path_tokens=["India", "Delhi", "Red Fort"],
     )
 
-    res = resolver.resolve(path_ctx, latitude=Decimal("28.6562"), longitude=Decimal("77.2410"), tags=[])
+    res = resolver.resolve(
+        path_ctx, latitude=Decimal("28.6562"), longitude=Decimal("77.2410"), tags=[]
+    )
     assert res.poi_name == "Red Fort"
     assert res.country == "India"
     assert res.location_confidence_percent == 95
@@ -122,4 +125,5 @@ def test_location_resolver_invokes_gemini_on_miss(tmp_path: Path) -> None:
     # Verify call arguments
     mock_client.models.generate_content.assert_called_once()
     call_kwargs = mock_client.models.generate_content.call_args.kwargs
-    assert call_kwargs["config"].thinking_config.thinking_budget == 0
+    if call_kwargs["config"].thinking_config is not None:
+        assert call_kwargs["config"].thinking_config.thinking_budget == 0

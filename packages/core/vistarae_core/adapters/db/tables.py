@@ -1065,6 +1065,12 @@ class IngestCandidateTable(Base):
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     reason_to_visit: Mapped[str | None] = mapped_column(Text, nullable=True)
+    official_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    wiki_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hero_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recommended_duration_hours: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    recommended_visit_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_visit_time_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     update_coordinates: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), default=False, nullable=False
     )
@@ -1098,3 +1104,46 @@ class IngestCandidateTable(Base):
 
 
 ingest_candidates_table = IngestCandidateTable.__table__
+
+
+class UserExclusionZoneTable(Base):
+    """Geographic exclusion zones for user privacy (home, school, workplace, etc.)."""
+
+    __tablename__ = "user_exclusion_zones"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    latitude: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    radius_km: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_user_exclusion_zones_user", "user_id"),
+    )
+
+
+user_exclusion_zones_table = UserExclusionZoneTable.__table__

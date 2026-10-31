@@ -375,6 +375,21 @@ class ReverseGeocodeResponse(StrictBaseModel):
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
     cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
 
+class ForwardGeocodeResponse(StrictBaseModel):
+    """Response payload for forward geocoding."""
+
+    latitude: float | None = Field(default=None, description="Resolved latitude")
+    longitude: float | None = Field(default=None, description="Resolved longitude")
+    street: str | None = Field(default=None, max_length=255, description="Street address")
+    city: str | None = Field(default=None, max_length=100, description="City or municipality")
+    state_province: str | None = Field(
+        default=None, max_length=100, description="State or province"
+    )
+    country: str | None = Field(default=None, max_length=100, description="Country name")
+    postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
+    cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
+
+
 
 class POIMergeRequest(StrictBaseModel):
     """Specification for atomically merging two duplicate POIs."""

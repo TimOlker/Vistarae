@@ -183,10 +183,10 @@ SPDX-License-Identifier: Apache-2.0
 
 **Purpose**: Test coverage compliance, end-to-end quickstart validation, and zero-mutation safety verification.
 
-- [ ] T-040 [P] Implement end-to-end test in `tests/integration/test_photo_scraper_e2e.py` validating CLI scan -> CSV export -> Web App upload -> Phase 1 triage -> Phase 2 enrichment -> DB commit. [REQ: REQ-SCR-001, REQ-ING-023] [Test: `tests/integration/test_photo_scraper_e2e.py`]
-- [ ] T-041 [P] Verify PyTest line and branch coverage $\ge 90\%$ across `services/scraper/` and `services/ingest/` via `pytest tests/unit/services/scraper tests/unit/services/ingest --cov=services/scraper --cov=services/ingest --cov-fail-under=90`. [REQ: Constitution Principle 8] [Validation: PyTest Coverage Report]
-- [ ] T-042 [P] Verify scanned media archive cryptographic immutability by asserting pre-scan and post-scan SHA-256 tree hashes match across all test photo fixtures. [REQ: REQ-SCR-001, SC-002] [Validation: `tests/unit/services/scraper/test_photo_scraper_cli.py`]
-- [ ] T-043 Synchronize OpenAPI TypeScript definitions via `python -m scripts.export_openapi` and verify `git diff --exit-code ./frontend/src/types/` returns zero diff per Constitution Principle 5. [REQ: Constitution Principle 5] [Validation: `git diff --exit-code`]
+- [x] T-040 [P] Implement end-to-end test in `tests/integration/test_photo_scraper_e2e.py` validating CLI scan -> CSV export -> Web App upload -> Phase 1 triage -> Phase 2 enrichment -> DB commit. [REQ: REQ-SCR-001, REQ-ING-023] [Test: `tests/integration/test_photo_scraper_e2e.py`]
+- [x] T-041 [P] Verify PyTest line and branch coverage $\ge 90\%$ across `services/scraper/` and `services/ingest/` via `pytest tests/unit/services/scraper tests/unit/services/ingest --cov=services/scraper --cov=services/ingest --cov-fail-under=90`. [REQ: Constitution Principle 8] [Validation: PyTest Coverage Report]
+- [x] T-042 [P] Verify scanned media archive cryptographic immutability by asserting pre-scan and post-scan SHA-256 tree hashes match across all test photo fixtures. [REQ: REQ-SCR-001, SC-002] [Validation: `tests/unit/services/scraper/test_photo_scraper_cli.py`]
+- [x] T-043 Synchronize OpenAPI TypeScript definitions via `python -m scripts.export_openapi` and verify `git diff --exit-code ./frontend/src/types/` returns zero diff per Constitution Principle 5. [REQ: Constitution Principle 5] [Validation: `git diff --exit-code`]
 
 ---
 

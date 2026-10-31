@@ -134,9 +134,9 @@ export interface components {
             row_index: number;
             poi_name: string;
             /** @enum {string} */
-            recommended_disposition: "accept" | "ignore" | "update_existing" | "sublocation";
+            recommended_disposition: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude";
             /** @enum {string|null} */
-            user_disposition: "accept" | "ignore" | "update_existing" | "sublocation" | null;
+            user_disposition: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude" | null;
             /** Format: uuid */
             matched_existing_poi_id?: string | null;
             matched_existing_poi_name?: string | null;
@@ -158,6 +158,12 @@ export interface components {
             tags?: string[];
             description?: string | null;
             reason_to_visit?: string | null;
+            official_url?: string | null;
+            wiki_url?: string | null;
+            hero_image_url?: string | null;
+            recommended_duration_hours?: number | null;
+            recommended_visit_days?: number | null;
+            estimated_visit_time_notes?: string | null;
             update_coordinates: boolean;
             is_skipped: boolean;
             /** @enum {string} */
@@ -172,7 +178,7 @@ export interface components {
         CandidateUpdateRequest: {
             poi_name?: string;
             /** @enum {string} */
-            user_disposition?: "accept" | "ignore" | "update_existing" | "sublocation";
+            user_disposition?: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude";
             /** Format: uuid */
             parent_poi_id?: string | null;
             /** Format: double */
@@ -188,8 +194,22 @@ export interface components {
             tags?: string[];
             description?: string | null;
             reason_to_visit?: string | null;
+            official_url?: string | null;
+            wiki_url?: string | null;
+            hero_image_url?: string | null;
+            recommended_duration_hours?: number | null;
+            recommended_visit_days?: number | null;
+            estimated_visit_time_notes?: string | null;
             update_coordinates?: boolean;
             is_skipped?: boolean;
+        };
+        Phase2ProgressResponse: {
+            job_id: string;
+            total_count: number;
+            enriched_count: number;
+            is_complete: boolean;
+            percent_complete: number;
+            status_message: string;
         };
         PhaseTransitionResponse: {
             /** Format: uuid */

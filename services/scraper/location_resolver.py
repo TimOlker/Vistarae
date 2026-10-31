@@ -34,14 +34,22 @@ import logging
 import os
 import sys
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Final
 
-from pydantic import Field
-from vistarae_core.domain.base import StrictBaseModel
-from vistarae_core.services.address_normalizer import AddressNormalizer
+from dotenv import load_dotenv
 
-from services.scraper.cache import ScraperCacheManager, compute_cache_key
-from services.scraper.path_parser import ParsedPathContext
+load_dotenv()
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_REPO_ROOT / "packages" / "core") not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT / "packages" / "core"))
+
+from pydantic import BaseModel, ConfigDict, Field  # noqa: E402
+from vistarae_core.services.address_normalizer import AddressNormalizer  # noqa: E402
+
+from services.scraper.cache import ScraperCacheManager, compute_cache_key  # noqa: E402
+from services.scraper.path_parser import ParsedPathContext  # noqa: E402
 
 logger = logging.getLogger("vistarae.scraper.resolver")
 
@@ -80,7 +88,8 @@ _MULTI_LOCATION_BRANDS: Final[set[str]] = {
 }
 
 
-class POIStandardizedLocationSchema(StrictBaseModel):
+class POIStandardizedLocationSchema(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
     """Structured response from Gemini location resolver."""
 
     poi_name: str = Field(..., description="Standardized, properly capitalized POI name")
@@ -98,7 +107,7 @@ class POIStandardizedLocationSchema(StrictBaseModel):
 
 
 def validate_api_key_or_exit() -> str:
-    """Verifies that GOOGLE_API_KEY is present in the environment or halts execution.
+    """Verifies that GOOGLE_API_KEY or GEMINI_API_KEY is present in the environment or halts execution.
 
     Returns:
         The validated API key string.
@@ -106,7 +115,7 @@ def validate_api_key_or_exit() -> str:
     Raises:
         SystemExit: If the key is missing or blank (REQ-SCR-028).
     """
-    key = os.environ.get("GOOGLE_API_KEY", "").strip()
+    key = (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY") or "").strip()
     if not key:
         logger.error(
             "FATAL: GOOGLE_API_KEY environment variable is missing. "
@@ -152,6 +161,7 @@ class LocationResolver:
         self,
         cache_manager: ScraperCacheManager,
         api_key: str | None = None,
+        model_name: str | None = None,
         genai_client: Any = None,
     ) -> None:
         """Initializes the resolver.
@@ -162,7 +172,14 @@ class LocationResolver:
             genai_client: Optional pre-configured Google GenAI client for testing.
         """
         self.cache = cache_manager
-        self.api_key = api_key or os.environ.get("GOOGLE_API_KEY", "")
+        self.api_key = (
+            api_key
+            or os.environ.get("GOOGLE_API_KEY", "").strip()
+            or os.environ.get("GEMINI_API_KEY", "").strip()
+        )
+        self.model_name = (
+            model_name or os.environ.get("GEMINI_MODEL", "").strip() or "gemini-3.5-flash-lite"
+        )
         self._client = genai_client
 
     def _get_genai_client(self) -> Any:
@@ -220,7 +237,11 @@ class LocationResolver:
             f"GPS Latitude: {latitude if latitude is not None else 'None'}\n"
             f"GPS Longitude: {longitude if longitude is not None else 'None'}\n"
             f"Discovered Tags/Keywords: {', '.join(tag_list) if tag_list else 'None'}\n\n"
-            f"Return a structured JSON object with standardized official English names."
+            f"Instructions:\n"
+            f"- Return a structured JSON object with standardized official English names.\n"
+            f"- For locations in the United Kingdom, standardize 'country' as 'United Kingdom' and 'state_province' "
+            f"consistently as the constituent country ('England', 'Scotland', 'Wales', or 'Northern Ireland'). "
+            f"Include regional counties (e.g. North Yorkshire, Somerset, Wiltshire, Gloucestershire) in city/locality context."
         )
 
         logger.info("MSG   |-> [LLM Location Resolution] query=%s", path_context.poi_name)
@@ -228,15 +249,18 @@ class LocationResolver:
         client = self._get_genai_client()
         from google.genai import types
 
-        config = types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=POIStandardizedLocationSchema,
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
-            temperature=0.0,
-        )
+        config_kwargs: dict[str, Any] = {
+            "response_mime_type": "application/json",
+            "response_schema": POIStandardizedLocationSchema,
+            "temperature": 0.0,
+        }
+        if "thinking" in self.model_name.lower():
+            config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+
+        config = types.GenerateContentConfig(**config_kwargs)
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
+            model=self.model_name,
             contents=prompt,
             config=config,
         )

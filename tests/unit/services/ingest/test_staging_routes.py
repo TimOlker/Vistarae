@@ -31,7 +31,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from vistarae_core.domain.entities import IngestCandidate, POI, User
+from vistarae_core.domain.entities import POI, IngestCandidate, User
 from vistarae_core.domain.value_objects import (
     IngestCandidatePhaseState,
     IngestDisposition,
@@ -62,6 +62,7 @@ def mock_staging_service() -> MagicMock:
     svc.get_candidate = AsyncMock(return_value=None)
     svc.update_candidate = AsyncMock()
     svc.advance_to_phase2 = AsyncMock(return_value=(2, 1))
+    svc.enrich_candidates_phase2 = AsyncMock()
     svc.cancel_staging = AsyncMock(return_value=3)
     svc.commit_job = AsyncMock(return_value=(2, [uuid.uuid4()], [uuid.uuid4()]))
     return svc
@@ -113,9 +114,7 @@ async def test_get_job_candidates(
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
     app.dependency_overrides[get_poi_repo] = lambda: mock_poi_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get(f"/api/ingest/jobs/{job_id}/candidates")
 
     app.dependency_overrides.clear()
@@ -157,9 +156,7 @@ async def test_update_candidate(
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
     app.dependency_overrides[get_poi_repo] = lambda: mock_poi_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.patch(
             f"/api/ingest/jobs/{job_id}/candidates/{candidate_id}",
             json={
@@ -190,9 +187,7 @@ async def test_proceed_phase1(
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(f"/api/ingest/jobs/{job_id}/phase1/proceed")
 
     app.dependency_overrides.clear()
@@ -215,9 +210,7 @@ async def test_cancel_phase1(
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(f"/api/ingest/jobs/{job_id}/phase1/cancel")
 
     app.dependency_overrides.clear()
@@ -226,4 +219,3 @@ async def test_cancel_phase1(
     data = resp.json()
     assert data["job_id"] == str(job_id)
     assert data["purged_count"] == 5
-
