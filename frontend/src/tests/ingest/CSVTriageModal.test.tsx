@@ -876,7 +876,7 @@ describe("CSVTriageModal (Phase 1)", () => {
   });
 
   it("supports selecting multiple POIs and bulk editing country, state, and city without changing unprovided fields", async () => {
-    vi.mocked(ingestApi.updateCandidate).mockImplementation(async (jobId, candId, updates) => {
+    vi.mocked(ingestApi.updateCandidate).mockImplementation(async (_jobId, candId, updates) => {
       const match = mockCandidates.find((c) => c.id === candId);
       return {
         ...match!,

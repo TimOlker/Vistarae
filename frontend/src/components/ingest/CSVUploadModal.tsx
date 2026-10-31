@@ -31,7 +31,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Clock,
-  RotateCw,
 } from "lucide-react";
 
 interface CSVUploadModalProps {
@@ -59,7 +58,6 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
 
   // Active Session Resume & Overwrite States
   const [activeSession, setActiveSession] = useState<ActiveSessionResult | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [isWipingSession, setIsWipingSession] = useState(false);
 
@@ -96,14 +94,11 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
     };
 
     const fetchActiveSession = async () => {
-      setIsLoadingSession(true);
       try {
         const session = await ingestApi.getActiveSession();
         setActiveSession(session.has_active_session ? session : null);
       } catch {
         setActiveSession(null);
-      } finally {
-        setIsLoadingSession(false);
       }
     };
 

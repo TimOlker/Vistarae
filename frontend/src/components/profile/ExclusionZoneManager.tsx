@@ -24,12 +24,10 @@ import { useToast } from "../../context/ToastContext";
 import {
   Shield,
   ShieldAlert,
-  MapPin,
   Trash2,
   Plus,
   Crosshair,
   Loader2,
-  Compass,
 } from "lucide-react";
 
 /**
@@ -72,7 +70,6 @@ export const ExclusionZoneManager: React.FC = () => {
   const existingMarkersRef = useRef<maplibregl.Marker[]>([]);
 
   const [zones, setZones] = useState<ExclusionZoneItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -83,14 +80,11 @@ export const ExclusionZoneManager: React.FC = () => {
 
   // Load existing exclusion zones
   const loadZones = async () => {
-    setIsLoading(true);
     try {
       const data = await exclusionZoneService.getExclusionZones();
       setZones(data);
     } catch (err: any) {
       showToast(err?.message || "Failed to load exclusion zones", "error");
-    } finally {
-      setIsLoading(false);
     }
   };
 

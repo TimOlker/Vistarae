@@ -17,7 +17,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "../common/Modal";
 import { ingestApi, type Phase2ProgressResult } from "../../services/ingestApi";
-import { Sparkles, Loader2, CheckCircle2, Clock, Globe } from "lucide-react";
+import { Sparkles, CheckCircle2, Clock, Globe } from "lucide-react";
 
 export interface CSVEnrichmentProgressModalProps {
   jobId: string | null;

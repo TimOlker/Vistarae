@@ -180,6 +180,8 @@ export interface components {
             /** @enum {string} */
             user_disposition?: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude";
             /** Format: uuid */
+            matched_existing_poi_id?: string | null;
+            /** Format: uuid */
             parent_poi_id?: string | null;
             /** Format: double */
             latitude?: number;

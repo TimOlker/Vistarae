@@ -50,13 +50,14 @@ export interface ExistingPOIMarker {
   name: string;
   latitude: number;
   longitude: number;
+  distance_meters?: number;
 }
 
 export interface CSVTriageModalProps {
   jobId: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onProceedToPhase2?: () => void;
+  onProceedToPhase2?: (jobId?: string) => void;
   onTriageComplete?: () => void;
   existingPOIs?: ExistingPOIMarker[];
 }
@@ -1102,8 +1103,6 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
     }
   };
 
-  const handleCancel = handleDiscard;
-
   const handleProceed = async () => {
     if (!jobId) return;
     setIsSubmitting(true);
@@ -1547,10 +1546,6 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
       {cand.city || <span style={{ color: "#94a3b8" }}>—</span>}
     </td>
   );
-
-  const selectedDisp = selectedCandidate
-    ? selectedCandidate.user_disposition || selectedCandidate.recommended_disposition
-    : "accept";
 
   const renderSortIcon = (field: SortField) => {
     if (sortField) {
