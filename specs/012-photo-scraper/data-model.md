@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 **Feature Identifier**: `012-photo-scraper`  
 **Feature Branch**: `012-photo-scraper`  
 **Date**: 2026-10-28  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
@@ -194,7 +194,7 @@ ingest_candidates_table = Table(
 ```mermaid
 stateDiagram-v2
     [*] --> Phase1Triage: CSV Ingest & Spatial Pre-Validation
-    
+
     state Phase1Triage {
         [*] --> ReviewCandidates
         ReviewCandidates --> EditDetails: User modifies fields
@@ -207,7 +207,7 @@ stateDiagram-v2
     Aborted --> [*]
 
     Phase1Triage --> Phase2Enrichment: User clicks Proceed
-    
+
     state Phase2Enrichment {
         [*] --> WebScrapeContext: Scrape external sources
         WebScrapeContext --> LLMSynthesis: Gemini Flash-Lite with Travel Style Prompts
@@ -219,7 +219,7 @@ stateDiagram-v2
     Phase2Enrichment --> Aborted: User clicks Cancel (Purge ingest_candidates)
 
     Phase2Enrichment --> Committed: User clicks Save to DB
-    
+
     state Committed {
         [*] --> InsertNewPOIs: disposition = accept
         [*] --> InsertChildPOIs: disposition = sublocation (with parent_poi_id)
@@ -245,4 +245,3 @@ When committing an entry classified as `update existing POI`:
    - If `candidate.update_coordinates == True`: overwrite `geom`, `latitude`, `longitude`, `address`, `city`, `states`, `countries` with candidate values.
    - If `candidate.update_coordinates == False` (Default): preserve `existing_poi.geom`, `latitude`, `longitude`, and primary address intact, appending distinct candidate address to `existing_poi.addresses`.
 5. **Descriptions & Reasons**: Preserves existing `description` and `reason_to_visit` to protect user-curated content.
-

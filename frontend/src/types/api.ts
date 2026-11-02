@@ -251,6 +251,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/user/exclusion-zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all privacy exclusion zones for the current user
+         * @description Returns all geographic exclusion zones configured by the user.
+         */
+        get: operations["list_exclusion_zones_api_user_exclusion_zones_get"];
+        put?: never;
+        /**
+         * Create a new privacy exclusion zone
+         * @description Persists a new geographic privacy exclusion zone.
+         */
+        post: operations["create_exclusion_zone_api_user_exclusion_zones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/exclusion-zones/{zone_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an existing privacy exclusion zone
+         * @description Modifies the name, center coordinates, or radius of an exclusion zone.
+         */
+        put: operations["update_exclusion_zone_api_user_exclusion_zones__zone_id__put"];
+        post?: never;
+        /**
+         * Delete a privacy exclusion zone
+         * @description Removes an exclusion zone.
+         */
+        delete: operations["delete_exclusion_zone_api_user_exclusion_zones__zone_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/exclusion-zones/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check if a point falls within any user exclusion zones
+         * @description Evaluates whether the given (lat, lon) coordinates fall within any active exclusion zones.
+         */
+        post: operations["check_point_exclusion_api_user_exclusion_zones_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/preferences/scraping-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Scraping Sources
+         * @description Retrieves the list of authorized secondary scraping domains.
+         */
+        get: operations["get_scraping_sources_api_user_preferences_scraping_sources_get"];
+        /**
+         * Update Scraping Sources
+         * @description Updates the list of authorized secondary scraping domains.
+         */
+        put: operations["update_scraping_sources_api_user_preferences_scraping_sources_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pois/dedup-check": {
         parameters: {
             query?: never;
@@ -548,6 +640,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pois/geocode/forward": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Forward Geocode Endpoint
+         * @description Forward geocodes an address or query via internal PostGIS cache and rate-limited OSM Nominatim.
+         */
+        get: operations["forward_geocode_endpoint_api_pois_geocode_forward_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pois": {
         parameters: {
             query?: never;
@@ -792,6 +904,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/api/v1/ingest/upload-flexible": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept multi-format file upload with format sniffing, column alignment, and pre-validation
+         * @description Handles multi-format uploads, column mapping detection, and pre-validation reporting (T-018).
+         */
+        post: operations["upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -856,6 +988,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/active-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check if tenant has an in-progress uncommitted ingest session
+         * @description Returns details of any in-progress uncommitted staging session.
+         */
+        get: operations["get_active_session_api_ingest_active_session_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Wipe out active uncommitted ingest session progress
+         * @description Purges all uncommitted staged candidate records for the tenant.
+         */
+        delete: operations["wipe_active_session_api_ingest_active_session_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/jobs/{job_id}/candidates": {
         parameters: {
             query?: never;
@@ -907,7 +1063,7 @@ export interface paths {
         put?: never;
         /**
          * Advance confirmed Phase 1 triage records to Phase 2 enrichment
-         * @description Transitions active candidates to Phase 2.
+         * @description Transitions active candidates to Phase 2 and launches background parallel AI/web enrichment.
          */
         post: operations["proceed_phase1_api_ingest_jobs__job_id__phase1_proceed_post"];
         delete?: never;
@@ -976,10 +1132,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/jobs/{job_id}/phase2/enrich": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue background AI and web enrichment for active Phase 2 candidates
+         * @description Launches parallel background enrichment for Phase 2 candidates.
+         */
+        post: operations["enrich_phase2_api_ingest_jobs__job_id__phase2_enrich_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/phase2/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll real-time progress of Phase 2 AI and web enrichment
+         * @description Retrieves real-time progress percentage and status of Phase 2 enrichment.
+         */
+        get: operations["get_phase2_progress_api_ingest_jobs__job_id__phase2_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/jobs/{job_id}/phase2/back-to-phase1": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert candidate records from Phase 2 back to Phase 1 triage
+         * @description Reverts candidates from Phase 2 to Phase 1.
+         */
+        post: operations["back_to_phase1_api_ingest_jobs__job_id__phase2_back_to_phase1_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/open-folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Folder Endpoint
+         * @description Opens a local folder in the native OS file explorer (Windows Explorer, macOS Finder, Linux).
+         */
+        post: operations["open_folder_endpoint_api_system_open_folder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActiveSessionResponse
+         * @description Details of an active, uncommitted staging session for the current user.
+         */
+        ActiveSessionResponse: {
+            /** Has Active Session */
+            has_active_session: boolean;
+            /** Job Id */
+            job_id?: string | null;
+            phase_state?: components["schemas"]["IngestCandidatePhaseState"] | null;
+            /**
+             * Total Candidates
+             * @default 0
+             */
+            total_candidates: number;
+            /** Created At */
+            created_at?: string | null;
+            /** Target List Id */
+            target_list_id?: string | null;
+            /** Target List Name */
+            target_list_name?: string | null;
+        };
         /**
          * AddressRecord
          * @description Immutable structured address value object representing a geographic location.
@@ -1023,6 +1281,34 @@ export interface components {
              * @description Optional target list ID
              */
             target_list_id?: string | null;
+            /**
+             * Target List Name
+             * @description Optional target list name to attach POIs to
+             */
+            target_list_name?: string | null;
+        };
+        /** Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post */
+        Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post: {
+            /**
+             * File
+             * @description CSV, JSON, or YAML file to ingest
+             */
+            file: string;
+            /**
+             * Skip Invalid Rows
+             * @default false
+             */
+            skip_invalid_rows: boolean;
+            /** Column Mappings */
+            column_mappings?: string | null;
+            /** Recalculate Fields */
+            recalculate_fields?: string | null;
+            /** Target List Id */
+            target_list_id?: string | null;
+            /** Target List Name */
+            target_list_name?: string | null;
+            /** Tag Action */
+            tag_action?: string | null;
         };
         /**
          * BulkAddressUpdatePayload
@@ -1214,6 +1500,20 @@ export interface components {
             description?: string | null;
             /** Reason To Visit */
             reason_to_visit?: string | null;
+            /** Official Url */
+            official_url?: string | null;
+            /** Wiki Url */
+            wiki_url?: string | null;
+            /** Related Websites */
+            related_websites?: { name: string; url: string }[];
+            /** Hero Image Url */
+            hero_image_url?: string | null;
+            /** Recommended Duration Hours */
+            recommended_duration_hours?: number | null;
+            /** Recommended Visit Days */
+            recommended_visit_days?: number | null;
+            /** Estimated Visit Time Notes */
+            estimated_visit_time_notes?: string | null;
             /**
              * Update Coordinates
              * @default false
@@ -1287,6 +1587,20 @@ export interface components {
             description?: string | null;
             /** Reason To Visit */
             reason_to_visit?: string | null;
+            /** Official Url */
+            official_url?: string | null;
+            /** Wiki Url */
+            wiki_url?: string | null;
+            /** Related Websites */
+            related_websites?: { name: string; url: string }[];
+            /** Hero Image Url */
+            hero_image_url?: string | null;
+            /** Recommended Duration Hours */
+            recommended_duration_hours?: number | null;
+            /** Recommended Visit Days */
+            recommended_visit_days?: number | null;
+            /** Estimated Visit Time Notes */
+            estimated_visit_time_notes?: string | null;
             /** Update Coordinates */
             update_coordinates?: boolean | null;
             /** Is Skipped */
@@ -1472,6 +1786,123 @@ export interface components {
          */
         EnrichmentStatus: "SUCCESS" | "PARTIAL" | "FAILED";
         /**
+         * ExclusionCheckRequest
+         * @description Payload to check whether coordinates fall within an exclusion zone.
+         */
+        ExclusionCheckRequest: {
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+        };
+        /**
+         * ExclusionCheckResponse
+         * @description Result of checking a geographic coordinate against user exclusion zones.
+         */
+        ExclusionCheckResponse: {
+            /**
+             * Is Excluded
+             * @default false
+             */
+            is_excluded: boolean;
+            /** Matched Zones */
+            matched_zones?: components["schemas"]["ExclusionZoneResponse"][];
+            /** Matched Zone Names */
+            matched_zone_names?: string[];
+        };
+        /** ExclusionVerdictSchema */
+        ExclusionVerdictSchema: {
+            /**
+             * Is Excluded
+             * @description Whether coordinates fall within a privacy exclusion zone
+             * @default false
+             */
+            is_excluded: boolean;
+            /**
+             * Matched Zone Names
+             * @description Names of matched exclusion zones
+             */
+            matched_zone_names?: string[];
+        };
+        /**
+         * ExclusionZoneCreateRequest
+         * @description Payload to create a new geographic privacy exclusion zone.
+         */
+        ExclusionZoneCreateRequest: {
+            /**
+             * Name
+             * @description Zone label, e.g. Home or Workplace
+             */
+            name: string;
+            /**
+             * Latitude
+             * @description Center latitude in WGS-84
+             */
+            latitude: number;
+            /**
+             * Longitude
+             * @description Center longitude in WGS-84
+             */
+            longitude: number;
+            /**
+             * Radius Km
+             * @description Exclusion radius in kilometers
+             * @default 1
+             */
+            radius_km: number;
+        };
+        /**
+         * ExclusionZoneListResponse
+         * @description Collection of user exclusion zones.
+         */
+        ExclusionZoneListResponse: {
+            /** Items */
+            items?: components["schemas"]["ExclusionZoneResponse"][];
+        };
+        /**
+         * ExclusionZoneResponse
+         * @description Representation of a persisted user privacy exclusion zone.
+         */
+        ExclusionZoneResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Radius Km */
+            radius_km: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ExclusionZoneUpdateRequest
+         * @description Payload to update an existing exclusion zone.
+         */
+        ExclusionZoneUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+            /** Radius Km */
+            radius_km?: number | null;
+        };
+        /**
          * ExtractAndCheckRequest
          * @description Request payload for multi-source web extraction and deduplication triage.
          */
@@ -1531,6 +1962,8 @@ export interface components {
             available_tags?: components["schemas"]["UserTagItemSchema"][];
             /** @description Deduplication and nesting verdict */
             deduplication: components["schemas"]["DeduplicationVerdictSchema"];
+            /** @description Privacy exclusion zone verdict */
+            exclusion?: components["schemas"]["ExclusionVerdictSchema"];
         };
         /**
          * FilterConjunction
@@ -1630,6 +2063,53 @@ export interface components {
              */
             message: string;
         };
+        /**
+         * ForwardGeocodeResponse
+         * @description Response payload for forward geocoding.
+         */
+        ForwardGeocodeResponse: {
+            /**
+             * Latitude
+             * @description Resolved latitude
+             */
+            latitude?: number | null;
+            /**
+             * Longitude
+             * @description Resolved longitude
+             */
+            longitude?: number | null;
+            /**
+             * Street
+             * @description Street address
+             */
+            street?: string | null;
+            /**
+             * City
+             * @description City or municipality
+             */
+            city?: string | null;
+            /**
+             * State Province
+             * @description State or province
+             */
+            state_province?: string | null;
+            /**
+             * Country
+             * @description Country name
+             */
+            country?: string | null;
+            /**
+             * Postal Code
+             * @description Postal / ZIP code
+             */
+            postal_code?: string | null;
+            /**
+             * Cached
+             * @description True if resolved from PostGIS geocache
+             * @default false
+             */
+            cached: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1646,7 +2126,7 @@ export interface components {
          * @description Interactive disposition assigned to staged CSV/photo candidates.
          * @enum {string}
          */
-        IngestDisposition: "accept" | "ignore" | "update_existing" | "sublocation";
+        IngestDisposition: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude";
         /**
          * IngestJobProgressResponse
          * @description Progress status, counts, and duplicate items for an ingestion job.
@@ -1680,6 +2160,10 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Status */
+            readonly status: string;
+            /** Duplicates Pending Count */
+            readonly duplicates_pending_count: number;
         };
         /**
          * IngestJobStatus
@@ -2298,6 +2782,11 @@ export interface components {
             /** Suggested Poi Lng */
             suggested_poi_lng?: number | null;
         };
+        /** OpenFolderRequest */
+        OpenFolderRequest: {
+            /** Path */
+            path: string;
+        };
         /**
          * POICandidateSchema
          * @description Normalized POI extraction candidate schema maintaining 1:1 parity with POI Editor.
@@ -2465,6 +2954,11 @@ export interface components {
              * @description Wikipedia URL
              */
             wiki_url?: string | null;
+            /**
+             * Related Websites
+             * @description Related external websites
+             */
+            related_websites?: { name: string; url: string }[];
             /**
              * Image Urls
              * @description Image URLs
@@ -2644,6 +3138,11 @@ export interface components {
              * @description Wikipedia or Wikidata reference
              */
             wiki_url?: string | null;
+            /**
+             * Related Websites
+             * @description Related external websites
+             */
+            related_websites?: { name: string; url: string }[];
             /**
              * Image Urls
              * @description Array of image URLs
@@ -2885,6 +3384,11 @@ export interface components {
              */
             wiki_url?: string | null;
             /**
+             * Related Websites
+             * @description Related external websites
+             */
+            related_websites?: { name: string; url: string }[];
+            /**
              * Directory Paths
              * @description Associated local file directory paths
              */
@@ -2926,6 +3430,27 @@ export interface components {
              * @description Pricing unit
              */
             pricing_unit?: string | null;
+        };
+        /**
+         * Phase2ProgressResponse
+         * @description Real-time progress reporting during asynchronous parallel AI/web enrichment.
+         */
+        Phase2ProgressResponse: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Total Count */
+            total_count: number;
+            /** Enriched Count */
+            enriched_count: number;
+            /** Is Complete */
+            is_complete: boolean;
+            /** Percent Complete */
+            percent_complete: number;
+            /** Status Message */
+            status_message: string;
         };
         /**
          * PhaseTransitionResponse
@@ -3163,6 +3688,28 @@ export interface components {
              * @description Operand value (string, number, boolean, or null)
              */
             value?: unknown | null;
+        };
+        /**
+         * ScrapingSourcesResponse
+         * @description List of authorized secondary scraping domain suffixes for the user.
+         */
+        ScrapingSourcesResponse: {
+            /**
+             * Valid Scraping Domains
+             * @description List of domain suffixes authorized for secondary scraping
+             */
+            valid_scraping_domains?: string[];
+        };
+        /**
+         * ScrapingSourcesUpdateRequest
+         * @description Payload to update the user's authorized secondary scraping domains.
+         */
+        ScrapingSourcesUpdateRequest: {
+            /**
+             * Valid Scraping Domains
+             * @description List of domain suffixes authorized for secondary scraping
+             */
+            valid_scraping_domains: string[];
         };
         /**
          * SharedListResponse
@@ -3687,6 +4234,248 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogoutResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_exclusion_zones_api_user_exclusion_zones_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionZoneListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_exclusion_zone_api_user_exclusion_zones_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExclusionZoneCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionZoneResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_exclusion_zone_api_user_exclusion_zones__zone_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                zone_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExclusionZoneUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionZoneResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_exclusion_zone_api_user_exclusion_zones__zone_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                zone_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_point_exclusion_api_user_exclusion_zones_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExclusionCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExclusionCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_scraping_sources_api_user_preferences_scraping_sources_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScrapingSourcesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_scraping_sources_api_user_preferences_scraping_sources_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScrapingSourcesUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScrapingSourcesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4460,6 +5249,41 @@ export interface operations {
             };
         };
     };
+    forward_geocode_endpoint_api_pois_geocode_forward_get: {
+        parameters: {
+            query: {
+                /** @description Address or destination query */
+                q: string;
+            };
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardGeocodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_pois_api_pois_get: {
         parameters: {
             query?: {
@@ -5044,6 +5868,42 @@ export interface operations {
             };
         };
     };
+    upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_job_progress_api_ingest_jobs__job_id__get: {
         parameters: {
             query?: never;
@@ -5103,6 +5963,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestJobProgressResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_active_session_api_ingest_active_session_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wipe_active_session_api_ingest_active_session_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCancellationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5314,6 +6238,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobCancellationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enrich_phase2_api_ingest_jobs__job_id__phase2_enrich_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseTransitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_phase2_progress_api_ingest_jobs__job_id__phase2_progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Phase2ProgressResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    back_to_phase1_api_ingest_jobs__job_id__phase2_back_to_phase1_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "X-Mock-User-Id"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhaseTransitionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_folder_endpoint_api_system_open_folder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenFolderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

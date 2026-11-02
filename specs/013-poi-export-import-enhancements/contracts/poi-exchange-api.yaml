@@ -1,0 +1,437 @@
+openapi: 3.1.0
+info:
+  title: Vistarae POI Data Exchange & Multi-Stage Export API
+  version: 1.3.0
+  description: Endpoints for selective streaming POI export, multi-format flexible ingestion, interactive column alignment, and creation auditing.
+paths:
+  /api/v1/export/pois:
+    post:
+      summary: Export selected committed POIs from Vistarae Explorer
+      description: Streams an RFC 4180 CSV (with UTF-8 BOM), structured JSON, or YAML document containing the selected POIs. Aborts with 400 if poi_ids is empty.
+      operationId: exportExplorerPOIs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - poi_ids
+                - format
+              properties:
+                poi_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  description: Explicit list of POI UUIDs to export. Must contain at least 1 item.
+                format:
+                  type: string
+                  enum: [csv, json, yaml]
+                  default: csv
+      responses:
+        '200':
+          description: Streaming chunked export file
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="vistarae_pois_2026-10-31.csv"
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/POIExchangeRecord'
+            application/x-yaml:
+              schema:
+                type: string
+        '400':
+          description: Bad request (e.g. zero POIs selected)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/export/candidates/phase1:
+    post:
+      summary: Export selected Phase 1 triage candidates
+      description: Streams export file of selected candidate records from the active Phase 1 ingestion job.
+      operationId: exportPhase1Candidates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_id
+                - candidate_ids
+                - format
+              properties:
+                job_id:
+                  type: string
+                  format: uuid
+                candidate_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                format:
+                  type: string
+                  enum: [csv, json, yaml]
+                  default: csv
+      responses:
+        '200':
+          description: Streaming candidate export file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/POIExchangeRecord'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /api/v1/export/candidates/phase2:
+    post:
+      summary: Export selected Phase 2 enriched candidates
+      description: Streams export file of selected candidate records from the active Phase 2 review session.
+      operationId: exportPhase2Candidates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_id
+                - candidate_ids
+                - format
+              properties:
+                job_id:
+                  type: string
+                  format: uuid
+                candidate_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                format:
+                  type: string
+                  enum: [csv, json, yaml]
+                  default: csv
+      responses:
+        '200':
+          description: Streaming candidate export file
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/POIExchangeRecord'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /api/v1/ingest/upload-flexible:
+    post:
+      summary: Upload structured POI file with flexible format detection
+      description: Handles CSV, JSON, and YAML file uploads. Triggers column mapping or pre-validation error responses if needed.
+      operationId: uploadFlexiblePOIFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                skip_invalid_rows:
+                  type: boolean
+                  default: false
+                column_mappings:
+                  type: string
+                  description: Optional JSON string of column mappings { "header": "field" }
+                recalculate_fields:
+                  type: string
+                  description: Optional JSON string of SelectiveEnrichmentOverrides
+      responses:
+        '200':
+          description: Upload processed or next interactive step required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/UploadSuccessResponse'
+                  - $ref: '#/components/schemas/ColumnMappingRequiredResponse'
+                  - $ref: '#/components/schemas/TagValidationRequiredResponse'
+        '422':
+          description: Format or type validation failure on mapped columns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreValidationReport'
+
+  /api/v1/ingest/resolve-tags:
+    post:
+      summary: Resolve unapproved tags from early tag validation modal
+      description: Executes one of three user actions on unvetted tags (APPROVE_AND_ADD, STRIP_UNAPPROVED, or ABORT).
+      operationId: resolveIngestTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_id
+                - action
+              properties:
+                job_id:
+                  type: string
+                  format: uuid
+                action:
+                  type: string
+                  enum: [APPROVE_AND_ADD, STRIP_UNAPPROVED, ABORT]
+      responses:
+        '200':
+          description: Tag resolution applied; staging proceeding
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "STAGING_STARTED"
+
+components:
+  responses:
+    ProblemResponse:
+      description: Error response in RFC 7807 format
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    POIExchangeRecord:
+      type: object
+      required:
+        - poi_name
+      properties:
+        poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        poi_name:
+          type: string
+        latitude:
+          type: number
+          format: float
+          nullable: true
+        longitude:
+          type: number
+          format: float
+          nullable: true
+        street_address:
+          type: string
+          default: ""
+        city:
+          type: string
+          default: ""
+        state_province:
+          type: string
+          default: ""
+        postal_code:
+          type: string
+          default: ""
+        country:
+          type: string
+          default: ""
+        tags:
+          type: array
+          items:
+            type: string
+        dates_visited:
+          type: array
+          items:
+            type: string
+        photo_directory:
+          type: string
+          default: ""
+        location_confidence_percent:
+          type: integer
+          default: 100
+        user_disposition:
+          type: string
+          enum: [accept, ignore, update_existing, sublocation]
+        rejection_reason:
+          type: string
+          default: ""
+        ai_description:
+          type: string
+          default: ""
+        reason_to_visit:
+          type: string
+          default: ""
+        recommended_duration_hours:
+          type: number
+          format: float
+          default: 2.0
+        itinerary_days:
+          type: integer
+          default: 1
+        hero_image_url:
+          type: string
+          default: ""
+        official_website:
+          type: string
+          default: ""
+        wikipedia_url:
+          type: string
+          default: ""
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ColumnMappingRequiredResponse:
+      type: object
+      required:
+        - status
+        - job_id
+        - unmapped_columns
+        - sample_rows
+        - target_fields
+      properties:
+        status:
+          type: string
+          example: "NEEDS_COLUMN_MAPPING"
+        job_id:
+          type: string
+          format: uuid
+        unmapped_columns:
+          type: array
+          items:
+            type: string
+        sample_rows:
+          type: array
+          items:
+            type: object
+        target_fields:
+          type: array
+          items:
+            type: string
+
+    TagValidationRequiredResponse:
+      type: object
+      required:
+        - status
+        - job_id
+        - unapproved_tags
+        - total_unapproved_count
+      properties:
+        status:
+          type: string
+          example: "NEEDS_TAG_APPROVAL"
+        job_id:
+          type: string
+          format: uuid
+        unapproved_tags:
+          type: object
+          additionalProperties:
+            type: integer
+        total_unapproved_count:
+          type: integer
+
+    UploadSuccessResponse:
+      type: object
+      required:
+        - status
+        - job_id
+        - total_rows
+      properties:
+        status:
+          type: string
+          example: "QUEUED"
+        job_id:
+          type: string
+          format: uuid
+        total_rows:
+          type: integer
+
+    PreValidationReport:
+      type: object
+      required:
+        - error_type
+        - total_rows
+        - invalid_row_count
+        - issues
+      properties:
+        error_type:
+          type: string
+          example: "VALIDATION_ERROR"
+        total_rows:
+          type: integer
+        invalid_row_count:
+          type: integer
+        can_skip_invalid:
+          type: boolean
+          default: true
+        issues:
+          type: array
+          items:
+            type: object
+            required:
+              - row_number
+              - column
+              - raw_value
+              - expected
+            properties:
+              row_number:
+                type: integer
+              column:
+                type: string
+              raw_value:
+                type: string
+              expected:
+                type: string
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+

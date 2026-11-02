@@ -42,11 +42,11 @@ export async function openCaptureOverlay(payload = {}) {
   const scrapedPoi = parser
     ? parser.parse(document, selectionText, window.location.href)
     : {
-      name: sanitizeDestinationTitle(document.title) || document.title,
-      description: selectionText,
-      category: "experience",
-      source_url: window.location.href,
-    };
+        name: sanitizeDestinationTitle(document.title) || document.title,
+        description: selectionText,
+        category: "experience",
+        source_url: window.location.href,
+      };
   scrapedPoi.name =
     sanitizeDestinationTitle(scrapedPoi.name) || scrapedPoi.name;
 
@@ -106,8 +106,8 @@ export async function openCaptureOverlay(payload = {}) {
         <div class="vistarae-form-group">
           <label class="vistarae-label" for="vistarae-name-input">Destination / POI Name</label>
           <input class="vistarae-input" id="vistarae-name-input" type="text" value="${escapeHtml(
-    scrapedPoi.name,
-  )}" required />
+            scrapedPoi.name,
+          )}" required />
         </div>
 
         <!-- Description -->
@@ -117,8 +117,8 @@ export async function openCaptureOverlay(payload = {}) {
             <span class="vistarae-field-spinner" id="vistarae-desc-spinner" title="Enriching description..."></span>
           </label>
           <textarea class="vistarae-textarea" id="vistarae-desc-input" rows="3">${escapeHtml(
-    scrapedPoi.description || "",
-  )}</textarea>
+            scrapedPoi.description || "",
+          )}</textarea>
         </div>
 
         <!-- Reason to Visit (REQ-CTX-034 / SC-005) -->
@@ -128,26 +128,28 @@ export async function openCaptureOverlay(payload = {}) {
             <span class="vistarae-field-spinner" id="vistarae-reason-spinner" title="Enriching reason to visit..."></span>
           </label>
           <textarea class="vistarae-textarea" id="vistarae-reason-input" rows="3" placeholder="Why a tourist would be interested in visiting...">${escapeHtml(
-    scrapedPoi.reason_to_visit || "",
-  )}</textarea>
+            scrapedPoi.reason_to_visit || "",
+          )}</textarea>
         </div>
 
         <!-- Coordinates -->
         <div class="vistarae-grid-2">
           <div class="vistarae-form-group">
             <label class="vistarae-label" for="vistarae-lat-input">Latitude</label>
-            <input class="vistarae-input" id="vistarae-lat-input" type="number" step="any" value="${scrapedPoi.latitude !== undefined && scrapedPoi.latitude !== null
-      ? scrapedPoi.latitude
-      : ""
-    }" placeholder="e.g. 55.6089" />
+            <input class="vistarae-input" id="vistarae-lat-input" type="number" step="any" value="${
+              scrapedPoi.latitude !== undefined && scrapedPoi.latitude !== null
+                ? scrapedPoi.latitude
+                : ""
+            }" placeholder="e.g. 55.6089" />
           </div>
           <div class="vistarae-form-group">
             <label class="vistarae-label" for="vistarae-lng-input">Longitude</label>
-            <input class="vistarae-input" id="vistarae-lng-input" type="number" step="any" value="${scrapedPoi.longitude !== undefined &&
-      scrapedPoi.longitude !== null
-      ? scrapedPoi.longitude
-      : ""
-    }" placeholder="e.g. -1.7099" />
+            <input class="vistarae-input" id="vistarae-lng-input" type="number" step="any" value="${
+              scrapedPoi.longitude !== undefined &&
+              scrapedPoi.longitude !== null
+                ? scrapedPoi.longitude
+                : ""
+            }" placeholder="e.g. -1.7099" />
           </div>
         </div>
 
@@ -173,10 +175,11 @@ export async function openCaptureOverlay(payload = {}) {
             <label class="vistarae-label" for="vistarae-official-url-input">Official Website</label>
             <div class="vistarae-input-with-button">
               <input class="vistarae-input" id="vistarae-official-url-input" type="url" value="${escapeHtml(
-      scrapedPoi.official_website_url || "",
-    )}" placeholder="https://..." />
-              <button type="button" class="vistarae-btn-mini" id="vistarae-view-official-btn" title="Open official website in new tab" ${scrapedPoi.official_website_url ? "" : "disabled"
-    }>View â†—</button>
+                scrapedPoi.official_website_url || "",
+              )}" placeholder="https://..." />
+              <button type="button" class="vistarae-btn-mini" id="vistarae-view-official-btn" title="Open official website in new tab" ${
+                scrapedPoi.official_website_url ? "" : "disabled"
+              }>View â†—</button>
             </div>
           </div>
           <div class="vistarae-form-group">
@@ -186,10 +189,11 @@ export async function openCaptureOverlay(payload = {}) {
             </label>
             <div class="vistarae-input-with-button">
               <input class="vistarae-input" id="vistarae-wikipedia-url-input" type="url" value="${escapeHtml(
-      scrapedPoi.wikipedia_url || "",
-    )}" placeholder="https://en.wikipedia.org/..." />
-              <button type="button" class="vistarae-btn-mini" id="vistarae-view-wiki-btn" title="Open Wikipedia article in new tab" ${scrapedPoi.wikipedia_url ? "" : "disabled"
-    }>View â†—</button>
+                scrapedPoi.wikipedia_url || "",
+              )}" placeholder="https://en.wikipedia.org/..." />
+              <button type="button" class="vistarae-btn-mini" id="vistarae-view-wiki-btn" title="Open Wikipedia article in new tab" ${
+                scrapedPoi.wikipedia_url ? "" : "disabled"
+              }>View â†—</button>
             </div>
           </div>
         </div>
@@ -202,8 +206,8 @@ export async function openCaptureOverlay(payload = {}) {
           </label>
           <div class="vistarae-input-with-button">
             <input class="vistarae-input" id="vistarae-hero-image-input" type="url" value="${escapeHtml(
-      scrapedPoi.hero_image_url || "",
-    )}" placeholder="https://..." />
+              scrapedPoi.hero_image_url || "",
+            )}" placeholder="https://..." />
             <button type="button" class="vistarae-btn-mini" id="vistarae-hero-reload-btn" title="Reload and preview hero image">Preview</button>
           </div>
           <div class="vistarae-hero-preview-card" id="vistarae-hero-preview-card">
@@ -227,17 +231,19 @@ export async function openCaptureOverlay(payload = {}) {
               Duration (Hours)
               <span class="vistarae-field-spinner" id="vistarae-dur-spinner" title="Inferring duration..."></span>
             </label>
-            <input class="vistarae-input" id="vistarae-duration-hours-input" type="number" step="0.5" min="0" value="${scrapedPoi.estimated_duration_hours || ""
-    }" placeholder="e.g. 2.5" />
+            <input class="vistarae-input" id="vistarae-duration-hours-input" type="number" step="0.5" min="0" value="${
+              scrapedPoi.estimated_duration_hours || ""
+            }" placeholder="e.g. 2.5" />
             <span class="vistarae-field-hint" style="font-size: 10px; color: #64748b; display: block; margin-top: 3px;">Activity time per visit (e.g. 2.5h)</span>
           </div>
           <div class="vistarae-form-group">
             <label class="vistarae-label" for="vistarae-duration-days-input">Itinerary Days</label>
-            <input class="vistarae-input" id="vistarae-duration-days-input" type="number" step="1" min="1" value="${scrapedPoi.estimated_duration_days &&
-      scrapedPoi.estimated_duration_days >= 1
-      ? scrapedPoi.estimated_duration_days
-      : 1
-    }" placeholder="e.g. 1" />
+            <input class="vistarae-input" id="vistarae-duration-days-input" type="number" step="1" min="1" value="${
+              scrapedPoi.estimated_duration_days &&
+              scrapedPoi.estimated_duration_days >= 1
+                ? scrapedPoi.estimated_duration_days
+                : 1
+            }" placeholder="e.g. 1" />
             <span class="vistarae-field-hint" style="font-size: 10px; color: #64748b; display: block; margin-top: 3px;">Days allocated (1 = single-day)</span>
           </div>
           <div class="vistarae-form-group">
@@ -252,8 +258,9 @@ export async function openCaptureOverlay(payload = {}) {
           <label class="vistarae-label" for="vistarae-duration-notes-input">
             Visit Duration Reasoning & Notes
           </label>
-          <textarea class="vistarae-textarea" id="vistarae-duration-notes-input" rows="3" placeholder="Reasoning for visit duration (e.g. ticket lines, tour length, shuttle transit, ranger talks, demonstrations)...">${scrapedPoi.estimated_visit_time_notes || ""
-    }</textarea>
+          <textarea class="vistarae-textarea" id="vistarae-duration-notes-input" rows="3" placeholder="Reasoning for visit duration (e.g. ticket lines, tour length, shuttle transit, ranger talks, demonstrations)...">${
+            scrapedPoi.estimated_visit_time_notes || ""
+          }</textarea>
         </div>
 
         <!-- Addresses -->
@@ -343,7 +350,7 @@ export async function openCaptureOverlay(payload = {}) {
         }
       }
     })
-    .catch(() => { });
+    .catch(() => {});
 
   // â”€â”€ View Buttons & URL Input Watchers (REQ-FR-004, REQ-FR-005, REQ-FR-006) â”€â”€
   const officialInput = shadow.querySelector("#vistarae-official-url-input");
@@ -366,7 +373,7 @@ export async function openCaptureOverlay(payload = {}) {
     }
     try {
       window.open(target, "_blank", "noopener,noreferrer");
-    } catch (_) { }
+    } catch (_) {}
   };
 
   officialInput?.addEventListener("input", () =>
@@ -767,7 +774,7 @@ export async function openCaptureOverlay(payload = {}) {
         }
       }
     })
-    .catch(() => { });
+    .catch(() => {});
 
   // Save handler
   const save = async () => {
@@ -987,7 +994,9 @@ export async function openCaptureOverlay(payload = {}) {
           </div>
           <div style="font-size: 0.85rem; color: #7f1d1d; margin-top: 6px; line-height: 1.4;">
             This destination is located within your configured exclusion zone:
-            <strong>"${escapeHtml((exclusion.matched_zone_names || []).join(", "))}"</strong>.
+            <strong>"${escapeHtml(
+              (exclusion.matched_zone_names || []).join(", "),
+            )}"</strong>.
             Are you sure you want to proceed?
           </div>
           <div class="vistarae-triage-actions" style="display: flex; gap: 8px; margin-top: 10px;">
@@ -1023,15 +1032,15 @@ export async function openCaptureOverlay(payload = {}) {
         <div class="vistarae-dedup-card">
           <div style="font-weight: 700; color: #b45309;">
             Existing Match: "${escapeHtml(
-        dedup.existing_poi_name || "Existing POI",
-      )}"
+              dedup.existing_poi_name || "Existing POI",
+            )}"
           </div>
           <div style="font-size: 0.85rem; color: #78350f; margin-top: 4px;">
             Distance: ${Math.round(
-        dedup.distance_meters || 0,
-      )}m | Similarity: ${Math.round(
-        (dedup.similarity_score || 0) * 100,
-      )}%
+              dedup.distance_meters || 0,
+            )}m | Similarity: ${Math.round(
+              (dedup.similarity_score || 0) * 100,
+            )}%
           </div>
           <div class="vistarae-triage-actions" style="display: flex; gap: 8px; margin-top: 10px;">
             <button class="vistarae-btn vistarae-btn-sm vistarae-btn-secondary" id="vistarae-triage-proceed">Proceed</button>
@@ -1060,12 +1069,13 @@ export async function openCaptureOverlay(payload = {}) {
         <div class="vistarae-dedup-card" style="background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.2);">
           <div style="font-weight: 700; color: #1d4ed8;">
             Discovered existing location: "${escapeHtml(
-        dedup.existing_poi_name || "Macro Destination",
-      )}" (${Math.round(dedup.distance_meters || 0)}m away)
+              dedup.existing_poi_name || "Macro Destination",
+            )}" (${Math.round(dedup.distance_meters || 0)}m away)
           </div>
           <div style="font-size: 0.85rem; color: #1e40af; margin-top: 4px;">
-            Distance: ${Math.round(dedup.distance_meters || 0)}m | Scale: ${dedup.scale_classification || "macro"
-        }
+            Distance: ${Math.round(dedup.distance_meters || 0)}m | Scale: ${
+              dedup.scale_classification || "macro"
+            }
           </div>
           <div class="vistarae-triage-actions" style="display: flex; gap: 8px; margin-top: 10px;">
             <button class="vistarae-btn vistarae-btn-sm vistarae-btn-primary" id="vistarae-triage-make-child">Make Child (Recommended)</button>
@@ -1156,7 +1166,7 @@ function syncAuthFromWebapp() {
     if (userRaw) {
       try {
         user = JSON.parse(userRaw);
-      } catch (_) { }
+      } catch (_) {}
     }
 
     if (token && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {

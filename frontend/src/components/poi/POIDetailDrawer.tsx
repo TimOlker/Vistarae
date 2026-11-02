@@ -19,7 +19,7 @@
 
 import React, { useState, useEffect } from "react";
 import type { POIMapFeature, VisitState } from "../../types/map";
-import { X, Star, Save, Trash2 } from "lucide-react";
+import { X, Star, Save, Trash2, ExternalLink, Globe } from "lucide-react";
 import { TagSelector } from "../tags/TagSelector";
 
 interface POIDetailDrawerProps {
@@ -356,6 +356,91 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
               }}
             />
           </div>
+
+          {/* Related Websites & Research */}
+          {(() => {
+            const sites: { name: string; url: string }[] = [...((poi as any).related_websites || [])];
+            const existingUrls = new Set(sites.map((s) => s.url.trim().toLowerCase().replace(/\/$/, "")));
+            if (poi.official_url && poi.official_url.trim()) {
+              const norm = poi.official_url.trim().toLowerCase().replace(/\/$/, "");
+              if (!existingUrls.has(norm)) {
+                existingUrls.add(norm);
+                sites.unshift({ name: "Official Website", url: poi.official_url.trim() });
+              }
+            }
+            if (poi.wiki_url && poi.wiki_url.trim()) {
+              const norm = poi.wiki_url.trim().toLowerCase().replace(/\/$/, "");
+              if (!existingUrls.has(norm)) {
+                existingUrls.add(norm);
+                sites.push({ name: "Wikipedia", url: poi.wiki_url.trim() });
+              }
+            }
+            if (sites.length === 0) return null;
+            return (
+              <div
+                data-testid="detail-related-websites-card"
+                style={{
+                  padding: "12px",
+                  borderRadius: "var(--radius-md, 8px)",
+                  background: "var(--bg-hover, #f8fafc)",
+                  border: "1px solid var(--border-color, #e2e8f0)",
+                }}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "var(--text-secondary, #475569)",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <Globe size={13} style={{ color: "var(--accent, #2563eb)" }} />
+                  Related Websites & Research ({sites.length})
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {sites.map((site, idx) => (
+                    <div
+                      key={`${site.url}-${idx}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "6px 10px",
+                        borderRadius: "var(--radius-sm, 6px)",
+                        background: "var(--bg-surface, #ffffff)",
+                        border: "1px solid var(--border-color, #e2e8f0)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "var(--text-primary, #0f172a)", minWidth: "90px" }}>
+                        {site.name}:
+                      </span>
+                      <a
+                        href={site.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "var(--accent, #2563eb)",
+                          textDecoration: "none",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px",
+                        }}
+                        title={site.url}
+                      >
+                        {site.url} <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <TagSelector
             selectedTags={selectedTags}

@@ -113,6 +113,7 @@ def candidate_enrichment_lambda_handler(event: dict[str, Any], context: Any) -> 
     """
     import json
     from uuid import UUID
+
     from services.worker.candidate_enricher import CandidateEnricher
 
     records = event.get("Records", [])
@@ -131,7 +132,9 @@ def candidate_enrichment_lambda_handler(event: dict[str, Any], context: Any) -> 
                 user_id = UUID(str(body["user_id"]))
                 candidate_id = UUID(str(body["candidate_id"]))
                 job_id = UUID(str(body["job_id"]))
-                await enricher.enrich_candidate(user_id=user_id, candidate_id=candidate_id, job_id=job_id)
+                await enricher.enrich_candidate(
+                    user_id=user_id, candidate_id=candidate_id, job_id=job_id
+                )
             except Exception as exc:
                 logger.exception("Failed enriching candidate record in Lambda: %s", exc)
                 failures.append({"itemIdentifier": msg_id})

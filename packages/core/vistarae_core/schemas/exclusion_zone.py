@@ -27,10 +27,14 @@ from pydantic import BaseModel, Field
 class ExclusionZoneCreateRequest(BaseModel):
     """Payload to create a new geographic privacy exclusion zone."""
 
-    name: str = Field(..., min_length=1, max_length=100, description="Zone label, e.g. Home or Workplace")
+    name: str = Field(
+        ..., min_length=1, max_length=100, description="Zone label, e.g. Home or Workplace"
+    )
     latitude: float = Field(..., ge=-90.0, le=90.0, description="Center latitude in WGS-84")
     longitude: float = Field(..., ge=-180.0, le=180.0, description="Center longitude in WGS-84")
-    radius_km: float = Field(default=1.0, gt=0.0, le=100.0, description="Exclusion radius in kilometers")
+    radius_km: float = Field(
+        default=1.0, gt=0.0, le=100.0, description="Exclusion radius in kilometers"
+    )
 
 
 class ExclusionZoneUpdateRequest(BaseModel):
@@ -73,4 +77,3 @@ class ExclusionCheckResponse(BaseModel):
     is_excluded: bool = False
     matched_zones: list[ExclusionZoneResponse] = Field(default_factory=list)
     matched_zone_names: list[str] = Field(default_factory=list)
-

@@ -36,7 +36,9 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from vistarae_core.domain.entities import POI, IngestCandidate
+from vistarae_core.adapters.repositories.exclusion_zone_repo import haversine_distance_km
+from vistarae_core.domain.entities import POI, IngestCandidate, TagEntity
+from vistarae_core.domain.enums import TagResolutionAction
 from vistarae_core.domain.exceptions import IngestCandidateNotFoundError
 from vistarae_core.domain.value_objects import (
     AddressRecord,
@@ -55,12 +57,12 @@ from vistarae_core.ports.repositories import (
     ITagRepository,
     IUserExclusionZoneRepository,
 )
-from vistarae_core.adapters.repositories.exclusion_zone_repo import haversine_distance_km
 from vistarae_core.schemas.ingest_staging import (
     ActiveSessionResponse,
     CandidateUpdateRequest,
     Phase2ProgressResponse,
 )
+from vistarae_core.schemas.poi_exchange import POIExchangeRecord
 from vistarae_core.schemas.poi_export import POIExportRecord
 
 from services.poi.services.duplicate_service import (
@@ -119,14 +121,15 @@ class StagingService:
             logger.warning("MSG   |<- Reverse geocoding failed for (%s, %s): %s", lat, lon, exc)
             return []
 
-    async def _forward_geocode_candidate(
+    async def _forward_geocode_candidate(  # noqa: C901
         self,
         name: str,
         city: str | None = None,
         state: str | None = None,
         country: str | None = None,
         street: str | None = None,
-        batch_cache: dict[str, tuple[float | None, float | None, list[AddressRecord]]] | None = None,
+        batch_cache: dict[str, tuple[float | None, float | None, list[AddressRecord]]]
+        | None = None,
     ) -> tuple[float | None, float | None, list[AddressRecord]]:
         """Resolves missing coordinates via hierarchical forward geocoding (REQ-ING-004)."""
         if not self._geocoding_service or not hasattr(self._geocoding_service, "geocode"):
@@ -206,7 +209,7 @@ class StagingService:
                 return existing
         return None
 
-    async def stage_records(
+    async def stage_records(  # noqa: C901
         self,
         user_id: UUID,
         job_id: UUID,
@@ -226,7 +229,7 @@ class StagingService:
                 for t in user_tags:
                     tag_lookup[t.name.lower()] = t.name
                     tag_lookup[t.slug.lower()] = t.name
-                    for alias in (t.aliases or []):
+                    for alias in t.aliases or []:
                         tag_lookup[alias.lower()] = t.name
             except Exception as exc:
                 logger.debug("Could not load user tags for filtering staging upload: %s", exc)
@@ -257,7 +260,12 @@ class StagingService:
             # 2. Forward geocoding fallback if coordinates are missing (REQ-ING-004, REQ-ING-005)
             if lat is None or lon is None:
                 fwd_lat, fwd_lon, fwd_addrs = await self._forward_geocode_candidate(
-                    rec.poi_name, city=city, state=state, country=country, street=street, batch_cache=batch_geocache
+                    rec.poi_name,
+                    city=city,
+                    state=state,
+                    country=country,
+                    street=street,
+                    batch_cache=batch_geocache,
                 )
                 if fwd_lat is not None and fwd_lon is not None:
                     lat, lon = fwd_lat, fwd_lon
@@ -338,11 +346,237 @@ class StagingService:
                 dates_visited=list(rec.dates_visited),
                 photo_directory=rec.photo_directory,
                 confidence_score=rec.location_confidence_percent,
-                tags=[tag_lookup[t.strip().lower()] for t in (rec.tags or []) if t.strip().lower() in tag_lookup]
+                tags=[
+                    tag_lookup[t.strip().lower()]
+                    for t in (rec.tags or [])
+                    if t.strip().lower() in tag_lookup
+                ]
                 if tag_lookup
                 else list(rec.tags or []),
                 description=None,
                 reason_to_visit=None,
+                update_coordinates=False,
+                is_skipped=False,
+                phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+            candidates_to_stage.append(candidate)
+
+        return await self._candidate_repo.create_batch(candidates_to_stage)
+
+    async def get_unapproved_tags(
+        self,
+        user_id: UUID,
+        records: Sequence[POIExchangeRecord],
+    ) -> dict[str, int]:
+        """Compares incoming tags against user library and returns unapproved tags with occurrence counts."""
+        if not self._tag_repo:
+            return {}
+        try:
+            user_tags = await self._tag_repo.list_by_user(user_id)
+            approved = {t.name.lower() for t in user_tags}
+            for t in user_tags:
+                approved.add(t.slug.lower())
+                for alias in t.aliases or []:
+                    approved.add(alias.lower())
+        except Exception as exc:
+            logger.warning("Could not fetch user tags: %s", exc)
+            return {}
+
+        unapproved_counts: dict[str, int] = {}
+        for r in records:
+            for tag in r.tags or []:
+                cleaned = str(tag).strip()
+                if not cleaned:
+                    continue
+                if cleaned.lower() not in approved:
+                    unapproved_counts[cleaned] = unapproved_counts.get(cleaned, 0) + 1
+        return unapproved_counts
+
+    async def resolve_unapproved_tags(
+        self,
+        user_id: UUID,
+        records: Sequence[POIExchangeRecord],
+        action: TagResolutionAction,
+        unapproved_tags: Sequence[str],
+    ) -> list[POIExchangeRecord]:
+        unapproved_set = {t.strip().lower() for t in unapproved_tags}
+        if action == TagResolutionAction.APPROVE_AND_ADD:
+            if self._tag_repo:
+                for tag_name in unapproved_tags:
+                    clean = tag_name.strip()
+                    if clean:
+                        new_tag = TagEntity(
+                            id=uuid4(),
+                            user_id=user_id,
+                            name=clean,
+                            slug=clean.lower().replace(" ", "-"),
+                        )
+                        try:
+                            await self._tag_repo.create(new_tag)
+                        except Exception as exc:
+                            logger.warning("Could not persist approved tag %s: %s", clean, exc)
+            return list(records)
+
+        if action == TagResolutionAction.STRIP_UNAPPROVED:
+            updated_records: list[POIExchangeRecord] = []
+            for r in records:
+                r_dict = r.model_dump()
+                r_dict["tags"] = [
+                    t for t in (r.tags or []) if str(t).strip().lower() not in unapproved_set
+                ]
+                updated_records.append(POIExchangeRecord(**r_dict))
+            return updated_records
+
+        return list(records)
+
+    async def stage_exchange_records(  # noqa: C901
+        self,
+        user_id: UUID,
+        job_id: UUID,
+        records: Sequence[POIExchangeRecord],
+    ) -> Sequence[IngestCandidate]:
+        """Stages POIExchangeRecord items with tenant-scoped ID reconciliation (REQ-IMP-007)."""
+        candidates_to_stage: list[IngestCandidate] = []
+        batch_geocache: dict[str, tuple[float | None, float | None, list[AddressRecord]]] = {}
+        user_exclusion_zones: list[Any] = []
+        if self._exclusion_zone_repo is not None:
+            user_exclusion_zones = list(await self._exclusion_zone_repo.list_by_user(user_id))
+
+        for idx, rec in enumerate(records):
+            lat = float(rec.latitude) if rec.latitude is not None else None
+            lon = float(rec.longitude) if rec.longitude is not None else None
+
+            street = rec.street_address or None
+            city = rec.city or None
+            state = rec.state_province or None
+            postal = rec.postal_code or None
+            country = rec.country or None
+            addresses_list: list[dict[str, Any]] = []
+
+            # 1. Reverse geocoding fallback
+            if lat is not None and lon is not None and not street:
+                rev_addrs = await self._reverse_geocode_candidate(lat, lon)
+                if rev_addrs:
+                    first = rev_addrs[0]
+                    street = street or first.street
+                    city = city or first.city
+                    state = state or first.state_province
+                    postal = postal or first.postal_code
+                    country = country or first.country
+                    addresses_list = [a.model_dump() for a in rev_addrs]
+
+            # 2. Forward geocoding fallback
+            if lat is None or lon is None:
+                fwd_lat, fwd_lon, fwd_addrs = await self._forward_geocode_candidate(
+                    rec.poi_name,
+                    city=city,
+                    state=state,
+                    country=country,
+                    street=street,
+                    batch_cache=batch_geocache,
+                )
+                if fwd_lat is not None and fwd_lon is not None:
+                    lat, lon = fwd_lat, fwd_lon
+                    if fwd_addrs:
+                        first = fwd_addrs[0]
+                        street = street or first.street
+                        city = city or first.city
+                        state = state or first.state_province
+                        postal = postal or first.postal_code
+                        country = country or first.country
+                        addresses_list = [a.model_dump() for a in fwd_addrs]
+
+            # 3. Privacy Exclusion Zones Check
+            is_excluded = False
+            if lat is not None and lon is not None and user_exclusion_zones:
+                for ez in user_exclusion_zones:
+                    if haversine_distance_km(lat, lon, ez.latitude, ez.longitude) <= ez.radius_km:
+                        is_excluded = True
+                        break
+
+            # 4. Tenant-Scoped ID Reconciliation (REQ-IMP-007)
+            recommended_disposition = IngestDisposition.ACCEPT
+            user_disposition: IngestDisposition | None = None
+            matched_existing_poi_id: UUID | None = None
+            parent_poi_id: UUID | None = None
+
+            matched_tenant_poi = False
+            if rec.poi_id and self._poi_repo:
+                try:
+                    existing_poi = await self._poi_repo.get_by_id(rec.poi_id)
+                    if existing_poi and existing_poi.user_id == user_id:
+                        recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                        user_disposition = IngestDisposition.UPDATE_EXISTING
+                        matched_existing_poi_id = rec.poi_id
+                        matched_tenant_poi = True
+                except Exception as exc:
+                    logger.debug("Failed querying existing POI %s: %s", rec.poi_id, exc)
+
+            if not matched_tenant_poi:
+                in_batch_match = self._check_in_batch_duplicate(
+                    rec.poi_name, lat, lon, candidates_to_stage
+                )
+                if is_excluded:
+                    recommended_disposition = IngestDisposition.EXCLUDE
+                elif in_batch_match is not None:
+                    recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                elif lat is None or lon is None:
+                    recommended_disposition = IngestDisposition.IGNORE
+                elif self._duplicate_service is not None:
+                    verdict = await self._duplicate_service.evaluate_candidate(
+                        user_id=user_id,
+                        name=rec.poi_name,
+                        latitude=lat,
+                        longitude=lon,
+                    )
+                    if verdict.status == "POTENTIAL_DUPLICATE":
+                        recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                        matched_existing_poi_id = verdict.existing_poi_id
+                    elif verdict.status == "NEARBY_PARENT":
+                        recommended_disposition = IngestDisposition.SUBLOCATION
+                        parent_poi_id = verdict.existing_poi_id
+                    else:
+                        if rec.location_confidence_percent >= 40:
+                            recommended_disposition = IngestDisposition.ACCEPT
+                        else:
+                            recommended_disposition = IngestDisposition.IGNORE
+                else:
+                    if rec.location_confidence_percent < 40:
+                        recommended_disposition = IngestDisposition.IGNORE
+
+            candidate = IngestCandidate(
+                id=uuid4(),
+                user_id=user_id,
+                job_id=job_id,
+                row_index=idx,
+                poi_name=rec.poi_name,
+                recommended_disposition=recommended_disposition,
+                user_disposition=user_disposition,
+                matched_existing_poi_id=matched_existing_poi_id,
+                parent_poi_id=parent_poi_id,
+                latitude=Decimal(str(round(lat, 7))) if lat is not None else None,
+                longitude=Decimal(str(round(lon, 7))) if lon is not None else None,
+                street_address=street,
+                city=city,
+                state_province=state,
+                postal_code=postal,
+                country=country,
+                addresses=addresses_list,
+                dates_visited=list(rec.dates_visited or []),
+                photo_directory=rec.photo_directory or "",
+                confidence_score=rec.location_confidence_percent or 100,
+                tags=list(rec.tags or []),
+                description=rec.ai_description or None,
+                reason_to_visit=rec.reason_to_visit or None,
+                official_url=rec.official_website or None,
+                wiki_url=rec.wikipedia_url or None,
+                hero_image_url=rec.hero_image_url or None,
+                recommended_duration_hours=Decimal(str(rec.recommended_duration_hours))
+                if rec.recommended_duration_hours
+                else None,
+                recommended_visit_days=rec.itinerary_days or 1,
                 update_coordinates=False,
                 is_skipped=False,
                 phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE,
@@ -434,7 +668,7 @@ class StagingService:
                         for t in user_tags:
                             tag_map[t.name.lower()] = t.name
                             tag_map[t.slug.lower()] = t.name
-                            for alias in (t.aliases or []):
+                            for alias in t.aliases or []:
                                 tag_map[alias.lower()] = t.name
                         valid_tags: list[str] = []
                         for t in val:
@@ -496,7 +730,9 @@ class StagingService:
             else:
                 # Merge visit dates and tags into the primary New POI
                 primary = primary_in_batch[key]
-                primary.dates_visited = sorted(list(set(primary.dates_visited + cand.dates_visited)))
+                primary.dates_visited = sorted(
+                    list(set(primary.dates_visited + cand.dates_visited))
+                )
                 if cand.tags:
                     primary.tags = sorted(list(set(primary.tags + cand.tags)))
                 await self._candidate_repo.update_candidate(user_id, primary)
@@ -516,7 +752,7 @@ class StagingService:
         """Aborts triage/review and purges staged candidate records (REQ-ING-015, REQ-ING-024)."""
         return await self._candidate_repo.purge_by_job(user_id, job_id)
 
-    async def commit_job(
+    async def commit_job(  # noqa: C901
         self,
         user_id: UUID,
         job_id: UUID,
@@ -546,7 +782,9 @@ class StagingService:
             if effective_disp == IngestDisposition.UPDATE_EXISTING:
                 target_poi = None
                 if cand.matched_existing_poi_id:
-                    target_poi = await self._poi_repo.get_by_id(cand.matched_existing_poi_id, user_id)
+                    target_poi = await self._poi_repo.get_by_id(
+                        cand.matched_existing_poi_id, user_id
+                    )
                 elif cand.poi_name.strip().lower() in created_batch_pois:
                     target_poi = created_batch_pois[cand.poi_name.strip().lower()]
 
@@ -558,7 +796,9 @@ class StagingService:
                         list(set(target_poi.directory_paths + [cand.photo_directory]))
                     )
                     if hasattr(target_poi, "tags"):
-                        target_poi.tags = sorted(list(set(getattr(target_poi, "tags", []) + cand.tags)))
+                        target_poi.tags = sorted(
+                            list(set(getattr(target_poi, "tags", []) + cand.tags))
+                        )
 
                     if cand.update_coordinates:
                         target_poi.geom = point
@@ -580,12 +820,32 @@ class StagingService:
                         target_poi.wiki_url = cand.wiki_url
                     if cand.hero_image_url and not target_poi.image_urls:
                         target_poi.image_urls = [cand.hero_image_url]
-                    if cand.recommended_duration_hours and not target_poi.recommended_duration_hours:
-                        target_poi.recommended_duration_hours = Decimal(str(cand.recommended_duration_hours))
+                    if (
+                        cand.recommended_duration_hours
+                        and not target_poi.recommended_duration_hours
+                    ):
+                        target_poi.recommended_duration_hours = Decimal(
+                            str(cand.recommended_duration_hours)
+                        )
                     if cand.recommended_visit_days and target_poi.recommended_visit_days <= 1:
                         target_poi.recommended_visit_days = cand.recommended_visit_days
-                    if cand.estimated_visit_time_notes and not target_poi.estimated_visit_time_notes:
+                    if (
+                        cand.estimated_visit_time_notes
+                        and not target_poi.estimated_visit_time_notes
+                    ):
                         target_poi.estimated_visit_time_notes = cand.estimated_visit_time_notes
+                    if cand.related_websites:
+                        existing_urls = {
+                            w["url"].rstrip("/").lower()
+                            for w in (target_poi.related_websites or [])
+                            if isinstance(w, dict) and "url" in w
+                        }
+                        for site in cand.related_websites:
+                            if isinstance(site, dict) and site.get("url"):
+                                k = site["url"].rstrip("/").lower()
+                                if k not in existing_urls:
+                                    existing_urls.add(k)
+                                    target_poi.related_websites.append(site)
 
                     await self._poi_repo.update(target_poi)
                     if cand.tags and self._tag_repo and hasattr(self._poi_repo, "bulk_attach_tags"):
@@ -604,7 +864,9 @@ class StagingService:
                                     tag_ids=matched_ids,
                                 )
                         except Exception as exc:
-                            logger.warning("Failed attaching tags to merged POI %s: %s", target_poi.id, exc)
+                            logger.warning(
+                                "Failed attaching tags to merged POI %s: %s", target_poi.id, exc
+                            )
 
                     merged_ids.append(target_poi.id)
                     continue
@@ -639,6 +901,7 @@ class StagingService:
                 official_url=cand.official_url,
                 wiki_url=cand.wiki_url,
                 image_urls=[cand.hero_image_url] if cand.hero_image_url else [],
+                related_websites=cand.related_websites or [],
                 recommended_duration_hours=Decimal(str(cand.recommended_duration_hours))
                 if cand.recommended_duration_hours is not None
                 else None,
@@ -701,12 +964,14 @@ class StagingService:
 
     def get_phase2_progress(self, user_id: UUID, job_id: UUID) -> Phase2ProgressResponse:
         """Returns real-time enrichment progress metrics for a job."""
-        from services.worker.candidate_enricher import CandidateEnrichmentQueueManager
+        from services.worker.candidate_enricher import (
+            CandidateEnrichmentQueueManager,
+            _global_enrichment_progress,
+        )
 
-        # Check queue manager progress first
-        prog = CandidateEnrichmentQueueManager.get_progress(job_id)
-        if prog and prog.total_count > 0:
-            return prog
+        # Check global queue manager progress first
+        if job_id in _global_enrichment_progress:
+            return CandidateEnrichmentQueueManager.get_progress(job_id)
 
         local_prog = self._enrichment_progress.get(job_id)
         if local_prog:
@@ -718,14 +983,7 @@ class StagingService:
                 percent_complete=local_prog.get("percent_complete", 0),
                 status_message=local_prog.get("status_message", "Enrichment in progress..."),
             )
-        return Phase2ProgressResponse(
-            job_id=job_id,
-            total_count=0,
-            enriched_count=0,
-            is_complete=True,
-            percent_complete=100,
-            status_message="Ready",
-        )
+        return CandidateEnrichmentQueueManager.get_progress(job_id)
 
     async def enrich_candidates_phase2(
         self,
@@ -733,48 +991,88 @@ class StagingService:
         job_id: UUID,
         prompt_directives: dict[PromptType, str] | None = None,
     ) -> Sequence[IngestCandidate]:
-        """Enriches non-ignored candidates in parallel using modular queue workers."""
-        from services.worker.candidate_enricher import (
-            CandidateEnricher,
-            CandidateEnrichmentQueueManager,
-        )
-        from vistarae_core.adapters.db.session import get_session_factory
-        from vistarae_core.adapters.repositories.ingest_candidate_repo import (
-            SqlAlchemyIngestCandidateRepository,
-        )
+        """Enriches non-ignored candidates using ScrapingOrchestrator and traveler directives."""
+        from vistarae_core.services.prompt_cache import default_prompt_cache
 
-        session_factory = get_session_factory()
-        session = session_factory()
-        async with session:
-            repo = SqlAlchemyIngestCandidateRepository(session)
-            candidates = await repo.list_by_job(
-                user_id, job_id, IngestCandidatePhaseState.PHASE_2_ENRICHED
+        from services.worker.candidate_enricher import _global_enrichment_progress
+
+        directives = prompt_directives or default_prompt_cache.get(user_id) or {}
+        desc_directive = directives.get(PromptType.DESCRIPTION)
+        reason_directive = directives.get(PromptType.REASON_TO_VISIT)
+
+        candidates = await self._candidate_repo.list_by_job(
+            user_id, job_id, IngestCandidatePhaseState.PHASE_2_ENRICHED
+        )
+        if not candidates:
+            candidates = await self._candidate_repo.list_by_job(user_id, job_id)
+
+        candidates_to_enrich = [
+            cand
+            for cand in candidates
+            if not cand.is_skipped
+            and (cand.user_disposition or cand.recommended_disposition)
+            not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+        ]
+        total = len(candidates_to_enrich)
+        _global_enrichment_progress[job_id] = {
+            "total_count": total,
+            "enriched_count": 0,
+            "is_complete": False,
+            "percent_complete": 0 if total > 0 else 100,
+            "status_message": f"Queued {total} POIs for enrichment...",
+        }
+
+        enriched_list: list[IngestCandidate] = []
+        for done_count, cand in enumerate(candidates_to_enrich, start=1):
+            addr_ctx = ", ".join(
+                filter(None, [cand.street_address, cand.city, cand.state_province, cand.country])
             )
-            if not candidates:
-                candidates = await repo.list_by_job(user_id, job_id)
+            combined_context = f"{cand.poi_name} in {addr_ctx}." if addr_ctx else cand.poi_name
 
-            candidates_to_enrich = [
-                cand
-                for cand in candidates
-                if not cand.is_skipped
-                and (cand.user_disposition or cand.recommended_disposition)
-                not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
-            ]
-            cand_ids = [c.id for c in candidates_to_enrich]
+            if self._orchestrator is not None:
+                if not cand.description:
+                    cand.description = await self._orchestrator.synthesize_summary(
+                        name=cand.poi_name,
+                        primary_snippet=combined_context,
+                        secondary_extracts=[],
+                        directive=desc_directive,
+                    )
+                if not cand.reason_to_visit:
+                    cand.reason_to_visit = await self._orchestrator.synthesize_reason_to_visit(
+                        name=cand.poi_name,
+                        primary_snippet=cand.description or combined_context,
+                        directive=reason_directive,
+                    )
+            else:
+                if not cand.description:
+                    cand.description = (
+                        f"Historic destination and scenic attraction in {addr_ctx or 'the region'}."
+                    )
+                if not cand.reason_to_visit:
+                    cand.reason_to_visit = f"Visitors explore {cand.poi_name} to appreciate its cultural character and memorable sights."
 
-        enricher = CandidateEnricher(
-            session_factory=session_factory,
-            orchestrator=self._orchestrator,
-        )
-        queue_mgr = CandidateEnrichmentQueueManager(enricher=enricher, max_concurrency=5)
-        await queue_mgr.enqueue_and_process_job(user_id, job_id, cand_ids)
+            if not cand.tags:
+                cand.tags = ["Sightseeing", "Landmark"]
 
-        session2 = session_factory()
-        async with session2:
-            repo2 = SqlAlchemyIngestCandidateRepository(session2)
-            return await repo2.list_by_job(
-                user_id, job_id, IngestCandidatePhaseState.PHASE_2_ENRICHED
-            )
+            cand.updated_at = datetime.now(UTC)
+            updated = await self._candidate_repo.update_candidate(user_id, cand)
+            enriched_list.append(updated)
+
+            prog = _global_enrichment_progress.get(job_id)
+            if prog:
+                prog["enriched_count"] = done_count
+                prog["percent_complete"] = int((done_count / total) * 100)
+                prog["status_message"] = (
+                    f"Enriched {done_count} of {total} POIs ({cand.poi_name})..."
+                )
+
+        prog = _global_enrichment_progress.get(job_id)
+        if prog:
+            prog["is_complete"] = True
+            prog["percent_complete"] = 100
+            prog["status_message"] = f"Finished enriching all {total} POI(s)!"
+
+        return enriched_list
 
     async def get_active_session(self, user_id: UUID) -> ActiveSessionResponse:
         """Checks for an active uncommitted staging session for tenant."""
@@ -816,4 +1114,3 @@ class StagingService:
             Count of candidates reverted.
         """
         return await self._candidate_repo.revert_to_phase1(user_id, job_id)
-

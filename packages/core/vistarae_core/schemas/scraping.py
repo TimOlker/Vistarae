@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026 Tim Olker
+# Copyright (c) 2026 Tim Olker
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -126,6 +126,10 @@ class POICandidateSchema(StrictBaseModel):
     extraction_sources: list[str] = Field(
         default_factory=list, description="List of source domains consulted"
     )
+    related_websites: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Structured related websites (e.g. Atlas Obscura, Tripadvisor, Wikipedia, Official)",
+    )
 
 
 class DeduplicationVerdictSchema(StrictBaseModel):
@@ -162,8 +166,12 @@ class UserTagItemSchema(StrictBaseModel):
 
 
 class ExclusionVerdictSchema(StrictBaseModel):
-    is_excluded: bool = Field(default=False, description="Whether coordinates fall within a privacy exclusion zone")
-    matched_zone_names: list[str] = Field(default_factory=list, description="Names of matched exclusion zones")
+    is_excluded: bool = Field(
+        default=False, description="Whether coordinates fall within a privacy exclusion zone"
+    )
+    matched_zone_names: list[str] = Field(
+        default_factory=list, description="Names of matched exclusion zones"
+    )
 
 
 class ExtractAndCheckResponse(StrictBaseModel):
@@ -180,5 +188,6 @@ class ExtractAndCheckResponse(StrictBaseModel):
         ..., description="Deduplication and nesting verdict"
     )
     exclusion: ExclusionVerdictSchema = Field(
-        default_factory=lambda: ExclusionVerdictSchema(), description="Privacy exclusion zone verdict"
+        default_factory=lambda: ExclusionVerdictSchema(),
+        description="Privacy exclusion zone verdict",
     )

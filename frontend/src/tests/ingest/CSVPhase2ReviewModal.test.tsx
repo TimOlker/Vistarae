@@ -19,8 +19,32 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CSVPhase2ReviewModal } from "../../components/ingest/CSVPhase2ReviewModal";
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { ToastProvider } from "../../context/ToastContext";
+import { ToastBanner } from "../../components/common/ToastBanner";
 
-vi.mock("../../services/api", () => ({
+vi.mock("maplibre-gl", () => ({
+  default: {
+    Map: vi.fn().mockImplementation(() => ({
+      addControl: vi.fn(),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+      getSource: vi.fn(),
+      flyTo: vi.fn(),
+      remove: vi.fn(),
+      resize: vi.fn(),
+      on: vi.fn(),
+      getContainer: vi.fn(),
+    })),
+    Marker: vi.fn().mockImplementation(() => ({
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+      remove: vi.fn(),
+      on: vi.fn(),
+    })),
+    NavigationControl: vi.fn(),
+  },
+}));
+
+vi.mock("../../services/api" , () => ({
   apiFetch: vi.fn().mockImplementation((url: string) => {
     if (url.includes("/api/tags") || url.includes("/api/pois/tags")) {
       return Promise.resolve([
@@ -88,13 +112,16 @@ const mockEnrichedCandidates: CandidateItem[] = [
     matched_existing_poi_id: "poi-existing-123",
     latitude: 41.886,
     longitude: -87.717,
+    city: "Chicago",
+    state_province: "Illinois",
+    country: "United States",
     photo_directory: "2005/Garfield Park",
     confidence_score: 90,
     description: "Botanical sanctuary featuring historic glasshouses and palm collections.",
     reason_to_visit: "Marvel at lush desert and tropical plant rooms.",
-    official_url: "https://garfieldconservatory.org",
-    wiki_url: "https://en.wikipedia.org/wiki/Garfield_Park_Conservatory",
-    hero_image_url: "https://upload.wikimedia.org/garfield.jpg",
+    official_url: null,
+    wiki_url: null,
+    hero_image_url: null,
     recommended_duration_hours: 2.5,
     recommended_visit_days: 0,
     estimated_visit_time_notes: "Estimated 2.5 hours exploring multiple plant houses.",
@@ -170,10 +197,13 @@ describe("CSVPhase2ReviewModal (Phase 2)", () => {
     expect(screen.queryByText("Ignored POI")).not.toBeInTheDocument();
     expect(screen.queryByText("Excluded Privacy POI")).not.toBeInTheDocument();
 
+    expect(screen.getByText("2 Ready to Commit")).toBeInTheDocument();
+
+    // Clicking candidate row opens the details panel with description, reason to visit, and tags
+    fireEvent.click(screen.getByTestId("enriched-row-cand-1"));
     expect(screen.getAllByText(/Ancient Buddhist temple in Asakusa/)[0]).toBeInTheDocument();
     expect(screen.getAllByText(/Experience iconic Edo atmosphere/)[0]).toBeInTheDocument();
     expect(screen.getAllByText("Temple")[0]).toBeInTheDocument();
-    expect(screen.getByText("2 Ready to Commit")).toBeInTheDocument();
   });
 
   it("toggles skip state on candidate and dispatches update", async () => {
@@ -222,17 +252,16 @@ describe("CSVPhase2ReviewModal (Phase 2)", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("edit-poi-btn-cand-1")).toBeInTheDocument();
+      expect(screen.getByTestId("enriched-row-cand-1")).toBeInTheDocument();
     });
 
     // Selecting candidate populates the right panel editor
-    fireEvent.click(screen.getByTestId("edit-poi-btn-cand-1"));
+    fireEvent.click(screen.getByTestId("enriched-row-cand-1"));
 
     expect(screen.getByTestId("poi-edit-drawer")).toBeInTheDocument();
 
     // Verify rich inputs exist
-    expect(screen.getByTestId("edit-poi-official-url-input")).toBeInTheDocument();
-    expect(screen.getByTestId("edit-poi-wiki-url-input")).toBeInTheDocument();
+    expect(screen.getByTestId("related-websites-section")).toBeInTheDocument();
     expect(screen.getByTestId("edit-poi-hero-image-input")).toBeInTheDocument();
     expect(screen.getByTestId("hero-image-preview")).toBeInTheDocument();
     expect(screen.getByTestId("edit-poi-duration-hours-input")).toBeInTheDocument();
@@ -249,6 +278,10 @@ describe("CSVPhase2ReviewModal (Phase 2)", () => {
       reason_to_visit: "Experience iconic Edo atmosphere and temple architecture.",
       official_url: "https://www.senso-ji.jp",
       wiki_url: "https://en.wikipedia.org/wiki/Sens%C5%8D-ji",
+      related_websites: [
+        { name: "Official Website", url: "https://www.senso-ji.jp" },
+        { name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Sens%C5%8D-ji" },
+      ],
       hero_image_url: "https://upload.wikimedia.org/sensoji.jpg",
       recommended_duration_hours: 2,
       recommended_visit_days: 1,
@@ -273,11 +306,11 @@ describe("CSVPhase2ReviewModal (Phase 2)", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("edit-poi-btn-cand-2")).toBeInTheDocument();
+      expect(screen.getByTestId("enriched-row-cand-2")).toBeInTheDocument();
     });
 
     // Click candidate 2 (update_existing)
-    fireEvent.click(screen.getByTestId("edit-poi-btn-cand-2"));
+    fireEvent.click(screen.getByTestId("enriched-row-cand-2"));
 
     expect(screen.getByTestId("edit-update-coordinates-toggle")).toBeInTheDocument();
   });
@@ -566,11 +599,11 @@ describe("CSVPhase2ReviewModal (Phase 2)", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("edit-poi-btn-cand-1")).toBeInTheDocument();
+      expect(screen.getByTestId("enriched-row-cand-1")).toBeInTheDocument();
     });
 
     // Click candidate 1 to inspect
-    fireEvent.click(screen.getByTestId("edit-poi-btn-cand-1"));
+    fireEvent.click(screen.getByTestId("enriched-row-cand-1"));
 
     // "Temple" is already in cand-1 tags, clicking it toggles off
     const templeTag = screen.getByTestId("approved-tag-temple");
@@ -585,5 +618,200 @@ describe("CSVPhase2ReviewModal (Phase 2)", () => {
     fireEvent.click(screen.getByTestId("select-all-phase2-checkbox"));
     expect(screen.queryByTestId("bulk-custom-tag-input")).not.toBeInTheDocument();
     expect(screen.queryByTestId("bulk-add-custom-tag-btn")).not.toBeInTheDocument();
+  });
+
+  it("aborts export and displays warning toast when 0 candidates checked in Phase 2 Review", async () => {
+    const exportApi = await import("../../services/exportApi");
+    const exportSpy = vi.spyOn(exportApi, "exportPhase2Candidates").mockResolvedValue(undefined);
+
+    render(
+      <ToastProvider>
+        <ToastBanner />
+        <CSVPhase2ReviewModal
+          jobId="job-200"
+          isOpen={true}
+          onClose={vi.fn()}
+          onCommitComplete={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("export-selected-phase2-btn")).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByTestId("export-selected-phase2-btn");
+    fireEvent.click(exportBtn);
+
+    expect(exportSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("No records selected. Please select at least one record to export.")).toBeInTheDocument();
+  });
+
+  it("exports checked candidates in Phase 2 Review when clicked", async () => {
+    const exportApi = await import("../../services/exportApi");
+    const exportSpy = vi.spyOn(exportApi, "exportPhase2Candidates").mockResolvedValue(undefined);
+
+    render(
+      <ToastProvider>
+        <ToastBanner />
+        <CSVPhase2ReviewModal
+          jobId="job-200"
+          isOpen={true}
+          onClose={vi.fn()}
+          onCommitComplete={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("select-all-phase2-checkbox")).toBeInTheDocument();
+    });
+
+    // Select all candidates
+    fireEvent.click(screen.getByTestId("select-all-phase2-checkbox"));
+
+    const formatSelect = screen.getByTestId("export-format-select-phase2");
+    fireEvent.change(formatSelect, { target: { value: "json" } });
+
+    const exportBtn = screen.getByTestId("export-selected-phase2-btn");
+    fireEvent.click(exportBtn);
+
+    expect(exportSpy).toHaveBeenCalledWith("job-200", expect.arrayContaining(["cand-1", "cand-2"]), "json");
+  });
+
+  it("supports Sort Priority dropdown between POI and Location with dynamic column ordering and column sort overrides", async () => {
+    render(
+      <ToastProvider>
+        <CSVPhase2ReviewModal
+          jobId="job-200"
+          isOpen={true}
+          onClose={vi.fn()}
+          onCommitComplete={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Senso-ji")[0]).toBeInTheDocument();
+    });
+
+    // 1. Verify sort priority select exists and defaults to "poi"
+    const sortPrioritySelect = screen.getByRole("combobox", {
+      name: /sort priority/i,
+    }) as HTMLSelectElement;
+    expect(sortPrioritySelect).toBeInTheDocument();
+    expect(sortPrioritySelect.value).toBe("poi");
+
+    // 2. In "poi" mode, check column headers start with POI Name -> Country -> State / Province -> City / Town
+    const tableHeaders = screen.getAllByRole("columnheader");
+    expect(tableHeaders[1]).toHaveTextContent(/Status/i);
+    expect(tableHeaders[2]).toHaveTextContent(/POI Name/i);
+    expect(tableHeaders[3]).toHaveTextContent(/Country/i);
+    expect(tableHeaders[4]).toHaveTextContent(/State \/ Province/i);
+    expect(tableHeaders[5]).toHaveTextContent(/City \/ Town/i);
+
+    // Verify POI name is bolded (fontWeight: 700)
+    const sensojiCell = screen.getAllByText("Senso-ji")[0];
+    expect(sensojiCell).toHaveStyle({ fontWeight: 700 });
+
+    // In "poi" mode, "Garfield Park Conservatory" precedes "Senso-ji" alphabetically
+    const poiNamesPoiMode = screen.getAllByText(/Garfield Park Conservatory|Senso-ji/);
+    expect(poiNamesPoiMode[0]).toHaveTextContent("Garfield Park Conservatory");
+    expect(poiNamesPoiMode[1]).toHaveTextContent("Senso-ji");
+
+    // 3. Switch to "location" priority
+    fireEvent.change(sortPrioritySelect, { target: { value: "location" } });
+    expect(sortPrioritySelect.value).toBe("location");
+
+    // Column headers should now start with Country -> State / Province -> City / Town -> POI Name
+    const reorderedHeaders = screen.getAllByRole("columnheader");
+    expect(reorderedHeaders[1]).toHaveTextContent(/Status/i);
+    expect(reorderedHeaders[2]).toHaveTextContent(/Country/i);
+    expect(reorderedHeaders[3]).toHaveTextContent(/State \/ Province/i);
+    expect(reorderedHeaders[4]).toHaveTextContent(/City \/ Town/i);
+    expect(reorderedHeaders[5]).toHaveTextContent(/POI Name/i);
+
+    // In "location" mode, "Japan" precedes "United States", so "Senso-ji" comes first
+    const poiNamesLocMode = screen.getAllByText(/Garfield Park Conservatory|Senso-ji/);
+    expect(poiNamesLocMode[0]).toHaveTextContent("Senso-ji");
+    expect(poiNamesLocMode[1]).toHaveTextContent("Garfield Park Conservatory");
+
+    // 4. Test column header click overrides sort priority while keeping column order
+    fireEvent.click(screen.getByText(/Disposition/i));
+    const headersAfterOverride = screen.getAllByRole("columnheader");
+    expect(headersAfterOverride[2]).toHaveTextContent(/Country/i);
+    expect(headersAfterOverride[5]).toHaveTextContent(/POI Name/i);
+  });
+
+  it("renders Data Status column, highlights incomplete rows, and displays Location Map on POI selection", async () => {
+    render(
+      <ToastProvider>
+        <CSVPhase2ReviewModal
+          jobId="job-200"
+          isOpen={true}
+          onClose={vi.fn()}
+          onCommitComplete={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Senso-ji")[0]).toBeInTheDocument();
+    });
+
+    // 1. Verify Data Status column header exists
+    expect(screen.getByText(/Data Status/i)).toBeInTheDocument();
+
+    // 2. cand-1 (Senso-ji) has all fields populated -> Complete
+    const cand1Status = screen.getByTestId("data-status-cand-1");
+    expect(cand1Status).toHaveTextContent(/Complete/i);
+
+    // 3. cand-2 (Garfield Park Conservatory) is missing URLs/photo -> Incomplete
+    const cand2Status = screen.getByTestId("data-status-cand-2");
+    expect(cand2Status).toHaveTextContent(/Incomplete/i);
+
+    // 4. Incomplete row has subtle amber background indicating manual intervention needed
+    const rowCand2 = screen.getByTestId("enriched-row-cand-2");
+    expect(rowCand2).toHaveStyle({ backgroundColor: "rgb(255, 251, 235)" }); // #fffbeb
+
+    // 5. Clicking on a POI row displays the interactive location map at the bottom of the right panel
+    fireEvent.click(screen.getByTestId("enriched-row-cand-1"));
+    expect(screen.getByTestId("poi-location-map-container")).toBeInTheDocument();
+    expect(screen.getByTestId("candidate-mini-map")).toBeInTheDocument();
+
+    // 6. Test sorting by Data Status
+    fireEvent.click(screen.getByText(/Data Status/i));
+    const statusHeaders = screen.getAllByRole("columnheader");
+    expect(statusHeaders[8]).toHaveTextContent(/Data Status/i);
+  });
+
+  it("highlights empty fields with light amber background in edit information drawer", async () => {
+    render(
+      <ToastProvider>
+        <CSVPhase2ReviewModal
+          isOpen={true}
+          jobId="job-200"
+          onClose={vi.fn()}
+          onCommitComplete={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    // Click candidate 2 (which has null hero_image_url, official_url, and wiki_url)
+    const row2 = await screen.findByTestId("enriched-row-cand-2");
+    fireEvent.click(row2);
+
+    const heroInput = screen.getByTestId("edit-poi-hero-image-input");
+    expect(heroInput).toHaveStyle({ backgroundColor: "rgb(255, 251, 235)" });
+    expect(screen.getByTestId("related-websites-section")).toBeInTheDocument();
+
+    // Click candidate 1 (which has all URLs populated)
+    const row1 = screen.getByTestId("enriched-row-cand-1");
+    fireEvent.click(row1);
+
+    expect(screen.getByTestId("edit-poi-hero-image-input")).toHaveStyle({
+      backgroundColor: "rgb(255, 255, 255)",
+    });
+    expect(screen.getByTestId("related-websites-section")).toBeInTheDocument();
   });
 });

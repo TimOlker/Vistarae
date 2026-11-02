@@ -417,6 +417,12 @@ class POITable(Base):
         default=dict,
         server_default=text("'{}'::jsonb"),
     )
+    related_websites: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
     visit_state: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -555,6 +561,8 @@ class POITable(Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+        Index("idx_pois_user_created_at", "user_id", text("created_at DESC")),
+        Index("idx_pois_user_created_at", "user_id", text("created_at DESC")),
     )
 
 
@@ -1071,6 +1079,12 @@ class IngestCandidateTable(Base):
     recommended_duration_hours: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     recommended_visit_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     estimated_visit_time_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    related_websites: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
     update_coordinates: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), default=False, nullable=False
     )
@@ -1121,8 +1135,9 @@ class UserExclusionZoneTable(Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
+
+    __table_args__ = (Index("idx_user_exclusion_zones_user", "user_id"),)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     latitude: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
     longitude: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
@@ -1141,9 +1156,7 @@ class UserExclusionZoneTable(Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        Index("idx_user_exclusion_zones_user", "user_id"),
-    )
+    __table_args__ = (Index("idx_user_exclusion_zones_user", "user_id"),)
 
 
 user_exclusion_zones_table = UserExclusionZoneTable.__table__

@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 **Feature Identifier**: `012-photo-scraper`  
 **Feature Branch**: `012-photo-scraper`  
 **Date**: 2026-10-28  
-**Status**: Ready for Implementation  
+**Status**: Ready for Implementation
 
 ---
 
@@ -58,6 +58,7 @@ python -m services.scraper.photo_scraper `
 ```
 
 ### Expected Outcome:
+
 - Traversal prunes noise folders (`thumbs`, `bad`, `.hidden`, `New Folder (2)`, `Tim`).
 - Path parser normalizes `1-Tokyo` -> `Tokyo`, `Trip To India\Agra` -> `India / Agra`.
 - EXIF & companion sidecars (`.xmp`, `.json`) are parsed for GPS coordinates and earliest date visited.
@@ -77,6 +78,7 @@ python -m services.scraper.photo_scraper `
 ```
 
 ### Expected Outcome:
+
 - All previously processed directories in `./vistarae_pois.csv` are skipped.
 - Output `./vistarae_pois_delta.csv` contains zero rows (or only newly added directories).
 
@@ -152,4 +154,3 @@ Run pytest unit and integration suites enforcing $\ge 90\%$ branch and line cove
 pytest tests/unit/services/scraper/ --cov=services/scraper --cov-fail-under=90
 pytest tests/unit/services/ingest/ --cov=services/ingest --cov-fail-under=90
 ```
-

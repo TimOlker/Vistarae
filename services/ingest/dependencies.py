@@ -25,21 +25,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.adapters.queue.mock import MockQueueAdapter
 from vistarae_core.adapters.queue.sqs import SQSQueueAdapter
+from vistarae_core.adapters.repositories.exclusion_zone_repo import (
+    SqlAlchemyUserExclusionZoneRepository,
+)
+from vistarae_core.adapters.repositories.geocache_repo import (
+    SqlAlchemyGeocodingCacheRepository,
+)
 from vistarae_core.adapters.repositories.ingest_candidate_repo import (
     SqlAlchemyIngestCandidateRepository,
 )
 from vistarae_core.adapters.repositories.ingest_repo import IngestJobRepository
-from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
-from vistarae_core.ports.queue import IQueuePort
-from vistarae_core.adapters.repositories.geocache_repo import (
-    SqlAlchemyGeocodingCacheRepository,
-)
 from vistarae_core.adapters.repositories.list_repo import (
     SqlAlchemyListRepository,
 )
+from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
 from vistarae_core.adapters.repositories.tag_repo import (
     SqlAlchemyTagRepository,
 )
+from vistarae_core.ports.queue import IQueuePort
 from vistarae_core.ports.repositories import (
     IGeocodingCacheRepository,
     IIngestCandidateRepository,
@@ -49,14 +52,11 @@ from vistarae_core.ports.repositories import (
     ITagRepository,
     IUserExclusionZoneRepository,
 )
-from vistarae_core.adapters.repositories.exclusion_zone_repo import (
-    SqlAlchemyUserExclusionZoneRepository,
-)
+
+from services.ingest.services.staging_service import StagingService
 from services.poi.scraping.orchestrator import ScrapingOrchestrator
 from services.poi.services.duplicate_service import DuplicateTriageService
 from services.poi.services.geocoding_service import GeocodingService
-
-from services.ingest.services.staging_service import StagingService
 from services.user.dependencies import get_current_user
 
 __all__ = [

@@ -112,4 +112,3 @@ def downgrade() -> None:
 
     op.drop_index("idx_user_exclusion_zones_user", table_name="user_exclusion_zones")
     op.drop_table("user_exclusion_zones")
-

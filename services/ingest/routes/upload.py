@@ -32,12 +32,16 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi.responses import JSONResponse
 from vistarae_core.domain.entities import IngestJob, User
+from vistarae_core.domain.enums import TagResolutionAction
 from vistarae_core.domain.value_objects import IngestDisposition, IngestJobStatus
 from vistarae_core.ports.queue import IQueuePort
 from vistarae_core.ports.repositories import IIngestJobRepository, IListRepository
 from vistarae_core.schemas.ingest import IngestUploadResponse
+from vistarae_core.schemas.poi_exchange import POIExchangeRecord
 from vistarae_core.schemas.poi_export import POIExportRecord
+from vistarae_core.services.poi_importer import POIImporter
 
 from services.ingest.dependencies import (
     get_current_user,
@@ -107,7 +111,9 @@ async def upload_csv(
     request: Request,
     file: Annotated[UploadFile, File(description="CSV file to ingest")],
     target_list_id: Annotated[UUID | None, Form(description="Optional target list ID")] = None,
-    target_list_name: Annotated[str | None, Form(description="Optional target list name to attach POIs to")] = None,
+    target_list_name: Annotated[
+        str | None, Form(description="Optional target list name to attach POIs to")
+    ] = None,
     user: User = Depends(get_current_user),
     ingest_repo: IIngestJobRepository = Depends(get_ingest_repo),
     list_repo: IListRepository = Depends(get_list_repo),
@@ -136,7 +142,7 @@ async def upload_csv(
         try:
             user_lists = await list_repo.list_by_user(user.id)
             matched = next(
-                (l for l in user_lists if l.title.strip().lower() == clean_name.lower()),
+                (lst for lst in user_lists if lst.title.strip().lower() == clean_name.lower()),
                 None,
             )
             if matched:
@@ -288,4 +294,131 @@ async def upload_csv(
         job_status=created_job.job_status,
         total_rows=created_job.total_rows,
         message="CSV upload accepted for asynchronous batch processing.",
+    )
+
+
+@router.post(
+    "/api/v1/ingest/upload-flexible",
+    summary="Accept multi-format file upload with format sniffing, column alignment, and pre-validation",
+)
+async def upload_flexible(
+    request: Request,
+    file: Annotated[UploadFile, File(description="CSV, JSON, or YAML file to ingest")],
+    skip_invalid_rows: Annotated[bool, Form()] = False,
+    column_mappings: Annotated[str | None, Form()] = None,
+    recalculate_fields: Annotated[str | None, Form()] = None,
+    target_list_id: Annotated[UUID | None, Form()] = None,
+    target_list_name: Annotated[str | None, Form()] = None,
+    tag_action: Annotated[str | None, Form()] = None,
+    user: User = Depends(get_current_user),
+    ingest_repo: IIngestJobRepository = Depends(get_ingest_repo),
+    list_repo: IListRepository = Depends(get_list_repo),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> JSONResponse:
+    """Handles multi-format uploads, column mapping detection, and pre-validation reporting (T-018)."""
+    file_bytes = await file.read()
+    filename = file.filename or "uploaded_file.csv"
+
+    mappings_dict: dict[str, str] | None = None
+    if column_mappings:
+        try:
+            import json
+
+            mappings_dict = json.loads(column_mappings)
+        except Exception:
+            mappings_dict = None
+
+    # Step 1: Inspect headers and detect unmapped columns
+    raw_headers, unmapped, samples = POIImporter.inspect_headers_and_samples(
+        content=file_bytes,
+        filename=filename,
+        column_mappings=mappings_dict,
+    )
+
+    job_id = uuid.uuid4()
+
+    if unmapped:
+        sample_rows_list = [
+            {"column": col, "sample_values": samples.get(col, [])} for col in unmapped
+        ]
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "NEEDS_COLUMN_MAPPING",
+                "job_id": str(job_id),
+                "unmapped_columns": unmapped,
+                "sample_rows": sample_rows_list,
+                "target_fields": POIExchangeRecord.get_export_field_names(),
+            },
+        )
+
+    # Step 2: Parse and execute type/range pre-validation
+    records, _, issues = POIImporter.parse_file_bytes(
+        content=file_bytes,
+        filename=filename,
+        column_mappings=mappings_dict,
+        skip_invalid_rows=skip_invalid_rows,
+    )
+
+    if issues and not skip_invalid_rows:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error_type": "VALIDATION_ERROR",
+                "total_rows": len(records) + len(issues),
+                "invalid_row_count": len(issues),
+                "can_skip_invalid": True,
+                "issues": [issue.model_dump() for issue in issues],
+            },
+        )
+
+    # Step 3: Check unapproved tags (Early Tag Validation Dialog REQ-VAL-001)
+    unapproved_tags = await staging_service.get_unapproved_tags(user.id, records)
+    if unapproved_tags:
+        if not tag_action:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "NEEDS_TAG_APPROVAL",
+                    "job_id": str(job_id),
+                    "unapproved_tags": unapproved_tags,
+                    "total_unapproved_count": len(unapproved_tags),
+                },
+            )
+        if tag_action == "ABORT":
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "ABORTED",
+                    "job_id": str(job_id),
+                    "message": "Import aborted by user during tag validation.",
+                },
+            )
+        action_enum = TagResolutionAction(tag_action)
+        records = await staging_service.resolve_unapproved_tags(
+            user.id, records, action_enum, list(unapproved_tags.keys())
+        )
+
+    # Step 4: Create job and stage records
+    job = IngestJob(
+        id=job_id,
+        user_id=user.id,
+        job_status=IngestJobStatus.PENDING,
+        total_rows=len(records),
+        processed_rows=0,
+        duplicate_payloads=[],
+        target_list_id=target_list_id,
+        error_summary=[],
+    )
+    await ingest_repo.create_job(job)
+
+    await staging_service.stage_exchange_records(user.id, job_id, records)
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "QUEUED",
+            "job_id": str(job_id),
+            "total_rows": len(records),
+        },
     )

@@ -133,6 +133,7 @@ export interface components {
       source_value?: string | null;
       official_url?: string | null;
       wiki_url?: string | null;
+      related_websites?: { name: string; url: string }[];
       directory_paths?: string[];
       image_urls?: string[];
       visited_dates?: string[];
@@ -161,6 +162,7 @@ export interface components {
       source_value?: string | null;
       official_url?: string | null;
       wiki_url?: string | null;
+      related_websites?: { name: string; url: string }[];
       directory_paths: string[];
       image_urls: string[];
       visited_dates: string[];

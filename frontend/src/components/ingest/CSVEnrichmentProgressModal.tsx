@@ -50,6 +50,9 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
     return () => clearInterval(timer);
   }, [isOpen, jobId]);
 
+  const onCompleteRef = React.useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
   // Polling loop for enrichment progress
   useEffect(() => {
     if (!isOpen || !jobId) return;
@@ -67,12 +70,12 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
           clearInterval(pollInterval);
           setTimeout(() => {
             if (isMounted) {
-              onComplete();
+              onCompleteRef.current();
             }
           }, 600);
         }
-      } catch {
-        // Keep polling on transient failure
+      } catch (err: unknown) {
+        console.warn("Phase 2 enrichment polling warning:", err);
       }
     };
 
@@ -83,7 +86,7 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
       isMounted = false;
       clearInterval(pollInterval);
     };
-  }, [isOpen, jobId, onComplete]);
+  }, [isOpen, jobId]);
 
   const percent = progress?.percent_complete ?? 0;
   const isFinished = progress?.is_complete ?? false;

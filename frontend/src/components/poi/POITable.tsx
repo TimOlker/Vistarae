@@ -14,7 +14,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useContext } from "react";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import type { TableConfig } from "../../types/filter";
 import {
@@ -26,8 +26,11 @@ import {
   CheckSquare,
   Square,
   Search,
+  Download,
 } from "lucide-react";
 import { BulkActionsToolbar } from "../bulk/BulkActionsToolbar";
+import { ToastContext } from "../../context/ToastContext";
+import { exportExplorerPOIs, type ExportFormat } from "../../services/exportApi";
 
 export interface POITableProps {
   pois: POIMapFeature[];
@@ -65,7 +68,32 @@ export const POITable: React.FC<POITableProps> = ({
   onDeselectAll,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const toastContext = useContext(ToastContext);
+  const showToast = toastContext?.showToast;
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
+  const [isExporting, setIsExporting] = useState(false);
 
+  const handleExportSelected = async () => {
+    if (!selectedPoiIds || selectedPoiIds.length === 0) {
+      if (showToast) {
+        showToast("No records selected. Please select at least one record to export.", "warning");
+      }
+      return;
+    }
+    try {
+      setIsExporting(true);
+      await exportExplorerPOIs(selectedPoiIds, exportFormat);
+      if (showToast) {
+        showToast(`Successfully exported ${selectedPoiIds.length} POI(s)`, "success");
+      }
+    } catch (err: any) {
+      if (showToast) {
+        showToast(err.message || "Failed to export selected POIs", "error");
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
   // Filter POIs by searchTerm matching name, address, description, reason_to_visit, etc.
   const filteredPois = useMemo(() => {
     if (!searchTerm.trim()) return pois;
@@ -175,13 +203,18 @@ export const POITable: React.FC<POITableProps> = ({
             : "";
         return valA.localeCompare(valB) * modifier;
       }
+      if (column === "created_at" || column === "date_added") {
+        const timeA = (a as any).created_at ? new Date((a as any).created_at).getTime() : 0;
+        const timeB = (b as any).created_at ? new Date((b as any).created_at).getTime() : 0;
+        return (timeA - timeB) * modifier;
+      }
       return 0;
     });
   }, [filteredPois, tableConfig]);
 
   // Determine active columns and order
   const activeColumns = useMemo(() => {
-    const defaultCols = ["name", "city", "rating", "visit_state", "tags"];
+    const defaultCols = ["name", "city", "rating", "visit_state", "tags", "created_at"];
     if (tableConfig) {
       const visibleSet = new Set(tableConfig.visible_columns);
       const order =
@@ -194,9 +227,9 @@ export const POITable: React.FC<POITableProps> = ({
   }, [tableConfig]);
 
   const allFilteredSelected = useMemo(() => {
-    if (pois.length === 0) return false;
-    return pois.every((p) => selectedPoiIds.includes(p.id));
-  }, [pois, selectedPoiIds]);
+    if (sortedPois.length === 0) return false;
+    return sortedPois.every((p) => selectedPoiIds.includes(p.id));
+  }, [sortedPois, selectedPoiIds]);
 
   const renderVisitBadge = (state: VisitState) => {
     switch (state) {
@@ -295,6 +328,9 @@ export const POITable: React.FC<POITableProps> = ({
         return "Visit Pending";
       case "visited_date":
         return "Visited Date";
+      case "created_at":
+      case "date_added":
+        return "Date Added";
       default:
         return colId;
     }
@@ -458,6 +494,29 @@ export const POITable: React.FC<POITableProps> = ({
           </span>
         );
       }
+      case "created_at":
+      case "date_added": {
+        const rawDate = (poi as any).created_at;
+        if (!rawDate) return <span style={{ color: "var(--text-muted, #94a3b8)" }}>—</span>;
+        const d = new Date(rawDate);
+        const formatted = isNaN(d.getTime())
+          ? String(rawDate)
+          : d.toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            });
+        return (
+          <span
+            data-testid={`poi-created-at-cell-${poi.id}`}
+            style={{ color: "var(--text-secondary, #475569)", whiteSpace: "nowrap" }}
+          >
+            {formatted}
+          </span>
+        );
+      }
       default:
         return null;
     }
@@ -525,6 +584,51 @@ export const POITable: React.FC<POITableProps> = ({
               </span>
             </button>
           )}
+
+          {/* Export Selected Button & Format Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+              data-testid="export-format-select"
+              aria-label="Export format"
+              style={{
+                padding: "4px 8px",
+                borderRadius: "5px",
+                fontSize: "12px",
+                border: "1px solid #D1D5DB",
+                backgroundColor: "#ffffff",
+                color: "#374151",
+                cursor: "pointer",
+              }}
+            >
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+              <option value="yaml">YAML</option>
+            </select>
+            <button
+              type="button"
+              onClick={handleExportSelected}
+              disabled={isExporting}
+              data-testid="export-selected-btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "4px 10px",
+                borderRadius: "5px",
+                fontSize: "12px",
+                fontWeight: 600,
+                border: "1px solid #D1D5DB",
+                backgroundColor: "#F9FAFB",
+                color: "#1F2937",
+                cursor: isExporting ? "not-allowed" : "pointer",
+              }}
+            >
+              <Download size={13} />
+              <span>{isExporting ? "Exporting..." : `Export Selected (${selectedPoiIds.length})`}</span>
+            </button>
+          </div>
         </div>
 
         {/* Search input and Viewport Filter Toggle */}

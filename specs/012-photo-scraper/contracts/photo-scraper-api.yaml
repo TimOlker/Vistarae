@@ -32,16 +32,16 @@ paths:
             enum: [phase_1_triage, phase_2_enriched]
             default: phase_1_triage
       responses:
-        '200':
+        "200":
           description: List of staged candidates
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CandidateListResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
-        '401':
-          $ref: '#/components/responses/ProblemDetails401'
+                $ref: "#/components/schemas/CandidateListResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
+        "401":
+          $ref: "#/components/responses/ProblemDetails401"
 
   /jobs/{job_id}/candidates/{candidate_id}:
     patch:
@@ -67,18 +67,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CandidateUpdateRequest'
+              $ref: "#/components/schemas/CandidateUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Updated candidate
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CandidateItemResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
-        '422':
-          $ref: '#/components/responses/ProblemDetails422'
+                $ref: "#/components/schemas/CandidateItemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
+        "422":
+          $ref: "#/components/responses/ProblemDetails422"
 
   /jobs/{job_id}/phase1/proceed:
     post:
@@ -94,16 +94,16 @@ paths:
             type: string
             format: uuid
       responses:
-        '202':
+        "202":
           description: Phase 2 asynchronous enrichment initiated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PhaseTransitionResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
-        '409':
-          $ref: '#/components/responses/ProblemDetails409'
+                $ref: "#/components/schemas/PhaseTransitionResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
+        "409":
+          $ref: "#/components/responses/ProblemDetails409"
 
   /jobs/{job_id}/phase1/cancel:
     post:
@@ -119,14 +119,14 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Staging purged and job cancelled
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobCancellationResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+                $ref: "#/components/schemas/JobCancellationResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
 
   /jobs/{job_id}/phase2/commit:
     post:
@@ -142,14 +142,14 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Candidates committed and staging purged
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CommitSummaryResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+                $ref: "#/components/schemas/CommitSummaryResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
 
   /jobs/{job_id}/phase2/cancel:
     post:
@@ -165,14 +165,14 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Staging purged and job cancelled
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobCancellationResponse'
-        '404':
-          $ref: '#/components/responses/ProblemDetails404'
+                $ref: "#/components/schemas/JobCancellationResponse"
+        "404":
+          $ref: "#/components/responses/ProblemDetails404"
 
 components:
   schemas:
@@ -286,7 +286,7 @@ components:
         candidates:
           type: array
           items:
-            $ref: '#/components/schemas/CandidateItemResponse'
+            $ref: "#/components/schemas/CandidateItemResponse"
 
     CandidateUpdateRequest:
       type: object
@@ -435,23 +435,22 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ProblemDetails404:
       description: Resource not found
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ProblemDetails409:
       description: Conflict in job transition state
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: "#/components/schemas/ProblemDetails"
     ProblemDetails422:
       description: Unprocessable entity / validation error
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
-
+            $ref: "#/components/schemas/ProblemDetails"

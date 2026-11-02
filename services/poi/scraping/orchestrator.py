@@ -43,13 +43,16 @@ from vistarae_core.services.prompt_cache import default_prompt_cache
 from services.poi.scraping.secondary_sources import (
     SecondarySourceAdapter,
     TripAdvisorAdapter,
+    WikidataAdapter,
     WikipediaAdapter,
+    scrape_website_hero_image,
 )
 from services.poi.scraping.tag_matcher import TagMatcher
 
 logger = logging.getLogger("vistarae.scraping.orchestrator")
 
 DEFAULT_VALID_DOMAINS = [
+    "wikidata.org",
     "wikipedia.org",
     "tripadvisor.com",
     "atlasobscura.com",
@@ -140,7 +143,7 @@ class ScrapingOrchestrator:
         self._adapters: list[SecondarySourceAdapter] = (
             secondary_adapters
             if secondary_adapters is not None
-            else [WikipediaAdapter(), TripAdvisorAdapter()]
+            else [WikidataAdapter(), WikipediaAdapter(), TripAdvisorAdapter()]
         )
         self._timeout_seconds = timeout_seconds
         self._valid_domains = valid_domains
@@ -564,7 +567,7 @@ class ScrapingOrchestrator:
             "source_url": source_url,
         }
 
-    async def _augment_secondary(
+    async def _augment_secondary(  # noqa: C901
         self,
         name: str,
         source_url: str,
@@ -606,6 +609,7 @@ class ScrapingOrchestrator:
             "hero_image_url": None,
             "estimated_duration_hours": None,
             "secondary_extracts": [],
+            "related_websites": [],
         }
 
         for res in results:
@@ -632,6 +636,26 @@ class ScrapingOrchestrator:
                 merged["estimated_duration_hours"] = float(res["estimated_duration_hours"])
             if res.get("description"):
                 merged["secondary_extracts"].append(str(res["description"]))
+            if res.get("related_websites"):
+                seen_urls = {w["url"].rstrip("/").lower() for w in merged["related_websites"] if isinstance(w, dict) and "url" in w}
+                for site in res["related_websites"]:
+                    if isinstance(site, dict) and site.get("url"):
+                        k = site["url"].rstrip("/").lower()
+                        if k not in seen_urls:
+                            seen_urls.add(k)
+                            merged["related_websites"].append(site)
+
+        existing_urls = {w["url"].rstrip("/").lower() for w in merged["related_websites"] if isinstance(w, dict) and "url" in w}
+        if merged["official_website_url"]:
+            off_k = merged["official_website_url"].rstrip("/").lower()
+            if off_k not in existing_urls:
+                existing_urls.add(off_k)
+                merged["related_websites"].insert(0, {"name": "Official Website", "url": merged["official_website_url"]})
+        if merged["wikipedia_url"]:
+            wiki_k = merged["wikipedia_url"].rstrip("/").lower()
+            if wiki_k not in existing_urls:
+                existing_urls.add(wiki_k)
+                merged["related_websites"].append({"name": "Wikipedia", "url": merged["wikipedia_url"]})
 
         return merged
 
@@ -705,7 +729,7 @@ class ScrapingOrchestrator:
         if dur_h is None:
             dur_h, dur_d = cls.infer_duration(category=category, name=name, description=desc)
         else:
-            dur_d = 1 if dur_h <= 24 else int((dur_h + 23) // 24)
+            dur_d = 0 if dur_h < 24 else int(dur_h // 24)
 
         if dur_h is not None and time_spent_directive:
             dir_lower = time_spent_directive.lower()
@@ -716,9 +740,8 @@ class ScrapingOrchestrator:
                 dur_h = dur_h * 2.0 if dur_h <= 2.0 else min(dur_h * 1.5, 24.0)
             elif any(k in dir_lower for k in ("quick", "brisk", "fast", "short", "half")):
                 dur_h = max(dur_h * 0.75, 0.5)
-            dur_d = 1 if dur_h <= 24 else int((dur_h + 23) // 24)
+            dur_d = 0 if dur_h < 24 else int(dur_h // 24)
 
-        dur_d = max(1, dur_d or 1)
         return dur_h, dur_d
 
     async def extract(
@@ -811,6 +834,8 @@ class ScrapingOrchestrator:
 
         addresses = self._parse_client_address(client_raw_address)
         hero_image_url = primary_hero or secondary.get("hero_image_url")
+        if not hero_image_url and official_website_url:
+            hero_image_url = await scrape_website_hero_image(official_website_url)
         estimated_duration_hours, estimated_duration_days = self._resolve_durations(
             primary_dur,
             secondary.get("estimated_duration_hours"),
@@ -846,6 +871,7 @@ class ScrapingOrchestrator:
             source_type="Web",
             source_value=source_url,
             extraction_sources=extraction_sources,
+            related_websites=secondary.get("related_websites", []),
         )
 
     async def extract_from_url(

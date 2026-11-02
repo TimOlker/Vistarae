@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -38,7 +38,6 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from vistarae_core.adapters.db.session import get_session_factory
 from vistarae_core.adapters.db.tables import UserPreferencesTable
 from vistarae_core.adapters.repositories.ingest_candidate_repo import (
@@ -49,19 +48,21 @@ from vistarae_core.adapters.repositories.user_prompt_repo import (
     SqlAlchemyUserPromptRepository,
 )
 from vistarae_core.domain.entities import IngestCandidate, IngestDisposition
+from vistarae_core.domain.enums import SelectiveEnrichmentOverrides
 from vistarae_core.domain.value_objects import PromptType
 from vistarae_core.schemas.ingest_staging import Phase2ProgressResponse
 from vistarae_core.services.prompt_cache import default_prompt_cache
 
 from services.poi.routes.preferences import DEFAULT_DOMAINS
 from services.poi.scraping.orchestrator import (
-    CATEGORY_DURATION_HEURISTICS,
     ScrapingOrchestrator,
 )
-from services.poi.scraping.secondary_sources import WikipediaAdapter
+from services.poi.scraping.secondary_sources import WikipediaAdapter, scrape_website_hero_image
 from services.poi.scraping.tag_matcher import TagMatcher
 
 logger = logging.getLogger("vistarae.worker.candidate_enricher")
+
+LLM_SEMAPHORE = asyncio.Semaphore(5)
 
 
 class CandidateEnricher:
@@ -71,12 +72,184 @@ class CandidateEnricher:
         self,
         session_factory: Callable[[], AsyncSession] | None = None,
         orchestrator: ScrapingOrchestrator | None = None,
+        llm_semaphore: asyncio.Semaphore | None = None,
     ) -> None:
-        """Initializes CandidateEnricher with session factory and scraping orchestrator."""
+        """Initializes CandidateEnricher with session factory, orchestrator, and bounded LLM concurrency."""
         self._session_factory = session_factory or get_session_factory()
         self._orchestrator = orchestrator or ScrapingOrchestrator()
+        self.llm_semaphore = llm_semaphore or LLM_SEMAPHORE
 
-    async def enrich_candidate(
+    async def apply_enrichment_to_candidate(  # noqa: C901
+        self,
+        candidate: IngestCandidate,
+        overrides: SelectiveEnrichmentOverrides | None = None,
+        valid_domains: Sequence[str] | None = None,
+        directives: dict[PromptType, str] | None = None,
+        user_tags: Sequence[Any] | None = None,
+    ) -> IngestCandidate:
+        """Applies dynamic per-field presence resolution and selective field re-calculation overrides (REQ-IMP-006, REQ-REC-001, REQ-REC-002)."""
+        overrides = overrides or SelectiveEnrichmentOverrides()
+        valid_domains = valid_domains or DEFAULT_DOMAINS
+        directives = directives or {}
+        user_tags = user_tags or []
+
+        desc_directive = directives.get(PromptType.DESCRIPTION)
+        reason_directive = directives.get(PromptType.REASON_TO_VISIT)
+        time_directive = directives.get(PromptType.TIME_SPENT)
+
+        addr_ctx = ", ".join(
+            filter(
+                None,
+                [
+                    candidate.street_address,
+                    candidate.city,
+                    candidate.state_province,
+                    candidate.country,
+                ],
+            )
+        )
+        combined_context = (
+            f"{candidate.poi_name} in {addr_ctx}." if addr_ctx else candidate.poi_name
+        )
+
+        wiki_data: dict[str, Any] = {}
+        should_query_links = overrides.recalculate_links or not (
+            candidate.wiki_url and candidate.official_url
+        )
+        if should_query_links and any("wikipedia" in d.lower() for d in valid_domains):
+            try:
+                wiki_adapter = WikipediaAdapter(valid_domains=valid_domains)
+                wiki_data = await wiki_adapter.augment(query_title=candidate.poi_name)
+                if not wiki_data and candidate.city:
+                    wiki_data = await wiki_adapter.augment(
+                        query_title=f"{candidate.poi_name} {candidate.city}"
+                    )
+                if not wiki_data and candidate.country:
+                    wiki_data = await wiki_adapter.augment(
+                        query_title=f"{candidate.poi_name} {candidate.country}"
+                    )
+                if wiki_data:
+                    if (overrides.recalculate_links or not candidate.wiki_url) and wiki_data.get(
+                        "wikipedia_url"
+                    ):
+                        candidate.wiki_url = wiki_data.get("wikipedia_url")
+                    if (
+                        overrides.recalculate_links or not candidate.hero_image_url
+                    ) and wiki_data.get("hero_image_url"):
+                        candidate.hero_image_url = wiki_data.get("hero_image_url")
+                    if (
+                        overrides.recalculate_links or not candidate.official_url
+                    ) and wiki_data.get("official_website_url"):
+                        candidate.official_url = wiki_data.get("official_website_url")
+                    if (
+                        (overrides.recalculate_links or not candidate.hero_image_url)
+                        and not candidate.hero_image_url
+                        and candidate.official_url
+                    ):
+                        site_hero = await scrape_website_hero_image(candidate.official_url)
+                        if site_hero:
+                            candidate.hero_image_url = site_hero
+                    if wiki_data.get("related_websites"):
+                        existing_urls = {
+                            w["url"].rstrip("/").lower()
+                            for w in (candidate.related_websites or [])
+                            if isinstance(w, dict) and "url" in w
+                        }
+                        for site in wiki_data["related_websites"]:
+                            if isinstance(site, dict) and site.get("url"):
+                                k = site["url"].rstrip("/").lower()
+                                if k not in existing_urls:
+                                    existing_urls.add(k)
+                                    candidate.related_websites.append(site)
+            except Exception as exc:
+                logger.debug("Wikipedia enrichment failed for '%s': %s", candidate.poi_name, exc)
+
+        secondary_extracts = (
+            [wiki_data["description"]] if (wiki_data and wiki_data.get("description")) else []
+        )
+
+        dur_h, dur_d = ScrapingOrchestrator._resolve_durations(
+            primary_dur=float(candidate.recommended_duration_hours)
+            if candidate.recommended_duration_hours is not None
+            else None,
+            secondary_dur=None,
+            category=None,
+            name=candidate.poi_name,
+            desc=candidate.description or (wiki_data.get("description") if wiki_data else None),
+            time_spent_directive=time_directive,
+        )
+        dur_h = dur_h or 2.0
+        dur_d = max(1, dur_d or 1)
+
+        if candidate.recommended_duration_hours is None or overrides.recalculate_duration:
+            candidate.recommended_duration_hours = Decimal(str(dur_h))
+        if (
+            candidate.recommended_visit_days is None
+            or candidate.recommended_visit_days < 1
+            or overrides.recalculate_duration
+        ):
+            candidate.recommended_visit_days = dur_d
+
+        if not candidate.description or overrides.recalculate_description:
+            async with self.llm_semaphore:
+                candidate.description = await self._orchestrator.synthesize_summary(
+                    name=candidate.poi_name,
+                    primary_snippet=combined_context,
+                    secondary_extracts=secondary_extracts,
+                    directive=desc_directive,
+                )
+
+        if not candidate.reason_to_visit or overrides.recalculate_reason_to_visit:
+            async with self.llm_semaphore:
+                candidate.reason_to_visit = await self._orchestrator.synthesize_reason_to_visit(
+                    name=candidate.poi_name,
+                    primary_snippet=candidate.description or combined_context,
+                    secondary_extracts=secondary_extracts,
+                    directive=reason_directive,
+                )
+
+        if not candidate.estimated_visit_time_notes or overrides.recalculate_duration:
+            async with self.llm_semaphore:
+                candidate.estimated_visit_time_notes = (
+                    await self._orchestrator.synthesize_visit_duration_notes(
+                        name=candidate.poi_name,
+                        category=None,
+                        duration_hours=dur_h,
+                        duration_days=dur_d,
+                        context_text=candidate.description,
+                        directive=time_directive,
+                    )
+                )
+
+        if (not candidate.tags or overrides.recalculate_tags) and user_tags:
+            try:
+                tag_matcher = TagMatcher(user_tags)
+                matched_slugs = tag_matcher.match_tags(
+                    f"{candidate.poi_name} {candidate.description or ''} {candidate.reason_to_visit or ''} {addr_ctx}"
+                )
+                name_map: dict[str, str] = {}
+                for t in user_tags:
+                    name_map[t.name.lower()] = t.name
+                    name_map[t.slug.lower()] = t.name
+                    for alias in t.aliases or []:
+                        name_map[alias.lower()] = t.name
+                canonical_tags: set[str] = set()
+                if not overrides.recalculate_tags:
+                    for existing_t in candidate.tags or []:
+                        canonical = name_map.get(str(existing_t).strip().lower())
+                        if canonical:
+                            canonical_tags.add(canonical)
+                for slug in matched_slugs or []:
+                    canonical = name_map.get(slug.strip().lower())
+                    if canonical:
+                        canonical_tags.add(canonical)
+                candidate.tags = sorted(list(canonical_tags))
+            except Exception as exc:
+                logger.debug("Tag matching failed for '%s': %s", candidate.poi_name, exc)
+
+        return candidate
+
+    async def enrich_candidate(  # noqa: C901
         self,
         user_id: UUID,
         candidate_id: UUID,
@@ -138,6 +311,10 @@ class CandidateEnricher:
                         wiki_data = await wiki_adapter.augment(
                             query_title=f"{cand.poi_name} {cand.city}"
                         )
+                    if not wiki_data and cand.country:
+                        wiki_data = await wiki_adapter.augment(
+                            query_title=f"{cand.poi_name} {cand.country}"
+                        )
 
                     if wiki_data:
                         if not cand.wiki_url and wiki_data.get("wikipedia_url"):
@@ -146,6 +323,22 @@ class CandidateEnricher:
                             cand.hero_image_url = wiki_data.get("hero_image_url")
                         if not cand.official_url and wiki_data.get("official_website_url"):
                             cand.official_url = wiki_data.get("official_website_url")
+                        if not cand.hero_image_url and cand.official_url:
+                            site_hero = await scrape_website_hero_image(cand.official_url)
+                            if site_hero:
+                                cand.hero_image_url = site_hero
+                    if wiki_data.get("related_websites"):
+                        existing_urls = {
+                            w["url"].rstrip("/").lower()
+                            for w in (cand.related_websites or [])
+                            if isinstance(w, dict) and "url" in w
+                        }
+                        for site in wiki_data["related_websites"]:
+                            if isinstance(site, dict) and site.get("url"):
+                                k = site["url"].rstrip("/").lower()
+                                if k not in existing_urls:
+                                    existing_urls.add(k)
+                                    cand.related_websites.append(site)
                 except Exception as exc:
                     logger.debug("Wikipedia enrichment failed for '%s': %s", cand.poi_name, exc)
 
@@ -215,18 +408,18 @@ class CandidateEnricher:
                     for t in user_tags:
                         name_map[t.name.lower()] = t.name
                         name_map[t.slug.lower()] = t.name
-                        for alias in (t.aliases or []):
+                        for alias in t.aliases or []:
                             name_map[alias.lower()] = t.name
 
                     canonical_tags: set[str] = set()
                     # Filter existing candidate tags (e.g. from CSV) strictly to user's Tags Library
-                    for existing_t in (cand.tags or []):
+                    for existing_t in cand.tags or []:
                         canonical = name_map.get(existing_t.strip().lower())
                         if canonical:
                             canonical_tags.add(canonical)
 
                     # Map matched slugs to canonical display names in user's Tags Library
-                    for slug in (matched_slugs or []):
+                    for slug in matched_slugs or []:
                         canonical = name_map.get(slug.strip().lower())
                         if canonical:
                             canonical_tags.add(canonical)
@@ -359,4 +552,3 @@ class CandidateEnrichmentQueueManager:
             prog["is_complete"] = True
             prog["percent_complete"] = 100
             prog["status_message"] = f"Finished enriching all {total} POI(s)!"
-

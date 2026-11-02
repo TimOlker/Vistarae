@@ -34,9 +34,11 @@ from mangum import Mangum
 from vistarae_core.adapters.db.session import get_engine, init_engine
 from vistarae_core.middleware.errors import add_problem_details_handlers
 
+from services.ingest.routes import export as export_routes
 from services.ingest.routes import health as health_routes
 from services.ingest.routes import jobs as jobs_routes
 from services.ingest.routes import staging as staging_routes
+from services.ingest.routes import tags as tags_routes
 from services.ingest.routes import triage as triage_routes
 from services.ingest.routes import upload as upload_routes
 
@@ -69,6 +71,8 @@ app.include_router(upload_routes.router)
 app.include_router(jobs_routes.router)
 app.include_router(triage_routes.router)
 app.include_router(staging_routes.router)
+app.include_router(export_routes.router)
+app.include_router(tags_routes.router)
 
 
 # Serverless entrypoint

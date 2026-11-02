@@ -23,7 +23,7 @@ Constitution Principle 2 (Ports & Adapters). No ORM or driver imports allowed.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -38,11 +38,11 @@ from vistarae_core.domain.entities import (
     PotentialDuplicateMatch,
     TagEntity,
     User,
+    UserExclusionZone,
     UserMetric,
     UserPreferences,
     UserPrompt,
     UserQuota,
-    UserExclusionZone,
 )
 from vistarae_core.domain.value_objects import (
     BoundingBox,
@@ -401,6 +401,8 @@ class IPOIRepository(Protocol):
         parent_id: UUID | None = None,
         text_query: str | None = None,
         semantic_vector: list[float] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[POI], int]:

@@ -32,6 +32,11 @@ from vistarae_core.domain.entities import (
     UserPreferences,
     UserQuota,
 )
+from vistarae_core.domain.enums import (
+    ExportFormat,
+    SelectiveEnrichmentOverrides,
+    TagResolutionAction,
+)
 from vistarae_core.domain.exceptions import (
     AccountDisabledError,
     CyclicHierarchyError,
@@ -79,6 +84,7 @@ __all__ = [
     "DuplicatePayloadItem",
     "DuplicateTriageStatus",
     "EnrichmentStatus",
+    "ExportFormat",
     "FileTooLargeError",
     "GeocodingCacheEntry",
     "GeocodingTimeoutError",
@@ -103,9 +109,11 @@ __all__ = [
     "PotentialDuplicateMatch",
     "QuotaExceededError",
     "RowLimitExceededError",
+    "SelectiveEnrichmentOverrides",
     "SourceType",
     "TagEntity",
     "TagLimitExceededError",
+    "TagResolutionAction",
     "TenantNotFoundError",
     "ThemeMode",
     "TransitSpeedMode",

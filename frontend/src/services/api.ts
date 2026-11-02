@@ -28,6 +28,7 @@ export interface ProblemDetails {
     reason: string;
   }>;
   retryAfterSeconds?: number;
+  [key: string]: any;
 }
 
 export class ApiError extends Error {
@@ -181,6 +182,7 @@ export async function apiFetch<T = unknown>(
     try {
       const data = await response.json();
       problem = {
+        ...data,
         type: data.type || "about:blank",
         title: data.title || response.statusText || "Error",
         status: data.status || response.status,

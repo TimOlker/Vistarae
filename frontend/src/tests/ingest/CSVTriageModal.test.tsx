@@ -19,6 +19,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CSVTriageModal } from "../../components/ingest/CSVTriageModal";
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { ToastProvider } from "../../context/ToastContext";
+import { ToastBanner } from "../../components/common/ToastBanner";
 
 vi.mock("maplibre-gl", () => ({
   default: {
@@ -971,5 +972,67 @@ describe("CSVTriageModal (Phase 1)", () => {
 
     expect(screen.queryByTestId("bulk-edit-button")).toBeNull();
     expect(selectAllCheckbox).not.toBeChecked();
+  });
+
+  it("aborts export and displays warning toast when 0 candidates checked in Phase 1 Triage", async () => {
+    const exportApi = await import("../../services/exportApi");
+    const exportSpy = vi.spyOn(exportApi, "exportPhase1Candidates").mockResolvedValue(undefined);
+
+    render(
+      <ToastProvider>
+        <ToastBanner />
+        <CSVTriageModal
+          jobId="job-100"
+          isOpen={true}
+          onClose={vi.fn()}
+          onProceedToPhase2={vi.fn()}
+          existingPOIs={mockExistingPOIs}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Senso-ji")[0]).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByTestId("export-selected-candidates-btn");
+    fireEvent.click(exportBtn);
+
+    expect(exportSpy).not.toHaveBeenCalled();
+    expect(screen.getByText("No records selected. Please select at least one record to export.")).toBeInTheDocument();
+  });
+
+  it("exports checked candidates in Phase 1 Triage when clicked", async () => {
+    const exportApi = await import("../../services/exportApi");
+    const exportSpy = vi.spyOn(exportApi, "exportPhase1Candidates").mockResolvedValue(undefined);
+
+    render(
+      <ToastProvider>
+        <CSVTriageModal
+          jobId="job-100"
+          isOpen={true}
+          onClose={vi.fn()}
+          onProceedToPhase2={vi.fn()}
+          existingPOIs={mockExistingPOIs}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Senso-ji")[0]).toBeInTheDocument();
+    });
+
+    // Check row 0
+    const checkboxes = screen.getAllByRole("checkbox");
+    // Row candidate checkboxes (skip select all which is index 0)
+    fireEvent.click(checkboxes[1]);
+
+    const formatSelect = screen.getByTestId("export-format-select-triage");
+    fireEvent.change(formatSelect, { target: { value: "yaml" } });
+
+    const exportBtn = screen.getByTestId("export-selected-candidates-btn");
+    fireEvent.click(exportBtn);
+
+    expect(exportSpy).toHaveBeenCalledWith("job-100", expect.any(Array), "yaml");
   });
 });

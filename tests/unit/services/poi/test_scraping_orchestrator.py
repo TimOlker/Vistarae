@@ -35,6 +35,7 @@ from services.poi.scraping.orchestrator import ScrapingOrchestrator
 from services.poi.scraping.secondary_sources import (
     SecondarySourceAdapter,
     WikipediaAdapter,
+    extract_meta_image,
 )
 from services.poi.scraping.tag_matcher import TagMatcher
 
@@ -109,6 +110,194 @@ class TestScrapingOrchestrator:
         assert res["longitude"] == -1.7099
         assert res["hero_image_url"] == "https://upload.wikimedia.org/bamburgh.jpg"
         assert "Northumberland" in res["description"]
+
+    async def test_wikipedia_adapter_wikidata_p856_and_p18(self) -> None:
+        """Verifies WikipediaAdapter queries Wikidata P856 for official site and P18 for hero image."""
+        adapter = WikipediaAdapter()
+
+        summary_resp = MagicMock()
+        summary_resp.status_code = 200
+        summary_resp.json.return_value = {
+            "extract": "Burg Eltz is a medieval castle in Germany.",
+            "coordinates": {"lat": 50.205, "lon": 7.336},
+            "wikibase_item": "Q153426",
+            "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Eltz_Castle"}},
+        }
+
+        p856_resp = MagicMock()
+        p856_resp.status_code = 200
+        p856_resp.json.return_value = {
+            "claims": {"P856": [{"mainsnak": {"datavalue": {"value": "https://burg-eltz.de/en/"}}}]}
+        }
+
+        p18_resp = MagicMock()
+        p18_resp.status_code = 200
+        p18_resp.json.return_value = {
+            "claims": {"P18": [{"mainsnak": {"datavalue": {"value": "Burg Eltz aerial.jpg"}}}]}
+        }
+
+        mock_client = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> Any:
+            if "summary" in url:
+                return summary_resp
+            if "P856" in url:
+                return p856_resp
+            if "P18" in url:
+                return p18_resp
+            r = MagicMock()
+            r.status_code = 404
+            return r
+
+        mock_client.get.side_effect = mock_get
+
+        res = await adapter.augment("Burg Eltz (Eltz Castle)", client=mock_client)
+        assert res["source_name"] == "wikipedia.org"
+        assert res["official_website_url"] == "https://burg-eltz.de/en/"
+        assert "Burg%20Eltz%20aerial.jpg" in res["hero_image_url"]
+
+    async def test_extract_meta_image_og_and_twitter(self) -> None:
+        """Verifies extract_meta_image inspects og:image and twitter:image meta tags with URL resolution."""
+        html_og = """
+        <html>
+        <head>
+            <meta property="og:image" content="https://museum.wales/sites/default/files/roman.jpg" />
+            <meta name="twitter:image" content="https://museum.wales/twitter.jpg" />
+        </head>
+        </html>
+        """
+        assert (
+            extract_meta_image(html_og, "https://museum.wales/roman/")
+            == "https://museum.wales/sites/default/files/roman.jpg"
+        )
+
+        # Twitter image when og:image is absent
+        html_twitter = """
+        <html>
+        <head>
+            <meta name="twitter:image" content="/images/hero-roman.jpg" />
+        </head>
+        </html>
+        """
+        assert (
+            extract_meta_image(html_twitter, "https://museum.wales/roman/")
+            == "https://museum.wales/images/hero-roman.jpg"
+        )
+
+        # Empty fallback
+        html_empty = "<html><head><title>No Image</title></head></html>"
+        assert extract_meta_image(html_empty, "https://museum.wales/roman/") is None
+
+    async def test_wikipedia_adapter_generator_search_and_official_site_hero(self) -> None:
+        """Verifies Wikipedia generator=search resolves alternate title 'Caerleon Roman Legion Museum'
+        to 'National Roman Legion Museum' and inspects official website for og:image."""
+        adapter = WikipediaAdapter()
+
+        gen_search_resp = MagicMock()
+        gen_search_resp.status_code = 200
+        gen_search_resp.json.return_value = {
+            "query": {
+                "pages": {
+                    "101": {
+                        "pageid": 101,
+                        "title": "Caerleon",
+                        "extract": "Caerleon is a suburban town and community in Newport, Wales.",
+                    },
+                    "102": {
+                        "pageid": 102,
+                        "title": "National Roman Legion Museum",
+                        "extract": "The National Roman Legion Museum is a museum in Caerleon, Newport, Wales.",
+                        "canonicalurl": "https://en.wikipedia.org/wiki/National_Roman_Legion_Museum",
+                        "pageprops": {"wikibase_item": "Q3399008"},
+                    },
+                }
+            }
+        }
+
+        p856_resp = MagicMock()
+        p856_resp.status_code = 200
+        p856_resp.json.return_value = {
+            "claims": {
+                "P856": [{"mainsnak": {"datavalue": {"value": "https://museum.wales/roman/"}}}]
+            }
+        }
+
+        official_site_html = """
+        <html>
+        <head>
+            <meta property="og:image" content="https://museum.wales/sites/default/files/roman-museum.jpg" />
+        </head>
+        </html>
+        """
+        official_site_resp = MagicMock()
+        official_site_resp.status_code = 200
+        official_site_resp.text = official_site_html
+        official_site_resp.url = "https://museum.wales/roman/"
+
+        mock_client = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> Any:
+            if "generator=search" in url:
+                return gen_search_resp
+            if "P856" in url:
+                return p856_resp
+            if "museum.wales/roman" in url:
+                return official_site_resp
+            r = MagicMock()
+            r.status_code = 404
+            r.json.return_value = {}
+            return r
+
+        mock_client.get.side_effect = mock_get
+
+        res = await adapter.augment("Caerleon Roman Legion Museum", client=mock_client)
+        assert res["source_name"] == "wikipedia.org"
+        assert res["name"] == "National Roman Legion Museum"
+        assert res["wikipedia_url"] == "https://en.wikipedia.org/wiki/National_Roman_Legion_Museum"
+        assert res["official_website_url"] == "https://museum.wales/roman/"
+        assert res["hero_image_url"] == "https://museum.wales/sites/default/files/roman-museum.jpg"
+
+    async def test_wikipedia_adapter_cirrussearch_fallback(self) -> None:
+        """Verifies WikipediaAdapter falls back to CirrusSearch when direct and opensearch return 404."""
+        adapter = WikipediaAdapter()
+
+        cirrus_search_resp = MagicMock()
+        cirrus_search_resp.status_code = 200
+        cirrus_search_resp.json.return_value = {
+            "query": {
+                "search": [
+                    {"title": "Senso-ji"},
+                ]
+            }
+        }
+
+        summary_resp = MagicMock()
+        summary_resp.status_code = 200
+        summary_resp.json.return_value = {
+            "extract": "Senso-ji is an ancient Buddhist temple located in Asakusa, Tokyo.",
+            "coordinates": {"lat": 35.7147, "lon": 139.7967},
+            "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Sens%C5%8D-ji"}},
+            "originalimage": {"source": "https://upload.wikimedia.org/sensoji_full.jpg"},
+        }
+
+        mock_client = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> Any:
+            if "list=search" in url:
+                return cirrus_search_resp
+            if "Sens" in url and "summary" in url:
+                return summary_resp
+            r = MagicMock()
+            r.status_code = 404
+            r.json.return_value = {}
+            return r
+
+        mock_client.get.side_effect = mock_get
+
+        res = await adapter.augment("Senso-ji Unknown Suffix", client=mock_client)
+        assert res["source_name"] == "wikipedia.org"
+        assert "ancient Buddhist temple" in res["description"]
+        assert res["hero_image_url"] == "https://upload.wikimedia.org/sensoji_full.jpg"
 
     async def test_orchestrator_graceful_timeout_fallback(self) -> None:
         """Verifies orchestrator continues with primary data when secondary source times out (REQ-EXT-020)."""

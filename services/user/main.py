@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026 Tim Olker
+# Copyright (c) 2026 Tim Olker
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,10 +70,10 @@ add_problem_details_handlers(app)
 # â”€â”€ Route registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Routes are imported lazily to prevent import-time DB connections.
 from services.user.routes import auth as auth_routes  # noqa: E402
+from services.user.routes import exclusion_zones as exclusion_zones_routes  # noqa: E402
 from services.user.routes import me as me_routes  # noqa: E402
 from services.user.routes import preferences as preferences_routes  # noqa: E402
 from services.user.routes import profile as profile_routes  # noqa: E402
-from services.user.routes import exclusion_zones as exclusion_zones_routes  # noqa: E402
 
 app.include_router(exclusion_zones_routes.router, prefix="/api/user", tags=["exclusion-zones"])
 app.include_router(exclusion_zones_routes.router, prefix="/api/users", tags=["exclusion-zones"])

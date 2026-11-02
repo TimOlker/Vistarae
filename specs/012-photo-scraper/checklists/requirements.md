@@ -37,4 +37,3 @@
 - Multi-standard embedded metadata (EXIF 2.3+, IPTC-IIM, embedded XMP) and companion sidecar formats (Adobe/Darktable `.xmp`, Google Photos `.json`, `.xml`) fully specified with precedence and fallback rules.
 - Two-phase CSV import workflow fully specified with user validation and editable review gates prior to database mutations.
 - The specification is fully validated and ready for `/speckit-clarify` or `/speckit-plan`.
-

@@ -23,6 +23,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from vistarae_core.adapters.queue.mock import MockQueueAdapter
 from vistarae_core.adapters.queue.sqs import SQSQueueAdapter
+from vistarae_core.adapters.repositories.geocache_repo import SqlAlchemyGeocodingCacheRepository
+from vistarae_core.adapters.repositories.ingest_candidate_repo import (
+    SqlAlchemyIngestCandidateRepository,
+)
 from vistarae_core.adapters.repositories.ingest_repo import IngestJobRepository
 from vistarae_core.adapters.repositories.poi_repo import SqlAlchemyPOIRepository
 
@@ -36,12 +40,9 @@ from services.ingest.dependencies import (
     get_queue_port,
     get_staging_service,
 )
-from vistarae_core.adapters.repositories.geocache_repo import SqlAlchemyGeocodingCacheRepository
-from vistarae_core.adapters.repositories.ingest_candidate_repo import SqlAlchemyIngestCandidateRepository
+from services.ingest.services.staging_service import StagingService
 from services.poi.services.duplicate_service import DuplicateTriageService
 from services.poi.services.geocoding_service import GeocodingService
-from services.ingest.services.staging_service import StagingService
-
 
 
 def test_get_queue_port_testing_stage(monkeypatch: pytest.MonkeyPatch) -> None:
