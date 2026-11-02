@@ -1091,6 +1091,23 @@ class IngestCandidateTable(Base):
     is_skipped: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), default=False, nullable=False
     )
+    no_websites: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), default=False, nullable=False
+    )
+    disposition_justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_user_overridden: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), default=False, nullable=False
+    )
+    parent_candidate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ingest_candidates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    merge_target_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ingest_candidates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     phase_state: Mapped[str] = mapped_column(
         String(32),
         server_default=text("'phase_1_triage'"),

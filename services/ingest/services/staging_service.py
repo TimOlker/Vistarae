@@ -36,6 +36,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from fastapi import HTTPException, status
 from vistarae_core.adapters.repositories.exclusion_zone_repo import haversine_distance_km
 from vistarae_core.domain.entities import POI, IngestCandidate, TagEntity
 from vistarae_core.domain.enums import TagResolutionAction
@@ -135,34 +136,40 @@ class StagingService:
         if not self._geocoding_service or not hasattr(self._geocoding_service, "geocode"):
             return None, None, []
 
-        # A specific address requires at least a street or city
-        has_address = any(bool(p and p.strip()) for p in [street, city])
-        if not has_address:
+        if not name or not name.strip():
             return None, None, []
 
+        clean_name = name.strip()
         queries: list[str] = []
+
         if street and city and state and country:
-            queries.append(f"{name}, {street}, {city}, {state}, {country}")
+            queries.append(f"{clean_name}, {street}, {city}, {state}, {country}")
             queries.append(f"{street}, {city}, {state}, {country}")
         elif street and city and country:
-            queries.append(f"{name}, {street}, {city}, {country}")
+            queries.append(f"{clean_name}, {street}, {city}, {country}")
             queries.append(f"{street}, {city}, {country}")
 
         if city and state and country:
-            queries.append(f"{name}, {city}, {state}, {country}")
+            queries.append(f"{clean_name}, {city}, {state}, {country}")
         elif city and country:
-            queries.append(f"{name}, {city}, {country}")
+            queries.append(f"{clean_name}, {city}, {country}")
 
         if state and country:
-            queries.append(f"{name}, {state}, {country}")
-        elif country and name:
-            queries.append(f"{name}, {country}")
+            queries.append(f"{clean_name}, {state}, {country}")
+        elif country:
+            queries.append(f"{clean_name}, {country}")
 
         if street and country:
             queries.append(f"{street}, {country}")
 
-        # Unique queries capped at top 2 most specific
-        unique_queries = list(dict.fromkeys([q.strip() for q in queries if q.strip()]))[:2]
+        if city:
+            queries.append(f"{clean_name}, {city}")
+
+        # Always include the POI name itself as a standalone query (e.g. for world-famous landmarks/monuments/sites)
+        queries.append(clean_name)
+
+        # Unique queries capped at top 3 most specific
+        unique_queries = list(dict.fromkeys([q.strip() for q in queries if q.strip()]))[:3]
 
         for query in unique_queries:
             if batch_cache is not None and query in batch_cache:
@@ -237,6 +244,7 @@ class StagingService:
         for idx, rec in enumerate(records):
             lat = float(rec.latitude) if rec.latitude is not None else None
             lon = float(rec.longitude) if rec.longitude is not None else None
+            confidence_score = rec.location_confidence_percent or 0
 
             street = rec.street_address[0] if rec.street_address else None
             city = rec.town_city[0] if rec.town_city else None
@@ -269,6 +277,7 @@ class StagingService:
                 )
                 if fwd_lat is not None and fwd_lon is not None:
                     lat, lon = fwd_lat, fwd_lon
+                    confidence_score = max(confidence_score, 85)
                     if fwd_addrs:
                         first = fwd_addrs[0]
                         street = street or first.street
@@ -286,10 +295,12 @@ class StagingService:
                         is_excluded = True
                         break
 
-            # 4. Deduplication & Nesting classification (REQ-ING-006 to REQ-ING-010)
+            # 4. Deduplication & Nesting classification (REQ-ING-006 to REQ-ING-010, FR-019, FR-020)
             recommended_disposition = IngestDisposition.ACCEPT
             matched_existing_poi_id: UUID | None = None
             parent_poi_id: UUID | None = None
+            merge_target_id: UUID | None = None
+            disposition_justification: str | None = None
 
             in_batch_match = self._check_in_batch_duplicate(
                 rec.poi_name, lat, lon, candidates_to_stage
@@ -297,12 +308,16 @@ class StagingService:
 
             if is_excluded:
                 recommended_disposition = IngestDisposition.EXCLUDE
+                disposition_justification = "Point falls within user exclusion zone"
             elif in_batch_match is not None:
                 # In-batch duplicate match
-                recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                recommended_disposition = IngestDisposition.IN_BATCH_MERGE
+                merge_target_id = in_batch_match.id
+                disposition_justification = f"Duplicate of #{in_batch_match.row_index + 1} '{in_batch_match.poi_name}' in batch"
             elif lat is None or lon is None:
                 # Unmappable missing-coordinate row (REQ-ING-005)
                 recommended_disposition = IngestDisposition.IGNORE
+                disposition_justification = "Missing coordinates and geocoding failed"
             elif self._duplicate_service is not None:
                 verdict = await self._duplicate_service.evaluate_candidate(
                     user_id=user_id,
@@ -313,17 +328,25 @@ class StagingService:
                 if verdict.status == "POTENTIAL_DUPLICATE":
                     recommended_disposition = IngestDisposition.UPDATE_EXISTING
                     matched_existing_poi_id = verdict.existing_poi_id
+                    disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
                 elif verdict.status == "NEARBY_PARENT":
                     recommended_disposition = IngestDisposition.SUBLOCATION
                     parent_poi_id = verdict.existing_poi_id
+                    disposition_justification = f"Near macro-site '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
                 else:
-                    if rec.location_confidence_percent >= 40:
-                        recommended_disposition = IngestDisposition.ACCEPT
-                    else:
+                    if 0 < confidence_score < 40:
                         recommended_disposition = IngestDisposition.IGNORE
+                        disposition_justification = "Low confidence location score"
+                    else:
+                        recommended_disposition = IngestDisposition.ACCEPT
+                        disposition_justification = "Unique coordinate location verified"
             else:
-                if rec.location_confidence_percent < 40:
+                if 0 < confidence_score < 40:
                     recommended_disposition = IngestDisposition.IGNORE
+                    disposition_justification = "Low confidence location score"
+                else:
+                    recommended_disposition = IngestDisposition.ACCEPT
+                    disposition_justification = "Unique coordinate location verified"
 
             candidate = IngestCandidate(
                 id=uuid4(),
@@ -358,6 +381,11 @@ class StagingService:
                 update_coordinates=False,
                 is_skipped=False,
                 phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE,
+                no_websites=False,
+                disposition_justification=disposition_justification,
+                is_user_overridden=False,
+                parent_candidate_id=None,
+                merge_target_id=merge_target_id,
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
@@ -651,10 +679,68 @@ class StagingService:
         candidate_id: UUID,
         update_req: CandidateUpdateRequest,
     ) -> IngestCandidate:
-        """Updates candidate attributes and user disposition overrides."""
+        """Updates candidate attributes and user disposition overrides with validation."""
         candidate = await self.get_candidate(user_id, candidate_id)
 
         update_fields = update_req.model_dump(exclude_unset=True)
+
+        # Check sublocation parent requirement (FR-022)
+        target_disp = (
+            update_req.user_disposition
+            if update_req.user_disposition is not None
+            else (candidate.user_disposition or candidate.recommended_disposition)
+        )
+        if target_disp == IngestDisposition.SUBLOCATION:
+            p_poi = update_req.parent_poi_id if "parent_poi_id" in update_fields else candidate.parent_poi_id
+            p_cand = update_req.parent_candidate_id if "parent_candidate_id" in update_fields else candidate.parent_candidate_id
+            if p_poi is None and p_cand is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Sublocation requires an assigned parent POI",
+                )
+
+        # Orphan prevention guard (FR-027)
+        if target_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+            all_cands = await self._candidate_repo.list_by_job(user_id, candidate.job_id)
+            for c in all_cands:
+                c_disp = c.user_disposition or c.recommended_disposition
+                if c.id != candidate.id and c_disp not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+                    if c.parent_candidate_id == candidate.id or c.merge_target_id == candidate.id:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"Cannot ignore or exclude candidate '{candidate.poi_name}': candidate '{c.poi_name}' depends on it as a parent or merge target.",
+                        )
+
+        # Cycle detection for candidate hierarchy (FR-023, FR-029)
+        target_parent_cand = update_req.parent_candidate_id if "parent_candidate_id" in update_fields else candidate.parent_candidate_id
+        if target_parent_cand is not None:
+            visited = {candidate.id}
+            curr = target_parent_cand
+            while curr is not None:
+                if curr in visited:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Circular hierarchy detected: candidate {curr} is already an ancestor.",
+                    )
+                visited.add(curr)
+                parent_record = await self._candidate_repo.get_candidate(curr, user_id)
+                if parent_record is None:
+                    break
+                curr = parent_record.parent_candidate_id
+
+        # Adaptive disposition justification and override badge (FR-019, FR-020)
+        if "user_disposition" in update_fields:
+            if update_req.user_disposition is not None and update_req.user_disposition != candidate.recommended_disposition:
+                candidate.is_user_overridden = True
+                if not update_req.disposition_justification and not candidate.disposition_justification:
+                    candidate.disposition_justification = f"User overridden from {candidate.recommended_disposition.value}"
+            elif update_req.user_disposition is None or update_req.user_disposition == candidate.recommended_disposition:
+                candidate.is_user_overridden = False
+
+        # Reactive no_websites reset (FR-010)
+        if ("official_url" in update_fields and update_fields["official_url"]) or ("wiki_url" in update_fields and update_fields["wiki_url"]):
+            candidate.no_websites = False
+
         for field, val in update_fields.items():
             if field in ("latitude", "longitude") and val is not None:
                 setattr(candidate, field, Decimal(str(val)))
@@ -761,13 +847,49 @@ class StagingService:
         if self._poi_repo is None:
             raise RuntimeError("POIRepository is required to commit staged jobs")
 
-        candidates = await self._candidate_repo.list_by_job(user_id, job_id)
+        candidates = list(await self._candidate_repo.list_by_job(user_id, job_id))
         created_ids: list[UUID] = []
         merged_ids: list[UUID] = []
         created_batch_pois: dict[str, POI] = {}
+        cand_to_created_poi: dict[UUID, UUID] = {}
+
+        # 1. Attribute aggregation for IN_BATCH_MERGE candidates (FR-028)
+        cand_by_id = {c.id: c for c in candidates}
+        for cand in candidates:
+            effective_disp = cand.user_disposition or cand.recommended_disposition
+            if effective_disp == IngestDisposition.IN_BATCH_MERGE or cand.merge_target_id:
+                target_cand = cand_by_id.get(cand.merge_target_id) if cand.merge_target_id else None
+                if not target_cand:
+                    for other in candidates:
+                        if other.id != cand.id and other.poi_name.strip().lower() == cand.poi_name.strip().lower():
+                            target_cand = other
+                            break
+                if target_cand and target_cand.id != cand.id:
+                    target_cand.dates_visited = sorted(list(set(target_cand.dates_visited + cand.dates_visited)))
+                    if cand.tags:
+                        target_cand.tags = sorted(list(set((target_cand.tags or []) + cand.tags)))
+                    if not target_cand.official_url and cand.official_url:
+                        target_cand.official_url = cand.official_url
+                    if not target_cand.wiki_url and cand.wiki_url:
+                        target_cand.wiki_url = cand.wiki_url
+                    if not target_cand.hero_image_url and cand.hero_image_url:
+                        target_cand.hero_image_url = cand.hero_image_url
+                    if cand.estimated_visit_time_notes:
+                        if target_cand.estimated_visit_time_notes:
+                            if cand.estimated_visit_time_notes not in target_cand.estimated_visit_time_notes:
+                                target_cand.estimated_visit_time_notes += f"; {cand.estimated_visit_time_notes}"
+                        else:
+                            target_cand.estimated_visit_time_notes = cand.estimated_visit_time_notes
+                    cand.is_skipped = True
+
+        # 2. Sort candidates so parents with no parent_candidate_id are processed before children
+        def _sort_key(c: IngestCandidate) -> int:
+            return 1 if c.parent_candidate_id is not None else 0
+
+        sorted_candidates = sorted(candidates, key=_sort_key)
 
         # Process candidates in order
-        for cand in candidates:
+        for cand in sorted_candidates:
             if cand.is_skipped:
                 continue
 
@@ -871,15 +993,21 @@ class StagingService:
                     merged_ids.append(target_poi.id)
                     continue
 
+            # Resolve parent POI ID from parent candidate or existing parent POI (FR-023, FR-028)
+            resolved_parent_id = None
+            if effective_disp == IngestDisposition.SUBLOCATION:
+                if cand.parent_candidate_id and cand.parent_candidate_id in cand_to_created_poi:
+                    resolved_parent_id = cand_to_created_poi[cand.parent_candidate_id]
+                else:
+                    resolved_parent_id = cand.parent_poi_id
+
             # ACCEPT or SUBLOCATION (or unmatched UPDATE_EXISTING fallback)
             poi = POI(
                 id=uuid4(),
                 user_id=user_id,
                 name=cand.poi_name,
                 geom=point,
-                parent_poi_id=cand.parent_poi_id
-                if effective_disp == IngestDisposition.SUBLOCATION
-                else None,
+                parent_poi_id=resolved_parent_id,
                 description=cand.description,
                 reason_to_visit=cand.reason_to_visit,
                 address=cand.street_address,
@@ -916,6 +1044,7 @@ class StagingService:
                 enrichment_status=EnrichmentStatus.SUCCESS,
             )
             saved = await self._poi_repo.create(poi)
+            cand_to_created_poi[cand.id] = saved.id
             if cand.tags and self._tag_repo and hasattr(self._poi_repo, "bulk_attach_tags"):
                 try:
                     user_tags = await self._tag_repo.list_by_user(user_id)
@@ -1114,3 +1243,48 @@ class StagingService:
             Count of candidates reverted.
         """
         return await self._candidate_repo.revert_to_phase1(user_id, job_id)
+
+    async def enrich_single_candidate(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+        candidate_id: UUID,
+    ) -> IngestCandidate:
+        """Enriches a single candidate on-demand synchronously (FR-006)."""
+        from services.worker.candidate_enricher import CandidateEnricher
+        from vistarae_core.adapters.db.session import get_session_factory
+
+        session_factory = get_session_factory()
+        enricher = CandidateEnricher(
+            session_factory=session_factory,
+            orchestrator=self._orchestrator,
+        )
+        cand = await enricher.enrich_candidate(
+            user_id=user_id, candidate_id=candidate_id, job_id=job_id
+        )
+        if cand is None:
+            cand = await self.get_candidate(user_id, candidate_id)
+        return cand
+
+    async def batch_edit_candidates(
+        self,
+        user_id: UUID,
+        job_id: UUID,
+        req: Any,
+    ) -> int:
+        """Applies batch updates to Country, State/Province, City, and Date Visited across candidates (FR-014, FR-024)."""
+        update_dict: dict[str, Any] = {}
+        if req.country is not None:
+            update_dict["country"] = req.country
+        if req.state_province is not None:
+            update_dict["state_province"] = req.state_province
+        if req.city is not None:
+            update_dict["city"] = req.city
+        if req.date_visited is not None:
+            update_dict["dates_visited"] = [req.date_visited]
+
+        if not update_dict or not req.candidate_ids:
+            return 0
+
+        return await self._candidate_repo.batch_edit(user_id, req.candidate_ids, update_dict)
+

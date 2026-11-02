@@ -130,10 +130,12 @@ class GeocodingService:
             "format": "jsonv2",
             "addressdetails": 1,
             "limit": 1,
+            "accept-language": "en",
         }
         headers = {
             "User-Agent": CUSTOM_USER_AGENT,
             "Accept": "application/json",
+            "Accept-Language": "en",
         }
 
         logger.info("MSG   |-> Nominatim forward geocode query='%s'", query)
@@ -169,6 +171,12 @@ class GeocodingService:
                         or addr.get("town")
                         or addr.get("village")
                         or addr.get("municipality")
+                        or addr.get("administrative")
+                        or addr.get("county")
+                        or addr.get("state_district")
+                        or addr.get("subdistrict")
+                        or addr.get("hamlet")
+                        or addr.get("suburb")
                     )
                     state = addr.get("state") or addr.get("province") or addr.get("region")
                     country = addr.get("country") or "Unknown"

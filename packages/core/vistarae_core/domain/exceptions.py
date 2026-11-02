@@ -244,13 +244,30 @@ class InvalidMimeTypeError(DomainError):
 class InvalidCSVHeaderError(DomainError):
     """Raised when a CSV upload is missing required canonical column headers."""
 
-    def __init__(self, missing_headers: list[str]) -> None:
+    def __init__(
+        self, missing_headers: list[str], found_headers: list[str] | None = None
+    ) -> None:
         """Initializes an invalid CSV header error.
 
         Args:
             missing_headers: Required headers that were not found.
+            found_headers: Optional headers discovered in the CSV file.
         """
         super().__init__(
             f"CSV header validation failed: missing required column(s) {missing_headers}."
         )
         self.missing_headers = missing_headers
+        self.found_headers = found_headers or []
+
+
+class CyclicHierarchyError(DomainError):
+    """Raised when a circular parent-child reference is detected in a POI hierarchy."""
+
+    def __init__(self, message: str = "Circular hierarchy detected.") -> None:
+        """Initializes a cyclic hierarchy error.
+
+        Args:
+            message: Explanation of the cycle.
+        """
+        super().__init__(message)
+

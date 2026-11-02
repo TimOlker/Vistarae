@@ -147,6 +147,22 @@ class TestCSVParserGuardrails:
         assert len(rows) == 1
         assert rows[0]["row_data"]["name"] == "Test Place"
 
+    def test_column_mapping_custom_headers(self) -> None:
+        """Asserts custom column mapping allows unmapped headers like 'Wonders' to map to 'name'."""
+        csv_bytes = b"Wonders,Locality,Notes\nGreat Wall,Beijing,Historic wall\n"
+        # Without mapping, it fails
+        with pytest.raises(InvalidCSVHeaderError) as exc_info:
+            parse_and_sanitize_csv(csv_bytes, content_type="text/csv")
+        assert exc_info.value.found_headers == ["wonders", "locality", "notes"]
+
+        # With mapping, it succeeds
+        mapping = {"wonders": "poi_name", "locality": "city", "notes": "description"}
+        rows = parse_and_sanitize_csv(csv_bytes, content_type="text/csv", column_mapping=mapping)
+        assert len(rows) == 1
+        assert rows[0]["row_data"]["poi_name"] == "Great Wall"
+        assert rows[0]["row_data"]["city"] == "Beijing"
+        assert rows[0]["row_data"]["description"] == "Historic wall"
+
     def test_trace_context_fallback_generation(self) -> None:
         """Asserts fallback traceparent and X-Amzn-Trace-Id are generated when headers missing."""
         from unittest.mock import MagicMock

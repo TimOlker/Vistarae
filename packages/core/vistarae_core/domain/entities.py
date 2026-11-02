@@ -364,6 +364,11 @@ class IngestCandidate:
     update_coordinates: bool = False
     is_skipped: bool = False
     phase_state: IngestCandidatePhaseState = IngestCandidatePhaseState.PHASE_1_TRIAGE
+    no_websites: bool = False
+    disposition_justification: str | None = None
+    is_user_overridden: bool = False
+    parent_candidate_id: UUID | None = None
+    merge_target_id: UUID | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 

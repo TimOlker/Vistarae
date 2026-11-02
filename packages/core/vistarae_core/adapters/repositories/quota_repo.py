@@ -61,6 +61,8 @@ class SqlAlchemyQuotaRepository:
         Returns:
             UserQuota entity or None.
         """
+        if self._session is None:
+            return None
         stmt = select(UserQuotasTable).where(UserQuotasTable.user_id == user_id)
         result = await self._session.execute(stmt)
         row = result.scalar_one_or_none()
@@ -96,6 +98,8 @@ class SqlAlchemyQuotaRepository:
         Returns:
             Tuple of (current_count, limit_for_tier, limit_exceeded).
         """
+        if self._session is None:
+            return 0, 1000, False
         now = datetime.now(UTC)
         limit = _TIER_LIMITS.get(tier, 60)
 

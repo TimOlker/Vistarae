@@ -300,6 +300,9 @@ class POIUpdateRequest(StrictBaseModel):
         default=None, max_length=2000, description="Official website URL"
     )
     wiki_url: str | None = Field(default=None, max_length=2000, description="Wikipedia URL")
+    related_websites: list[dict[str, str]] | None = Field(
+        default=None, description="Array of related website objects with name and url"
+    )
     directory_paths: list[str] | None = Field(
         default=None, description="Associated local file directory paths"
     )

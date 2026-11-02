@@ -15,10 +15,34 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { apiFetch } from "./api";
-import type { components } from "../types/ingest-staging-api";
+import type { components } from "../types/api";
 
-export type CandidateItem = components["schemas"]["CandidateItemResponse"];
+export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"], "no_websites" | "is_user_overridden" | "is_duplicate" | "created_at" | "updated_at" | "update_coordinates" | "is_skipped"> & {
+  no_websites?: boolean;
+  is_user_overridden?: boolean;
+  is_duplicate?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  update_coordinates?: boolean;
+  is_skipped?: boolean;
+  [key: string]: any;
+};
 export type CandidateUpdateRequest = components["schemas"]["CandidateUpdateRequest"];
+
+export interface CandidateListFilterParams {
+  completeness?: "all" | "incomplete" | "missing_photo" | "missing_location" | "missing_websites";
+  disposition?: string;
+  search?: string;
+  phase?: "phase_1_triage" | "phase_2_enriched";
+}
+
+export interface BatchEditCandidatesPayload {
+  candidate_ids: string[];
+  country?: string | null;
+  state_province?: string | null;
+  city?: string | null;
+  date_visited?: string | null;
+}
 
 export interface CandidateListResult {
   job_id: string;
@@ -68,6 +92,89 @@ export interface Phase2ProgressResult {
 
 
 export const ingestApi = {
+  async listStagingCandidates(
+    jobId: string,
+    filters?: CandidateListFilterParams,
+  ): Promise<CandidateListResult> {
+    const params = new URLSearchParams();
+    if (filters?.completeness && filters.completeness !== "all") {
+      params.append("completeness", filters.completeness);
+    }
+    if (filters?.disposition) {
+      params.append("disposition", filters.disposition);
+    }
+    if (filters?.search) {
+      params.append("search", filters.search);
+    }
+    if (filters?.phase) {
+      params.append("phase", filters.phase);
+    }
+    const qs = params.toString();
+    const url = qs
+      ? `/api/ingest/jobs/${jobId}/candidates?${qs}`
+      : `/api/ingest/jobs/${jobId}/candidates`;
+    return apiFetch<CandidateListResult>(url, { method: "GET" });
+  },
+
+  async updateStagingCandidate(
+    jobId: string,
+    candidateId: string,
+    update: CandidateUpdateRequest,
+  ): Promise<CandidateItem> {
+    return apiFetch<CandidateItem>(
+      `/api/ingest/jobs/${jobId}/candidates/${candidateId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(update),
+      },
+    );
+  },
+
+  async enrichSingleCandidate(
+    jobId: string,
+    candidateId: string,
+  ): Promise<CandidateItem> {
+    return apiFetch<CandidateItem>(
+      `/api/ingest/jobs/${jobId}/candidates/${candidateId}/enrich`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
+  async enrichAllCandidates(
+    jobId: string,
+  ): Promise<{ job_id: string; message: string; enqueued_count: number }> {
+    return apiFetch<{ job_id: string; message: string; enqueued_count: number }>(
+      `/api/ingest/jobs/${jobId}/enrich-all`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
+  async batchEditCandidates(
+    jobId: string,
+    payload: BatchEditCandidatesPayload,
+  ): Promise<{ updated_count: number }> {
+    return apiFetch<{ updated_count: number }>(
+      `/api/ingest/jobs/${jobId}/candidates/batch-edit`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async commitWorkbenchJob(jobId: string): Promise<CommitSummaryResult> {
+    return apiFetch<CommitSummaryResult>(
+      `/api/ingest/jobs/${jobId}/commit`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
   async getJobCandidates(
     jobId: string,
     phase?: "phase_1_triage" | "phase_2_enriched",

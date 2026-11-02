@@ -289,6 +289,7 @@ class IngestDisposition(StrEnum):
     IGNORE = "ignore"
     UPDATE_EXISTING = "update_existing"
     SUBLOCATION = "sublocation"
+    IN_BATCH_MERGE = "in_batch_merge"
     EXCLUDE = "exclude"
 
 

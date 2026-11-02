@@ -1,8 +1,8 @@
 # Feature Specification: Unified POI Import Staging Workbench
 
-**Feature Branch**: `014-unified-import-staging-workbench`  
+**Feature Branch**: `014-poi-export-import-enhancements-v2`  
 **Created**: 2026-11-02  
-**Status**: Draft  
+**Status**: Clarified  
 **Input**: User description: "Unified POI Import Staging Workbench: Replace the split Phase 1 (Triage) and Phase 2 (Enrichment Review) modal workflow with a single, unified Import Staging Workbench using strict EARS syntax."
 
 ---
@@ -173,7 +173,6 @@ As a user importing complex datasets, I want the system to handle both intra-bat
 - **User closes browser during batch enrichment**: Staging records persist on the backend; upon reopening the workbench via active session, the enriched data is loaded seamlessly.
 
 ---
-
 ## 2. Requirements *(strict EARS syntax)*
 
 ### Ubiquitous Requirements

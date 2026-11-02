@@ -335,14 +335,20 @@ def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
         request: Request, exc: InvalidCSVHeaderError
     ) -> JSONResponse:
         """Converts InvalidCSVHeaderError → 422 Unprocessable Content ProblemDetails."""
-        return _problem_response(
-            ProblemDetails(
-                type="https://errors.vistarae.com/invalid-csv-header",
-                title="Invalid CSV Header",
-                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=exc.message,
-                instance=str(request.url),
-            )
+        problem = ProblemDetails(
+            type="https://errors.vistarae.com/invalid-csv-header",
+            title="Invalid CSV Header",
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.message,
+            instance=str(request.url),
+        )
+        content = problem.model_dump(exclude_none=True)
+        content["missing_headers"] = exc.missing_headers
+        content["found_headers"] = exc.found_headers
+        return JSONResponse(
+            status_code=problem.status,
+            content=content,
+            media_type=_MEDIA_TYPE,
         )
 
     @app.exception_handler(IngestJobNotFoundError)
@@ -362,15 +368,9 @@ def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
 
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        """Catches unhandled exceptions and returns a 500 ProblemDetails response.
-
-        Args:
-            request: Incoming HTTP request context.
-            exc: Unhandled exception.
-
-        Returns:
-            RFC 7807 application/problem+json 500 response.
-        """
+        """Catches unhandled exceptions and returns a 500 ProblemDetails response."""
+        import traceback
+        tb = traceback.format_exc()
         logger.exception("Unhandled exception on %s: %s", request.url, exc)
         return _problem_response(
             ProblemDetails(

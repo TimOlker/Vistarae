@@ -35,10 +35,13 @@ from vistarae_core.schemas.base import StrictBaseModel
 
 __all__ = [
     "ActiveSessionResponse",
+    "BatchEditCandidatesRequest",
+    "BatchEditResponse",
     "CandidateItemResponse",
     "CandidateListResponse",
     "CandidateUpdateRequest",
     "CommitSummaryResponse",
+    "IngestCandidateResponse",
     "JobCancellationResponse",
     "PhaseTransitionResponse",
 ]
@@ -92,6 +95,15 @@ class CandidateItemResponse(StrictBaseModel):
     update_coordinates: bool = False
     is_skipped: bool = False
     phase_state: IngestCandidatePhaseState
+    no_websites: bool = False
+    disposition_justification: str | None = None
+    is_user_overridden: bool = False
+    parent_candidate_id: UUID | None = None
+    parent_candidate_name: str | None = None
+    merge_target_id: UUID | None = None
+    merge_target_name: str | None = None
+    related_websites: list[dict[str, Any]] = Field(default_factory=list)
+    is_duplicate: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -132,6 +144,12 @@ class CandidateUpdateRequest(StrictBaseModel):
     estimated_visit_time_notes: str | None = None
     update_coordinates: bool | None = None
     is_skipped: bool | None = None
+    no_websites: bool | None = None
+    disposition_justification: str | None = None
+    is_user_overridden: bool | None = None
+    parent_candidate_id: UUID | None = None
+    merge_target_id: UUID | None = None
+    related_websites: list[dict[str, Any]] | None = None
 
 
 class Phase2ProgressResponse(StrictBaseModel):
@@ -170,3 +188,22 @@ class JobCancellationResponse(StrictBaseModel):
     job_id: UUID
     purged_count: int
     message: str
+
+
+class BatchEditCandidatesRequest(StrictBaseModel):
+    """Client payload for batch updating country, state/province, city, and date_visited across candidates."""
+
+    candidate_ids: list[UUID]
+    country: str | None = None
+    state_province: str | None = None
+    city: str | None = None
+    date_visited: str | None = None
+
+
+class BatchEditResponse(StrictBaseModel):
+    """Result of batch editing candidate rows."""
+
+    updated_count: int
+
+
+IngestCandidateResponse = CandidateItemResponse

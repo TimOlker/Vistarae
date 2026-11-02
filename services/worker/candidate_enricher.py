@@ -267,6 +267,28 @@ class CandidateEnricher:
             if cand.is_skipped:
                 return cand
 
+            # If coordinates are missing, attempt forward geocoding resolution
+            if (cand.latitude is None or cand.longitude is None) and self._orchestrator and getattr(self._orchestrator, "geocoding_service", None):
+                try:
+                    geo = self._orchestrator.geocoding_service
+                    query = f"{cand.poi_name}, {cand.city}, {cand.country}" if (cand.city and cand.country) else cand.poi_name
+                    lat, lon, addrs, _ = await geo.geocode(query)
+                    if lat is not None and lon is not None:
+                        cand.latitude = Decimal(str(lat))
+                        cand.longitude = Decimal(str(lon))
+                        if addrs:
+                            first = addrs[0]
+                            cand.street_address = cand.street_address or first.street
+                            cand.city = cand.city or first.city
+                            cand.state_province = cand.state_province or first.state_province
+                            cand.postal_code = cand.postal_code or first.postal_code
+                            cand.country = cand.country or first.country
+                        if cand.recommended_disposition == IngestDisposition.IGNORE:
+                            cand.recommended_disposition = IngestDisposition.ACCEPT
+                            cand.disposition_justification = "Coordinates resolved via enrichment geocoding"
+                except Exception as exc:
+                    logger.debug("Enrichment geocoding failed for '%s': %s", cand.poi_name, exc)
+
             effective_disp = cand.user_disposition or cand.recommended_disposition
             if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
                 return cand
@@ -302,7 +324,7 @@ class CandidateEnricher:
 
             # 4. Web scraping via authorized secondary sources
             wiki_data: dict[str, Any] = {}
-            if any("wikipedia" in d.lower() for d in valid_domains):
+            if not cand.no_websites and any("wikipedia" in d.lower() for d in valid_domains):
                 try:
                     wiki_adapter = WikipediaAdapter(valid_domains=valid_domains)
                     wiki_data = await wiki_adapter.augment(query_title=cand.poi_name)
@@ -341,6 +363,9 @@ class CandidateEnricher:
                                     cand.related_websites.append(site)
                 except Exception as exc:
                     logger.debug("Wikipedia enrichment failed for '%s': %s", cand.poi_name, exc)
+
+            if not cand.official_url and not cand.wiki_url:
+                cand.no_websites = True
 
             secondary_extracts = (
                 [wiki_data["description"]] if (wiki_data and wiki_data.get("description")) else []

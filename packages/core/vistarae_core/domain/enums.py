@@ -14,10 +14,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Domain enumerations and selective enrichment models."""
+"""Domain enumerations and selective enrichment models.
+
+Strictly modeled as Python StrEnum backed by VARCHAR columns per Constitution
+Principle 4 (prohibiting PostgreSQL native ENUM types).
+"""
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pydantic import Field
 
 from vistarae_core.domain.base import StrictBaseModel
@@ -29,12 +34,24 @@ from vistarae_core.domain.value_objects import (
 )
 
 __all__ = [
+    "CandidateDisposition",
     "ExportFormat",
     "IngestCandidatePhaseState",
     "IngestDisposition",
     "SelectiveEnrichmentOverrides",
     "TagResolutionAction",
 ]
+
+
+class CandidateDisposition(StrEnum):
+    """Disposition classification for an ingest staging candidate."""
+
+    ACCEPT = "accept"
+    SUBLOCATION = "sublocation"
+    IN_BATCH_MERGE = "in_batch_merge"
+    UPDATE_EXISTING = "update_existing"
+    EXCLUDE = "exclude"
+    IGNORE = "ignore"
 
 
 class SelectiveEnrichmentOverrides(StrictBaseModel):

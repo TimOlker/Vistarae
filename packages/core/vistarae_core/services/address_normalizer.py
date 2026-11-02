@@ -112,6 +112,7 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "chn": "China",
     "china": "China",
     "people's republic of china": "China",
+    "中国": "China",
     # India
     "in": "India",
     "ind": "India",
@@ -194,6 +195,14 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "eg": "Egypt",
     "egy": "Egypt",
     "egypt": "Egypt",
+    "مصر": "Egypt",
+    # Jordan
+    "jo": "Jordan",
+    "jor": "Jordan",
+    "jordan": "Jordan",
+    "hashemite kingdom of jordan": "Jordan",
+    "الأردن": "Jordan",
+    "الاردن": "Jordan",
     # Turkey / Türkiye
     "tr": "Turkey",
     "tur": "Turkey",
@@ -358,6 +367,47 @@ US_STATE_NAMES: Final[dict[str, str]] = {v.lower(): v for v in US_STATE_MAPPINGS
 CA_PROVINCE_NAMES: Final[dict[str, str]] = {v.lower(): v for v in CA_PROVINCE_MAPPINGS.values()}
 AU_STATE_NAMES: Final[dict[str, str]] = {v.lower(): v for v in AU_STATE_MAPPINGS.values()}
 
+# ── Common Non-English City Endonyms -> Standard English Names ────────────────
+COMMON_CITY_MAPPINGS: Final[dict[str, str]] = {
+    "roma": "Rome",
+    "florenz": "Florence",
+    "firenze": "Florence",
+    "venezia": "Venice",
+    "venedig": "Venice",
+    "milano": "Milan",
+    "mailand": "Milan",
+    "napoli": "Naples",
+    "neapel": "Naples",
+    "torino": "Turin",
+    "münchen": "Munich",
+    "muenchen": "Munich",
+    "köln": "Cologne",
+    "koeln": "Cologne",
+    "wien": "Vienna",
+    "praha": "Prague",
+    "prag": "Prague",
+    "warszawa": "Warsaw",
+    "warschau": "Warsaw",
+    "moskva": "Moscow",
+    "athina": "Athens",
+    "athen": "Athens",
+    "lisboa": "Lisbon",
+    "lissabon": "Lisbon",
+    "sevilla": "Seville",
+    "genève": "Geneva",
+    "geneve": "Geneva",
+    "genf": "Geneva",
+    "zürich": "Zurich",
+    "zurich": "Zurich",
+    "bruxelles": "Brussels",
+    "brüssel": "Brussels",
+    "brussel": "Brussels",
+    "antwerpen": "Antwerp",
+    "anvers": "Antwerp",
+    "københavn": "Copenhagen",
+    "kobenhavn": "Copenhagen",
+}
+
 
 def _title_case_english(text: str) -> str:
     """Capitalizes an English name cleanly, handling hyphens and minor words."""
@@ -508,6 +558,27 @@ class AddressNormalizer:
         return cleaned.rstrip(",").strip()
 
     @classmethod
+    def normalize_city(cls, city_input: str | None, country: str | None = None) -> str | None:
+        """Normalizes city endonym/alias or title cases English city name.
+
+        Args:
+            city_input: Raw city name.
+            country: Optional country name for disambiguation.
+
+        Returns:
+            Normalized standard English city name, or None.
+        """
+        if not city_input:
+            return None
+        clean = cls.strip_leading_glyphs(city_input).strip()
+        if not clean:
+            return None
+        low = clean.lower()
+        if low in COMMON_CITY_MAPPINGS:
+            return COMMON_CITY_MAPPINGS[low]
+        return _title_case_english(clean)
+
+    @classmethod
     def normalize_address(cls, record: AddressRecord) -> AddressRecord:
         """Normalizes an AddressRecord value object's country, state, city, and street.
 
@@ -519,7 +590,7 @@ class AddressNormalizer:
         """
         norm_country = cls.normalize_country(record.country)
         norm_state = cls.normalize_state_province(record.state_province, country=norm_country)
-        clean_city = cls.strip_leading_glyphs(record.city) if record.city else None
+        clean_city = cls.normalize_city(record.city, country=norm_country)
         clean_street = cls.strip_leading_glyphs(record.street) if record.street else None
         clean_postal = record.postal_code.strip() if record.postal_code else None
 
@@ -532,7 +603,7 @@ class AddressNormalizer:
 
         return AddressRecord(
             street=clean_street if clean_street else None,
-            city=_title_case_english(clean_city) if clean_city else None,
+            city=clean_city,
             state_province=norm_state,
             country=norm_country,
             postal_code=clean_postal if clean_postal else None,

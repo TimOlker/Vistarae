@@ -126,10 +126,12 @@ class ReverseGeocodeService:
             "lat": norm_lat,
             "lon": norm_lng,
             "addressdetails": 1,
+            "accept-language": "en",
         }
         headers = {
             "User-Agent": "VistaraeTravelEngine/1.0",
             "Accept": "application/json",
+            "Accept-Language": "en",
         }
 
         logger.info("MSG   |-> Nominatim reverse geocode lat=%f lon=%f", norm_lat, norm_lng)
@@ -161,8 +163,13 @@ class ReverseGeocodeService:
                     addr.get("city")
                     or addr.get("town")
                     or addr.get("village")
-                    or addr.get("suburb")
                     or addr.get("municipality")
+                    or addr.get("administrative")
+                    or addr.get("county")
+                    or addr.get("state_district")
+                    or addr.get("subdistrict")
+                    or addr.get("hamlet")
+                    or addr.get("suburb")
                 )
                 raw_state = (
                     addr.get("state")
@@ -181,7 +188,7 @@ class ReverseGeocodeService:
 
                 payload = {
                     "street": street.strip() if street else None,
-                    "city": AddressNormalizer.normalize_state_province(city) if city else None,
+                    "city": AddressNormalizer.normalize_city(city, country=norm_country) if city else None,
                     "state_province": norm_state,
                     "country": norm_country,
                     "postal_code": postal_code.strip() if postal_code else None,
