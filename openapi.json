@@ -303,6 +303,501 @@
         }
       }
     },
+    "/api/user/exclusion-zones": {
+      "get": {
+        "tags": ["exclusion-zones"],
+        "summary": "List all privacy exclusion zones for the current user",
+        "description": "Returns all geographic exclusion zones configured by the user.",
+        "operationId": "list_exclusion_zones_api_user_exclusion_zones_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusionZoneListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["exclusion-zones"],
+        "summary": "Create a new privacy exclusion zone",
+        "description": "Persists a new geographic privacy exclusion zone.",
+        "operationId": "create_exclusion_zone_api_user_exclusion_zones_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExclusionZoneCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusionZoneResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/exclusion-zones/{zone_id}": {
+      "put": {
+        "tags": ["exclusion-zones"],
+        "summary": "Update an existing privacy exclusion zone",
+        "description": "Modifies the name, center coordinates, or radius of an exclusion zone.",
+        "operationId": "update_exclusion_zone_api_user_exclusion_zones__zone_id__put",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExclusionZoneUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusionZoneResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["exclusion-zones"],
+        "summary": "Delete a privacy exclusion zone",
+        "description": "Removes an exclusion zone.",
+        "operationId": "delete_exclusion_zone_api_user_exclusion_zones__zone_id__delete",
+        "parameters": [
+          {
+            "name": "zone_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Zone Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/exclusion-zones/check": {
+      "post": {
+        "tags": ["exclusion-zones"],
+        "summary": "Check if a point falls within any user exclusion zones",
+        "description": "Evaluates whether the given (lat, lon) coordinates fall within any active exclusion zones.",
+        "operationId": "check_point_exclusion_api_user_exclusion_zones_check_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExclusionCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusionCheckResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/preferences/scraping-sources": {
+      "get": {
+        "tags": ["preferences", "preferences"],
+        "summary": "Get Scraping Sources",
+        "description": "Retrieves the list of authorized secondary scraping domains.",
+        "operationId": "get_scraping_sources_api_user_preferences_scraping_sources_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["preferences", "preferences"],
+        "summary": "Update Scraping Sources",
+        "description": "Updates the list of authorized secondary scraping domains.",
+        "operationId": "update_scraping_sources_api_user_preferences_scraping_sources_put",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapingSourcesUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pois/dedup-check": {
       "get": {
         "tags": ["dedup", "dedup"],
@@ -1871,6 +2366,83 @@
         }
       }
     },
+    "/api/pois/geocode/forward": {
+      "get": {
+        "tags": ["geocoding", "geocoding"],
+        "summary": "Forward Geocode Endpoint",
+        "description": "Forward geocodes an address or query via internal PostGIS cache and rate-limited OSM Nominatim.",
+        "operationId": "forward_geocode_endpoint_api_pois_geocode_forward_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Address or destination query",
+              "title": "Q"
+            },
+            "description": "Address or destination query"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardGeocodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pois": {
       "get": {
         "tags": ["pois", "pois"],
@@ -3258,6 +3830,78 @@
         }
       }
     },
+    "/api/ingest/api/v1/ingest/upload-flexible": {
+      "post": {
+        "tags": ["ingest", "ingest"],
+        "summary": "Accept multi-format file upload with format sniffing, column alignment, and pre-validation",
+        "description": "Handles multi-format uploads, column mapping detection, and pre-validation reporting (T-018).",
+        "operationId": "upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/jobs/{job_id}": {
       "get": {
         "tags": ["ingest", "ingest"],
@@ -3399,6 +4043,132 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/IngestJobProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/active-session": {
+      "get": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Check if tenant has an in-progress uncommitted ingest session",
+        "description": "Returns details of any in-progress uncommitted staging session.",
+        "operationId": "get_active_session_api_ingest_active_session_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Wipe out active uncommitted ingest session progress",
+        "description": "Purges all uncommitted staged candidate records for the tenant.",
+        "operationId": "wipe_active_session_api_ingest_active_session_delete",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCancellationResponse"
                 }
               }
             }
@@ -3604,7 +4374,7 @@
       "post": {
         "tags": ["ingest-staging", "ingest-staging"],
         "summary": "Advance confirmed Phase 1 triage records to Phase 2 enrichment",
-        "description": "Transitions active candidates to Phase 2.",
+        "description": "Transitions active candidates to Phase 2 and launches background parallel AI/web enrichment.",
         "operationId": "proceed_phase1_api_ingest_jobs__job_id__phase1_proceed_post",
         "parameters": [
           {
@@ -3895,10 +4665,345 @@
           }
         }
       }
+    },
+    "/api/ingest/jobs/{job_id}/phase2/enrich": {
+      "post": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Queue background AI and web enrichment for active Phase 2 candidates",
+        "description": "Launches parallel background enrichment for Phase 2 candidates.",
+        "operationId": "enrich_phase2_api_ingest_jobs__job_id__phase2_enrich_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhaseTransitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/phase2/progress": {
+      "get": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Poll real-time progress of Phase 2 AI and web enrichment",
+        "description": "Retrieves real-time progress percentage and status of Phase 2 enrichment.",
+        "operationId": "get_phase2_progress_api_ingest_jobs__job_id__phase2_progress_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Phase2ProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/phase2/back-to-phase1": {
+      "post": {
+        "tags": ["ingest-staging", "ingest-staging"],
+        "summary": "Revert candidate records from Phase 2 back to Phase 1 triage",
+        "description": "Reverts candidates from Phase 2 to Phase 1.",
+        "operationId": "back_to_phase1_api_ingest_jobs__job_id__phase2_back_to_phase1_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhaseTransitionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/open-folder": {
+      "post": {
+        "tags": ["system"],
+        "summary": "Open Folder Endpoint",
+        "description": "Opens a local folder in the native OS file explorer (Windows Explorer, macOS Finder, Linux).",
+        "operationId": "open_folder_endpoint_api_system_open_folder_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ActiveSessionResponse": {
+        "properties": {
+          "has_active_session": {
+            "type": "boolean",
+            "title": "Has Active Session"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "phase_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestCandidatePhaseState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_candidates": {
+            "type": "integer",
+            "title": "Total Candidates",
+            "default": 0
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "target_list_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target List Id"
+          },
+          "target_list_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target List Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["has_active_session"],
+        "title": "ActiveSessionResponse",
+        "description": "Details of an active, uncommitted staging session for the current user."
+      },
       "AddressRecord": {
         "properties": {
           "street": {
@@ -3987,11 +5092,97 @@
             ],
             "title": "Target List Id",
             "description": "Optional target list ID"
+          },
+          "target_list_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target List Name",
+            "description": "Optional target list name to attach POIs to"
           }
         },
         "type": "object",
         "required": ["file"],
         "title": "Body_upload_csv_api_ingest_csv_post"
+      },
+      "Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "CSV, JSON, or YAML file to ingest"
+          },
+          "skip_invalid_rows": {
+            "type": "boolean",
+            "title": "Skip Invalid Rows",
+            "default": false
+          },
+          "column_mappings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Mappings"
+          },
+          "recalculate_fields": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recalculate Fields"
+          },
+          "target_list_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target List Id"
+          },
+          "target_list_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target List Name"
+          },
+          "tag_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Action"
+          }
+        },
+        "type": "object",
+        "required": ["file"],
+        "title": "Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post"
       },
       "BulkAddressUpdatePayload": {
         "properties": {
@@ -4487,6 +5678,72 @@
             ],
             "title": "Reason To Visit"
           },
+          "official_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Url"
+          },
+          "wiki_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wiki Url"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url"
+          },
+          "recommended_duration_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Duration Hours"
+          },
+          "recommended_visit_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Visit Days"
+          },
+          "estimated_visit_time_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Visit Time Notes"
+          },
           "update_coordinates": {
             "type": "boolean",
             "title": "Update Coordinates",
@@ -4737,6 +5994,72 @@
             ],
             "title": "Reason To Visit"
           },
+          "official_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Url"
+          },
+          "wiki_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wiki Url"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url"
+          },
+          "recommended_duration_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Duration Hours"
+          },
+          "recommended_visit_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Visit Days"
+          },
+          "estimated_visit_time_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Visit Time Notes"
+          },
           "update_coordinates": {
             "anyOf": [
               {
@@ -4773,12 +6096,10 @@
           },
           "total_active_hours": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Active Hours"
           },
           "threshold_hours": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Threshold Hours",
             "default": "10.00"
           },
@@ -5060,6 +6381,230 @@
         "title": "EnrichmentStatus",
         "description": "Enrichment and geocoding resolution status."
       },
+      "ExclusionCheckRequest": {
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": ["latitude", "longitude"],
+        "title": "ExclusionCheckRequest",
+        "description": "Payload to check whether coordinates fall within an exclusion zone."
+      },
+      "ExclusionCheckResponse": {
+        "properties": {
+          "is_excluded": {
+            "type": "boolean",
+            "title": "Is Excluded",
+            "default": false
+          },
+          "matched_zones": {
+            "items": {
+              "$ref": "#/components/schemas/ExclusionZoneResponse"
+            },
+            "type": "array",
+            "title": "Matched Zones"
+          },
+          "matched_zone_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Zone Names"
+          }
+        },
+        "type": "object",
+        "title": "ExclusionCheckResponse",
+        "description": "Result of checking a geographic coordinate against user exclusion zones."
+      },
+      "ExclusionVerdictSchema": {
+        "properties": {
+          "is_excluded": {
+            "type": "boolean",
+            "title": "Is Excluded",
+            "description": "Whether coordinates fall within a privacy exclusion zone",
+            "default": false
+          },
+          "matched_zone_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Zone Names",
+            "description": "Names of matched exclusion zones"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExclusionVerdictSchema"
+      },
+      "ExclusionZoneCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Zone label, e.g. Home or Workplace"
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "description": "Center latitude in WGS-84"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "description": "Center longitude in WGS-84"
+          },
+          "radius_km": {
+            "type": "number",
+            "maximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Radius Km",
+            "description": "Exclusion radius in kilometers",
+            "default": 1.0
+          }
+        },
+        "type": "object",
+        "required": ["name", "latitude", "longitude"],
+        "title": "ExclusionZoneCreateRequest",
+        "description": "Payload to create a new geographic privacy exclusion zone."
+      },
+      "ExclusionZoneListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExclusionZoneResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "ExclusionZoneListResponse",
+        "description": "Collection of user exclusion zones."
+      },
+      "ExclusionZoneResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "radius_km": {
+            "type": "number",
+            "title": "Radius Km"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "radius_km",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExclusionZoneResponse",
+        "description": "Representation of a persisted user privacy exclusion zone."
+      },
+      "ExclusionZoneUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "radius_km": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radius Km"
+          }
+        },
+        "type": "object",
+        "title": "ExclusionZoneUpdateRequest",
+        "description": "Payload to update an existing exclusion zone."
+      },
       "ExtractAndCheckRequest": {
         "properties": {
           "source_url": {
@@ -5175,6 +6720,10 @@
           "deduplication": {
             "$ref": "#/components/schemas/DeduplicationVerdictSchema",
             "description": "Deduplication and nesting verdict"
+          },
+          "exclusion": {
+            "$ref": "#/components/schemas/ExclusionVerdictSchema",
+            "description": "Privacy exclusion zone verdict"
           }
         },
         "additionalProperties": false,
@@ -5357,6 +6906,109 @@
         "title": "ForgotPasswordResponse",
         "description": "Acknowledgement of password reset dispatch."
       },
+      "ForwardGeocodeResponse": {
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude",
+            "description": "Resolved latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude",
+            "description": "Resolved longitude"
+          },
+          "street": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street",
+            "description": "Street address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City",
+            "description": "City or municipality"
+          },
+          "state_province": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Province",
+            "description": "State or province"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country",
+            "description": "Country name"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code",
+            "description": "Postal / ZIP code"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "description": "True if resolved from PostGIS geocache",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ForwardGeocodeResponse",
+        "description": "Response payload for forward geocoding."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5378,7 +7030,13 @@
       },
       "IngestDisposition": {
         "type": "string",
-        "enum": ["accept", "ignore", "update_existing", "sublocation"],
+        "enum": [
+          "accept",
+          "ignore",
+          "update_existing",
+          "sublocation",
+          "exclude"
+        ],
         "title": "IngestDisposition",
         "description": "Interactive disposition assigned to staged CSV/photo candidates."
       },
@@ -5428,6 +7086,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "readOnly": true
+          },
+          "duplicates_pending_count": {
+            "type": "integer",
+            "title": "Duplicates Pending Count",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -5439,7 +7107,9 @@
           "processed_rows",
           "percent_complete",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "status",
+          "duplicates_pending_count"
         ],
         "title": "IngestJobProgressResponse",
         "description": "Progress status, counts, and duplicate items for an ingestion job."
@@ -5786,8 +7456,7 @@
                 "minimum": 0.25
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Duration Hours",
@@ -5989,7 +7658,6 @@
           },
           "duration_hours": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Duration Hours",
             "default": "1.00"
           },
@@ -6737,6 +8405,17 @@
         "required": ["day_number", "meal_type", "gap_start", "gap_end"],
         "title": "MissingMealAdvisory",
         "description": "Advisory emitted when lunch or dinner window lacks a meal."
+      },
+      "OpenFolderRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": ["path"],
+        "title": "OpenFolderRequest"
       },
       "POICandidateSchema": {
         "properties": {
@@ -8059,6 +9738,47 @@
         "title": "POIUpdateRequest",
         "description": "Request payload for updating an existing Point of Interest."
       },
+      "Phase2ProgressResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          },
+          "enriched_count": {
+            "type": "integer",
+            "title": "Enriched Count"
+          },
+          "is_complete": {
+            "type": "boolean",
+            "title": "Is Complete"
+          },
+          "percent_complete": {
+            "type": "integer",
+            "title": "Percent Complete"
+          },
+          "status_message": {
+            "type": "string",
+            "title": "Status Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "total_count",
+          "enriched_count",
+          "is_complete",
+          "percent_complete",
+          "status_message"
+        ],
+        "title": "Phase2ProgressResponse",
+        "description": "Real-time progress reporting during asynchronous parallel AI/web enrichment."
+      },
       "PhaseTransitionResponse": {
         "properties": {
           "job_id": {
@@ -8417,6 +10137,40 @@
         "required": ["field", "operator"],
         "title": "RuleClauseSchema",
         "description": "Single condition rule in the query builder AST."
+      },
+      "ScrapingSourcesResponse": {
+        "properties": {
+          "valid_scraping_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Valid Scraping Domains",
+            "description": "List of domain suffixes authorized for secondary scraping"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ScrapingSourcesResponse",
+        "description": "List of authorized secondary scraping domain suffixes for the user."
+      },
+      "ScrapingSourcesUpdateRequest": {
+        "properties": {
+          "valid_scraping_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Valid Scraping Domains",
+            "description": "List of domain suffixes authorized for secondary scraping"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["valid_scraping_domains"],
+        "title": "ScrapingSourcesUpdateRequest",
+        "description": "Payload to update the user's authorized secondary scraping domains."
       },
       "SharedListResponse": {
         "properties": {

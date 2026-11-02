@@ -76,6 +76,7 @@ def _row_to_entity(row: IngestCandidateTable) -> IngestCandidate:
         else None,
         recommended_visit_days=row.recommended_visit_days,
         estimated_visit_time_notes=row.estimated_visit_time_notes,
+        related_websites=list(getattr(row, "related_websites", None) or []),
         update_coordinates=row.update_coordinates,
         is_skipped=row.is_skipped,
         phase_state=IngestCandidatePhaseState(row.phase_state),
@@ -149,6 +150,7 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
                 else None,
                 recommended_visit_days=cand.recommended_visit_days,
                 estimated_visit_time_notes=cand.estimated_visit_time_notes,
+                related_websites=cand.related_websites or [],
                 update_coordinates=cand.update_coordinates,
                 is_skipped=cand.is_skipped,
                 phase_state=cand.phase_state.value,
@@ -276,6 +278,7 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         )
         row.recommended_visit_days = candidate.recommended_visit_days
         row.estimated_visit_time_notes = candidate.estimated_visit_time_notes
+        row.related_websites = candidate.related_websites or []
         row.update_coordinates = candidate.update_coordinates
         row.is_skipped = candidate.is_skipped
         row.phase_state = candidate.phase_state.value
@@ -341,7 +344,8 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
             .where(
                 IngestCandidateTable.user_id == user_id,
                 IngestCandidateTable.job_id == job_id,
-                IngestCandidateTable.phase_state == IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+                IngestCandidateTable.phase_state
+                == IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
             )
             .values(
                 phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
@@ -422,10 +426,12 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
             )
             .where(
                 IngestCandidateTable.user_id == user_id,
-                IngestCandidateTable.phase_state.in_([
-                    IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
-                    IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
-                ]),
+                IngestCandidateTable.phase_state.in_(
+                    [
+                        IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
+                        IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+                    ]
+                ),
             )
             .group_by(IngestCandidateTable.job_id)
             .order_by(text("last_created DESC"))
@@ -462,13 +468,13 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         """Purges any uncommitted candidate records across all active jobs for tenant."""
         stmt = delete(IngestCandidateTable).where(
             IngestCandidateTable.user_id == user_id,
-            IngestCandidateTable.phase_state.in_([
-                IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
-                IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
-            ]),
+            IngestCandidateTable.phase_state.in_(
+                [
+                    IngestCandidatePhaseState.PHASE_1_TRIAGE.value,
+                    IngestCandidatePhaseState.PHASE_2_ENRICHED.value,
+                ]
+            ),
         )
         res = await self._session.execute(stmt)
         await self._session.flush()
         return res.rowcount
-
-

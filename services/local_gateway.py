@@ -23,17 +23,16 @@ dual-probe health endpoints with unified Starlette LIFO middleware pipeline and 
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
 import sys
-
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import os
-import subprocess
-from pydantic import BaseModel
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session, get_engine, init_engine
@@ -64,7 +63,6 @@ from services.user.main import app as user_app
 from services.user.routes.auth import router as auth_router
 from services.user.routes.exclusion_zones import router as exclusion_zones_router
 
-
 LOG_FORMAT = "%(asctime)s | %(levelname)-7s | [%(funcName)s:%(lineno)d] | %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -84,9 +82,9 @@ def configure_logging() -> None:
             handler.setFormatter(formatter)
 
     for uvi_name in ("uvicorn", "uvicorn.error", "uvicorn.access", "vistarae_core", "services"):
-        l = logging.getLogger(uvi_name)
-        l.setLevel(logging.INFO)
-        for h in l.handlers:
+        lg = logging.getLogger(uvi_name)
+        lg.setLevel(logging.INFO)
+        for h in lg.handlers:
             h.setFormatter(formatter)
 
 
@@ -219,8 +217,7 @@ async def open_folder_endpoint(req: OpenFolderRequest):
             subprocess.Popen(["xdg-open", target])
         return {"success": True, "path": target}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to open folder: {exc}")
-
+        raise HTTPException(status_code=500, detail=f"Failed to open folder: {exc}") from exc
 
 
 # 4. Middleware registration:

@@ -37,20 +37,21 @@ Phase 12 delivers an end-to-end bridge between digital photo archives and the Vi
 
 **Language/Version**: Python 3.12 (backend & CLI), TypeScript 5.5+ (frontend)  
 **Primary Dependencies**:
+
 - Backend & CLI: FastAPI 0.111+, SQLAlchemy 2.0 (pure async with `asyncpg`), Pydantic v2 (`StrictBaseModel`), Google GenAI SDK (`google-genai` Flash-Lite, `thinking_budget = 0`), Pillow, `exifread`, `defusedxml`, Alembic
 - Frontend: React 18, Vite 5, Lucide React, Leaflet / MapLibre GL  
-**Storage**: PostgreSQL 16+ / PostGIS 3.4+ (`pois` table, `ingest_candidates` staging table, `geocache` table), local SQLite cache (`.scraper_cache.db`) for CLI  
-**Testing**: pytest with pytest-asyncio and pytest-cov ($\ge 90\%$ branch/line coverage threshold), Vitest for frontend components  
-**Target Platform**: AWS Lambda (serverless Mangum ASGI entrypoint), Linux server, Modern Evergreen Web Browsers (Vite SPA), Cross-platform CLI (Windows, macOS, Linux)  
-**Project Type**: Monorepo with Ports & Adapters architecture (`packages/core/`, `services/scraper/`, `services/ingest/`, `services/poi/`, `services/worker/`, `frontend/`)  
-**Performance Goals**: CLI scanning 1,000 folders / 10,000 photos in < 5 minutes with warm cache; Web app CSV pre-validation < 500ms UI latency per progress step; AI enrichment < 4.0s per candidate  
-**Constraints**:
+  **Storage**: PostgreSQL 16+ / PostGIS 3.4+ (`pois` table, `ingest_candidates` staging table, `geocache` table), local SQLite cache (`.scraper_cache.db`) for CLI  
+  **Testing**: pytest with pytest-asyncio and pytest-cov ($\ge 90\%$ branch/line coverage threshold), Vitest for frontend components  
+  **Target Platform**: AWS Lambda (serverless Mangum ASGI entrypoint), Linux server, Modern Evergreen Web Browsers (Vite SPA), Cross-platform CLI (Windows, macOS, Linux)  
+  **Project Type**: Monorepo with Ports & Adapters architecture (`packages/core/`, `services/scraper/`, `services/ingest/`, `services/poi/`, `services/worker/`, `frontend/`)  
+  **Performance Goals**: CLI scanning 1,000 folders / 10,000 photos in < 5 minutes with warm cache; Web app CSV pre-validation < 500ms UI latency per progress step; AI enrichment < 4.0s per candidate  
+  **Constraints**:
 - Zero-cost AWS free tier architecture (SQS batch size 10, visibility 180s, Neon scale-to-zero)
 - Scanned photo directory read-only invariant (zero filesystem mutations on user media archives)
 - Strictly adhere to OSM Nominatim rate limits (1 req/sec max) with User-Agent `VistaraeTravelEngine/1.0` and SHA-256 caching
 - Strict tenant isolation via `WHERE user_id = :current_user_id` (no PostgreSQL RLS)
 - Deterministic AI extraction with `thinking_budget = 0`  
-**Scale/Scope**: Archives with thousands of directories and multi-year repeat visits; batch CSV imports up to 2,000 rows / 2MB
+  **Scale/Scope**: Archives with thousands of directories and multi-year repeat visits; batch CSV imports up to 2,000 rows / 2MB
 
 ---
 
@@ -58,17 +59,17 @@ Phase 12 delivers an end-to-end bridge between digital photo archives and the Vi
 
 _GATE: Must pass before Phase 0 research. Re-checked after Phase 1 design._
 
-| Principle | Requirement Summary | Status | Compliance Verification |
-| :--- | :--- | :---: | :--- |
-| **1. File Header & Docstrings** | Standard Apache 2.0 copyright banner on all `.py`, `.ts`, `.tsx`, `.sql`. Max nesting 3, Cognitive Complexity $\le 15$. | **PASS** | Every new/modified file includes exact copyright header, Google-style docstrings, and guard-clause structure. |
-| **2. Ports & Adapters Architecture** | Domain models isolated in `packages/core`. Pure domain decoupled from `boto3`, HTTP, and framework internals. | **PASS** | Shared export schema `POIExportRecord` and `csv_exporter.py` in `packages/core`. Staging repositories defined via Python protocols. |
-| **3. Database & Tenancy** | Pure Async SQLAlchemy 2.0 (`asyncpg`). NullPool in cloud, QueuePool in local. `statement_cache_size=0`. No RLS. `WHERE user_id = :current_user_id`. Cascade delete on user. | **PASS** | Staging table `ingest_candidates` references `users(id)` ON DELETE CASCADE. All queries strictly filter by `user_id`. No PostgreSQL RLS used. |
-| **4. Alembic & Environment Isolation** | Schema migrations in `db/migrations/`. Reversible `downgrade()`. Status/category fields typed with Python `StrEnum` backed by `VARCHAR(n)`. | **PASS** | Migration creates `ingest_candidates` table with reversible `downgrade()`. Enums `IngestDisposition` and `IngestCandidatePhaseState` use `StrEnum` + `VARCHAR(32)`. |
-| **5. API Contract & Validation** | OpenAPI 3.1 authoritative contract. TypeScript types synced via `npx openapi-typescript`. Pydantic v2 `StrictBaseModel` (extra='forbid', str_strip_whitespace=True). RFC 7807 ProblemDetails for errors. | **PASS** | OpenAPI contracts defined in `contracts/photo-scraper-api.yaml`. Boundary schemas inherit from `StrictBaseModel`. RFC 7807 ProblemDetails responses implemented. |
-| **6. Middleware & Security** | Idempotency first, RateLimit second. Formula injection neutralization (`'`, `=`, `+`, `-`, `@`, `\t`, `\r`). Read-only safety on scanned directories. | **PASS** | CSV formatter neutralizes formula injection prefixes. CLI opens media files in binary read-only mode (`rb`) with zero directory writes. |
-| **7. Observability & Tracing** | Directional `MSG` logging markers (`MSG: -->\|`, `MSG: <--\|`, etc.) in local dev. Structured JSON in cloud. W3C `traceparent` propagation. | **PASS** | Directional messaging tags applied to Gemini location resolver, geocoder, and SQS worker ingestion pipelines. |
-| **8. PyTest & SDD Governance** | Minimum 90% branch and line coverage. Mirror source tree in `tests/unit/`. Spec governs as absolute truth. Strict YAGNI. | **PASS** | Dedicated unit test suites structured to mirror source tree with $\ge 90\%$ coverage target across `services/scraper/` and `services/ingest/`. |
-| **Operational Guardrails** | Zero-Cost Architecture (Neon tables, SQLite CLI cache, no paid Redis/DynamoDB). SQS batch size 10, visibility 180s, Nominatim 1 req/sec. | **PASS** | Local SQLite caching for CLI; PostGIS `geocache` for backend; SQS chunking adheres strictly to AWS free-tier limits. |
+| Principle                              | Requirement Summary                                                                                                                                                                                      |  Status  | Compliance Verification                                                                                                                                             |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1. File Header & Docstrings**        | Standard Apache 2.0 copyright banner on all `.py`, `.ts`, `.tsx`, `.sql`. Max nesting 3, Cognitive Complexity $\le 15$.                                                                                  | **PASS** | Every new/modified file includes exact copyright header, Google-style docstrings, and guard-clause structure.                                                       |
+| **2. Ports & Adapters Architecture**   | Domain models isolated in `packages/core`. Pure domain decoupled from `boto3`, HTTP, and framework internals.                                                                                            | **PASS** | Shared export schema `POIExportRecord` and `csv_exporter.py` in `packages/core`. Staging repositories defined via Python protocols.                                 |
+| **3. Database & Tenancy**              | Pure Async SQLAlchemy 2.0 (`asyncpg`). NullPool in cloud, QueuePool in local. `statement_cache_size=0`. No RLS. `WHERE user_id = :current_user_id`. Cascade delete on user.                              | **PASS** | Staging table `ingest_candidates` references `users(id)` ON DELETE CASCADE. All queries strictly filter by `user_id`. No PostgreSQL RLS used.                       |
+| **4. Alembic & Environment Isolation** | Schema migrations in `db/migrations/`. Reversible `downgrade()`. Status/category fields typed with Python `StrEnum` backed by `VARCHAR(n)`.                                                              | **PASS** | Migration creates `ingest_candidates` table with reversible `downgrade()`. Enums `IngestDisposition` and `IngestCandidatePhaseState` use `StrEnum` + `VARCHAR(32)`. |
+| **5. API Contract & Validation**       | OpenAPI 3.1 authoritative contract. TypeScript types synced via `npx openapi-typescript`. Pydantic v2 `StrictBaseModel` (extra='forbid', str_strip_whitespace=True). RFC 7807 ProblemDetails for errors. | **PASS** | OpenAPI contracts defined in `contracts/photo-scraper-api.yaml`. Boundary schemas inherit from `StrictBaseModel`. RFC 7807 ProblemDetails responses implemented.    |
+| **6. Middleware & Security**           | Idempotency first, RateLimit second. Formula injection neutralization (`'`, `=`, `+`, `-`, `@`, `\t`, `\r`). Read-only safety on scanned directories.                                                    | **PASS** | CSV formatter neutralizes formula injection prefixes. CLI opens media files in binary read-only mode (`rb`) with zero directory writes.                             |
+| **7. Observability & Tracing**         | Directional `MSG` logging markers (`MSG: -->\|`, `MSG: <--\|`, etc.) in local dev. Structured JSON in cloud. W3C `traceparent` propagation.                                                              | **PASS** | Directional messaging tags applied to Gemini location resolver, geocoder, and SQS worker ingestion pipelines.                                                       |
+| **8. PyTest & SDD Governance**         | Minimum 90% branch and line coverage. Mirror source tree in `tests/unit/`. Spec governs as absolute truth. Strict YAGNI.                                                                                 | **PASS** | Dedicated unit test suites structured to mirror source tree with $\ge 90\%$ coverage target across `services/scraper/` and `services/ingest/`.                      |
+| **Operational Guardrails**             | Zero-Cost Architecture (Neon tables, SQLite CLI cache, no paid Redis/DynamoDB). SQS batch size 10, visibility 180s, Nominatim 1 req/sec.                                                                 | **PASS** | Local SQLite caching for CLI; PostGIS `geocache` for backend; SQS chunking adheres strictly to AWS free-tier limits.                                                |
 
 ---
 
@@ -160,8 +161,8 @@ tests/
 
 _No constitutional violations. Design strictly leverages existing repository patterns, pure async SQLAlchemy, shared core schemas, and zero-cost local caching._
 
-| Proposed Mechanism | Why Needed | Simpler Alternative Rejected Because |
-| :--- | :--- | :--- |
-| `ingest_candidates` staging table | Resilient multi-step triage surviving browser refresh during long async enrichment jobs. | Client-only memory state loses Phase 1 user edits if browser reloads during AI web scraping. |
-| Pure-Python metadata extractor | Cross-platform zero-dependency execution across Windows, Linux, and macOS CLI runs. | Native ExifTool subprocess introduces external binary dependencies and installation hurdles. |
-| Local SQLite CLI cache | Zero-cost cache preventing redundant external API calls and token waste on repeated photo scans. | In-memory cache loses state across CLI invocations; cloud cache requires online cloud credentials for offline runs. |
+| Proposed Mechanism                | Why Needed                                                                                       | Simpler Alternative Rejected Because                                                                                |
+| :-------------------------------- | :----------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
+| `ingest_candidates` staging table | Resilient multi-step triage surviving browser refresh during long async enrichment jobs.         | Client-only memory state loses Phase 1 user edits if browser reloads during AI web scraping.                        |
+| Pure-Python metadata extractor    | Cross-platform zero-dependency execution across Windows, Linux, and macOS CLI runs.              | Native ExifTool subprocess introduces external binary dependencies and installation hurdles.                        |
+| Local SQLite CLI cache            | Zero-cost cache preventing redundant external API calls and token waste on repeated photo scans. | In-memory cache loses state across CLI invocations; cloud cache requires online cloud credentials for offline runs. |

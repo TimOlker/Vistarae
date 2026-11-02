@@ -93,6 +93,7 @@ def _to_candidate_response(
         reason_to_visit=candidate.reason_to_visit,
         official_url=candidate.official_url,
         wiki_url=candidate.wiki_url,
+        related_websites=candidate.related_websites or [],
         hero_image_url=candidate.hero_image_url,
         recommended_duration_hours=float(candidate.recommended_duration_hours)
         if candidate.recommended_duration_hours is not None
@@ -246,6 +247,7 @@ async def proceed_phase1(
     """Transitions active candidates to Phase 2 and launches background parallel AI/web enrichment."""
     adv, ign = await staging_service.advance_to_phase2(user.id, job_id)
     import asyncio
+
     asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
     return PhaseTransitionResponse(
         job_id=job_id,
@@ -253,7 +255,6 @@ async def proceed_phase1(
         advanced_count=adv,
         ignored_count=ign,
     )
-
 
 
 @router.post(
@@ -347,13 +348,66 @@ async def enrich_phase2(
     user: User = Depends(get_current_user),
     staging_service: StagingService = Depends(get_staging_service),
 ) -> PhaseTransitionResponse:
-    """Launches parallel background enrichment for Phase 2 candidates."""
+    """Launches parallel background enrichment for Phase 2 candidates across 5 concurrent workers."""
     import asyncio
-    asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
+
+    from vistarae_core.domain.entities import IngestDisposition
+
+    from services.worker.candidate_enricher import (
+        CandidateEnrichmentQueueManager,
+        _global_enrichment_progress,
+    )
+
+    # 1. Fetch staged candidates while the HTTP request session is active
+    candidates = await staging_service.list_candidates(user.id, job_id)
+    active_candidates = [
+        cand
+        for cand in candidates
+        if not cand.is_skipped
+        and (cand.user_disposition or cand.recommended_disposition)
+        not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+    ]
+
+    # Filter to candidates missing any data (hero image, wiki url, official url, description, reason, duration, tags)
+    candidates_to_enrich = [
+        cand
+        for cand in active_candidates
+        if not cand.description
+        or not cand.reason_to_visit
+        or not cand.hero_image_url
+        or not cand.wiki_url
+        or not cand.official_url
+        or cand.recommended_duration_hours is None
+        or not cand.tags
+    ]
+
+    # If all candidates have complete data, fallback to active candidates; otherwise only process missing
+    target_candidates = candidates_to_enrich if candidates_to_enrich else active_candidates
+    candidate_ids = [cand.id for cand in target_candidates]
+    total = len(candidate_ids)
+
+    # 2. Register initial progress synchronously before returning HTTP 202
+    _global_enrichment_progress[job_id] = {
+        "total_count": total,
+        "enriched_count": 0,
+        "is_complete": total == 0,
+        "percent_complete": 100 if total == 0 else 0,
+        "status_message": (
+            "All POIs are already complete."
+            if total == 0
+            else f"Queued {total} POI(s) for parallel AI and web enrichment..."
+        ),
+    }
+
+    # 3. Dispatch parallel worker pool decoupled from the request session
+    if total > 0:
+        queue_mgr = CandidateEnrichmentQueueManager(max_concurrency=5)
+        asyncio.create_task(queue_mgr.enqueue_and_process_job(user.id, job_id, candidate_ids))
+
     return PhaseTransitionResponse(
         job_id=job_id,
-        message="Queued parallel AI and web enrichment.",
-        advanced_count=0,
+        message=f"Queued {total} POIs for parallel AI and web enrichment.",
+        advanced_count=total,
         ignored_count=0,
     )
 
@@ -375,7 +429,6 @@ async def get_phase2_progress(
 ) -> Phase2ProgressResponse:
     """Retrieves real-time progress percentage and status of Phase 2 enrichment."""
     return staging_service.get_phase2_progress(user.id, job_id)
-
 
 
 @router.post(
@@ -401,4 +454,3 @@ async def back_to_phase1(
         advanced_count=reverted,
         ignored_count=0,
     )
-

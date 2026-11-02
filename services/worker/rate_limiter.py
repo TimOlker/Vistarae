@@ -72,3 +72,7 @@ class InMemoryRateLimiter:
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         pass
+
+
+# Alias for token bucket terminology
+AsyncTokenBucket = InMemoryRateLimiter

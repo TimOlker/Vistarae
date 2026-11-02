@@ -1,3 +1,19 @@
+// Copyright (c) 2026 Tim Olker
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CSVUploadModal } from "../../components/ingest/CSVUploadModal";
@@ -56,8 +72,8 @@ describe("CSVUploadModal", () => {
       if (url === "/api/ingest/active-session") {
         return { has_active_session: false, job_id: null };
       }
-      if (url === "/api/ingest/upload") {
-        return { job_id: "job-new-123" };
+      if (url === "/api/ingest/upload" || url === "/api/v1/ingest/upload-flexible") {
+        return { job_id: "job-new-123", status: "QUEUED" };
       }
       return {};
     });
@@ -92,7 +108,7 @@ describe("CSVUploadModal", () => {
 
     await waitFor(() => {
       expect(apiFetch).toHaveBeenCalledWith(
-        "/api/ingest/upload",
+        expect.stringMatching(/\/api(\/v1)?\/ingest\/(upload|upload-flexible)/),
         expect.objectContaining({
           method: "POST",
           body: expect.any(FormData),
@@ -101,7 +117,7 @@ describe("CSVUploadModal", () => {
     });
 
     const callArgs = (apiFetch as any).mock.calls.find(
-      (c: any[]) => c[0] === "/api/ingest/upload",
+      (c: any[]) => c[0] === "/api/ingest/upload" || c[0] === "/api/v1/ingest/upload-flexible",
     );
     const formData = callArgs[1].body as FormData;
     expect(formData.get("target_list_name")).toBe("Japan Vacation");
@@ -164,8 +180,8 @@ describe("CSVUploadModal", () => {
           created_at: "2026-10-29T20:00:00Z",
         };
       }
-      if (url === "/api/ingest/upload") {
-        return { job_id: "job-new-999" };
+      if (url === "/api/ingest/upload" || url === "/api/v1/ingest/upload-flexible") {
+        return { job_id: "job-new-999", status: "QUEUED" };
       }
       return {};
     });

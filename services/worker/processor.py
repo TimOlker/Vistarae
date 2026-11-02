@@ -121,7 +121,9 @@ class BatchIngestWorker:
             from services.worker.candidate_enricher import CandidateEnricher
 
             enricher = CandidateEnricher(orchestrator=self._orchestrator)
-            await enricher.enrich_candidate(user_id=user_id, candidate_id=candidate_id, job_id=job_id)
+            await enricher.enrich_candidate(
+                user_id=user_id, candidate_id=candidate_id, job_id=job_id
+            )
             return
 
         absolute_row_number = int(body["absolute_row_number"])

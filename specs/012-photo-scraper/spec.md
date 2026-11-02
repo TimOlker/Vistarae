@@ -16,6 +16,7 @@
 **Input**: User description:
 
 > "Photoscraper:
+>
 > - enhance the photo scraper a standalone CLI based tool that looks at a directory starting directory and recursively searches through the sub-directories looking photos that have been previously taken to identify POIs to include in the Vistarae application.
 > - avoid duplicating logic included in the vistarae CSV import logic. They should work in concert with each other.
 > - Assume that each directory holds one POI from a single visit
@@ -36,6 +37,7 @@
 > - Export the fields at least the following fields, and any others that may be relevant for the CSV import of the web application: POI Name, Street Address (list), Town/City (list), State/Province (list), Zip Code (list), Country (list), Tags, latitude, longitude, dates visited (list), Photo directory, location_confidence_percent.
 >
 > Vistarae CSV Import:
+>
 > - enhance the existing CSV import logic of vistarae
 > - The logic should be: read CSV, process each POI, attempt to determine location, attempt to determine if existing POI.
 > - merge data together and display phase 1 data to make sure records are valid & associated with correct location before running LLM parsing logic.
@@ -45,6 +47,7 @@
 > - batched processing logic, progress bar, geocoding fallbacks, caching.
 >
 > Image Metadata & Sidecar Extensions:
+>
 > - EXIF should be supported, if there are other supported standards with image meta data, please support them as well.
 > - Also support common side car file formats that may contain metadata about an image."
 
@@ -80,6 +83,7 @@ Phase 12 addresses this through two interconnected, non-duplicative systems:
 A traveler runs the standalone Photo Scraper CLI against their historical photo repository (`M:\Photos\master`).
 
 The CLI recursively inspects folders, skipping system and noise folders (such as `thumbs`, `.hidden`, `New Folder (2)`, `Tim`, `misc`). When traversing nested paths such as `M:\Photos\master\Tim\2003\Japan 4-03\1-Tokyo\Senso-ji (Asakusa Kannon Temple)`, the CLI recognizes:
+
 - Trip/Country context: `Japan` (stripping `4-03`)
 - City context: `Tokyo` (stripping `1-`)
 - Location candidate: `Senso-ji` with alternate name `Asakusa Kannon Temple`
@@ -141,11 +145,13 @@ When imported into the web app, both records automatically default to the `ignor
 A traveler opens the Vistarae web application, navigates to POI Import, and uploads `vistarae_pois.csv`.
 
 The web application displays a real-time progress bar tracking batch preparation, geocoding resolution, and database deduplication:
+
 - For rows with coordinates but missing street addresses, the system executes reverse geocoding to resolve street, city, state, and country.
 - For rows with missing coordinates, the system performs structured geocoding matching against available address tokens.
 - For each row, the system checks for spatial and name duplicates against the user's existing POIs.
 
 Upon completion, the application opens the **Phase 1 Validation Window**:
+
 - A data table displays all imported candidates with recommended dispositions:
   - `accept`: Valid new POI ready for enrichment.
   - `ignore`: Low-confidence or unmappable record (e.g. `Sledding`).
@@ -174,11 +180,13 @@ Upon completion, the application opens the **Phase 1 Validation Window**:
 Following Phase 1 approval, the backend initiates Phase 2 processing for accepted and sublocation candidates.
 
 The backend scraper orchestrator gathers external web context for the confirmed POI name and coordinates. The LLM synthesis service receives this scraped text along with the traveler's custom travel style prompt directives (from Phase 11) to generate:
+
 - An objective destination `description`
 - A personalized `reason_to_visit` tailored to the traveler's travel preferences
 - Contextual travel tags
 
 The application displays the **Phase 2 Review Window**:
+
 - A table lists all enriched POIs with their generated descriptions, reasons to visit, and visit tags.
 - For each POI, a toggle allows skipping the record.
 - An **Edit** button opens the POI detail drawer to modify generated content.
@@ -392,4 +400,3 @@ During Phase 1 import, the deduplication engine recognizes that the second row m
 - **Address Delimiter Alignment**: Multi-address lists within CSV export cells are delimited by semicolons (`; `), maintaining 1:1 positional index alignment across `Street Address`, `Town/City`, `State/Province`, `Zip Code`, and `Country`.
 - **Default Confidence Thresholds**: Confidence $< 40\%$ defaults to `ignore`, $40\% - 69\%$ prompts review as candidate `accept`, and $\ge 70\%$ with coordinates defaults to `accept` or `update existing POI`.
 - **Zero-Cost Free-Tier Operation**: Asynchronous ingestion batches remain bounded to 10 rows per SQS payload, fitting comfortably within the monthly AWS Lambda 1,000,000 free request tier and Neon compute zero-scaling constraints.
-

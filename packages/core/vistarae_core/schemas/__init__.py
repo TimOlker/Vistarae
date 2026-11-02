@@ -90,6 +90,7 @@ from vistarae_core.schemas.poi import (
     BulkOperationResponse,
     BulkTagsRequest,
     DedupCheckResponse,
+    ForwardGeocodeResponse,
     ListCreateRequest,
     ListResponse,
     ListUpdateRequest,
@@ -100,7 +101,6 @@ from vistarae_core.schemas.poi import (
     POIResponse,
     POIUpdateRequest,
     PotentialDuplicateItem,
-    ForwardGeocodeResponse,
     ReverseGeocodeResponse,
     SharedListResponse,
 )
@@ -109,6 +109,7 @@ from vistarae_core.schemas.poi_duplicate import (
     DuplicateCheckRequest,
     DuplicateCheckResponse,
 )
+from vistarae_core.schemas.poi_exchange import POIExchangeRecord
 from vistarae_core.schemas.poi_export import POIExportRecord
 from vistarae_core.schemas.poi_merge import (
     POIMergeRequest,
@@ -212,6 +213,8 @@ __all__ = [
     "PlannerPreferencesResponse",
     "POICandidateSchema",
     "POICreateRequest",
+    "POIExchangeRecord",
+    "POIExportRecord",
     "POIListResponse",
     "POIMergeRequest",
     "POIMergeResponse",

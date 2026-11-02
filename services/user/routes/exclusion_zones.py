@@ -141,7 +141,9 @@ async def update_exclusion_zone(
         radius_km=payload.radius_km,
     )
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exclusion zone not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Exclusion zone not found"
+        )
 
     await session.commit()
     logger.info("MSG <-| PUT /exclusion-zones/%s 200 OK", zone_id)
@@ -171,7 +173,9 @@ async def delete_exclusion_zone(
     repo = SqlAlchemyUserExclusionZoneRepository(session)
     deleted = await repo.delete(zone_id, current_user.id)
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exclusion zone not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Exclusion zone not found"
+        )
 
     await session.commit()
     logger.info("MSG <-| DELETE /exclusion-zones/%s 204 No Content", zone_id)
@@ -211,4 +215,3 @@ async def check_point_exclusion(
         matched_zones=matched_responses,
         matched_zone_names=[z.name for z in matched],
     )
-

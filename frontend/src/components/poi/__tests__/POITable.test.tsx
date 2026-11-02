@@ -266,3 +266,129 @@ describe("POITable Search & Column Toggle (T-029 / REQ-CTX-025, REQ-CTX-037)", (
     expect(descRows[2].textContent).toContain("Older Visit");
   });
 });
+
+describe("POITable Export & Selective Ingest (T-010 / REQ-EXP-003, REQ-EXP-004)", () => {
+  const samplePois = [
+    {
+      id: "poi-1",
+      name: "Cascade Falls",
+      canonical_lat: 44.1,
+      canonical_lng: -71.5,
+      render_lat: 44.1,
+      render_lng: -71.5,
+      visit_state: "not_visited" as const,
+      rating: 4,
+      city: "Lincoln",
+      state: "New Hampshire",
+      country: "United States",
+      tags: ["waterfall"],
+      addresses: [],
+    },
+    {
+      id: "poi-2",
+      name: "Old Pine Tavern",
+      canonical_lat: 42.3,
+      canonical_lng: -71.0,
+      render_lat: 42.3,
+      render_lng: -71.0,
+      visit_state: "visited_return" as const,
+      rating: 5,
+      city: "Boston",
+      state: "Massachusetts",
+      country: "United States",
+      tags: ["historic"],
+      addresses: [],
+    },
+  ];
+
+  it("aborts export and displays warning toast when 0 rows are selected", async () => {
+    const mockShowToast = vi.fn();
+    const mockToastContext = {
+      toasts: [],
+      showToast: mockShowToast,
+      dismissToast: vi.fn(),
+      clearAll: vi.fn(),
+    };
+
+    const { ToastContext } = await import("../../../context/ToastContext");
+
+    render(
+      <ToastContext.Provider value={mockToastContext}>
+        <POITable
+          pois={samplePois}
+          isViewportFilterActive={false}
+          onToggleViewportFilter={vi.fn()}
+          onSelectPOI={vi.fn()}
+          multiSelectMode={true}
+          selectedPoiIds={[]}
+        />
+      </ToastContext.Provider>
+    );
+
+    const exportBtn = screen.getByTestId("export-selected-btn");
+    fireEvent.click(exportBtn);
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      "No records selected. Please select at least one record to export.",
+      "warning"
+    );
+  });
+
+  it("triggers exportExplorerPOIs when rows are selected", async () => {
+    const exportApi = await import("../../../services/exportApi");
+    const exportSpy = vi.spyOn(exportApi, "exportExplorerPOIs").mockResolvedValue(undefined);
+
+    const mockShowToast = vi.fn();
+    const mockToastContext = {
+      toasts: [],
+      showToast: mockShowToast,
+      dismissToast: vi.fn(),
+      clearAll: vi.fn(),
+    };
+
+    const { ToastContext } = await import("../../../context/ToastContext");
+
+    render(
+      <ToastContext.Provider value={mockToastContext}>
+        <POITable
+          pois={samplePois}
+          isViewportFilterActive={false}
+          onToggleViewportFilter={vi.fn()}
+          onSelectPOI={vi.fn()}
+          multiSelectMode={true}
+          selectedPoiIds={["poi-1"]}
+        />
+      </ToastContext.Provider>
+    );
+
+    const formatSelect = screen.getByTestId("export-format-select");
+    fireEvent.change(formatSelect, { target: { value: "json" } });
+
+    const exportBtn = screen.getByTestId("export-selected-btn");
+    fireEvent.click(exportBtn);
+
+    expect(exportSpy).toHaveBeenCalledWith(["poi-1"], "json");
+  });
+
+  it("renders Date Added column header and formatted timestamp cell", () => {
+    const poisWithDate: POIMapFeature[] = [
+      {
+        ...samplePois[0],
+        created_at: "2026-10-31T14:30:00Z",
+      } as any,
+    ];
+
+    render(
+      <POITable
+        pois={poisWithDate}
+        isViewportFilterActive={false}
+        onToggleViewportFilter={vi.fn()}
+        onSelectPOI={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Date Added")).toBeInTheDocument();
+    expect(screen.getByTestId("poi-created-at-cell-poi-1")).toBeInTheDocument();
+  });
+});
+

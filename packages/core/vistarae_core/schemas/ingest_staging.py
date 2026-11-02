@@ -22,6 +22,7 @@ Enforces strict boundary contracts for Phase 1 triage and Phase 2 review per Ope
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field
@@ -83,6 +84,7 @@ class CandidateItemResponse(StrictBaseModel):
     reason_to_visit: str | None = None
     official_url: str | None = None
     wiki_url: str | None = None
+    related_websites: list[dict[str, Any]] = Field(default_factory=list)
     hero_image_url: str | None = None
     recommended_duration_hours: float | None = None
     recommended_visit_days: int | None = None
@@ -123,6 +125,7 @@ class CandidateUpdateRequest(StrictBaseModel):
     reason_to_visit: str | None = None
     official_url: str | None = None
     wiki_url: str | None = None
+    related_websites: list[dict[str, Any]] | None = None
     hero_image_url: str | None = None
     recommended_duration_hours: float | None = None
     recommended_visit_days: int | None = None
@@ -140,7 +143,6 @@ class Phase2ProgressResponse(StrictBaseModel):
     is_complete: bool
     percent_complete: int
     status_message: str
-
 
 
 class PhaseTransitionResponse(StrictBaseModel):

@@ -160,6 +160,7 @@ export interface components {
             reason_to_visit?: string | null;
             official_url?: string | null;
             wiki_url?: string | null;
+            related_websites?: { name: string; url: string }[];
             hero_image_url?: string | null;
             recommended_duration_hours?: number | null;
             recommended_visit_days?: number | null;
@@ -198,6 +199,7 @@ export interface components {
             reason_to_visit?: string | null;
             official_url?: string | null;
             wiki_url?: string | null;
+            related_websites?: { name: string; url: string }[];
             hero_image_url?: string | null;
             recommended_duration_hours?: number | null;
             recommended_visit_days?: number | null;

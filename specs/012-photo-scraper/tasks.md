@@ -230,13 +230,14 @@ flowchart TD
 ## Implementation Strategy
 
 ### MVP First (Phase 1 through Phase 3)
+
 1. Complete Phase 1 (Setup) and Phase 2 (Foundational).
 2. Complete Phase 3 (User Story 1: CLI Photo Scraper).
 3. **STOP and VALIDATE**: Run `python -m services.scraper.photo_scraper` against test photo archives; verify clean 12-column CSV output, multi-standard EXIF/sidecar extraction, and zero filesystem mutations.
 
 ### Incremental Delivery (Web App Ingestion Track)
+
 1. Implement Phase 6 (User Story 4: Web App Ingest & Phase 1 Validation Modal).
 2. Implement Phase 7 (User Story 5: Phase 2 AI Enrichment & Final DB Commit).
 3. Implement Phase 8 (User Story 6: Multi-Visit Merging).
 4. Run Phase 9 (Polish, $\ge 90\%$ test coverage verification, quickstart end-to-end scenarios).
-

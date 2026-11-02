@@ -96,6 +96,8 @@ class POIResponse(StrictBaseModel):
     )
     official_url: str | None = Field(default=None, description="Official entity website")
     wiki_url: str | None = Field(default=None, description="Wikipedia or Wikidata reference")
+    related_websites: list[dict[str, Any]] | None = Field(default=None, description="Related external websites (name and url)")
+    related_websites: list[dict[str, Any]] = Field(default_factory=list, description="Related external websites (name and url)")
     image_urls: list[str] = Field(default_factory=list, description="Array of image URLs")
     directory_paths: list[str] = Field(
         default_factory=list, description="Associated local file directory paths"
@@ -375,6 +377,7 @@ class ReverseGeocodeResponse(StrictBaseModel):
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
     cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
 
+
 class ForwardGeocodeResponse(StrictBaseModel):
     """Response payload for forward geocoding."""
 
@@ -388,7 +391,6 @@ class ForwardGeocodeResponse(StrictBaseModel):
     country: str | None = Field(default=None, max_length=100, description="Country name")
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
     cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
-
 
 
 class POIMergeRequest(StrictBaseModel):

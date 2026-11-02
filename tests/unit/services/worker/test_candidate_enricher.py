@@ -95,15 +95,14 @@ async def test_candidate_enricher_populates_missing_fields(mock_candidate: Inges
         orchestrator=mock_orchestrator,
     )
 
-    with patch(
-        "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
-    ) as MockCandidateRepo, patch(
-        "services.worker.candidate_enricher.WikipediaAdapter"
-    ) as MockWikiAdapter, patch(
-        "services.worker.candidate_enricher.default_prompt_cache"
-    ) as mock_cache, patch(
-        "services.worker.candidate_enricher.SqlAlchemyTagRepository"
-    ) as MockTagRepo:
+    with (
+        patch(
+            "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+        ) as MockCandidateRepo,
+        patch("services.worker.candidate_enricher.WikipediaAdapter") as MockWikiAdapter,
+        patch("services.worker.candidate_enricher.default_prompt_cache") as mock_cache,
+        patch("services.worker.candidate_enricher.SqlAlchemyTagRepository") as MockTagRepo,
+    ):
         repo_instance = MagicMock()
         repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
         repo_instance.get_by_id = AsyncMock(return_value=mock_candidate)
@@ -131,8 +130,18 @@ async def test_candidate_enricher_populates_missing_fields(mock_candidate: Inges
         tag_repo_instance = MagicMock()
         tag_repo_instance.list_by_user = AsyncMock(
             return_value=[
-                TagEntity(id=uuid.uuid4(), user_id=mock_candidate.user_id, slug="architecture", name="Architecture"),
-                TagEntity(id=uuid.uuid4(), user_id=mock_candidate.user_id, slug="landmark", name="Landmark"),
+                TagEntity(
+                    id=uuid.uuid4(),
+                    user_id=mock_candidate.user_id,
+                    slug="architecture",
+                    name="Architecture",
+                ),
+                TagEntity(
+                    id=uuid.uuid4(),
+                    user_id=mock_candidate.user_id,
+                    slug="landmark",
+                    name="Landmark",
+                ),
             ]
         )
         MockTagRepo.return_value = tag_repo_instance
@@ -267,11 +276,12 @@ async def test_candidate_enricher_limits_tags_to_user_tags_library(mock_candidat
         orchestrator=mock_orchestrator,
     )
 
-    with patch(
-        "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
-    ) as MockCandidateRepo, patch(
-        "services.worker.candidate_enricher.SqlAlchemyTagRepository"
-    ) as MockTagRepo:
+    with (
+        patch(
+            "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+        ) as MockCandidateRepo,
+        patch("services.worker.candidate_enricher.SqlAlchemyTagRepository") as MockTagRepo,
+    ):
         repo_instance = MagicMock()
         repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
         repo_instance.get_by_id = AsyncMock(return_value=mock_candidate)
@@ -281,8 +291,15 @@ async def test_candidate_enricher_limits_tags_to_user_tags_library(mock_candidat
         tag_repo_instance = MagicMock()
         tag_repo_instance.list_by_user = AsyncMock(
             return_value=[
-                TagEntity(id=uuid.uuid4(), user_id=mock_candidate.user_id, slug="water", name="Water"),
-                TagEntity(id=uuid.uuid4(), user_id=mock_candidate.user_id, slug="historic", name="Historic"),
+                TagEntity(
+                    id=uuid.uuid4(), user_id=mock_candidate.user_id, slug="water", name="Water"
+                ),
+                TagEntity(
+                    id=uuid.uuid4(),
+                    user_id=mock_candidate.user_id,
+                    slug="historic",
+                    name="Historic",
+                ),
             ]
         )
         MockTagRepo.return_value = tag_repo_instance

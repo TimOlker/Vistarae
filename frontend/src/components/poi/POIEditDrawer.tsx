@@ -22,7 +22,6 @@ import {
   Trash2,
   Calendar,
   Clock,
-  Link as LinkIcon,
   FolderPlus,
   Image as ImageIcon,
   CheckCircle2,
@@ -31,6 +30,8 @@ import {
   Compass,
   FileText,
   Loader2,
+  ExternalLink,
+  Globe,
 } from "lucide-react";
 import { apiFetch, ApiError } from "../../services/api";
 import { TagSelector } from "../tags/TagSelector";
@@ -45,6 +46,7 @@ import {
 } from "../../services/geocodeService";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import type { components } from "../../types/api";
+import { inferWebsiteName } from "../../utils/websiteInference";
 
 type POIUpdateRequest = components["schemas"]["POIUpdateRequest"];
 
@@ -96,8 +98,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   const [sourceValue, setSourceValue] = useState<string>("");
 
   // URLs
-  const [officialUrl, setOfficialUrl] = useState<string>("");
-  const [wikiUrl, setWikiUrl] = useState<string>("");
+  const [relatedWebsites, setRelatedWebsites] = useState<{ name: string; url: string }[]>([]);
+  const [newWebsiteName, setNewWebsiteName] = useState("");
+  const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
 
   // Photos & Media
   const [directoryPaths, setDirectoryPaths] = useState<string[]>([]);
@@ -176,8 +179,26 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     setInitialLon(baselineLon);
     setRating(poi.rating || 0);
     setParentPoiId(poi.parent_poi_id || null);
-    setOfficialUrl(poi.official_url || "");
-    setWikiUrl(poi.wiki_url || "");
+    const rawRelated = (poi as any).related_websites || [];
+    const initialSites: { name: string; url: string }[] = [...rawRelated];
+    const existingUrls = new Set(initialSites.map((s) => s.url.trim().toLowerCase().replace(/\/$/, "")));
+    if (poi.official_url && poi.official_url.trim()) {
+      const norm = poi.official_url.trim().toLowerCase().replace(/\/$/, "");
+      if (!existingUrls.has(norm)) {
+        existingUrls.add(norm);
+        initialSites.unshift({ name: "Official Website", url: poi.official_url.trim() });
+      }
+    }
+    if (poi.wiki_url && poi.wiki_url.trim()) {
+      const norm = poi.wiki_url.trim().toLowerCase().replace(/\/$/, "");
+      if (!existingUrls.has(norm)) {
+        existingUrls.add(norm);
+        initialSites.push({ name: "Wikipedia", url: poi.wiki_url.trim() });
+      }
+    }
+    setRelatedWebsites(initialSites);
+    setNewWebsiteName("");
+    setNewWebsiteUrl("");
     if (poi.addresses && poi.addresses.length > 0) {
       setAddresses(poi.addresses);
     } else if (poi.address) {
@@ -254,8 +275,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         setEstimatedVisitTimeNotes(fullData.estimated_visit_time_notes || "");
         setSourceType(fullData.source_type || "Manual");
         setSourceValue(fullData.source_value || "");
-        setOfficialUrl(fullData.official_url || "");
-        setWikiUrl(fullData.wiki_url || "");
+        if (fullData.related_websites && Array.isArray(fullData.related_websites)) {
+          setRelatedWebsites(fullData.related_websites);
+        }
         setDirectoryPaths(fullData.directory_paths || []);
         setImageUrls(fullData.image_urls || []);
         setVisitedDates((fullData.visited_dates || []).map(String).sort());
@@ -397,8 +419,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       estimated_visit_time_notes: estimatedVisitTimeNotes.trim() || null,
       source_type: sourceType,
       source_value: sourceValue.trim() || undefined,
-      official_url: officialUrl.trim() || undefined,
-      wiki_url: wikiUrl.trim() || undefined,
+      official_url: relatedWebsites.find((s) => s.name.toLowerCase().includes("official"))?.url || undefined,
+      wiki_url: relatedWebsites.find((s) => s.name.toLowerCase().includes("wikipedia") || s.url.toLowerCase().includes("wikipedia.org"))?.url || undefined,
+      related_websites: relatedWebsites,
       directory_paths: directoryPaths,
       image_urls: imageUrls,
       visited_dates: visitedDates,
@@ -527,8 +550,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         estimated_visit_time_notes: estimatedVisitTimeNotes.trim() || undefined,
         source_type: validSourceType,
         source_value: sourceValue.trim() || undefined,
-        official_url: officialUrl.trim() || undefined,
-        wiki_url: wikiUrl.trim() || undefined,
+        official_url: relatedWebsites.find((s) => s.name.toLowerCase().includes("official"))?.url || undefined,
+        wiki_url: relatedWebsites.find((s) => s.name.toLowerCase().includes("wikipedia") || s.url.toLowerCase().includes("wikipedia.org"))?.url || undefined,
+        related_websites: relatedWebsites,
         directory_paths: directoryPaths,
         image_urls: imageUrls,
         visited_dates: visitedDates,
@@ -1395,76 +1419,155 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               </div>
             </div>
 
-            {/* Section 9: Official & Wikipedia URLs */}
+            {/* Section 9: Related Websites & Research */}
             <div
               style={{ display: "flex", flexDirection: "column", gap: "10px" }}
             >
-              <div>
-                <label
+              {/* Related Websites & Research */}
+              <div
+                data-testid="edit-related-websites-section"
+                style={{
+                  marginTop: "8px",
+                  padding: "10px",
+                  borderRadius: "var(--radius-sm, 6px)",
+                  background: "var(--bg-hover, #f8fafc)",
+                  border: "1px solid var(--border-color, #e2e8f0)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                <span
                   style={{
                     fontSize: "12px",
                     fontWeight: 700,
+                    color: "var(--text-secondary, #475569)",
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
-                    marginBottom: "4px",
-                    color: "var(--text-secondary, #475569)",
                   }}
                 >
-                  <LinkIcon
-                    size={13}
-                    style={{ color: "var(--accent, #2563eb)" }}
-                  />
-                  Official Website URL
-                </label>
-                <input
-                  type="url"
-                  maxLength={2000}
-                  placeholder="https://..."
-                  value={officialUrl}
-                  onChange={(e) => setOfficialUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: "var(--radius-sm, 6px)",
-                    border: "1px solid var(--border-color, #e2e8f0)",
-                    fontSize: "12px",
-                  }}
-                />
-              </div>
+                  <Globe size={13} style={{ color: "var(--accent, #2563eb)" }} />
+                  Related Websites & Research ({relatedWebsites.length})
+                </span>
 
-              <div>
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "4px",
-                    color: "var(--text-secondary, #475569)",
-                  }}
-                >
-                  <LinkIcon
-                    size={13}
-                    style={{ color: "var(--accent, #2563eb)" }}
+                {relatedWebsites.length === 0 ? (
+                  <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", fontStyle: "italic" }}>
+                    No related websites listed. Add custom links below.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {relatedWebsites.map((site, idx) => (
+                      <div
+                        key={`${site.url}-${idx}`}
+                        data-testid={`edit-related-website-row-${idx}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "6px 10px",
+                          borderRadius: "var(--radius-sm, 6px)",
+                          background: "var(--bg-surface, #ffffff)",
+                          border: "1px solid var(--border-color, #e2e8f0)",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, color: "var(--text-primary, #0f172a)", minWidth: "90px" }}>
+                            {site.name}:
+                          </span>
+                          <a
+                            href={site.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: "var(--accent, #2563eb)",
+                              textDecoration: "none",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                            title={site.url}
+                          >
+                            {site.url} <ExternalLink size={11} />
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRelatedWebsites(relatedWebsites.filter((_, i) => i !== idx))}
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--text-muted, #94a3b8)",
+                            cursor: "pointer",
+                            padding: "2px",
+                          }}
+                          title="Remove website link"
+                          data-testid={`remove-edit-website-button-${idx}`}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                  <input
+                    type="text"
+                    placeholder="Site Name (optional - auto-inferred)"
+                    value={newWebsiteName}
+                    onChange={(e) => setNewWebsiteName(e.target.value)}
+                    style={{
+                      flex: "0 0 140px",
+                      padding: "6px 8px",
+                      fontSize: "11px",
+                      borderRadius: "var(--radius-sm, 6px)",
+                      border: "1px solid var(--border-color, #cbd5e1)",
+                    }}
                   />
-                  Wikipedia URL
-                </label>
-                <input
-                  type="url"
-                  maxLength={2000}
-                  placeholder="https://en.wikipedia.org/wiki/..."
-                  value={wikiUrl}
-                  onChange={(e) => setWikiUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: "var(--radius-sm, 6px)",
-                    border: "1px solid var(--border-color, #e2e8f0)",
-                    fontSize: "12px",
-                  }}
-                />
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={newWebsiteUrl}
+                    onChange={(e) => setNewWebsiteUrl(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "6px 8px",
+                      fontSize: "11px",
+                      borderRadius: "var(--radius-sm, 6px)",
+                      border: "1px solid var(--border-color, #cbd5e1)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmedUrl = newWebsiteUrl.trim();
+                      if (trimmedUrl) {
+                        const name = newWebsiteName.trim() || inferWebsiteName(trimmedUrl);
+                        setRelatedWebsites([...relatedWebsites, { name, url: trimmedUrl }]);
+                        setNewWebsiteName("");
+                        setNewWebsiteUrl("");
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      borderRadius: "var(--radius-sm, 6px)",
+                      background: "var(--accent, #2563eb)",
+                      color: "#ffffff",
+                      border: "none",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    + Add Link
+                  </button>
+                </div>
               </div>
             </div>
 

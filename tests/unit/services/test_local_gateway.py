@@ -82,7 +82,7 @@ class TestLocalGatewayPipeline:
         from unittest.mock import patch
 
         test_dir = os.path.dirname(__file__)
-        with patch("os.startfile", create=True) as mock_startfile:
+        with patch("os.startfile", create=True):
             resp = client.post(
                 "/api/system/open-folder",
                 json={"path": test_dir},

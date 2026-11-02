@@ -219,3 +219,65 @@ async def test_cancel_phase1(
     data = resp.json()
     assert data["job_id"] == str(job_id)
     assert data["purged_count"] == 5
+
+
+@pytest.mark.asyncio
+async def test_enrich_phase2(
+    mock_user: User,
+    mock_staging_service: MagicMock,
+) -> None:
+    job_id = uuid.uuid4()
+    candidate_id = uuid.uuid4()
+    cand = IngestCandidate(
+        id=candidate_id,
+        user_id=mock_user.id,
+        job_id=job_id,
+        row_index=1,
+        poi_name="Bibury Trout Farm",
+        description=None,
+    )
+    mock_staging_service.list_candidates = AsyncMock(return_value=[cand])
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(f"/api/ingest/jobs/{job_id}/phase2/enrich")
+
+    app.dependency_overrides.clear()
+
+    assert resp.status_code == 202
+    data = resp.json()
+    assert data["job_id"] == str(job_id)
+    assert data["advanced_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_phase2_progress(
+    mock_user: User,
+    mock_staging_service: MagicMock,
+) -> None:
+    from vistarae_core.schemas.ingest_staging import Phase2ProgressResponse
+
+    job_id = uuid.uuid4()
+    mock_staging_service.get_phase2_progress.return_value = Phase2ProgressResponse(
+        job_id=job_id,
+        total_count=1,
+        enriched_count=1,
+        is_complete=True,
+        percent_complete=100,
+        status_message="Done",
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(f"/api/ingest/jobs/{job_id}/phase2/progress")
+
+    app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["percent_complete"] == 100
+    assert data["is_complete"] is True

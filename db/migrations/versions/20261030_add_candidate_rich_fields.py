@@ -40,9 +40,16 @@ def upgrade() -> None:
     op.add_column("ingest_candidates", sa.Column("official_url", sa.Text(), nullable=True))
     op.add_column("ingest_candidates", sa.Column("wiki_url", sa.Text(), nullable=True))
     op.add_column("ingest_candidates", sa.Column("hero_image_url", sa.Text(), nullable=True))
-    op.add_column("ingest_candidates", sa.Column("recommended_duration_hours", sa.Numeric(precision=5, scale=2), nullable=True))
-    op.add_column("ingest_candidates", sa.Column("recommended_visit_days", sa.Integer(), nullable=True))
-    op.add_column("ingest_candidates", sa.Column("estimated_visit_time_notes", sa.Text(), nullable=True))
+    op.add_column(
+        "ingest_candidates",
+        sa.Column("recommended_duration_hours", sa.Numeric(precision=5, scale=2), nullable=True),
+    )
+    op.add_column(
+        "ingest_candidates", sa.Column("recommended_visit_days", sa.Integer(), nullable=True)
+    )
+    op.add_column(
+        "ingest_candidates", sa.Column("estimated_visit_time_notes", sa.Text(), nullable=True)
+    )
 
 
 def downgrade() -> None:
@@ -53,4 +60,3 @@ def downgrade() -> None:
     op.drop_column("ingest_candidates", "hero_image_url")
     op.drop_column("ingest_candidates", "wiki_url")
     op.drop_column("ingest_candidates", "official_url")
-

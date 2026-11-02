@@ -175,6 +175,7 @@ class POI:
     image_urls: list[str] = field(default_factory=list)
     directory_paths: list[str] = field(default_factory=list)
     creation_metadata: dict[str, Any] = field(default_factory=dict)
+    related_websites: list[dict[str, Any]] = field(default_factory=list)
     visit_state: VisitState = VisitState.NOT_VISITED
     visited_dates: list[str] = field(default_factory=list)
     want_to_visit_again: bool = False
@@ -356,6 +357,7 @@ class IngestCandidate:
     official_url: str | None = None
     wiki_url: str | None = None
     hero_image_url: str | None = None
+    related_websites: list[dict[str, Any]] = field(default_factory=list)
     recommended_duration_hours: Decimal | float | None = None
     recommended_visit_days: int | None = None
     estimated_visit_time_notes: str | None = None

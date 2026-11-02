@@ -81,6 +81,7 @@ export interface POIMapFeature {
   reason_to_visit?: string;
   official_url?: string;
   wiki_url?: string;
+  related_websites?: { name: string; url: string }[];
   recommended_duration_hours?: number | null;
   recommended_visit_days?: number | null;
   estimated_visit_time_notes?: string | null;

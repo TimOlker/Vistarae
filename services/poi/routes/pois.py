@@ -118,6 +118,7 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         countries=countries,
         official_url=poi.official_url,
         wiki_url=poi.wiki_url,
+        related_websites=poi.related_websites or [],
         image_urls=poi.image_urls,
         directory_paths=poi.directory_paths,
         creation_metadata=poi.creation_metadata,
@@ -352,6 +353,7 @@ async def create_poi(
         source_value=source_value,
         official_url=req.official_url,
         wiki_url=req.wiki_url,
+        related_websites=req.related_websites or [],
         image_urls=req.image_urls,
         visit_state=req.visit_state,
         rating=req.rating,
@@ -417,6 +419,7 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:  # noqa: C901
         "recommended_duration_hours",
         "recommended_visit_days",
         "estimated_visit_time_notes",
+        "related_websites",
     )
     for field in fields:
         val = getattr(req, field, None)

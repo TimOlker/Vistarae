@@ -299,3 +299,19 @@ class IngestCandidatePhaseState(StrEnum):
     PHASE_2_ENRICHED = "phase_2_enriched"
     COMMITTED = "committed"
     ABORTED = "aborted"
+
+
+class TagResolutionAction(StrEnum):
+    """Actions available when unapproved tags are detected in an import payload."""
+
+    APPROVE_AND_ADD = "APPROVE_AND_ADD"
+    STRIP_UNAPPROVED = "STRIP_UNAPPROVED"
+    ABORT = "ABORT"
+
+
+class ExportFormat(StrEnum):
+    """Supported file formats for multi-stage POI export."""
+
+    CSV = "csv"
+    JSON = "json"
+    YAML = "yaml"

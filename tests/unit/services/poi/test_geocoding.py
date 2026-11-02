@@ -262,10 +262,12 @@ def test_reverse_geocode_route_post() -> None:
 def test_forward_geocode_endpoint() -> None:
     """Verifies GET /api/pois/geocode/forward resolves coordinates and address."""
     from uuid import uuid4
+
     from starlette.testclient import TestClient
+    from vistarae_core.adapters.db.session import get_db_session
     from vistarae_core.domain.entities import User
     from vistarae_core.domain.value_objects import AddressRecord
-    from vistarae_core.adapters.db.session import get_db_session
+
     from services.local_gateway import app
     from services.poi.dependencies import get_current_user
 

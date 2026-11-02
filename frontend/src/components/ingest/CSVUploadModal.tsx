@@ -31,7 +31,12 @@ import {
   AlertCircle,
   AlertTriangle,
   Clock,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import { ColumnMappingModal } from "./ColumnMappingModal";
+import { ImportValidationErrorModal } from "./ImportValidationErrorModal";
+import { TagValidationWarningModal } from "./TagValidationWarningModal";
 
 interface CSVUploadModalProps {
   isOpen: boolean;
@@ -145,6 +150,30 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
     }
   };
 
+  // Flexible Ingest Modals & Overrides State
+  const [isColumnMappingOpen, setIsColumnMappingOpen] = useState(false);
+  const [unmappedColumns, setUnmappedColumns] = useState<string[]>([]);
+  const [sampleRows, setSampleRows] = useState<Array<{ column: string; sample_values: string[] }>>([]);
+  const [targetFields, setTargetFields] = useState<string[]>([]);
+  const [appliedColumnMappings, setAppliedColumnMappings] = useState<Record<string, string> | null>(null);
+
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
+  const [validationIssues, setValidationIssues] = useState<any[]>([]);
+  const [validationTotalRows, setValidationTotalRows] = useState(0);
+  const [validationInvalidRowCount, setValidationInvalidRowCount] = useState(0);
+
+  const [isTagWarningOpen, setIsTagWarningOpen] = useState(false);
+  const [unapprovedTags, setUnapprovedTags] = useState<Record<string, number>>({});
+
+  const [showOverridesAccordion, setShowOverridesAccordion] = useState(false);
+  const [recalculateOverrides, setRecalculateOverrides] = useState({
+    recalculate_description: false,
+    recalculate_reason_to_visit: false,
+    recalculate_tags: false,
+    recalculate_duration: false,
+    recalculate_links: false,
+  });
+
   // SplitModal state
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [splitDetails, setSplitDetails] = useState({
@@ -175,7 +204,11 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
     }
   };
 
-  const executeUpload = async () => {
+  const executeUpload = async (options?: {
+    skipInvalid?: boolean;
+    mappings?: Record<string, string>;
+    tagAction?: "APPROVE_AND_ADD" | "STRIP_UNAPPROVED" | "ABORT";
+  }) => {
     if (!selectedFile) return;
 
     setShowOverwriteWarning(false);
@@ -191,27 +224,83 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
       if (targetListName.trim()) {
         formData.append("target_list_name", targetListName.trim());
       }
+      if (options?.skipInvalid) {
+        formData.append("skip_invalid_rows", "true");
+      }
+      const mappings = options?.mappings || appliedColumnMappings;
+      if (mappings) {
+        formData.append("column_mappings", JSON.stringify(mappings));
+      }
+      if (options?.tagAction) {
+        formData.append("tag_action", options.tagAction);
+      }
+      formData.append("recalculate_fields", JSON.stringify(recalculateOverrides));
 
-      const res = await apiFetch<{ job_id: string }>("/api/ingest/upload", {
-        method: "POST",
-        body: formData,
-        signal: abortController.signal,
-        timeoutMs: 600000, // 10 minutes for processing, geocaching & staging
-      });
+      // Attempt flexible ingestion endpoint first, fall back if 404
+      let res: any;
+      try {
+        res = await apiFetch<any>("/api/v1/ingest/upload-flexible", {
+          method: "POST",
+          body: formData,
+          signal: abortController.signal,
+          timeoutMs: 600000,
+        });
+      } catch (postErr: any) {
+        if (postErr?.problem?.status === 404) {
+          res = await apiFetch<{ job_id: string }>("/api/ingest/upload", {
+            method: "POST",
+            body: formData,
+            signal: abortController.signal,
+            timeoutMs: 600000,
+          });
+        } else {
+          throw postErr;
+        }
+      }
+
+      if (res?.status === "NEEDS_COLUMN_MAPPING") {
+        setIsUploading(false);
+        setUnmappedColumns(res.unmapped_columns || []);
+        setSampleRows(res.sample_rows || []);
+        setTargetFields(res.target_fields || []);
+        setIsColumnMappingOpen(true);
+        return;
+      }
+
+      if (res?.status === "NEEDS_TAG_APPROVAL") {
+        setIsUploading(false);
+        setUnapprovedTags(res.unapproved_tags || {});
+        setIsTagWarningOpen(true);
+        return;
+      }
+
+      if (res?.status === "ABORTED") {
+        setIsUploading(false);
+        showToast("Import was cancelled.", "info");
+        return;
+      }
 
       showToast(`Upload accepted! Job ID: ${res.job_id}`, "success");
       onJobCreated(res.job_id);
       onClose();
     } catch (err: unknown) {
-      const errorObj = err as {
-        problem?: { title: string; detail: string };
-        message?: string;
-      };
+      setIsUploading(false);
+      const errorObj = err as any;
+
+      if (errorObj?.problem?.status === 422 || errorObj?.problem?.error_type === "VALIDATION_ERROR") {
+        const issues = errorObj.problem.issues || [];
+        setValidationIssues(issues);
+        setValidationTotalRows(errorObj.problem.total_rows || 0);
+        setValidationInvalidRowCount(errorObj.problem.invalid_row_count || issues.length);
+        setIsValidationModalOpen(true);
+        return;
+      }
+
       const title = errorObj.problem?.title || "Upload Failed";
       const detail =
         errorObj.problem?.detail ||
         errorObj.message ||
-        "Failed to upload and stage CSV file. Please verify backend status and try again.";
+        "Failed to upload and stage file. Please verify backend status and try again.";
       setUploadError({ title, detail });
       showToast({ title, detail }, "error");
     } finally {
@@ -541,7 +630,7 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
             >
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,text/csv,.json,application/json,.yaml,.yml,application/x-yaml,text/yaml"
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     handleFileChange(e.target.files[0]);
@@ -667,6 +756,111 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
                 • <strong>Generic CSV:</strong>{" "}
                 <code>name, latitude, longitude, city, rating, tags</code>
               </div>
+            </div>
+
+            {/* Selective Enrichment Overrides Accordion (REQ-REC-002) */}
+            <div
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                overflow: "hidden",
+                textAlign: "left",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowOverridesAccordion((prev) => !prev)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  backgroundColor: "#f8fafc",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#334155",
+                }}
+              >
+                <span>Selective Enrichment Overrides (Optional)</span>
+                {showOverridesAccordion ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+              {showOverridesAccordion && (
+                <div style={{ padding: "12px", backgroundColor: "#ffffff", borderTop: "1px solid #e2e8f0" }}>
+                  <p style={{ fontSize: "11px", color: "#64748b", margin: "0 0 10px 0" }}>
+                    By default, existing attributes are preserved. Check options below to force AI re-generation:
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={recalculateOverrides.recalculate_description}
+                        onChange={(e) =>
+                          setRecalculateOverrides((prev) => ({
+                            ...prev,
+                            recalculate_description: e.target.checked,
+                          }))
+                        }
+                      />
+                      Description
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={recalculateOverrides.recalculate_reason_to_visit}
+                        onChange={(e) =>
+                          setRecalculateOverrides((prev) => ({
+                            ...prev,
+                            recalculate_reason_to_visit: e.target.checked,
+                          }))
+                        }
+                      />
+                      Reason to Visit
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={recalculateOverrides.recalculate_tags}
+                        onChange={(e) =>
+                          setRecalculateOverrides((prev) => ({
+                            ...prev,
+                            recalculate_tags: e.target.checked,
+                          }))
+                        }
+                      />
+                      Tags
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={recalculateOverrides.recalculate_duration}
+                        onChange={(e) =>
+                          setRecalculateOverrides((prev) => ({
+                            ...prev,
+                            recalculate_duration: e.target.checked,
+                          }))
+                        }
+                      />
+                      Duration
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={recalculateOverrides.recalculate_links}
+                        onChange={(e) =>
+                          setRecalculateOverrides((prev) => ({
+                            ...prev,
+                            recalculate_links: e.target.checked,
+                          }))
+                        }
+                      />
+                      Links
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div
@@ -819,7 +1013,7 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={executeUpload}
+                onClick={() => executeUpload()}
                 data-testid="confirm-overwrite-button"
                 style={{
                   padding: "8px 16px",
@@ -838,6 +1032,44 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
           </div>
         </Modal>
       )}
+          <ColumnMappingModal
+        isOpen={isColumnMappingOpen}
+        unmappedColumns={unmappedColumns}
+        sampleRows={sampleRows}
+        targetFields={targetFields}
+        onConfirm={(mappings) => {
+          setIsColumnMappingOpen(false);
+          setAppliedColumnMappings(mappings);
+          executeUpload({ mappings });
+        }}
+        onCancel={() => setIsColumnMappingOpen(false)}
+      />
+
+      <ImportValidationErrorModal
+        isOpen={isValidationModalOpen}
+        issues={validationIssues}
+        totalRows={validationTotalRows}
+        invalidRowCount={validationInvalidRowCount}
+        onSkipAndContinue={() => {
+          setIsValidationModalOpen(false);
+          executeUpload({ skipInvalid: true });
+        }}
+        onAbort={() => setIsValidationModalOpen(false)}
+      />
+
+      <TagValidationWarningModal
+        isOpen={isTagWarningOpen}
+        unapprovedTags={unapprovedTags}
+        onApproveAll={() => {
+          setIsTagWarningOpen(false);
+          executeUpload({ tagAction: "APPROVE_AND_ADD" });
+        }}
+        onStripUnapproved={() => {
+          setIsTagWarningOpen(false);
+          executeUpload({ tagAction: "STRIP_UNAPPROVED" });
+        }}
+        onAbort={() => setIsTagWarningOpen(false)}
+      />
     </>
   );
 };

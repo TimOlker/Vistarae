@@ -16,6 +16,15 @@
 
 """Domain application services package."""
 
+from vistarae_core.services.poi_exporter import POIExporter
+from vistarae_core.services.poi_importer import ALIAS_DICTIONARY, POIImporter, ValidationIssue
 from vistarae_core.services.prompt_cache import UserPromptCache, default_prompt_cache
 
-__all__ = ["UserPromptCache", "default_prompt_cache"]
+__all__ = [
+    "ALIAS_DICTIONARY",
+    "POIExporter",
+    "POIImporter",
+    "UserPromptCache",
+    "ValidationIssue",
+    "default_prompt_cache",
+]

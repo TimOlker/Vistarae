@@ -15,6 +15,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useEffect, useMemo, useState } from "react";
+import { exportPhase2Candidates, type ExportFormat } from "../../services/exportApi";
+import { inferWebsiteName } from "../../utils/websiteInference";
 import { Modal } from "../common/Modal";
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { apiFetch } from "../../services/api";
@@ -41,7 +43,59 @@ import {
   Plus,
   Trash2,
   Layers,
+  Download,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  AlertCircle,
 } from "lucide-react";
+import { CandidateMiniMap } from "./CSVTriageModal";
+
+export type SortPriority = "poi" | "location";
+
+export type Phase2SortField =
+  | "poi_name"
+  | "country"
+  | "state_province"
+  | "city"
+  | "status"
+  | "disposition"
+  | "data_status"
+  | "row_index";
+
+export interface CandidateDataStatus {
+  isComplete: boolean;
+  missingFields: string[];
+}
+
+export function getCandidateDataStatus(cand: CandidateItem): CandidateDataStatus {
+  const missing: string[] = [];
+  if (!cand.hero_image_url || !cand.hero_image_url.trim()) missing.push("Hero Photo");
+  const related = (cand as any).related_websites || [];
+  const hasOfficial = Boolean(
+    (cand.official_url && cand.official_url.trim()) ||
+      related.some((s: any) => s.name?.toLowerCase().includes("official"))
+  );
+  const hasWiki = Boolean(
+    (cand.wiki_url && cand.wiki_url.trim()) ||
+      related.some((s: any) => s.name?.toLowerCase().includes("wikipedia") || s.url?.toLowerCase().includes("wikipedia.org"))
+  );
+  if (!hasOfficial) missing.push("Official Website");
+  if (!hasWiki) missing.push("Wikipedia");
+  if (!cand.description || !cand.description.trim()) missing.push("Description");
+  if (!cand.reason_to_visit || !cand.reason_to_visit.trim()) missing.push("Reason to Visit");
+  if (!cand.tags || cand.tags.length === 0) missing.push("Tags");
+  if (
+    (cand.recommended_duration_hours === null || cand.recommended_duration_hours === undefined) &&
+    (cand.recommended_visit_days === null || cand.recommended_visit_days === undefined)
+  ) {
+    missing.push("Duration");
+  }
+  return {
+    isComplete: missing.length === 0,
+    missingFields: missing,
+  };
+}
 
 export interface CSVPhase2ReviewModalProps {
   jobId: string | null;
@@ -63,6 +117,50 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
+
+  const [isExporting, setIsExporting] = useState(false);
+
+
+
+  const handleExportSelected = async () => {
+
+    if (!selectedCandidateIds || selectedCandidateIds.length === 0) {
+
+      showToast("No records selected. Please select at least one record to export.", "warning");
+
+      return;
+
+    }
+
+    if (!jobId) {
+
+      showToast("No active job ID for export.", "error");
+
+      return;
+
+    }
+
+    try {
+
+      setIsExporting(true);
+
+      await exportPhase2Candidates(jobId, selectedCandidateIds, exportFormat);
+
+      showToast(`Successfully exported ${selectedCandidateIds.length} candidate(s)`, "success");
+
+    } catch (err: any) {
+
+      showToast(err.message || "Failed to export candidates", "error");
+
+    } finally {
+
+      setIsExporting(false);
+
+    }
+
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -70,6 +168,41 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
   const [isReverting, setIsReverting] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [filterText, setFilterText] = useState("");
+
+  // Sorting state
+  const [sortPriority, setSortPriority] = useState<SortPriority>("poi");
+  const [sortField, setSortField] = useState<Phase2SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (field: Phase2SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const renderSortIcon = (field: Phase2SortField) => {
+    if (sortField) {
+      if (sortField !== field) {
+        return <ArrowUpDown size={13} style={{ opacity: 0.35, marginLeft: "4px" }} />;
+      }
+      return sortDirection === "asc" ? (
+        <ArrowUp size={13} style={{ color: "#2563eb", marginLeft: "4px" }} />
+      ) : (
+        <ArrowDown size={13} style={{ color: "#2563eb", marginLeft: "4px" }} />
+      );
+    }
+
+    if (sortPriority === "poi" && field === "poi_name") {
+      return <ArrowUp size={13} style={{ color: "#2563eb", marginLeft: "4px" }} />;
+    }
+    if (sortPriority === "location" && field === "country") {
+      return <ArrowUp size={13} style={{ color: "#2563eb", marginLeft: "4px" }} />;
+    }
+    return <ArrowUpDown size={13} style={{ opacity: 0.35, marginLeft: "4px" }} />;
+  };
 
   // Approved user tags library
   const [approvedTags, setApprovedTags] = useState<{ id?: string; name: string; slug: string }[]>([]);
@@ -81,12 +214,13 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
   const [editTags, setEditTags] = useState<string[]>([]);
   const [editStreetAddress, setEditStreetAddress] = useState("");
   const [editCity, setEditCity] = useState("");
-  const [editOfficialUrl, setEditOfficialUrl] = useState("");
-  const [editWikiUrl, setEditWikiUrl] = useState("");
   const [editHeroImageUrl, setEditHeroImageUrl] = useState("");
   const [editDurationHours, setEditDurationHours] = useState<string>("");
   const [editDurationDays, setEditDurationDays] = useState<string>("");
   const [editDurationNotes, setEditDurationNotes] = useState("");
+  const [editRelatedWebsites, setEditRelatedWebsites] = useState<{ name: string; url: string }[]>([]);
+  const [newWebsiteName, setNewWebsiteName] = useState("");
+  const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
   const [editUpdateCoordinates, setEditUpdateCoordinates] = useState(false);
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
 
@@ -135,8 +269,26 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
       setEditTags(normalizeToApprovedTags(selectedCandidate.tags || [], approvedTags));
       setEditStreetAddress(selectedCandidate.street_address || "");
       setEditCity(selectedCandidate.city || "");
-      setEditOfficialUrl(selectedCandidate.official_url || "");
-      setEditWikiUrl(selectedCandidate.wiki_url || "");
+      const rawRelated = (selectedCandidate as any).related_websites || [];
+      const initialSites: { name: string; url: string }[] = [...rawRelated];
+      const existingUrls = new Set(initialSites.map((s) => s.url.trim().toLowerCase().replace(/\/$/, "")));
+      if (selectedCandidate.official_url && selectedCandidate.official_url.trim()) {
+        const norm = selectedCandidate.official_url.trim().toLowerCase().replace(/\/$/, "");
+        if (!existingUrls.has(norm)) {
+          existingUrls.add(norm);
+          initialSites.unshift({ name: "Official Website", url: selectedCandidate.official_url.trim() });
+        }
+      }
+      if (selectedCandidate.wiki_url && selectedCandidate.wiki_url.trim()) {
+        const norm = selectedCandidate.wiki_url.trim().toLowerCase().replace(/\/$/, "");
+        if (!existingUrls.has(norm)) {
+          existingUrls.add(norm);
+          initialSites.push({ name: "Wikipedia", url: selectedCandidate.wiki_url.trim() });
+        }
+      }
+      setEditRelatedWebsites(initialSites);
+      setNewWebsiteName("");
+      setNewWebsiteUrl("");
       setEditHeroImageUrl(selectedCandidate.hero_image_url || "");
       setEditDurationHours(
         selectedCandidate.recommended_duration_hours !== null &&
@@ -371,6 +523,13 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
 
     setIsSavingCandidate(true);
     try {
+      const officialSite = editRelatedWebsites.find((s) => s.name.toLowerCase().includes("official"));
+      const wikiSite = editRelatedWebsites.find(
+        (s) => s.name.toLowerCase().includes("wikipedia") || s.url.toLowerCase().includes("wikipedia.org")
+      );
+      const derivedOfficialUrl = officialSite ? officialSite.url : null;
+      const derivedWikiUrl = wikiSite ? wikiSite.url : null;
+
       const updated = await ingestApi.updateCandidate(jobId, selectedCandidate.id, {
         poi_name: editPoiName,
         description: editDescription,
@@ -378,8 +537,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
         tags: editTags,
         street_address: editStreetAddress,
         city: editCity,
-        official_url: editOfficialUrl.trim() || null,
-        wiki_url: editWikiUrl.trim() || null,
+        official_url: derivedOfficialUrl,
+        wiki_url: derivedWikiUrl,
+        related_websites: editRelatedWebsites,
         hero_image_url: editHeroImageUrl.trim() || null,
         recommended_duration_hours: editDurationHours ? parseFloat(editDurationHours) : null,
         recommended_visit_days: editDurationDays ? parseInt(editDurationDays, 10) : null,
@@ -493,30 +653,223 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
     }
   };
 
-  // Filter candidates by search term
+  // Filter and sort candidates
   const filteredCandidates = useMemo(() => {
-    if (!filterText.trim()) return candidates;
-    const q = filterText.toLowerCase().trim();
-    return candidates.filter((c) => {
-      const name = (c.poi_name || "").toLowerCase();
-      const city = (c.city || "").toLowerCase();
-      const country = (c.country || "").toLowerCase();
-      const desc = (c.description || "").toLowerCase();
-      const reason = (c.reason_to_visit || "").toLowerCase();
-      const tags = (c.tags || []).join(" ").toLowerCase();
-      return (
-        name.includes(q) ||
-        city.includes(q) ||
-        country.includes(q) ||
-        desc.includes(q) ||
-        reason.includes(q) ||
-        tags.includes(q)
-      );
+    let result = candidates;
+    if (filterText.trim()) {
+      const q = filterText.toLowerCase().trim();
+      result = result.filter((c) => {
+        const name = (c.poi_name || "").toLowerCase();
+        const city = (c.city || "").toLowerCase();
+        const state = (c.state_province || "").toLowerCase();
+        const country = (c.country || "").toLowerCase();
+        const desc = (c.description || "").toLowerCase();
+        const reason = (c.reason_to_visit || "").toLowerCase();
+        const tags = (c.tags || []).join(" ").toLowerCase();
+        return (
+          name.includes(q) ||
+          city.includes(q) ||
+          state.includes(q) ||
+          country.includes(q) ||
+          desc.includes(q) ||
+          reason.includes(q) ||
+          tags.includes(q)
+        );
+      });
+    }
+
+    const sorted = [...result];
+    sorted.sort((a, b) => {
+      // 1. Column click overrides default priority sort
+      if (sortField) {
+        let cmp = 0;
+        if (sortField === "poi_name") {
+          cmp = (a.poi_name || "").localeCompare(b.poi_name || "");
+        } else if (sortField === "country") {
+          cmp = (a.country || "").localeCompare(b.country || "");
+        } else if (sortField === "state_province") {
+          cmp = (a.state_province || "").localeCompare(b.state_province || "");
+        } else if (sortField === "city") {
+          cmp = (a.city || "").localeCompare(b.city || "");
+        } else if (sortField === "status") {
+          cmp = (a.is_skipped ? 1 : 0) - (b.is_skipped ? 1 : 0);
+        } else if (sortField === "disposition") {
+          const da = a.user_disposition || a.recommended_disposition || "";
+          const db = b.user_disposition || b.recommended_disposition || "";
+          cmp = da.localeCompare(db);
+        } else if (sortField === "data_status") {
+          const aStat = getCandidateDataStatus(a);
+          const bStat = getCandidateDataStatus(b);
+          const diff = aStat.missingFields.length - bStat.missingFields.length;
+          cmp = diff !== 0 ? diff : (a.poi_name || "").localeCompare(b.poi_name || "");
+        } else {
+          cmp = (a.row_index || 0) - (b.row_index || 0);
+        }
+        return sortDirection === "asc" ? cmp : -cmp;
+      }
+
+      // 2. Default priority sort logic
+      if (sortPriority === "location") {
+        // "Location" priority: Country -> State/Province -> City/Town -> POI Name
+        const cCountry = (a.country || "").localeCompare(b.country || "");
+        if (cCountry !== 0) return cCountry;
+
+        const cState = (a.state_province || "").localeCompare(b.state_province || "");
+        if (cState !== 0) return cState;
+
+        const cCity = (a.city || "").localeCompare(b.city || "");
+        if (cCity !== 0) return cCity;
+
+        const cPoi = (a.poi_name || "").localeCompare(b.poi_name || "");
+        if (cPoi !== 0) return cPoi;
+
+        return (a.row_index || 0) - (b.row_index || 0);
+      } else {
+        // "POI" priority: POI Name Only
+        const cPoi = (a.poi_name || "").localeCompare(b.poi_name || "");
+        if (cPoi !== 0) return cPoi;
+
+        return (a.row_index || 0) - (b.row_index || 0);
+      }
     });
-  }, [candidates, filterText]);
+
+    return sorted;
+  }, [candidates, filterText, sortPriority, sortField, sortDirection]);
 
   const activeCount = candidates.filter((c) => !c.is_skipped).length;
   const skippedCount = candidates.filter((c) => c.is_skipped).length;
+
+  const renderPoiNameTh = () => (
+    <th
+      key="th-poi"
+      onClick={() => handleSort("poi_name")}
+      style={{
+        padding: "10px 12px",
+        fontWeight: 700,
+        cursor: "pointer",
+        userSelect: "none",
+        minWidth: "220px",
+        borderBottom: "1px solid #e2e8f0",
+        color: "#0f172a",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center" }}>
+        POI Name {renderSortIcon("poi_name")}
+      </div>
+    </th>
+  );
+
+  const renderCountryTh = () => (
+    <th
+      key="th-country"
+      onClick={() => handleSort("country")}
+      style={{
+        padding: "10px 12px",
+        fontWeight: 600,
+        cursor: "pointer",
+        userSelect: "none",
+        minWidth: "120px",
+        borderBottom: "1px solid #e2e8f0",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center" }}>
+        Country {renderSortIcon("country")}
+      </div>
+    </th>
+  );
+
+  const renderStateTh = () => (
+    <th
+      key="th-state"
+      onClick={() => handleSort("state_province")}
+      style={{
+        padding: "10px 12px",
+        fontWeight: 600,
+        cursor: "pointer",
+        userSelect: "none",
+        minWidth: "130px",
+        borderBottom: "1px solid #e2e8f0",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center" }}>
+        State / Province {renderSortIcon("state_province")}
+      </div>
+    </th>
+  );
+
+  const renderCityTh = () => (
+    <th
+      key="th-city"
+      onClick={() => handleSort("city")}
+      style={{
+        padding: "10px 12px",
+        fontWeight: 600,
+        cursor: "pointer",
+        userSelect: "none",
+        minWidth: "130px",
+        borderBottom: "1px solid #e2e8f0",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center" }}>
+        City / Town {renderSortIcon("city")}
+      </div>
+    </th>
+  );
+
+  const renderPoiNameTd = (cand: CandidateItem) => (
+    <td key="td-poi" style={{ padding: "10px 12px", color: "#0f172a" }}>
+      <div style={{ fontWeight: 700, fontSize: "13px", color: "#0f172a", marginBottom: "2px" }}>
+        {cand.poi_name}
+      </div>
+      {cand.street_address ? (
+        <div
+          style={{
+            fontSize: "11px",
+            color: "#64748b",
+            fontWeight: 400,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "200px",
+          }}
+        >
+          {cand.street_address}
+        </div>
+      ) : cand.city || cand.state_province || cand.country ? (
+        <div
+          style={{
+            fontSize: "11px",
+            color: "#94a3b8",
+            fontWeight: 400,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "200px",
+          }}
+        >
+          {[cand.city, cand.state_province, cand.country].filter(Boolean).join(", ")}
+        </div>
+      ) : null}
+    </td>
+  );
+
+  const renderCountryTd = (cand: CandidateItem) => (
+    <td key="td-country" style={{ padding: "10px 12px", color: "#334155" }}>
+      {cand.country || <span style={{ color: "#94a3b8" }}>—</span>}
+    </td>
+  );
+
+  const renderStateTd = (cand: CandidateItem) => (
+    <td key="td-state" style={{ padding: "10px 12px", color: "#334155" }}>
+      {cand.state_province || <span style={{ color: "#94a3b8" }}>—</span>}
+    </td>
+  );
+
+  const renderCityTd = (cand: CandidateItem) => (
+    <td key="td-city" style={{ padding: "10px 12px", color: "#334155" }}>
+      {cand.city || <span style={{ color: "#94a3b8" }}>—</span>}
+    </td>
+  );
 
   return (
     <>
@@ -684,8 +1037,92 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                   )}
                 </div>
 
-                <div style={{ fontSize: "12px", color: "#64748b" }}>
-                  Showing <strong>{filteredCandidates.length}</strong> of {candidates.length} candidates
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <div style={{ fontSize: "12px", color: "#64748b" }}>
+                    Showing <strong>{filteredCandidates.length}</strong> of {candidates.length} candidates
+                  </div>
+
+                  {/* Sort Priority Dropdown */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <label
+                      htmlFor="sort-priority-select-phase2"
+                      style={{ fontSize: "12px", color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}
+                    >
+                      Sort Priority:
+                    </label>
+                    <select
+                      id="sort-priority-select-phase2"
+                      data-testid="sort-priority-select"
+                      aria-label="Sort Priority"
+                      value={sortPriority}
+                      onChange={(e) => {
+                        setSortPriority(e.target.value as SortPriority);
+                        setSortField(null);
+                        setSortDirection("asc");
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: "12px",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "6px",
+                        backgroundColor: "#ffffff",
+                        color: "#1e293b",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        height: "32px",
+                      }}
+                    >
+                      <option value="poi">POI</option>
+                      <option value="location">Location</option>
+                    </select>
+                  </div>
+
+                  {/* Export Phase 2 Candidates */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <select
+                      value={exportFormat}
+                      onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                      data-testid="export-format-select-phase2"
+                      aria-label="Export format"
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        border: "1px solid #cbd5e1",
+                        backgroundColor: "#ffffff",
+                        color: "#334155",
+                        cursor: "pointer",
+                        height: "32px",
+                      }}
+                    >
+                      <option value="csv">CSV</option>
+                      <option value="json">JSON</option>
+                      <option value="yaml">YAML</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleExportSelected}
+                      disabled={isExporting}
+                      data-testid="export-selected-phase2-btn"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "6px",
+                        backgroundColor: "#ffffff",
+                        color: "#334155",
+                        cursor: isExporting ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        height: "32px",
+                      }}
+                    >
+                      <Download size={13} />
+                      <span>{isExporting ? "Exporting..." : `Export Selected (${selectedCandidateIds.length})`}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -759,7 +1196,7 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                 >
                   <table
                     style={{
-                      minWidth: "1180px",
+                      minWidth: "850px",
                       width: "100%",
                       textAlign: "left",
                       fontSize: "13px",
@@ -808,25 +1245,35 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                           />
                         </th>
                         <th
+                          onClick={() => handleSort("status")}
                           style={{
                             padding: "10px 12px",
-                            fontWeight: 700,
+                            fontWeight: 600,
                             width: "90px",
                             borderBottom: "1px solid #e2e8f0",
+                            cursor: "pointer",
+                            userSelect: "none",
                           }}
                         >
-                          Status
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            Status {renderSortIcon("status")}
+                          </div>
                         </th>
-                        <th
-                          style={{
-                            padding: "10px 12px",
-                            fontWeight: 700,
-                            minWidth: "180px",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          POI & Location
-                        </th>
+                        {sortPriority === "location" ? (
+                          <>
+                            {renderCountryTh()}
+                            {renderStateTh()}
+                            {renderCityTh()}
+                            {renderPoiNameTh()}
+                          </>
+                        ) : (
+                          <>
+                            {renderPoiNameTh()}
+                            {renderCountryTh()}
+                            {renderStateTh()}
+                            {renderCityTh()}
+                          </>
+                        )}
                         <th
                           style={{
                             padding: "10px 12px",
@@ -839,65 +1286,34 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                           Photo
                         </th>
                         <th
+                          onClick={() => handleSort("disposition")}
                           style={{
                             padding: "10px 12px",
-                            fontWeight: 700,
+                            fontWeight: 600,
                             minWidth: "110px",
                             borderBottom: "1px solid #e2e8f0",
+                            cursor: "pointer",
+                            userSelect: "none",
                           }}
                         >
-                          Disposition
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            Disposition {renderSortIcon("disposition")}
+                          </div>
                         </th>
                         <th
+                          onClick={() => handleSort("data_status")}
                           style={{
                             padding: "10px 12px",
-                            fontWeight: 700,
-                            minWidth: "110px",
+                            fontWeight: 600,
+                            minWidth: "125px",
                             borderBottom: "1px solid #e2e8f0",
+                            cursor: "pointer",
+                            userSelect: "none",
                           }}
                         >
-                          Duration
-                        </th>
-                        <th
-                          style={{
-                            padding: "10px 12px",
-                            fontWeight: 700,
-                            minWidth: "220px",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          AI Description
-                        </th>
-                        <th
-                          style={{
-                            padding: "10px 12px",
-                            fontWeight: 700,
-                            minWidth: "200px",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Reason to Visit
-                        </th>
-                        <th
-                          style={{
-                            padding: "10px 12px",
-                            fontWeight: 700,
-                            minWidth: "120px",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Tags
-                        </th>
-                        <th
-                          style={{
-                            padding: "10px 12px",
-                            fontWeight: 700,
-                            width: "70px",
-                            textAlign: "right",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
-                          Action
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            Data Status {renderSortIcon("data_status")}
+                          </div>
                         </th>
                       </tr>
                     </thead>
@@ -905,7 +1321,7 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                       {filteredCandidates.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={10}
+                            colSpan={9}
                             style={{
                               padding: "32px",
                               textAlign: "center",
@@ -953,6 +1369,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                             };
                           }
 
+                          const dataStatus = getCandidateDataStatus(cand);
+                          const isMissingData = !dataStatus.isComplete;
+
                           return (
                             <tr
                               key={cand.id}
@@ -965,15 +1384,21 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                                   ? "#f5f3ff"
                                   : cand.is_skipped
                                   ? "#f8fafc"
+                                  : isMissingData
+                                  ? "#fffbeb"
                                   : "transparent",
                                 opacity: cand.is_skipped ? 0.5 : 1,
                                 cursor: "pointer",
                                 transition: "background-color 150ms",
-                                borderBottom: "1px solid #f1f5f9",
+                                borderBottom: isMissingData && !isSelected && !isChecked
+                                  ? "1px solid #fef3c7"
+                                  : "1px solid #f1f5f9",
                                 borderLeft: isSelected
                                   ? "3px solid #2563eb"
                                   : isChecked
                                   ? "3px solid #8b5cf6"
+                                  : isMissingData
+                                  ? "3px solid #f59e0b"
                                   : "3px solid transparent",
                               }}
                             >
@@ -1042,34 +1467,22 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                                 </button>
                               </td>
 
-                              {/* POI Name & Location */}
-                              <td style={{ padding: "10px 12px" }}>
-                                <div
-                                  style={{
-                                    fontWeight: 600,
-                                    color: "#0f172a",
-                                    marginBottom: "2px",
-                                  }}
-                                >
-                                  {cand.poi_name}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: "11px",
-                                    color: "#64748b",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    maxWidth: "180px",
-                                  }}
-                                >
-                                  {cand.city || cand.state_province || cand.country
-                                    ? [cand.city, cand.state_province, cand.country]
-                                        .filter(Boolean)
-                                        .join(", ")
-                                    : "No location details"}
-                                </div>
-                              </td>
+                              {/* Dynamic Columns based on sortPriority */}
+                              {sortPriority === "location" ? (
+                                <>
+                                  {renderCountryTd(cand)}
+                                  {renderStateTd(cand)}
+                                  {renderCityTd(cand)}
+                                  {renderPoiNameTd(cand)}
+                                </>
+                              ) : (
+                                <>
+                                  {renderPoiNameTd(cand)}
+                                  {renderCountryTd(cand)}
+                                  {renderStateTd(cand)}
+                                  {renderCityTd(cand)}
+                                </>
+                              )}
 
                               {/* Hero Photo Thumbnail */}
                               <td style={{ padding: "10px 12px", textAlign: "center" }}>
@@ -1126,154 +1539,51 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                                 </span>
                               </td>
 
-                              {/* Duration Pill */}
+                              {/* Data Status (Completeness) Badge */}
                               <td style={{ padding: "10px 12px" }}>
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    padding: "2px 7px",
-                                    borderRadius: "4px",
-                                    backgroundColor: "#f8fafc",
-                                    border: "1px solid #e2e8f0",
-                                    fontSize: "11px",
-                                    color: "#334155",
-                                    fontWeight: 500,
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  <Clock size={11} color="#64748b" />
-                                  <span>
-                                    {cand.recommended_duration_hours !== null &&
-                                    cand.recommended_duration_hours !== undefined
-                                      ? `${cand.recommended_duration_hours}h`
-                                      : "2h"}
-                                    {cand.recommended_visit_days ? ` • ${cand.recommended_visit_days}d` : ""}
-                                  </span>
-                                </span>
-                              </td>
-
-                              {/* Description preview */}
-                              <td
-                                style={{
-                                  padding: "10px 12px",
-                                  fontSize: "12px",
-                                  color: "#334155",
-                                  maxWidth: "220px",
-                                }}
-                              >
-                                {cand.description ? (
-                                  <div
+                                {dataStatus.isComplete ? (
+                                  <span
+                                    data-testid={`data-status-${cand.id}`}
                                     style={{
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                      lineHeight: "1.4",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      padding: "2px 8px",
+                                      borderRadius: "12px",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      backgroundColor: "#f0fdf4",
+                                      color: "#166534",
+                                      border: "1px solid #86efac",
+                                      whiteSpace: "nowrap",
                                     }}
+                                    title="All fields populated"
                                   >
-                                    {cand.description}
-                                  </div>
+                                    <CheckCircle size={12} color="#16a34a" />
+                                    <span>Complete</span>
+                                  </span>
                                 ) : (
-                                  <span style={{ color: "#94a3b8", fontStyle: "italic" }}>
-                                    No description
+                                  <span
+                                    data-testid={`data-status-${cand.id}`}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      padding: "2px 8px",
+                                      borderRadius: "12px",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      backgroundColor: "#fef3c7",
+                                      color: "#92400e",
+                                      border: "1px solid #fde68a",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                    title={`Missing: ${dataStatus.missingFields.join(", ")}`}
+                                  >
+                                    <AlertCircle size={12} color="#d97706" />
+                                    <span>Incomplete ({dataStatus.missingFields.length})</span>
                                   </span>
                                 )}
-                              </td>
-
-                              {/* Reason to visit preview */}
-                              <td
-                                style={{
-                                  padding: "10px 12px",
-                                  fontSize: "12px",
-                                  color: "#475569",
-                                  maxWidth: "200px",
-                                }}
-                              >
-                                {cand.reason_to_visit ? (
-                                  <div
-                                    style={{
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                      fontStyle: "italic",
-                                      lineHeight: "1.4",
-                                    }}
-                                  >
-                                    &quot;{cand.reason_to_visit}&quot;
-                                  </div>
-                                ) : (
-                                  <span style={{ color: "#94a3b8", fontStyle: "italic" }}>
-                                    No rationale
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* Tags preview */}
-                              <td style={{ padding: "10px 12px" }}>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexWrap: "wrap",
-                                    gap: "4px",
-                                    maxWidth: "150px",
-                                  }}
-                                >
-                                  {(cand.tags || []).slice(0, 2).map((tag, i) => (
-                                    <span
-                                      key={i}
-                                      style={{
-                                        padding: "1px 6px",
-                                        borderRadius: "4px",
-                                        backgroundColor: "#f1f5f9",
-                                        border: "1px solid #e2e8f0",
-                                        fontSize: "11px",
-                                        color: "#334155",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {(cand.tags || []).length > 2 && (
-                                    <span
-                                      style={{
-                                        fontSize: "10px",
-                                        color: "#64748b",
-                                        alignSelf: "center",
-                                      }}
-                                    >
-                                      +{(cand.tags || []).length - 2}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-
-                              {/* Edit / Inspect action button */}
-                              <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedCandidateId(cand.id);
-                                  }}
-                                  data-testid={`edit-poi-btn-${cand.id}`}
-                                  style={{
-                                    padding: "4px 10px",
-                                    fontSize: "11px",
-                                    fontWeight: 600,
-                                    backgroundColor: isSelected ? "#dbeafe" : "#ffffff",
-                                    color: "#2563eb",
-                                    border: "1px solid #bfdbfe",
-                                    borderRadius: "6px",
-                                    cursor: "pointer",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  Edit
-                                </button>
                               </td>
                             </tr>
                           );
@@ -1293,11 +1603,10 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                     border: "1px solid #e2e8f0",
                     borderRadius: "8px",
                     backgroundColor: "#f8fafc",
-                    padding: "16px",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "12px",
-                    overflowY: "auto",
+                    height: "100%",
+                    overflow: "hidden",
                   }}
                 >
                   <div
@@ -1305,8 +1614,10 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      paddingBottom: "8px",
+                      padding: "14px 16px 10px 16px",
                       borderBottom: "1px solid #e2e8f0",
+                      backgroundColor: "#f8fafc",
+                      flexShrink: 0,
                     }}
                   >
                     <h4
@@ -1345,6 +1656,17 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                     )}
                   </div>
 
+                  {/* Scrollable Container for Details */}
+                  <div
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                      padding: "14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                    }}
+                  >
                   {selectedCandidateIds.length > 1 ? (
                     <div
                       data-testid="bulk-tag-panel"
@@ -1619,9 +1941,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                             width: "100%",
                             padding: "7px 10px",
                             fontSize: "12px",
-                            border: "1px solid #cbd5e1",
+                            border: `1px solid ${!editHeroImageUrl.trim() ? "#fcd34d" : "#cbd5e1"}`,
                             borderRadius: "6px",
-                            backgroundColor: "#ffffff",
+                            backgroundColor: !editHeroImageUrl.trim() ? "#fffbeb" : "#ffffff",
                             color: "#0f172a",
                           }}
                         />
@@ -1657,110 +1979,142 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                         )}
                       </div>
 
-                      {/* Official Website & Wikipedia Article */}
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <div style={{ flex: 1 }}>
-                          <label
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              color: "#475569",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                              <Globe size={12} color="#2563eb" /> Official Website
-                            </span>
-                            {editOfficialUrl && (
-                              <a
-                                href={editOfficialUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  color: "#2563eb",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "2px",
-                                  fontSize: "10px",
-                                  textDecoration: "none",
-                                  fontWeight: 600,
-                                }}
-                              >
-                                Visit <ExternalLink size={10} />
-                              </a>
-                            )}
-                          </label>
-                          <input
-                            type="url"
-                            value={editOfficialUrl}
-                            onChange={(e) => setEditOfficialUrl(e.target.value)}
-                            data-testid="edit-poi-official-url-input"
-                            placeholder="https://..."
-                            style={{
-                              width: "100%",
-                              padding: "7px 10px",
-                              fontSize: "12px",
-                              border: "1px solid #cbd5e1",
-                              borderRadius: "6px",
-                              backgroundColor: "#ffffff",
-                              color: "#0f172a",
-                            }}
-                          />
+                      {/* Related Websites & Research */}
+                      <div
+                        data-testid="related-websites-section"
+                        style={{
+                          padding: "10px",
+                          borderRadius: "8px",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <Globe size={13} style={{ color: "#2563eb" }} />
+                            Related Websites & Research ({editRelatedWebsites.length})
+                          </span>
                         </div>
 
-                        <div style={{ flex: 1 }}>
-                          <label
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              color: "#475569",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                              <Globe size={12} color="#7c3aed" /> Wikipedia
-                            </span>
-                            {editWikiUrl && (
-                              <a
-                                href={editWikiUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                        {editRelatedWebsites.length === 0 ? (
+                          <div style={{ fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
+                            No related websites identified yet. Add custom links below.
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {editRelatedWebsites.map((site, idx) => (
+                              <div
+                                key={`${site.url}-${idx}`}
+                                data-testid={`related-website-row-${idx}`}
                                 style={{
-                                  color: "#7c3aed",
-                                  display: "inline-flex",
+                                  display: "flex",
                                   alignItems: "center",
-                                  gap: "2px",
-                                  fontSize: "10px",
-                                  textDecoration: "none",
-                                  fontWeight: 600,
+                                  justifyContent: "space-between",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  background: "#ffffff",
+                                  border: "1px solid #e2e8f0",
+                                  fontSize: "12px",
                                 }}
                               >
-                                Article <ExternalLink size={10} />
-                              </a>
-                            )}
-                          </label>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden", flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontWeight: 600, color: "#1e293b", minWidth: "90px" }}>{site.name}:</span>
+                                  <a
+                                    href={site.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      color: "#2563eb",
+                                      textDecoration: "none",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "3px",
+                                    }}
+                                    title={site.url}
+                                  >
+                                    {site.url} <ExternalLink size={11} />
+                                  </a>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditRelatedWebsites(editRelatedWebsites.filter((_, i) => i !== idx));
+                                  }}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "#94a3b8",
+                                    cursor: "pointer",
+                                    padding: "2px",
+                                  }}
+                                  title="Remove website link"
+                                  data-testid={`remove-website-button-${idx}`}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
                           <input
-                            type="url"
-                            value={editWikiUrl}
-                            onChange={(e) => setEditWikiUrl(e.target.value)}
-                            data-testid="edit-poi-wiki-url-input"
-                            placeholder="https://en.wikipedia.org/wiki/..."
+                            type="text"
+                            placeholder="Site Name (optional - auto-inferred)"
+                            value={newWebsiteName}
+                            onChange={(e) => setNewWebsiteName(e.target.value)}
                             style={{
-                              width: "100%",
-                              padding: "7px 10px",
-                              fontSize: "12px",
-                              border: "1px solid #cbd5e1",
+                              flex: "0 0 140px",
+                              padding: "6px 8px",
+                              fontSize: "11px",
                               borderRadius: "6px",
-                              backgroundColor: "#ffffff",
-                              color: "#0f172a",
+                              border: "1px solid #cbd5e1",
                             }}
                           />
+                          <input
+                            type="url"
+                            placeholder="https://..."
+                            value={newWebsiteUrl}
+                            onChange={(e) => setNewWebsiteUrl(e.target.value)}
+                            style={{
+                              flex: 1,
+                              padding: "6px 8px",
+                              fontSize: "11px",
+                              borderRadius: "6px",
+                              border: "1px solid #cbd5e1",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const trimmedUrl = newWebsiteUrl.trim();
+                              if (trimmedUrl) {
+                                const name = newWebsiteName.trim() || inferWebsiteName(trimmedUrl);
+                                setEditRelatedWebsites([...editRelatedWebsites, { name, url: trimmedUrl }]);
+                                setNewWebsiteName("");
+                                setNewWebsiteUrl("");
+                              }
+                            }}
+                            style={{
+                              padding: "6px 12px",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              borderRadius: "6px",
+                              background: "#2563eb",
+                              color: "#ffffff",
+                              border: "none",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            + Add Link
+                          </button>
                         </div>
                       </div>
 
@@ -1792,9 +2146,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                               width: "100%",
                               padding: "7px 10px",
                               fontSize: "12px",
-                              border: "1px solid #cbd5e1",
+                              border: `1px solid ${!editDurationHours.trim() ? "#fcd34d" : "#cbd5e1"}`,
                               borderRadius: "6px",
-                              backgroundColor: "#ffffff",
+                              backgroundColor: !editDurationHours.trim() ? "#fffbeb" : "#ffffff",
                               color: "#0f172a",
                             }}
                           />
@@ -1856,9 +2210,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                             width: "100%",
                             padding: "7px 10px",
                             fontSize: "12px",
-                            border: "1px solid #cbd5e1",
+                            border: `1px solid ${!editDurationNotes.trim() ? "#fcd34d" : "#cbd5e1"}`,
                             borderRadius: "6px",
-                            backgroundColor: "#ffffff",
+                            backgroundColor: !editDurationNotes.trim() ? "#fffbeb" : "#ffffff",
                             color: "#0f172a",
                             resize: "vertical",
                             lineHeight: "1.4",
@@ -1894,9 +2248,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                             width: "100%",
                             padding: "8px 10px",
                             fontSize: "12px",
-                            border: "1px solid #cbd5e1",
+                            border: `1px solid ${!editDescription.trim() ? "#fcd34d" : "#cbd5e1"}`,
                             borderRadius: "6px",
-                            backgroundColor: "#ffffff",
+                            backgroundColor: !editDescription.trim() ? "#fffbeb" : "#ffffff",
                             color: "#0f172a",
                             resize: "vertical",
                             lineHeight: "1.4",
@@ -1932,9 +2286,9 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                             width: "100%",
                             padding: "8px 10px",
                             fontSize: "12px",
-                            border: "1px solid #cbd5e1",
+                            border: `1px solid ${!editReasonToVisit.trim() ? "#fcd34d" : "#cbd5e1"}`,
                             borderRadius: "6px",
-                            backgroundColor: "#ffffff",
+                            backgroundColor: !editReasonToVisit.trim() ? "#fffbeb" : "#ffffff",
                             color: "#0f172a",
                             resize: "vertical",
                             lineHeight: "1.4",
@@ -1968,6 +2322,10 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                             flexWrap: "wrap",
                             gap: "5px",
                             marginBottom: "6px",
+                            padding: editTags.length === 0 ? "8px" : undefined,
+                            backgroundColor: editTags.length === 0 ? "#fffbeb" : undefined,
+                            border: editTags.length === 0 ? "1px dashed #fcd34d" : undefined,
+                            borderRadius: "6px",
                           }}
                         >
                           {approvedTags.map((tag) => {
@@ -2051,42 +2409,65 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                         </div>
                       )}
 
-                      {/* Save candidate changes button */}
-                      <div style={{ marginTop: "4px" }}>
-                        <button
-                          type="button"
-                          onClick={handleSaveCandidateChanges}
-                          disabled={isSavingCandidate}
-                          data-testid="save-edit-button"
+
+
+                      {/* POI Location Map */}
+                      <div
+                        data-testid="poi-location-map-container"
+                        style={{
+                          marginTop: "8px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                        }}
+                      >
+                        <div
                           style={{
-                            width: "100%",
-                            padding: "8px 14px",
-                            backgroundColor: "#2563eb",
-                            color: "#ffffff",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            borderRadius: "6px",
-                            border: "none",
-                            cursor: isSavingCandidate ? "not-allowed" : "pointer",
-                            display: "inline-flex",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: "#475569",
+                            display: "flex",
                             alignItems: "center",
-                            justifyContent: "center",
-                            gap: "6px",
-                            boxShadow: "0 1px 2px rgba(37,99,235,0.2)",
+                            justifyContent: "space-between",
                           }}
                         >
-                          {isSavingCandidate ? (
-                            <>
-                              <Loader2 size={13} className="animate-spin" />
-                              <span>Saving...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Check size={14} />
-                              <span>Save Candidate Changes</span>
-                            </>
-                          )}
-                        </button>
+                          <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                            <MapPin size={13} color="#2563eb" /> Location Map
+                          </span>
+                          {selectedCandidate.latitude != null &&
+                            selectedCandidate.longitude != null && (
+                              <span style={{ fontSize: "10px", color: "#64748b" }}>
+                                {Number(selectedCandidate.latitude).toFixed(5)},{" "}
+                                {Number(selectedCandidate.longitude).toFixed(5)}
+                              </span>
+                            )}
+                        </div>
+
+                        {selectedCandidate.latitude != null &&
+                        selectedCandidate.longitude != null &&
+                        !isNaN(Number(selectedCandidate.latitude)) &&
+                        !isNaN(Number(selectedCandidate.longitude)) ? (
+                          <CandidateMiniMap
+                            latitude={Number(selectedCandidate.latitude)}
+                            longitude={Number(selectedCandidate.longitude)}
+                            poiName={selectedCandidate.poi_name}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              padding: "16px",
+                              textAlign: "center",
+                              backgroundColor: "#f8fafc",
+                              border: "1px dashed #cbd5e1",
+                              borderRadius: "8px",
+                              color: "#94a3b8",
+                              fontSize: "11px",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            No coordinates available for this location.
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -2103,10 +2484,60 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
                     </div>
                   )}
 
+                  </div>
+
+                  {/* Pinned Bottom Footer with Save Button (outside vertical scroll) */}
+                  {selectedCandidateIds.length <= 1 && selectedCandidate && (
+                    <div
+                      style={{
+                        flexShrink: 0,
+                        padding: "12px 16px",
+                        backgroundColor: "#ffffff",
+                        borderTop: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={handleSaveCandidateChanges}
+                        disabled={isSavingCandidate}
+                        data-testid="save-edit-button"
+                        style={{
+                          width: "100%",
+                          padding: "8px 14px",
+                          backgroundColor: "#2563eb",
+                          color: "#ffffff",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          borderRadius: "6px",
+                          border: "none",
+                          cursor: isSavingCandidate ? "not-allowed" : "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          boxShadow: "0 1px 2px rgba(37,99,235,0.2)",
+                        }}
+                      >
+                        {isSavingCandidate ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={14} />
+                            <span>Save Candidate Changes</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   <div
                     style={{
-                      marginTop: "auto",
-                      paddingTop: "10px",
+                      flexShrink: 0,
+                      padding: "8px 16px",
+                      backgroundColor: "#f8fafc",
                       borderTop: "1px solid #e2e8f0",
                       fontSize: "11px",
                       color: "#64748b",

@@ -21,13 +21,14 @@ SPDX-License-Identifier: Apache-2.0
 **Feature Identifier**: `012-photo-scraper`  
 **Feature Branch**: `012-photo-scraper`  
 **Date**: 2026-10-28  
-**Status**: Completed  
+**Status**: Completed
 
 ---
 
 ## 1. Overview & Research Objectives
 
 Phase 12 requires two major technical subsystems that work in close coordination without duplicating logic:
+
 1. **Standalone Photo Scraper CLI**: An offline-portable, read-only filesystem traversal tool that parses irregular directory paths, extracts image metadata across embedded standards (EXIF, IPTC, XMP) and companion sidecars (`.xmp`, `.json`, `.xml`), resolves location candidates via Google Gemini Flash-Lite with local SQLite caching, and exports an RFC 4180 CSV with formula injection sanitization.
 2. **Two-Phase Interactive Web Application Ingestion Engine**: An asynchronous ingestion pipeline that pre-validates and stages CSV rows in an `ingest_candidates` table, presents a Phase 1 triage modal with interactive map marker selection for parent-child sublocations, runs Phase 2 web scraping and personalized LLM enrichment (using Phase 11 travel style prompt directives), and executes an atomic multi-visit merge and database commit.
 
@@ -44,8 +45,8 @@ Phase 12 requires two major technical subsystems that work in close coordination
   3. **Standard Python `json`**: Parses Google Photos Takeout sidecar files (`<filename>.json` and `<filename>.<ext>.json`), extracting `geoData.latitude`, `geoData.longitude`, `photoTakenTime.timestamp`, and tags.
   4. **Strict Binary Read-Only Access**: All file handlers strictly utilize `open(file_path, "rb")` inside context managers. No lockfiles, hidden state files, or index files are ever written to the scanned target directory.
 - **Alternatives Considered**:
-  - *External Perl `exiftool` binary*: Rejected because it requires users to install Perl and the external ExifTool binary, introducing complex cross-platform distribution and path dependencies.
-  - *OS Native Windows/macOS APIs*: Rejected because native APIs lack cross-platform uniformity between Windows (`System.Drawing`) and Linux.
+  - _External Perl `exiftool` binary_: Rejected because it requires users to install Perl and the external ExifTool binary, introducing complex cross-platform distribution and path dependencies.
+  - _OS Native Windows/macOS APIs_: Rejected because native APIs lack cross-platform uniformity between Windows (`System.Drawing`) and Linux.
 
 ---
 
@@ -59,7 +60,7 @@ Phase 12 requires two major technical subsystems that work in close coordination
   4. **Alternate Name Splitting**: Detect `Name (AltName)` syntax via `^(.*?)\s*\((.*?)\)$`, splitting into primary landmark name and alternate candidate name.
   5. **Regional Heuristics**: Regional landmarks lacking coordinates (e.g. `Garfield Park Conservatory`, `Herrik Lake`) default to ambient state `Illinois` when no contrary context is discovered.
 - **Alternatives Considered**:
-  - *Relying entirely on LLM for path parsing*: Rejected because running LLMs over every single raw folder string is slow, expensive, and non-deterministic for obvious pattern pruning (such as `.DS_Store` or `thumbs`).
+  - _Relying entirely on LLM for path parsing_: Rejected because running LLMs over every single raw folder string is slow, expensive, and non-deterministic for obvious pattern pruning (such as `.DS_Store` or `thumbs`).
 
 ---
 
@@ -73,7 +74,7 @@ Phase 12 requires two major technical subsystems that work in close coordination
   4. **Strict Online Requirement**: Per clarified requirement, the CLI verifies `GOOGLE_API_KEY` and network access prior to processing, immediately halting with an actionable message if missing.
   5. **Local Persistent Cache**: Implement a local SQLite cache `.scraper_cache.db` storing SHA-256 hashes of `(path_tokens, coords, tags)` -> JSON response, guaranteeing zero redundant external calls on repeated scans.
 - **Alternatives Considered**:
-  - *Unstructured text completion*: Rejected per Constitution Principle 5 and Core Rules (structured JSON with Pydantic is required).
+  - _Unstructured text completion_: Rejected per Constitution Principle 5 and Core Rules (structured JSON with Pydantic is required).
 
 ---
 
@@ -98,7 +99,7 @@ Phase 12 requires two major technical subsystems that work in close coordination
      - UI presents enriched table with skip toggles, edit modal, interactive map, and **Save to DB** button.
      - Atomic transaction: inserts new POIs, inserts child sublocations with `parent_poi_id`, merges visit dates/paths/tags into existing POIs (preserving primary coordinates unless user toggled coordinate update), and purges `ingest_candidates`.
 - **Alternatives Considered**:
-  - *Browser-only state between Phase 1 and Phase 2*: Rejected in clarification session (Option A selected); server-side staging in PostgreSQL `ingest_candidates` guarantees persistence against accidental browser refreshes during long-running enrichment.
+  - _Browser-only state between Phase 1 and Phase 2_: Rejected in clarification session (Option A selected); server-side staging in PostgreSQL `ingest_candidates` guarantees persistence against accidental browser refreshes during long-running enrichment.
 
 ---
 
@@ -112,22 +113,21 @@ Phase 12 requires two major technical subsystems that work in close coordination
   4. Formula injection neutralization: prepends single quote `'` to cells starting with `=`, `+`, `-`, `@`, `\t`, `\r`.
   5. Shared schema `POIExportRecord` in `vistarae_core.schemas.poi_export` used across both CLI export and webapp ingest parsing.
 - **Alternatives Considered**:
-  - *JSON arrays inside CSV cells*: Rejected because semicolons provide cleaner visual readability in spreadsheet editors (Excel, LibreOffice) while preserving RFC 4180 parsing simplicity.
+  - _JSON arrays inside CSV cells_: Rejected because semicolons provide cleaner visual readability in spreadsheet editors (Excel, LibreOffice) while preserving RFC 4180 parsing simplicity.
 
 ---
 
 ## 3. Constitution & Operational Invariants Mapping
 
-| Invariant / Constitutional Principle | Project Requirement | Implementation Mechanism |
-| :--- | :--- | :--- |
-| **Principle 1: File Headers & Formatting** | Copyright banner, docstrings, cognitive complexity $\le 15$. | Standard Apache 2.0 header on all `.py`, `.ts`, `.tsx`, `.sql` files. Ruff and Prettier checks. |
-| **Principle 2: Monorepo & Ports/Adapters** | Core domain in `packages/core`, dependency inversion. | Shared schemas (`POIExportRecord`) and CSV services in `packages/core`. Pure domain decoupled from HTTP/boto3. |
-| **Principle 3: Database & Tenancy** | Pure Async SQLAlchemy, `WHERE user_id = :current_user_id`, no RLS. | `ingest_candidates` table has `user_id` FK. Every query filters by `user_id`. Cascade on user delete. |
-| **Principle 4: Alembic Migrations** | Reversible migrations, `StrEnum` backed by `VARCHAR`. | Alembic migration for `ingest_candidates` with reversible `downgrade()`. Dispositions typed via `StrEnum`. |
-| **Principle 5: API Contracts & Validation** | OpenAPI 3.1, TypeScript sync, Pydantic `StrictBaseModel`. | Contracts defined in `contracts/photo-scraper-api.yaml`. Strict Pydantic models with `extra="forbid"`. |
-| **Principle 6: Middleware & Security** | Formula neutralization, rate limiting, no credential leaks. | CSV cell sanitization. Read-only filesystem operations. |
-| **Principle 7: Observability & Tracing** | Directional `MSG` logging markers in dev, W3C traceparent. | Directional logging tags for SQS worker, geocoder, and Gemini extraction calls. |
-| **Principle 8: PyTest Governance** | $\ge 90\%$ test coverage, unit tests mirror production tree. | Comprehensive unit tests for path parsing, EXIF extraction, CSV export, and two-phase ingest routes. |
-| **Operational Invariant 1: SQS Ingestion** | Batch size 10, file $\le 2\text{MB}$, rows $\le 2000$, visibility 180s. | Enforced in `csv_parser.py` and `services/worker/processor.py`. |
-| **Operational Invariant 3: Zero-Cost Arch** | Neon scale-to-zero, free-tier limits, Nominatim 1 req/sec. | Rate-limited Nominatim geocoder with SQLite (CLI) and PostGIS `geocache` (backend). |
-
+| Invariant / Constitutional Principle        | Project Requirement                                                     | Implementation Mechanism                                                                                       |
+| :------------------------------------------ | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------- |
+| **Principle 1: File Headers & Formatting**  | Copyright banner, docstrings, cognitive complexity $\le 15$.            | Standard Apache 2.0 header on all `.py`, `.ts`, `.tsx`, `.sql` files. Ruff and Prettier checks.                |
+| **Principle 2: Monorepo & Ports/Adapters**  | Core domain in `packages/core`, dependency inversion.                   | Shared schemas (`POIExportRecord`) and CSV services in `packages/core`. Pure domain decoupled from HTTP/boto3. |
+| **Principle 3: Database & Tenancy**         | Pure Async SQLAlchemy, `WHERE user_id = :current_user_id`, no RLS.      | `ingest_candidates` table has `user_id` FK. Every query filters by `user_id`. Cascade on user delete.          |
+| **Principle 4: Alembic Migrations**         | Reversible migrations, `StrEnum` backed by `VARCHAR`.                   | Alembic migration for `ingest_candidates` with reversible `downgrade()`. Dispositions typed via `StrEnum`.     |
+| **Principle 5: API Contracts & Validation** | OpenAPI 3.1, TypeScript sync, Pydantic `StrictBaseModel`.               | Contracts defined in `contracts/photo-scraper-api.yaml`. Strict Pydantic models with `extra="forbid"`.         |
+| **Principle 6: Middleware & Security**      | Formula neutralization, rate limiting, no credential leaks.             | CSV cell sanitization. Read-only filesystem operations.                                                        |
+| **Principle 7: Observability & Tracing**    | Directional `MSG` logging markers in dev, W3C traceparent.              | Directional logging tags for SQS worker, geocoder, and Gemini extraction calls.                                |
+| **Principle 8: PyTest Governance**          | $\ge 90\%$ test coverage, unit tests mirror production tree.            | Comprehensive unit tests for path parsing, EXIF extraction, CSV export, and two-phase ingest routes.           |
+| **Operational Invariant 1: SQS Ingestion**  | Batch size 10, file $\le 2\text{MB}$, rows $\le 2000$, visibility 180s. | Enforced in `csv_parser.py` and `services/worker/processor.py`.                                                |
+| **Operational Invariant 3: Zero-Cost Arch** | Neon scale-to-zero, free-tier limits, Nominatim 1 req/sec.              | Rate-limited Nominatim geocoder with SQLite (CLI) and PostGIS `geocache` (backend).                            |

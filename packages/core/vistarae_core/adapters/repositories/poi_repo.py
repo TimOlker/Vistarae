@@ -151,6 +151,7 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
         image_urls=list(row.image_urls) if row.image_urls else [],
         directory_paths=list(row.directory_paths) if row.directory_paths else [],
         creation_metadata=dict(row.creation_metadata) if row.creation_metadata else {},
+        related_websites=list(getattr(row, "related_websites", None) or []),
         visit_state=VisitState(row.visit_state),
         visited_dates=list(row.visited_dates) if row.visited_dates else [],
         want_to_visit_again=getattr(row, "want_to_visit_again", False),
@@ -230,6 +231,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             image_urls=poi.image_urls,
             directory_paths=poi.directory_paths,
             creation_metadata=poi.creation_metadata,
+            related_websites=poi.related_websites or [],
             visit_state=poi.visit_state.value
             if hasattr(poi.visit_state, "value")
             else str(poi.visit_state),
@@ -329,6 +331,7 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row.image_urls = poi.image_urls
         row.directory_paths = poi.directory_paths
         row.creation_metadata = poi.creation_metadata
+        row.related_websites = poi.related_websites or []
         row.visit_state = (
             poi.visit_state.value if hasattr(poi.visit_state, "value") else str(poi.visit_state)
         )
@@ -636,6 +639,8 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         parent_id: UUID | None = None,
         text_query: str | None = None,
         semantic_vector: list[float] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[POI], int]:
@@ -725,6 +730,17 @@ class SqlAlchemyPOIRepository(IPOIRepository):
                 POITable.description.ilike(pattern),
                 POITable.reason_to_visit.ilike(pattern),
             )
+            query = query.where(cond)
+            count_query = count_query.where(cond)
+
+        # Creation timestamp filtering (REQ-AUD-002)
+        if created_after is not None:
+            cond = POITable.created_at >= created_after
+            query = query.where(cond)
+            count_query = count_query.where(cond)
+
+        if created_before is not None:
+            cond = POITable.created_at <= created_before
             query = query.where(cond)
             count_query = count_query.where(cond)
 

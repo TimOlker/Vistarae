@@ -1,3 +1,4 @@
+import { exportPhase1Candidates, type ExportFormat } from "../../services/exportApi";
 // Copyright (c) 2026 Tim Olker
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,6 +41,7 @@ import {
   ExternalLink,
   ShieldAlert,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { reverseGeocode, forwardGeocode } from "../../services/geocodeService";
 import { openLocalFolder } from "../../services/nativeHostService";
@@ -646,6 +648,28 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
 
   // Bulk edit state
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportSelected = async () => {
+    if (!selectedCandidateIds || selectedCandidateIds.length === 0) {
+      showToast("No records selected. Please select at least one record to export.", "warning");
+      return;
+    }
+    if (!jobId) {
+      showToast("No active job ID for export.", "error");
+      return;
+    }
+    try {
+      setIsExporting(true);
+      await exportPhase1Candidates(jobId, selectedCandidateIds, exportFormat);
+      showToast(`Successfully exported ${selectedCandidateIds.length} candidate(s)`, "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to export candidates", "error");
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkCountry, setBulkCountry] = useState("");
@@ -1881,6 +1905,53 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
                     </button>
                   </div>
                 )}
+
+                {/* Export Candidates */}
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                    data-testid="export-format-select-triage"
+                    aria-label="Export format"
+                    style={{
+                      padding: "6px 8px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      border: "1px solid #cbd5e1",
+                      backgroundColor: "#ffffff",
+                      color: "#334155",
+                      cursor: "pointer",
+                      height: "34px",
+                    }}
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="json">JSON</option>
+                    <option value="yaml">YAML</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleExportSelected}
+                    disabled={isExporting}
+                    data-testid="export-selected-candidates-btn"
+                    style={{
+                      padding: "7px 12px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "6px",
+                      backgroundColor: "#ffffff",
+                      color: "#334155",
+                      cursor: isExporting ? "not-allowed" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      height: "34px",
+                    }}
+                  >
+                    <Download size={13} />
+                    <span>{isExporting ? "Exporting..." : `Export Selected (${selectedCandidateIds.length})`}</span>
+                  </button>
+                </div>
 
                 {/* Sort Priority Dropdown */}
                 <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>

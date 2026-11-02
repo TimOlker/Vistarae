@@ -26,6 +26,7 @@ from uuid import UUID
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from vistarae_core.adapters.db.tables import UserExclusionZoneTable
 from vistarae_core.domain.entities import UserExclusionZone
 from vistarae_core.ports.repositories import IUserExclusionZoneRepository
@@ -38,9 +39,7 @@ def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     dlon = math.radians(lon2 - lon1)
     a = (
         math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1))
-        * math.cos(math.radians(lat2))
-        * math.sin(dlon / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return r * c
@@ -153,4 +152,3 @@ class SqlAlchemyUserExclusionZoneRepository(IUserExclusionZoneRepository):
             if dist <= zone.radius_km:
                 matched.append(zone)
         return matched
-
