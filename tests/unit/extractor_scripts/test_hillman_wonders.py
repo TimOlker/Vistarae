@@ -159,3 +159,60 @@ def test_hillman_wonders_malformed_rows_and_deep_errors() -> None:
     records = extractor.harvest_records()
     assert len(records) == 1
     assert records[0].poi_name == "Broken Wonder"
+
+
+def test_hillman_wonders_country_directory_layout() -> None:
+    """Verifies parsing of the real-world country-grouped directory layout."""
+    html = """
+    <table>
+      <tr>
+        <td class="CountryName">Afghanistan</td>
+        <td class="WonderList">
+          <img src="b_bronze.gif"/>Jam Minaret<br/>
+          <img src="b_gold.gif"/>Kabul Old City<br/>
+          <img src="b_silver.gif"/>Khyber Pass<span style="font-weight:normal;">&nbsp;[with Pakistan]</span>
+          <td class="LinkCellText">to see my Top 10 rankings</td>
+        </td>
+      </tr>
+      <tr>
+        <td class="CountryName">America</td>
+        <td class="WonderList">
+          <img src="b_gold.gif"/>Grand Canyon<br/>
+        </td>
+      </tr>
+      <tr>
+        <td class="CountryName">Covered in other lists</td>
+        <td class="WonderList"></td>
+      </tr>
+    </table>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("out.csv"), cache_enabled=False)
+    extractor = HillmanWondersExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 4
+    # Check bronze
+    assert records[0].poi_name == "Jam Minaret"
+    assert records[0].country == "Afghanistan"
+    assert records[0].country_code == "AF"
+    assert records[0].tags == ["HillmanWonder:Bronze"]
+
+    # Check gold
+    assert records[1].poi_name == "Kabul Old City"
+    assert records[1].tags == ["HillmanWonder:Gold"]
+
+    # Check silver
+    assert "Khyber Pass" in records[2].poi_name
+    assert records[2].tags == ["HillmanWonder:Silver"]
+
+    # Check America normalization to United States
+    assert records[3].poi_name == "Grand Canyon"
+    assert records[3].country == "United States"
+    assert records[3].country_code == "US"
+    assert records[3].tags == ["HillmanWonder:Gold"]

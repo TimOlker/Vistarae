@@ -40,23 +40,121 @@ from extractor_scripts.common.base import (  # noqa: E402
 HILLMAN_BASE_URL = "https://www.hillmanwonders.com/top_1000/index.htm"
 
 COUNTRY_CODE_MAP = {
-    "Egypt": "EG",
-    "China": "CN",
-    "India": "IN",
-    "Greece": "GR",
-    "Germany": "DE",
-    "United States": "US",
-    "Italy": "IT",
-    "France": "FR",
-    "Peru": "PE",
-    "Jordan": "JO",
-    "Brazil": "BR",
-    "Mexico": "MX",
-    "United Kingdom": "GB",
-    "Spain": "ES",
-    "Japan": "JP",
+    "Afghanistan": "AF",
+    "Algeria": "DZ",
+    "America": "US",
+    "Argentina": "AR",
+    "Armenia": "AM",
     "Australia": "AU",
+    "Austria": "AT",
+    "Azerbaijan": "AZ",
+    "Bahamas": "BS",
+    "Barbados": "BB",
+    "Belgium": "BE",
+    "Belize": "BZ",
+    "Benin": "BJ",
+    "Bermuda": "BM",
+    "Bhutan": "BT",
+    "Bolivia": "BO",
+    "Botswana": "BW",
+    "Brazil": "BR",
+    "Bulgaria": "BG",
+    "Cambodia": "KH",
+    "Cameroon": "CM",
     "Canada": "CA",
+    "Chile": "CL",
+    "China": "CN",
+    "Colombia": "CO",
+    "Costa Rica": "CR",
+    "Croatia": "HR",
+    "Cuba": "CU",
+    "Cyprus": "CY",
+    "Czech Republic": "CZ",
+    "Denmark": "DK",
+    "Ecuador": "EC",
+    "Egypt": "EG",
+    "Estonia": "EE",
+    "Ethiopia": "ET",
+    "Finland": "FI",
+    "France": "FR",
+    "Germany": "DE",
+    "Greece": "GR",
+    "Guatemala": "GT",
+    "Haiti": "HT",
+    "Honduras": "HN",
+    "Hungary": "HU",
+    "Iceland": "IS",
+    "India": "IN",
+    "Indonesia": "ID",
+    "Iran": "IR",
+    "Iraq": "IQ",
+    "Ireland": "IE",
+    "Israel": "IL",
+    "Italy": "IT",
+    "Jamaica": "JM",
+    "Japan": "JP",
+    "Jordan": "JO",
+    "Kenya": "KE",
+    "Laos": "LA",
+    "Lebanon": "LB",
+    "Madagascar": "MG",
+    "Malaysia": "MY",
+    "Maldives": "MV",
+    "Mali": "ML",
+    "Malta": "MT",
+    "Mexico": "MX",
+    "Monaco": "MC",
+    "Mongolia": "MN",
+    "Montenegro": "ME",
+    "Morocco": "MA",
+    "Myanmar": "MM",
+    "Namibia": "NA",
+    "Nepal": "NP",
+    "Netherlands": "NL",
+    "New Zealand": "NZ",
+    "Norway": "NO",
+    "Oman": "OM",
+    "Pakistan": "PK",
+    "Panama": "PA",
+    "Papua New Guinea": "PG",
+    "Peru": "PE",
+    "Philippines": "PH",
+    "Poland": "PL",
+    "Portugal": "PT",
+    "Romania": "RO",
+    "Russia": "RU",
+    "Rwanda": "RW",
+    "Saudi Arabia": "SA",
+    "Senegal": "SN",
+    "Serbia": "RS",
+    "Singapore": "SG",
+    "Slovakia": "SK",
+    "Slovenia": "SI",
+    "South Africa": "ZA",
+    "South Korea": "KR",
+    "Spain": "ES",
+    "Sri Lanka": "LK",
+    "Sweden": "SE",
+    "Switzerland": "CH",
+    "Syria": "SY",
+    "Taiwan": "TW",
+    "Tanzania": "TZ",
+    "Thailand": "TH",
+    "Tunisia": "TN",
+    "Turkey": "TR",
+    "Uganda": "UG",
+    "Ukraine": "UA",
+    "United Arab Emirates": "AE",
+    "United Kingdom": "GB",
+    "United States": "US",
+    "Uruguay": "UY",
+    "Uzbekistan": "UZ",
+    "Vatican City": "VA",
+    "Venezuela": "VE",
+    "Vietnam": "VN",
+    "Yemen": "YE",
+    "Zambia": "ZM",
+    "Zimbabwe": "ZW",
 }
 
 
@@ -131,6 +229,129 @@ class HillmanWondersExtractor(BaseExtractor):
 
         return hero_url, overview, est_hours, lat, lon
 
+    def _create_wonder_record(
+        self,
+        country_name: str,
+        country_code: str,
+        name_parts: list[str],
+        tier_tag: str,
+    ) -> ExtractorRecord | None:
+        """Constructs an ExtractorRecord from harvested name parts.
+
+        Args:
+            country_name: Authoritative country name.
+            country_code: Two-letter ISO country code.
+            name_parts: Fragments forming the wonder title.
+            tier_tag: Resolved Hillman wonder medal tier tag.
+
+        Returns:
+            ExtractorRecord instance or None if empty or invalid.
+        """
+        raw_name = "".join(name_parts)
+        cleaned = re.sub(r"[\xa0\ufffd\r\n\t]+", " ", raw_name)
+        poi_name = re.sub(r"\s{2,}", " ", cleaned).strip(" \t\n\r")
+        if not poi_name or len(poi_name) < 2:
+            return None
+
+        tags = self.resolve_tags([tier_tag])
+        websites = [WebsiteRecord(name="Hillman Wonders", url=HILLMAN_BASE_URL)]
+        desc = f"Hillman Wonders ranked site: {poi_name} in {country_name}."
+        reason = f"Top global wonder in {country_name} recognized by Hillman Wonders."
+
+        return ExtractorRecord(
+            poi_name=poi_name,
+            country=country_name,
+            country_code=country_code,
+            tags=tags,
+            websites=websites,
+            description=desc,
+            reason_to_visit=reason,
+        )
+
+    def _parse_wonders_from_cell(
+        self,
+        wonder_td: Tag,
+        country_name: str,
+        country_code: str,
+    ) -> list[ExtractorRecord]:
+        """Parses individual wonder records from a WonderList table cell.
+
+        Args:
+            wonder_td: DOM element containing wonder icons and titles.
+            country_name: Authoritative country name.
+            country_code: Two-letter ISO country code.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
+        records: list[ExtractorRecord] = []
+        current_tier = "HillmanWonder:Bronze"
+        current_parts: list[str] = []
+
+        for node in wonder_td.children:
+            if isinstance(node, Tag) and node.name == "img":
+                rec = self._create_wonder_record(
+                    country_name, country_code, current_parts, current_tier
+                )
+                if rec:
+                    records.append(rec)
+                current_parts = []
+                src = str(node.get("src", "")).lower()
+                if "gold" in src:
+                    current_tier = "HillmanWonder:Gold"
+                elif "silver" in src:
+                    current_tier = "HillmanWonder:Silver"
+                else:
+                    current_tier = "HillmanWonder:Bronze"
+            elif isinstance(node, Tag) and node.name == "br":
+                continue
+            elif isinstance(node, Tag):
+                current_parts.append(node.get_text(" ", strip=True))
+            elif isinstance(node, str):
+                current_parts.append(node)
+
+        rec = self._create_wonder_record(country_name, country_code, current_parts, current_tier)
+        if rec:
+            records.append(rec)
+
+        return records
+
+    def _harvest_from_country_directory(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests records from the country-grouped directory layout.
+
+        Args:
+            soup: Parsed HTML page.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
+        for lc in soup.select(".LinkCellText, td.LinkCellText"):
+            lc.decompose()
+
+        records: list[ExtractorRecord] = []
+        for tr in soup.find_all("tr"):
+            country_td = tr.find("td", class_="CountryName")
+            wonder_td = tr.find("td", class_="WonderList")
+            if not country_td or not wonder_td:
+                continue
+
+            raw_country = country_td.get_text(" ", strip=True)
+            raw_country = re.sub(r"\s+", " ", raw_country).strip()
+            if "covered in" in raw_country.lower():
+                continue
+
+            country_name = "United States" if raw_country.lower() == "america" else raw_country
+            country_code = COUNTRY_CODE_MAP.get(country_name, "")
+            if not country_code and raw_country.lower() == "america":
+                country_code = "US"
+
+            cell_records = self._parse_wonders_from_cell(wonder_td, country_name, country_code)
+            records.extend(cell_records)
+            if self.config.limit and len(records) >= self.config.limit:
+                return records[: self.config.limit]
+
+        return records
+
     def _parse_row(self, row: Tag) -> ExtractorRecord | None:
         """Parses a single HTML table row into an ExtractorRecord.
 
@@ -200,6 +421,12 @@ class HillmanWondersExtractor(BaseExtractor):
         """
         html = self.http.get(HILLMAN_BASE_URL)
         soup = BeautifulSoup(html, "html.parser")
+
+        # Live site format with CountryName and WonderList cells
+        if soup.select("td.WonderList"):
+            return self._harvest_from_country_directory(soup)
+
+        # Fallback for structured test fixture table (e.g. table.wonder_list)
         table = soup.select_one("table.wonder_list") or soup.find("table")
         if not table:
             return []
