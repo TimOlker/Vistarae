@@ -152,13 +152,15 @@ def _resolve_request_user_id(request: Request) -> UUID | None:
     if user_id is not None:
         return user_id
 
-    stage = os.getenv("STAGE", os.getenv("APP_ENV", "local"))
-    if stage == "local":
+    stage = os.getenv("STAGE", os.getenv("APP_ENV", "local")).lower()
+    if stage in ("local", "dev", "development", "test", "testing"):
         mock_id = request.headers.get("X-Mock-User-Id")
         if mock_id:
             try:
                 user_id = UUID(mock_id)
                 request.state.user_id = user_id
+                mock_tier = request.headers.get("X-Mock-User-Tier", "LOW").upper()
+                set_cached_tier(user_id, mock_tier, False)
                 return user_id
             except (ValueError, AttributeError):
                 pass
@@ -175,8 +177,11 @@ def _get_request_quota_repo(request: Request) -> Any:
         from vistarae_core.adapters.repositories.quota_repo import SqlAlchemyQuotaRepository
 
         override = request.app.dependency_overrides.get(get_db_session)
-        session = override() if override else None
-        return SqlAlchemyQuotaRepository(session)
+        if override:
+            session = override()
+            if session is not None:
+                return SqlAlchemyQuotaRepository(session)
+        return None
     except Exception:
         return None
 

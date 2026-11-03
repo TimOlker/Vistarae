@@ -43,9 +43,7 @@ import { ItineraryDetailPage } from "./pages/ItineraryDetailPage";
 import { ManualAddPOIModal } from "./components/poi/ManualAddPOIModal";
 import { CSVUploadModal } from "./components/ingest/CSVUploadModal";
 import { CSVProgressModal } from "./components/ingest/CSVProgressModal";
-import { CSVTriageModal } from "./components/ingest/CSVTriageModal";
-import { CSVPhase2ReviewModal } from "./components/ingest/CSVPhase2ReviewModal";
-import { CSVEnrichmentProgressModal } from "./components/ingest/CSVEnrichmentProgressModal";
+import { CSVImportWorkbenchModal } from "./components/ingest/CSVImportWorkbenchModal";
 
 import { triageStorage } from "./services/triageStorage";
 import { apiFetch } from "./services/api";
@@ -103,8 +101,7 @@ const AppContent: React.FC = () => {
   const [triageJobId, setTriageJobId] = useState<string | null>(null);
   const [isCSVPhase2Open, setIsCSVPhase2Open] = useState(false);
   const [phase2JobId, setPhase2JobId] = useState<string | null>(null);
-  const [isEnrichmentProgressOpen, setIsEnrichmentProgressOpen] = useState(false);
-  const [enrichmentJobId, setEnrichmentJobId] = useState<string | null>(null);
+
 
   // Opportunistic triage eviction on startup (REQ-UI-027a)
   useEffect(() => {
@@ -142,34 +139,7 @@ const AppContent: React.FC = () => {
     setIsCSVTriageOpen(true);
   };
 
-  const handleProceedToPhase2 = (jobId?: string) => {
-    setIsCSVTriageOpen(false);
-    const id = jobId || triageJobId;
-    setTriageJobId(null);
-    if (id) {
-      setEnrichmentJobId(id);
-      setIsEnrichmentProgressOpen(true);
-    }
-  };
 
-  const handleEnrichmentComplete = () => {
-    setIsEnrichmentProgressOpen(false);
-    if (enrichmentJobId) {
-      setPhase2JobId(enrichmentJobId);
-      setIsCSVPhase2Open(true);
-    }
-  };
-
-
-  const handleBackToPhase1 = (jobId?: string) => {
-    setIsCSVPhase2Open(false);
-    const id = jobId || phase2JobId;
-    setPhase2JobId(null);
-    if (id) {
-      setTriageJobId(id);
-      setIsCSVTriageOpen(true);
-    }
-  };
 
 
   const handleResumeJob = (jobId: string, phase: "phase_1_triage" | "phase_2_enriched") => {
@@ -195,10 +165,7 @@ const AppContent: React.FC = () => {
       .catch(() => {});
   };
 
-  const handleTriageComplete = () => {
-    setIsCSVTriageOpen(false);
-    setTriageJobId(null);
-  };
+
 
   return (
     <div
@@ -429,45 +396,28 @@ const AppContent: React.FC = () => {
         }}
       />
 
-      <CSVTriageModal
-        jobId={triageJobId}
-        isOpen={isCSVTriageOpen}
+      <CSVImportWorkbenchModal
+        jobId={triageJobId || phase2JobId}
+        isOpen={isCSVTriageOpen || isCSVPhase2Open}
         onClose={() => {
           setIsCSVTriageOpen(false);
+          setIsCSVPhase2Open(false);
           setTriageJobId(null);
+          setPhase2JobId(null);
         }}
-        onProceedToPhase2={handleProceedToPhase2}
-        onTriageComplete={handleTriageComplete}
+        onCommitComplete={() => {
+          setIsCSVTriageOpen(false);
+          setIsCSVPhase2Open(false);
+          setTriageJobId(null);
+          setPhase2JobId(null);
+          handlePhase2CommitComplete();
+        }}
         existingPOIs={pois.map((p) => ({
           id: p.id,
           name: p.name,
           latitude: p.render_lat,
           longitude: p.render_lng,
         }))}
-      />
-
-      <CSVEnrichmentProgressModal
-        jobId={enrichmentJobId}
-        isOpen={isEnrichmentProgressOpen}
-        onComplete={handleEnrichmentComplete}
-        onCancel={() => {
-          setIsEnrichmentProgressOpen(false);
-          if (enrichmentJobId) {
-            setPhase2JobId(enrichmentJobId);
-            setIsCSVPhase2Open(true);
-          }
-        }}
-      />
-
-      <CSVPhase2ReviewModal
-        jobId={phase2JobId}
-        isOpen={isCSVPhase2Open}
-        onClose={() => {
-          setIsCSVPhase2Open(false);
-          setPhase2JobId(null);
-        }}
-        onCommitComplete={handlePhase2CommitComplete}
-        onBackToPhase1={handleBackToPhase1}
       />
     </div>
   );

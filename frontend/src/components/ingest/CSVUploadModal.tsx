@@ -20,6 +20,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Modal } from "../common/Modal";
 import { SplitModal } from "./SplitModal";
+import { ColumnMappingModal, parseCSVLine, readFileText } from "./ColumnMappingModal";
 import { useToast } from "../../context/ToastContext";
 import { apiFetch } from "../../services/api";
 import { ingestApi, type ActiveSessionResult } from "../../services/ingestApi";
@@ -31,12 +32,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Clock,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react";
-import { ColumnMappingModal } from "./ColumnMappingModal";
-import { ImportValidationErrorModal } from "./ImportValidationErrorModal";
-import { TagValidationWarningModal } from "./TagValidationWarningModal";
 
 interface CSVUploadModalProps {
   isOpen: boolean;
@@ -66,6 +62,12 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [isWipingSession, setIsWipingSession] = useState(false);
 
+  // Column Mapping States
+  const [isColumnMappingOpen, setIsColumnMappingOpen] = useState(false);
+  const [unmappedHeaders, setUnmappedHeaders] = useState<string[]>([]);
+  const [missingHeaders, setMissingHeaders] = useState<string[]>([]);
+  const [activeMapping, setActiveMapping] = useState<Record<string, string> | null>(null);
+
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (isUploading) {
@@ -85,6 +87,10 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
       setShowOverwriteWarning(false);
       setSelectedFile(null);
       setUploadError(null);
+      setIsColumnMappingOpen(false);
+      setUnmappedHeaders([]);
+      setMissingHeaders([]);
+      setActiveMapping(null);
       return;
     }
     const fetchLists = async () => {
@@ -150,30 +156,6 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
     }
   };
 
-  // Flexible Ingest Modals & Overrides State
-  const [isColumnMappingOpen, setIsColumnMappingOpen] = useState(false);
-  const [unmappedColumns, setUnmappedColumns] = useState<string[]>([]);
-  const [sampleRows, setSampleRows] = useState<Array<{ column: string; sample_values: string[] }>>([]);
-  const [targetFields, setTargetFields] = useState<string[]>([]);
-  const [appliedColumnMappings, setAppliedColumnMappings] = useState<Record<string, string> | null>(null);
-
-  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
-  const [validationIssues, setValidationIssues] = useState<any[]>([]);
-  const [validationTotalRows, setValidationTotalRows] = useState(0);
-  const [validationInvalidRowCount, setValidationInvalidRowCount] = useState(0);
-
-  const [isTagWarningOpen, setIsTagWarningOpen] = useState(false);
-  const [unapprovedTags, setUnapprovedTags] = useState<Record<string, number>>({});
-
-  const [showOverridesAccordion, setShowOverridesAccordion] = useState(false);
-  const [recalculateOverrides, setRecalculateOverrides] = useState({
-    recalculate_description: false,
-    recalculate_reason_to_visit: false,
-    recalculate_tags: false,
-    recalculate_duration: false,
-    recalculate_links: false,
-  });
-
   // SplitModal state
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [splitDetails, setSplitDetails] = useState({
@@ -184,11 +166,35 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
 
   const handleFileChange = async (file: File) => {
     setSelectedFile(file);
+    setActiveMapping(null);
+    setUploadError(null);
 
-    // Fast client-side line count inspection
-    const text = typeof file.text === "function" ? await file.text() : "";
-    const rows =
-      text.split(/\r\n|\n/).filter((line) => line.trim().length > 0).length - 1; // subtract header
+    // Fast client-side line count & header inspection
+    const text = await readFileText(file);
+    const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    const rows = Math.max(0, lines.length - 1);
+
+    if (lines.length > 0) {
+      const headerCols = parseCSVLine(lines[0]);
+      setUnmappedHeaders(headerCols);
+
+      const hasNameCol = headerCols.some((col) => {
+        const c = col.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return [
+          "name",
+          "poiname",
+          "pointofinterest",
+          "placename",
+          "title",
+        ].includes(c);
+      });
+
+      if (!hasNameCol && headerCols.length > 0) {
+        setMissingHeaders(["name"]);
+      } else {
+        setMissingHeaders([]);
+      }
+    }
 
     const isOverSize = file.size > 2 * 1024 * 1024;
     const isOverRows = rows > 2000;
@@ -204,12 +210,14 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
     }
   };
 
-  const executeUpload = async (options?: {
-    skipInvalid?: boolean;
-    mappings?: Record<string, string>;
-    tagAction?: "APPROVE_AND_ADD" | "STRIP_UNAPPROVED" | "ABORT";
-  }) => {
-    if (!selectedFile) return;
+  const executeUpload = async (
+    fileOverride?: File,
+    mappingOverride?: Record<string, string> | null,
+  ) => {
+    const file = fileOverride || selectedFile;
+    if (!file) return;
+
+    const mapping = mappingOverride !== undefined ? mappingOverride : activeMapping;
 
     setShowOverwriteWarning(false);
     setUploadError(null);
@@ -220,88 +228,54 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
 
     try {
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      formData.append("file", file);
       if (targetListName.trim()) {
         formData.append("target_list_name", targetListName.trim());
       }
-      if (options?.skipInvalid) {
-        formData.append("skip_invalid_rows", "true");
-      }
-      const mappings = options?.mappings || appliedColumnMappings;
-      if (mappings) {
-        formData.append("column_mappings", JSON.stringify(mappings));
-      }
-      if (options?.tagAction) {
-        formData.append("tag_action", options.tagAction);
-      }
-      formData.append("recalculate_fields", JSON.stringify(recalculateOverrides));
-
-      // Attempt flexible ingestion endpoint first, fall back if 404
-      let res: any;
-      try {
-        res = await apiFetch<any>("/api/v1/ingest/upload-flexible", {
-          method: "POST",
-          body: formData,
-          signal: abortController.signal,
-          timeoutMs: 600000,
-        });
-      } catch (postErr: any) {
-        if (postErr?.problem?.status === 404) {
-          res = await apiFetch<{ job_id: string }>("/api/ingest/upload", {
-            method: "POST",
-            body: formData,
-            signal: abortController.signal,
-            timeoutMs: 600000,
-          });
-        } else {
-          throw postErr;
-        }
+      if (mapping && Object.keys(mapping).length > 0) {
+        formData.append("column_mapping", JSON.stringify(mapping));
       }
 
-      if (res?.status === "NEEDS_COLUMN_MAPPING") {
-        setIsUploading(false);
-        setUnmappedColumns(res.unmapped_columns || []);
-        setSampleRows(res.sample_rows || []);
-        setTargetFields(res.target_fields || []);
-        setIsColumnMappingOpen(true);
-        return;
-      }
-
-      if (res?.status === "NEEDS_TAG_APPROVAL") {
-        setIsUploading(false);
-        setUnapprovedTags(res.unapproved_tags || {});
-        setIsTagWarningOpen(true);
-        return;
-      }
-
-      if (res?.status === "ABORTED") {
-        setIsUploading(false);
-        showToast("Import was cancelled.", "info");
-        return;
-      }
+      const res = await apiFetch<{ job_id: string }>("/api/ingest/upload", {
+        method: "POST",
+        body: formData,
+        signal: abortController.signal,
+        timeoutMs: 600000, // 10 minutes for processing, geocaching & staging
+      });
 
       showToast(`Upload accepted! Job ID: ${res.job_id}`, "success");
       onJobCreated(res.job_id);
       onClose();
     } catch (err: unknown) {
-      setIsUploading(false);
-      const errorObj = err as any;
-
-      if (errorObj?.problem?.status === 422 || errorObj?.problem?.error_type === "VALIDATION_ERROR") {
-        const issues = errorObj.problem.issues || [];
-        setValidationIssues(issues);
-        setValidationTotalRows(errorObj.problem.total_rows || 0);
-        setValidationInvalidRowCount(errorObj.problem.invalid_row_count || issues.length);
-        setIsValidationModalOpen(true);
-        return;
-      }
-
+      const errorObj = err as {
+        problem?: {
+          title: string;
+          detail: string;
+          found_headers?: string[];
+          missing_headers?: string[];
+        };
+        message?: string;
+      };
       const title = errorObj.problem?.title || "Upload Failed";
       const detail =
         errorObj.problem?.detail ||
         errorObj.message ||
-        "Failed to upload and stage file. Please verify backend status and try again.";
+        "Failed to upload and stage CSV file. Please verify backend status and try again.";
       setUploadError({ title, detail });
+
+      const found = errorObj.problem?.found_headers || unmappedHeaders;
+      const missing = errorObj.problem?.missing_headers || ["name"];
+      const isMissingHeaderError =
+        title === "Invalid CSV Header" ||
+        detail.toLowerCase().includes("missing required column") ||
+        Boolean(errorObj.problem?.missing_headers && errorObj.problem.missing_headers.length > 0);
+
+      if (isMissingHeaderError && found && found.length > 0) {
+        setUnmappedHeaders(found);
+        setMissingHeaders(missing);
+        setIsColumnMappingOpen(true);
+      }
+
       showToast({ title, detail }, "error");
     } finally {
       setIsUploading(false);
@@ -318,7 +292,24 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
       return;
     }
 
+    if (missingHeaders.length > 0 && !activeMapping) {
+      setIsColumnMappingOpen(true);
+      return;
+    }
+
     await executeUpload();
+  };
+
+  const handleApplyColumnMapping = async (
+    mappedFile: File,
+    columnMapping: Record<string, string>,
+  ) => {
+    setSelectedFile(mappedFile);
+    setActiveMapping(columnMapping);
+    setMissingHeaders([]);
+    setIsColumnMappingOpen(false);
+
+    await executeUpload(mappedFile, columnMapping);
   };
 
   return (
@@ -469,7 +460,31 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
                   <div style={{ fontWeight: 700, marginBottom: "2px" }}>
                     {uploadError.title}
                   </div>
-                  <div>{uploadError.detail}</div>
+                  <div style={{ marginBottom: (uploadError.title === "Invalid CSV Header" || unmappedHeaders.length > 0) ? "8px" : "0" }}>
+                    {uploadError.detail}
+                  </div>
+                  {(uploadError.title === "Invalid CSV Header" || unmappedHeaders.length > 0) && (
+                    <button
+                      type="button"
+                      data-testid="open-column-mapping-btn"
+                      onClick={() => setIsColumnMappingOpen(true)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "5px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#dc2626",
+                        color: "#ffffff",
+                        fontWeight: 600,
+                        fontSize: "12px",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Map Columns & Continue
+                    </button>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -630,7 +645,7 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
             >
               <input
                 type="file"
-                accept=".csv,text/csv,.json,application/json,.yaml,.yml,application/x-yaml,text/yaml"
+                accept=".csv,text/csv"
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     handleFileChange(e.target.files[0]);
@@ -657,7 +672,7 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
                   }}
                 >
                   <FileSpreadsheet size={32} color="var(--success, #10b981)" />
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <p style={{ fontSize: "13px", fontWeight: 600 }}>
                       {selectedFile.name}
                     </p>
@@ -665,7 +680,46 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
                       {(selectedFile.size / 1024).toFixed(1)} KB • Validated
                       within guardrails
                     </p>
+                    {activeMapping && (
+                      <span
+                        data-testid="mapping-applied-badge"
+                        style={{
+                          display: "inline-block",
+                          marginTop: "4px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          color: "#166534",
+                          backgroundColor: "#dcfce7",
+                          padding: "1px 6px",
+                          borderRadius: "4px",
+                        }}
+                      >
+                        ✓ Mapped ({Object.keys(activeMapping).length} fields)
+                      </span>
+                    )}
                   </div>
+                  {unmappedHeaders.length > 0 && (
+                    <button
+                      type="button"
+                      data-testid="btn-open-mapping-preview"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsColumnMappingOpen(true);
+                      }}
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        backgroundColor: "#f1f5f9",
+                        color: "#334155",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {activeMapping ? "Edit Mapping" : "Map Columns"}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div
@@ -756,111 +810,6 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
                 • <strong>Generic CSV:</strong>{" "}
                 <code>name, latitude, longitude, city, rating, tags</code>
               </div>
-            </div>
-
-            {/* Selective Enrichment Overrides Accordion (REQ-REC-002) */}
-            <div
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "8px",
-                overflow: "hidden",
-                textAlign: "left",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setShowOverridesAccordion((prev) => !prev)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  backgroundColor: "#f8fafc",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: "#334155",
-                }}
-              >
-                <span>Selective Enrichment Overrides (Optional)</span>
-                {showOverridesAccordion ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </button>
-              {showOverridesAccordion && (
-                <div style={{ padding: "12px", backgroundColor: "#ffffff", borderTop: "1px solid #e2e8f0" }}>
-                  <p style={{ fontSize: "11px", color: "#64748b", margin: "0 0 10px 0" }}>
-                    By default, existing attributes are preserved. Check options below to force AI re-generation:
-                  </p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12px" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={recalculateOverrides.recalculate_description}
-                        onChange={(e) =>
-                          setRecalculateOverrides((prev) => ({
-                            ...prev,
-                            recalculate_description: e.target.checked,
-                          }))
-                        }
-                      />
-                      Description
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={recalculateOverrides.recalculate_reason_to_visit}
-                        onChange={(e) =>
-                          setRecalculateOverrides((prev) => ({
-                            ...prev,
-                            recalculate_reason_to_visit: e.target.checked,
-                          }))
-                        }
-                      />
-                      Reason to Visit
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={recalculateOverrides.recalculate_tags}
-                        onChange={(e) =>
-                          setRecalculateOverrides((prev) => ({
-                            ...prev,
-                            recalculate_tags: e.target.checked,
-                          }))
-                        }
-                      />
-                      Tags
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={recalculateOverrides.recalculate_duration}
-                        onChange={(e) =>
-                          setRecalculateOverrides((prev) => ({
-                            ...prev,
-                            recalculate_duration: e.target.checked,
-                          }))
-                        }
-                      />
-                      Duration
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={recalculateOverrides.recalculate_links}
-                        onChange={(e) =>
-                          setRecalculateOverrides((prev) => ({
-                            ...prev,
-                            recalculate_links: e.target.checked,
-                          }))
-                        }
-                      />
-                      Links
-                    </label>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div
@@ -1032,43 +981,15 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
           </div>
         </Modal>
       )}
-          <ColumnMappingModal
+
+      <ColumnMappingModal
         isOpen={isColumnMappingOpen}
-        unmappedColumns={unmappedColumns}
-        sampleRows={sampleRows}
-        targetFields={targetFields}
-        onConfirm={(mappings) => {
-          setIsColumnMappingOpen(false);
-          setAppliedColumnMappings(mappings);
-          executeUpload({ mappings });
-        }}
-        onCancel={() => setIsColumnMappingOpen(false)}
-      />
-
-      <ImportValidationErrorModal
-        isOpen={isValidationModalOpen}
-        issues={validationIssues}
-        totalRows={validationTotalRows}
-        invalidRowCount={validationInvalidRowCount}
-        onSkipAndContinue={() => {
-          setIsValidationModalOpen(false);
-          executeUpload({ skipInvalid: true });
-        }}
-        onAbort={() => setIsValidationModalOpen(false)}
-      />
-
-      <TagValidationWarningModal
-        isOpen={isTagWarningOpen}
-        unapprovedTags={unapprovedTags}
-        onApproveAll={() => {
-          setIsTagWarningOpen(false);
-          executeUpload({ tagAction: "APPROVE_AND_ADD" });
-        }}
-        onStripUnapproved={() => {
-          setIsTagWarningOpen(false);
-          executeUpload({ tagAction: "STRIP_UNAPPROVED" });
-        }}
-        onAbort={() => setIsTagWarningOpen(false)}
+        onClose={() => setIsColumnMappingOpen(false)}
+        file={selectedFile}
+        foundHeaders={unmappedHeaders}
+        missingHeaders={missingHeaders}
+        onApplyMapping={handleApplyColumnMapping}
+        isUploading={isUploading}
       />
     </>
   );

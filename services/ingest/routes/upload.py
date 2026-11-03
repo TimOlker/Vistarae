@@ -114,6 +114,9 @@ async def upload_csv(
     target_list_name: Annotated[
         str | None, Form(description="Optional target list name to attach POIs to")
     ] = None,
+    column_mapping: Annotated[
+        str | None, Form(description="Optional JSON string of column mappings")
+    ] = None,
     user: User = Depends(get_current_user),
     ingest_repo: IIngestJobRepository = Depends(get_ingest_repo),
     list_repo: IListRepository = Depends(get_list_repo),
@@ -133,8 +136,36 @@ async def upload_csv(
     Returns:
         IngestUploadResponse with HTTP 202 Accepted.
     """
+    # Active staging session guard (FR-031)
+    if staging_service is not None:
+        active_session = await staging_service.get_active_session(user.id)
+        if active_session.has_active_session:
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={
+                    "type": "https://api.vistarae.com/errors/conflict",
+                    "title": "Active Staging Session Exists",
+                    "status": 409,
+                    "detail": (
+                        f"An active uncommitted staging session ({active_session.job_id}) is currently in progress. "
+                        "Commit or discard the active session before uploading a new file."
+                    ),
+                    "instance": request.url.path,
+                    "job_id": str(active_session.job_id) if active_session.job_id else None,
+                },
+                headers={"Content-Type": "application/problem+json"},
+            )
+
+    mapping_dict = None
+    if column_mapping:
+        import json
+        with contextlib.suppress(Exception):
+            mapping_dict = json.loads(column_mapping)
+            if not isinstance(mapping_dict, dict):
+                mapping_dict = None
+
     file_bytes = await file.read()
-    parsed_rows = parse_and_sanitize_csv(file_bytes, content_type=file.content_type)
+    parsed_rows = parse_and_sanitize_csv(file_bytes, content_type=file.content_type, column_mapping=mapping_dict)
 
     # Resolve or create target list if specified by name
     if target_list_name and target_list_name.strip() and not target_list_id:

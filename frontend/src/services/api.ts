@@ -28,6 +28,8 @@ export interface ProblemDetails {
     reason: string;
   }>;
   retryAfterSeconds?: number;
+  found_headers?: string[];
+  missing_headers?: string[];
   [key: string]: any;
 }
 
@@ -190,6 +192,9 @@ export async function apiFetch<T = unknown>(
         instance: data.instance,
         invalid_params: data.invalid_params,
         retryAfterSeconds,
+        found_headers: data.found_headers,
+        missing_headers: data.missing_headers,
+        ...data,
       };
     } catch {
       // Non-JSON fallback (e.g. 502/504 HTML error from reverse proxy)

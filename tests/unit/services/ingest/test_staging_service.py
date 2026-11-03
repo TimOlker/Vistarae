@@ -333,6 +333,55 @@ async def test_stage_candidates_forward_geocoding_fallback(
 
 
 @pytest.mark.asyncio
+async def test_stage_candidates_poi_name_only_forward_geocoding(
+    staging_service: StagingService,
+    mock_geocoding_service: MagicMock,
+) -> None:
+    """Tests that a record with only a POI name (like Petra or Colosseum) is forward geocoded directly."""
+    user_id = uuid4()
+    job_id = uuid4()
+
+    mock_geocoding_service.geocode.return_value = (
+        30.3258,
+        35.4745,
+        [
+            AddressRecord(
+                street="",
+                city="Wadi Musa",
+                state_province="Ma'an",
+                country="Jordan",
+                postal_code="71810",
+            )
+        ],
+        False,
+    )
+
+    record = POIExportRecord(
+        poi_name="Petra",
+        street_address=[],
+        town_city=[],
+        state_province=[],
+        zip_code=[],
+        country=[],
+        latitude=None,
+        longitude=None,
+        dates_visited=[],
+        photo_directory="",
+        location_confidence_percent=0,
+    )
+
+    staged = await staging_service.stage_records(user_id, job_id, [record])
+    assert len(staged) == 1
+    item = staged[0]
+    assert item.latitude == Decimal("30.3258")
+    assert item.longitude == Decimal("35.4745")
+    assert item.city == "Wadi Musa"
+    assert item.country == "Jordan"
+    assert item.recommended_disposition == IngestDisposition.ACCEPT
+    mock_geocoding_service.geocode.assert_awaited_with("Petra")
+
+
+@pytest.mark.asyncio
 async def test_stage_candidates_unmappable_missing_coordinates_ignore(
     staging_service: StagingService,
     mock_geocoding_service: MagicMock,
@@ -400,7 +449,7 @@ async def test_stage_candidates_in_batch_multi_visit_duplicate(
     staged = await staging_service.stage_records(user_id, job_id, [rec1, rec2])
     assert len(staged) == 2
     assert staged[0].recommended_disposition == IngestDisposition.ACCEPT
-    assert staged[1].recommended_disposition == IngestDisposition.UPDATE_EXISTING
+    assert staged[1].recommended_disposition == IngestDisposition.IN_BATCH_MERGE
 
 
 @pytest.mark.asyncio

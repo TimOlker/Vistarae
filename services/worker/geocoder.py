@@ -110,8 +110,17 @@ class NominatimGeocoder:
 
         # 2. Rate-limited outbound Nominatim request
         await self._rate_limiter.acquire()
-        headers = {"User-Agent": USER_AGENT}
-        params = {"q": raw_address, "format": "json", "limit": 1}
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+            "Accept-Language": "en",
+        }
+        params = {
+            "q": raw_address,
+            "format": "json",
+            "limit": 1,
+            "accept-language": "en",
+        }
 
         logger.info("MSG   |-> Target=Nominatim Address='%s'", raw_address)
         client = self._http_client or httpx.AsyncClient(timeout=10.0)

@@ -1209,6 +1209,30 @@ class IIngestCandidateRepository(Protocol):
         """
         ...
 
+    async def batch_edit(
+        self,
+        user_id: UUID,
+        candidate_ids: Sequence[UUID],
+        country: str | None = None,
+        state_province: str | None = None,
+        city: str | None = None,
+        date_visited: str | None = None,
+    ) -> int:
+        """Batch updates location and date visited fields across selected candidates.
+
+        Args:
+            user_id: Tenant user UUID.
+            candidate_ids: Sequence of candidate UUIDs.
+            country: Optional country string to set.
+            state_province: Optional state/province string to set.
+            city: Optional city string to set.
+            date_visited: Optional date string to add/set.
+
+        Returns:
+            Count of rows updated.
+        """
+        ...
+
     async def purge_active_sessions(
         self,
         user_id: UUID,

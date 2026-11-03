@@ -14,6 +14,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * @deprecated Superseded by CSVImportWorkbenchModal.tsx in 014-unified-import-staging-workbench.
+ */
+
 import React, { useEffect, useMemo, useState } from "react";
 import { exportPhase2Candidates, type ExportFormat } from "../../services/exportApi";
 import { inferWebsiteName } from "../../utils/websiteInference";

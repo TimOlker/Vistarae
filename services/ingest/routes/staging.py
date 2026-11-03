@@ -31,10 +31,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 from vistarae_core.domain.entities import IngestCandidate, User
-from vistarae_core.domain.value_objects import IngestCandidatePhaseState
+from vistarae_core.domain.value_objects import IngestCandidatePhaseState, IngestDisposition
 from vistarae_core.ports.repositories import IPOIRepository
 from vistarae_core.schemas.ingest_staging import (
     ActiveSessionResponse,
+    BatchEditCandidatesRequest,
+    BatchEditResponse,
     CandidateItemResponse,
     CandidateListResponse,
     CandidateUpdateRequest,
@@ -57,6 +59,7 @@ router = APIRouter(tags=["ingest-staging"])
 def _to_candidate_response(
     candidate: IngestCandidate,
     poi_name_map: dict[UUID, str] | None = None,
+    cand_name_map: dict[UUID, str] | None = None,
 ) -> CandidateItemResponse:
     """Transforms IngestCandidate domain entity to CandidateItemResponse."""
     matched_name = None
@@ -66,6 +69,21 @@ def _to_candidate_response(
             matched_name = poi_name_map.get(candidate.matched_existing_poi_id)
         if candidate.parent_poi_id:
             parent_name = poi_name_map.get(candidate.parent_poi_id)
+
+    parent_cand_name = None
+    merge_cand_name = None
+    if cand_name_map:
+        if candidate.parent_candidate_id:
+            parent_cand_name = cand_name_map.get(candidate.parent_candidate_id)
+        if candidate.merge_target_id:
+            merge_cand_name = cand_name_map.get(candidate.merge_target_id)
+
+    disp = candidate.user_disposition or candidate.recommended_disposition
+    is_dup = bool(
+        candidate.merge_target_id
+        or candidate.matched_existing_poi_id
+        or disp in (IngestDisposition.IN_BATCH_MERGE, IngestDisposition.UPDATE_EXISTING)
+    )
 
     return CandidateItemResponse(
         id=candidate.id,
@@ -78,6 +96,10 @@ def _to_candidate_response(
         matched_existing_poi_name=matched_name,
         parent_poi_id=candidate.parent_poi_id,
         parent_poi_name=parent_name,
+        parent_candidate_id=candidate.parent_candidate_id,
+        parent_candidate_name=parent_cand_name,
+        merge_target_id=candidate.merge_target_id,
+        merge_target_name=merge_cand_name,
         latitude=float(candidate.latitude) if candidate.latitude is not None else None,
         longitude=float(candidate.longitude) if candidate.longitude is not None else None,
         street_address=candidate.street_address,
@@ -103,6 +125,10 @@ def _to_candidate_response(
         update_coordinates=candidate.update_coordinates,
         is_skipped=candidate.is_skipped,
         phase_state=candidate.phase_state,
+        no_websites=candidate.no_websites,
+        disposition_justification=candidate.disposition_justification,
+        is_user_overridden=candidate.is_user_overridden,
+        is_duplicate=is_dup,
         created_at=candidate.created_at,
         updated_at=candidate.updated_at,
     )
@@ -188,18 +214,67 @@ async def wipe_active_session(
 async def get_job_candidates(
     job_id: UUID,
     phase: IngestCandidatePhaseState | None = Query(default=None),
+    completeness: str | None = Query(default=None),
+    disposition: str | None = Query(default=None),
+    search: str | None = Query(default=None),
     user: User = Depends(get_current_user),
     staging_service: StagingService = Depends(get_staging_service),
     poi_repo: IPOIRepository = Depends(get_poi_repo),
 ) -> CandidateListResponse:
-    """Returns staged candidate records for the specified job."""
+    """Returns staged candidate records for the specified job with unified filtering."""
     candidates = list(await staging_service.list_candidates(user.id, job_id, phase))
+
+    # Apply search filter
+    if search and search.strip():
+        q = search.strip().lower()
+        candidates = [
+            c for c in candidates
+            if q in c.poi_name.lower()
+            or (c.city and q in c.city.lower())
+            or (c.state_province and q in c.state_province.lower())
+            or (c.country and q in c.country.lower())
+            or (c.description and q in c.description.lower())
+        ]
+
+    # Apply disposition filter
+    if disposition and disposition.strip():
+        d_val = disposition.strip().lower()
+        candidates = [
+            c for c in candidates
+            if (c.user_disposition and c.user_disposition.value == d_val)
+            or (not c.user_disposition and c.recommended_disposition.value == d_val)
+        ]
+
+    # Apply completeness filter (FR-002)
+    if completeness and completeness.strip():
+        comp = completeness.strip().lower()
+        if comp == "incomplete":
+            candidates = [
+                c for c in candidates
+                if not c.hero_image_url
+                or (c.latitude is None or c.longitude is None or not c.street_address)
+                or (not c.official_url and not c.no_websites)
+            ]
+        elif comp == "missing_photo":
+            candidates = [c for c in candidates if not c.hero_image_url]
+        elif comp == "missing_location":
+            candidates = [
+                c for c in candidates
+                if c.latitude is None or c.longitude is None or not c.street_address
+            ]
+        elif comp == "missing_websites":
+            candidates = [
+                c for c in candidates
+                if not c.official_url and not c.no_websites
+            ]
+
+    cand_name_map = {c.id: c.poi_name for c in candidates}
     name_map = await _resolve_poi_names(candidates, user.id, poi_repo)
 
     return CandidateListResponse(
         job_id=job_id,
         total_candidates=len(candidates),
-        candidates=[_to_candidate_response(c, name_map) for c in candidates],
+        candidates=[_to_candidate_response(c, name_map, cand_name_map) for c in candidates],
     )
 
 
@@ -209,6 +284,16 @@ async def get_job_candidates(
     summary="Update details, disposition, or coordinates for a candidate",
 )
 @router.patch(
+    "/api/ingest/jobs/{job_id}/candidates/{candidate_id}",
+    response_model=CandidateItemResponse,
+    include_in_schema=False,
+)
+@router.put(
+    "/jobs/{job_id}/candidates/{candidate_id}",
+    response_model=CandidateItemResponse,
+    summary="Update details, disposition, or coordinates for a candidate",
+)
+@router.put(
     "/api/ingest/jobs/{job_id}/candidates/{candidate_id}",
     response_model=CandidateItemResponse,
     include_in_schema=False,
@@ -454,3 +539,135 @@ async def back_to_phase1(
         advanced_count=reverted,
         ignored_count=0,
     )
+
+
+@router.post(
+    "/jobs/{job_id}/candidates/{candidate_id}/enrich",
+    response_model=CandidateItemResponse,
+    summary="Trigger targeted single-POI AI enrichment",
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/candidates/{candidate_id}/enrich",
+    response_model=CandidateItemResponse,
+    include_in_schema=False,
+)
+async def enrich_single_candidate(
+    job_id: UUID,
+    candidate_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+    poi_repo: IPOIRepository = Depends(get_poi_repo),
+) -> CandidateItemResponse:
+    """Enriches a single candidate on demand."""
+    enriched = await staging_service.enrich_single_candidate(user.id, job_id, candidate_id)
+    name_map = await _resolve_poi_names([enriched], user.id, poi_repo)
+    return _to_candidate_response(enriched, name_map)
+
+
+@router.post(
+    "/jobs/{job_id}/enrich-all",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Trigger asynchronous bulk AI enrichment for all eligible candidates",
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/enrich-all",
+    status_code=status.HTTP_202_ACCEPTED,
+    include_in_schema=False,
+)
+async def enrich_all_candidates(
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> dict[str, Any]:
+    """Launches parallel background enrichment for eligible candidates."""
+    import asyncio
+    candidates = await staging_service.list_candidates(user.id, job_id)
+    eligible = [
+        c for c in candidates
+        if not c.is_skipped
+        and (c.user_disposition or c.recommended_disposition) not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+    ]
+    asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
+    return {
+        "job_id": str(job_id),
+        "status": "enriching",
+        "enqueued_candidates": len(eligible),
+        "message": f"Enqueued {len(eligible)} candidate(s) for background AI enrichment.",
+    }
+
+
+@router.post(
+    "/jobs/{job_id}/batch-edit",
+    response_model=BatchEditResponse,
+    summary="Batch update administrative location fields across selected candidates",
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/batch-edit",
+    response_model=BatchEditResponse,
+    include_in_schema=False,
+)
+@router.post(
+    "/jobs/{job_id}/candidates/batch-edit",
+    response_model=BatchEditResponse,
+    include_in_schema=False,
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/candidates/batch-edit",
+    response_model=BatchEditResponse,
+    include_in_schema=False,
+)
+async def batch_edit_candidates(
+    job_id: UUID,
+    body: BatchEditCandidatesRequest,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> BatchEditResponse:
+    """Updates location/date fields across multiple candidate rows."""
+    count = await staging_service.batch_edit_candidates(user.id, job_id, body)
+    return BatchEditResponse(updated_count=count)
+
+
+@router.post(
+    "/jobs/{job_id}/commit",
+    response_model=CommitSummaryResponse,
+    summary="Commit confirmed candidates to database pois table",
+)
+@router.post(
+    "/api/ingest/jobs/{job_id}/commit",
+    response_model=CommitSummaryResponse,
+    include_in_schema=False,
+)
+async def commit_workbench_job(
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> CommitSummaryResponse:
+    """Commits accepted/sublocation/merged candidates to permanent PostGIS database."""
+    total, created, merged = await staging_service.commit_job(user.id, job_id)
+    return CommitSummaryResponse(
+        job_id=job_id,
+        committed_count=total,
+        created_pois=created,
+        merged_pois=merged,
+        message=f"Successfully committed {total} POIs ({len(created)} created, {len(merged)} merged).",
+    )
+
+
+@router.delete(
+    "/jobs/{job_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Discard staging job and delete all staging records",
+)
+@router.delete(
+    "/api/ingest/jobs/{job_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    include_in_schema=False,
+)
+async def discard_staging_job(
+    job_id: UUID,
+    user: User = Depends(get_current_user),
+    staging_service: StagingService = Depends(get_staging_service),
+) -> None:
+    """Purges all staged candidate records for the specified job."""
+    await staging_service.cancel_staging(user.id, job_id)
+

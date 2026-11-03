@@ -47,7 +47,10 @@
     },
     "/api/auth/register": {
       "post": {
-        "tags": ["auth", "auth"],
+        "tags": [
+          "auth",
+          "auth"
+        ],
         "summary": "Register",
         "description": "Registers a new user in the identity provider.\n\nArgs:\n    body: Registration parameters (email, password, full_name).\n    id_provider: Injected identity provider.\n\nReturns:\n    RegisterResponse with Cognito subject and confirmation status.\n\nRaises:\n    HTTPException: 400 or 409 if validation or registration fails.",
         "operationId": "register_api_auth_register_post",
@@ -87,7 +90,10 @@
     },
     "/api/auth/confirm-signup": {
       "post": {
-        "tags": ["auth", "auth"],
+        "tags": [
+          "auth",
+          "auth"
+        ],
         "summary": "Confirm Signup",
         "description": "Confirms signup and provisions local database tenant records.\n\nArgs:\n    body: Confirmation parameters (email, confirmation_code, full_name).\n    id_provider: Injected identity provider.\n    session: Active database session.\n\nReturns:\n    ConfirmSignUpResponse with tenant user UUID.\n\nRaises:\n    HTTPException: 400 if verification code is invalid.",
         "operationId": "confirm_signup_api_auth_confirm_signup_post",
@@ -127,7 +133,10 @@
     },
     "/api/auth/login": {
       "post": {
-        "tags": ["auth", "auth"],
+        "tags": [
+          "auth",
+          "auth"
+        ],
         "summary": "Login",
         "description": "Authenticates credentials against identity provider.\n\nArgs:\n    body: Login credentials.\n    id_provider: Injected identity provider.\n\nReturns:\n    LoginResponse with JWT bearer tokens.\n\nRaises:\n    HTTPException: 401 if credentials are invalid.",
         "operationId": "login_api_auth_login_post",
@@ -167,7 +176,10 @@
     },
     "/api/auth/forgot-password": {
       "post": {
-        "tags": ["auth", "auth"],
+        "tags": [
+          "auth",
+          "auth"
+        ],
         "summary": "Forgot Password",
         "description": "Initiates password reset code dispatch.\n\nArgs:\n    body: Registered email.\n    id_provider: Injected identity provider.\n\nReturns:\n    ForgotPasswordResponse acknowledgement.\n\nRaises:\n    HTTPException: 404 if email not found.",
         "operationId": "forgot_password_api_auth_forgot_password_post",
@@ -207,7 +219,10 @@
     },
     "/api/auth/reset-password": {
       "post": {
-        "tags": ["auth", "auth"],
+        "tags": [
+          "auth",
+          "auth"
+        ],
         "summary": "Reset Password",
         "description": "Confirms password reset with code and new password.\n\nArgs:\n    body: Password reset parameters.\n    id_provider: Injected identity provider.\n\nReturns:\n    ResetPasswordResponse acknowledgement.\n\nRaises:\n    HTTPException: 400 if code is invalid or password rejected.",
         "operationId": "reset_password_api_auth_reset_password_post",
@@ -247,7 +262,10 @@
     },
     "/api/auth/logout": {
       "post": {
-        "tags": ["auth", "auth"],
+        "tags": [
+          "auth",
+          "auth"
+        ],
         "summary": "Logout",
         "description": "Revokes active user session via GlobalSignOut.\n\nArgs:\n    body: Optional body containing access_token.\n    authorization: Optional Authorization header with Bearer token.\n    id_provider: Injected identity provider.\n\nReturns:\n    LogoutResponse confirming sign out.\n\nRaises:\n    HTTPException: 400 if no access token was supplied.",
         "operationId": "logout_api_auth_logout_post",
@@ -305,7 +323,9 @@
     },
     "/api/user/exclusion-zones": {
       "get": {
-        "tags": ["exclusion-zones"],
+        "tags": [
+          "exclusion-zones"
+        ],
         "summary": "List all privacy exclusion zones for the current user",
         "description": "Returns all geographic exclusion zones configured by the user.",
         "operationId": "list_exclusion_zones_api_user_exclusion_zones_get",
@@ -367,7 +387,9 @@
         }
       },
       "post": {
-        "tags": ["exclusion-zones"],
+        "tags": [
+          "exclusion-zones"
+        ],
         "summary": "Create a new privacy exclusion zone",
         "description": "Persists a new geographic privacy exclusion zone.",
         "operationId": "create_exclusion_zone_api_user_exclusion_zones_post",
@@ -441,7 +463,9 @@
     },
     "/api/user/exclusion-zones/{zone_id}": {
       "put": {
-        "tags": ["exclusion-zones"],
+        "tags": [
+          "exclusion-zones"
+        ],
         "summary": "Update an existing privacy exclusion zone",
         "description": "Modifies the name, center coordinates, or radius of an exclusion zone.",
         "operationId": "update_exclusion_zone_api_user_exclusion_zones__zone_id__put",
@@ -523,7 +547,9 @@
         }
       },
       "delete": {
-        "tags": ["exclusion-zones"],
+        "tags": [
+          "exclusion-zones"
+        ],
         "summary": "Delete a privacy exclusion zone",
         "description": "Removes an exclusion zone.",
         "operationId": "delete_exclusion_zone_api_user_exclusion_zones__zone_id__delete",
@@ -590,7 +616,9 @@
     },
     "/api/user/exclusion-zones/check": {
       "post": {
-        "tags": ["exclusion-zones"],
+        "tags": [
+          "exclusion-zones"
+        ],
         "summary": "Check if a point falls within any user exclusion zones",
         "description": "Evaluates whether the given (lat, lon) coordinates fall within any active exclusion zones.",
         "operationId": "check_point_exclusion_api_user_exclusion_zones_check_post",
@@ -664,7 +692,10 @@
     },
     "/api/user/preferences/scraping-sources": {
       "get": {
-        "tags": ["preferences", "preferences"],
+        "tags": [
+          "preferences",
+          "preferences"
+        ],
         "summary": "Get Scraping Sources",
         "description": "Retrieves the list of authorized secondary scraping domains.",
         "operationId": "get_scraping_sources_api_user_preferences_scraping_sources_get",
@@ -726,7 +757,10 @@
         }
       },
       "put": {
-        "tags": ["preferences", "preferences"],
+        "tags": [
+          "preferences",
+          "preferences"
+        ],
         "summary": "Update Scraping Sources",
         "description": "Updates the list of authorized secondary scraping domains.",
         "operationId": "update_scraping_sources_api_user_preferences_scraping_sources_put",
@@ -800,7 +834,10 @@
     },
     "/api/pois/dedup-check": {
       "get": {
-        "tags": ["dedup", "dedup"],
+        "tags": [
+          "dedup",
+          "dedup"
+        ],
         "summary": "Check Duplicates",
         "description": "Probes existing tenant POIs for duplicates within spatial radius exceeding 0.60 similarity.",
         "operationId": "check_duplicates_api_pois_dedup_check_get",
@@ -913,7 +950,10 @@
     },
     "/api/pois/bulk-edit": {
       "post": {
-        "tags": ["bulk", "bulk"],
+        "tags": [
+          "bulk",
+          "bulk"
+        ],
         "summary": "Bulk Edit",
         "description": "Applies bulk mutations across up to 500 POIs atomically in a single transaction (REQ-MAIN-026 to REQ-MAIN-035).",
         "operationId": "bulk_edit_api_pois_bulk_edit_post",
@@ -987,7 +1027,10 @@
     },
     "/api/pois/bulk-tags": {
       "post": {
-        "tags": ["bulk", "bulk"],
+        "tags": [
+          "bulk",
+          "bulk"
+        ],
         "summary": "Bulk Tags",
         "description": "Attaches or detaches multiple tags across target POIs in a single transaction.",
         "operationId": "bulk_tags_api_pois_bulk_tags_post",
@@ -1061,7 +1104,10 @@
     },
     "/api/pois/bulk-lists": {
       "post": {
-        "tags": ["bulk", "bulk"],
+        "tags": [
+          "bulk",
+          "bulk"
+        ],
         "summary": "Bulk Lists",
         "description": "Attaches or detaches multiple curated list memberships in a single transaction.",
         "operationId": "bulk_lists_api_pois_bulk_lists_post",
@@ -1135,7 +1181,10 @@
     },
     "/api/pois/bulk-delete": {
       "post": {
-        "tags": ["bulk", "bulk"],
+        "tags": [
+          "bulk",
+          "bulk"
+        ],
         "summary": "Bulk Delete",
         "description": "Deletes multiple POIs in a single atomic transaction (REQ-MAIN-034, REQ-MAIN-035).",
         "operationId": "bulk_delete_api_pois_bulk_delete_post",
@@ -1209,7 +1258,10 @@
     },
     "/api/lists": {
       "get": {
-        "tags": ["lists", "lists"],
+        "tags": [
+          "lists",
+          "lists"
+        ],
         "summary": "List User Lists",
         "description": "Retrieves all curated lists owned by the current tenant.",
         "operationId": "list_user_lists_api_lists_get",
@@ -1275,7 +1327,10 @@
         }
       },
       "post": {
-        "tags": ["lists", "lists"],
+        "tags": [
+          "lists",
+          "lists"
+        ],
         "summary": "Create List",
         "description": "Creates a new curated list owned by the current tenant.",
         "operationId": "create_list_api_lists_post",
@@ -1349,7 +1404,10 @@
     },
     "/api/lists/{list_id}/shared": {
       "get": {
-        "tags": ["lists", "lists"],
+        "tags": [
+          "lists",
+          "lists"
+        ],
         "summary": "Get Shared List",
         "description": "Public read-only endpoint for shared lists and member POIs (no authentication required).",
         "operationId": "get_shared_list_api_lists__list_id__shared_get",
@@ -1391,7 +1449,10 @@
     },
     "/api/lists/{list_id}": {
       "get": {
-        "tags": ["lists", "lists"],
+        "tags": [
+          "lists",
+          "lists"
+        ],
         "summary": "Get List",
         "description": "Retrieves a single curated list by ID.",
         "operationId": "get_list_api_lists__list_id__get",
@@ -1463,7 +1524,10 @@
         }
       },
       "patch": {
-        "tags": ["lists", "lists"],
+        "tags": [
+          "lists",
+          "lists"
+        ],
         "summary": "Update List",
         "description": "Updates title, description, or visibility of an owned list.",
         "operationId": "update_list_api_lists__list_id__patch",
@@ -1545,7 +1609,10 @@
         }
       },
       "delete": {
-        "tags": ["lists", "lists"],
+        "tags": [
+          "lists",
+          "lists"
+        ],
         "summary": "Delete List",
         "description": "Deletes an owned curated list.",
         "operationId": "delete_list_api_lists__list_id__delete",
@@ -1612,7 +1679,10 @@
     },
     "/api/pois/tags": {
       "get": {
-        "tags": ["tags", "tags"],
+        "tags": [
+          "tags",
+          "tags"
+        ],
         "summary": "List Tags",
         "description": "Retrieves all taxonomy tags for tenant in strict alphabetical order.",
         "operationId": "list_tags_api_pois_tags_get",
@@ -1678,7 +1748,10 @@
         }
       },
       "post": {
-        "tags": ["tags", "tags"],
+        "tags": [
+          "tags",
+          "tags"
+        ],
         "summary": "Create Tag",
         "description": "Creates a new taxonomy tag with unique slug and search aliases.",
         "operationId": "create_tag_api_pois_tags_post",
@@ -1762,7 +1835,10 @@
     },
     "/api/pois/tags/{tag_id}": {
       "delete": {
-        "tags": ["tags", "tags"],
+        "tags": [
+          "tags",
+          "tags"
+        ],
         "summary": "Delete Tag",
         "description": "Deletes a taxonomy tag if not referenced by any POIs.\n\nEnforces referential integrity check: returns RFC 7807 409 Conflict with\nremediation link if referenced by one or more POIs.",
         "operationId": "delete_tag_api_pois_tags__tag_id__delete",
@@ -1849,7 +1925,10 @@
     },
     "/api/pois/filter-rules": {
       "get": {
-        "tags": ["filter-rules", "filter-rules"],
+        "tags": [
+          "filter-rules",
+          "filter-rules"
+        ],
         "summary": "List Filter Rules",
         "description": "Retrieves all saved filter rules owned by the authenticated traveler.",
         "operationId": "list_filter_rules_api_pois_filter_rules_get",
@@ -1911,7 +1990,10 @@
         }
       },
       "post": {
-        "tags": ["filter-rules", "filter-rules"],
+        "tags": [
+          "filter-rules",
+          "filter-rules"
+        ],
         "summary": "Create Filter Rule",
         "description": "Persists a new named filter rule.\n\nReturns 409 Conflict if a rule with the same name already exists for the user.",
         "operationId": "create_filter_rule_api_pois_filter_rules_post",
@@ -1985,7 +2067,10 @@
     },
     "/api/pois/filter-rules/{rule_id}": {
       "get": {
-        "tags": ["filter-rules", "filter-rules"],
+        "tags": [
+          "filter-rules",
+          "filter-rules"
+        ],
         "summary": "Get Filter Rule",
         "description": "Retrieves a single saved filter rule by ID scoped to current user.",
         "operationId": "get_filter_rule_api_pois_filter_rules__rule_id__get",
@@ -2057,7 +2142,10 @@
         }
       },
       "put": {
-        "tags": ["filter-rules", "filter-rules"],
+        "tags": [
+          "filter-rules",
+          "filter-rules"
+        ],
         "summary": "Update Filter Rule",
         "description": "Updates/overwrites an existing filter rule scoped to current user.",
         "operationId": "update_filter_rule_api_pois_filter_rules__rule_id__put",
@@ -2139,7 +2227,10 @@
         }
       },
       "delete": {
-        "tags": ["filter-rules", "filter-rules"],
+        "tags": [
+          "filter-rules",
+          "filter-rules"
+        ],
         "summary": "Delete Filter Rule",
         "description": "Deletes an existing filter rule record under tenant verification.",
         "operationId": "delete_filter_rule_api_pois_filter_rules__rule_id__delete",
@@ -2206,7 +2297,10 @@
     },
     "/api/pois/geocode/reverse": {
       "get": {
-        "tags": ["geocoding", "geocoding"],
+        "tags": [
+          "geocoding",
+          "geocoding"
+        ],
         "summary": "Reverse Geocode Endpoint",
         "description": "Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.",
         "operationId": "reverse_geocode_endpoint_api_pois_geocode_reverse_get",
@@ -2294,7 +2388,10 @@
         }
       },
       "post": {
-        "tags": ["poi-triage", "triage"],
+        "tags": [
+          "poi-triage",
+          "triage"
+        ],
         "summary": "Reverse-geocode coordinates to structured address line and sovereign country (legacy path)",
         "description": "Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.",
         "operationId": "reverse_geocode_v1_api_pois_geocode_reverse_post",
@@ -2368,7 +2465,10 @@
     },
     "/api/pois/geocode/forward": {
       "get": {
-        "tags": ["geocoding", "geocoding"],
+        "tags": [
+          "geocoding",
+          "geocoding"
+        ],
         "summary": "Forward Geocode Endpoint",
         "description": "Forward geocodes an address or query via internal PostGIS cache and rate-limited OSM Nominatim.",
         "operationId": "forward_geocode_endpoint_api_pois_geocode_forward_get",
@@ -2445,7 +2545,10 @@
     },
     "/api/pois": {
       "get": {
-        "tags": ["pois", "pois"],
+        "tags": [
+          "pois",
+          "pois"
+        ],
         "summary": "List Pois",
         "description": "Queries POIs with planar viewport bounding box, taxonomic filters, and semantic search.",
         "operationId": "list_pois_api_pois_get",
@@ -2561,7 +2664,11 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["all", "root_only", "children_only"],
+              "enum": [
+                "all",
+                "root_only",
+                "children_only"
+              ],
               "default": "all",
               "title": "Hierarchy"
             }
@@ -2699,7 +2806,10 @@
         }
       },
       "post": {
-        "tags": ["pois", "pois"],
+        "tags": [
+          "pois",
+          "pois"
+        ],
         "summary": "Create Poi",
         "description": "Creates a new Point of Interest with geocoding and vector embedding.",
         "operationId": "create_poi_api_pois_post",
@@ -2773,7 +2883,10 @@
     },
     "/api/pois/{poi_id}": {
       "get": {
-        "tags": ["pois", "pois"],
+        "tags": [
+          "pois",
+          "pois"
+        ],
         "summary": "Get Poi",
         "description": "Retrieves a single POI by ID with its attached tags.",
         "operationId": "get_poi_api_pois__poi_id__get",
@@ -2845,7 +2958,10 @@
         }
       },
       "patch": {
-        "tags": ["pois", "pois"],
+        "tags": [
+          "pois",
+          "pois"
+        ],
         "summary": "Update Poi",
         "description": "Updates attributes of an existing POI with cycle prevention and embedding re-sync.",
         "operationId": "update_poi_api_pois__poi_id__patch",
@@ -2927,7 +3043,10 @@
         }
       },
       "delete": {
-        "tags": ["pois", "pois"],
+        "tags": [
+          "pois",
+          "pois"
+        ],
         "summary": "Delete Poi",
         "description": "Deletes a POI record scoped to current tenant.",
         "operationId": "delete_poi_api_pois__poi_id__delete",
@@ -2994,7 +3113,10 @@
     },
     "/api/pois/query": {
       "post": {
-        "tags": ["pois", "pois"],
+        "tags": [
+          "pois",
+          "pois"
+        ],
         "summary": "Query Pois",
         "description": "Evaluates a structured query tree AST against tenant POIs with optional bounding box.",
         "operationId": "query_pois_api_pois_query_post",
@@ -3091,7 +3213,10 @@
     },
     "/api/itineraries": {
       "get": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "List Itineraries",
         "description": "Lists all travel itineraries belonging to the authenticated user.",
         "operationId": "list_itineraries_api_itineraries_get",
@@ -3157,7 +3282,10 @@
         }
       },
       "post": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "Create Itinerary",
         "description": "Manually creates a new travel itinerary.",
         "operationId": "create_itinerary_api_itineraries_post",
@@ -3231,7 +3359,10 @@
     },
     "/api/itineraries/generate": {
       "post": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "Generate Itinerary",
         "description": "Generates an AI-synthesized itinerary using hybrid PostGIS + pgvector RAG.",
         "operationId": "generate_itinerary_api_itineraries_generate_post",
@@ -3305,7 +3436,10 @@
     },
     "/api/itineraries/{itinerary_id}": {
       "get": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "Get Itinerary",
         "description": "Retrieves full details of a specific itinerary.",
         "operationId": "get_itinerary_api_itineraries__itinerary_id__get",
@@ -3377,7 +3511,10 @@
         }
       },
       "put": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "Update Itinerary",
         "description": "Updates itinerary title, dates, budget, or status.",
         "operationId": "update_itinerary_api_itineraries__itinerary_id__put",
@@ -3459,7 +3596,10 @@
         }
       },
       "delete": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "Delete Itinerary",
         "description": "Deletes an itinerary and all its child days and items.",
         "operationId": "delete_itinerary_api_itineraries__itinerary_id__delete",
@@ -3526,7 +3666,10 @@
     },
     "/api/itineraries/{itinerary_id}/items/reorder": {
       "put": {
-        "tags": ["itineraries", "itineraries"],
+        "tags": [
+          "itineraries",
+          "itineraries"
+        ],
         "summary": "Reorder Itinerary Items",
         "description": "Batch reorders scheduled items across days and time slots.",
         "operationId": "reorder_itinerary_items_api_itineraries__itinerary_id__items_reorder_put",
@@ -3610,7 +3753,10 @@
     },
     "/api/pois/extract-and-check": {
       "post": {
-        "tags": ["poi-triage", "triage"],
+        "tags": [
+          "poi-triage",
+          "triage"
+        ],
         "summary": "Extract destination details from webpage and evaluate duplicate/nesting triage",
         "description": "Performs multi-source scraping, geocoding, tag recommendation, and duplicate triage.\n\nEnforces:\n- REQ-EXT-017 (Standard English location name normalization)\n- REQ-EXT-018 (Query only authorized user_preferences.valid_scraping_domains)\n- REQ-EXT-020 (3.0s timeout ceiling with graceful partial fallback)\n- REQ-EXT-022 to REQ-EXT-027 (PostGIS SHA-256 caching & 1 req/sec rate limit)\n- REQ-EXT-028 (Gemini Flash-Lite summary synthesis)\n- REQ-EXT-029 (Tag matching against user's vetted taxonomy)\n- REQ-EXT-030 to REQ-EXT-032 (Scale-aware early duplicate and parent-child triage)",
         "operationId": "extract_and_check_api_pois_extract_and_check_post",
@@ -3684,7 +3830,10 @@
     },
     "/api/v1/geocoding/reverse": {
       "post": {
-        "tags": ["poi-triage", "triage"],
+        "tags": [
+          "poi-triage",
+          "triage"
+        ],
         "summary": "Reverse-geocode coordinates to structured address line and sovereign country",
         "description": "Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim.",
         "operationId": "reverse_geocode_v1_api_v1_geocoding_reverse_post",
@@ -3758,7 +3907,10 @@
     },
     "/api/ingest/csv": {
       "post": {
-        "tags": ["ingest", "ingest"],
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
         "summary": "Accept bulk CSV upload for asynchronous processing",
         "description": "Accepts CSV file upload, applies security guardrails, and dispatches to queue.\n\nArgs:\n    request: HTTP request context.\n    file: Multipart uploaded file.\n    target_list_id: Optional UUID of list to attach imported POIs.\n    user: Authenticated tenant user.\n    ingest_repo: Active IngestJobRepository instance.\n    queue_port: Active IQueuePort adapter.\n\nReturns:\n    IngestUploadResponse with HTTP 202 Accepted.",
         "operationId": "upload_csv_api_ingest_csv_post",
@@ -3832,7 +3984,10 @@
     },
     "/api/ingest/api/v1/ingest/upload-flexible": {
       "post": {
-        "tags": ["ingest", "ingest"],
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
         "summary": "Accept multi-format file upload with format sniffing, column alignment, and pre-validation",
         "description": "Handles multi-format uploads, column mapping detection, and pre-validation reporting (T-018).",
         "operationId": "upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post",
@@ -3904,7 +4059,10 @@
     },
     "/api/ingest/jobs/{job_id}": {
       "get": {
-        "tags": ["ingest", "ingest"],
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
         "summary": "Poll ingestion job status and retrieve staged duplicates",
         "description": "Retrieves ingestion job state enforcing tenant isolation.\n\nArgs:\n    job_id: Unique ingestion job UUID.\n    user: Authenticated tenant user.\n    ingest_repo: Active IngestJobRepository port.\n\nReturns:\n    IngestJobProgressResponse containing progress metrics and staged duplicates.\n\nRaises:\n    IngestJobNotFoundError: If job does not exist or belongs to another tenant.",
         "operationId": "get_job_progress_api_ingest_jobs__job_id__get",
@@ -3974,11 +4132,82 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Discard staging job and delete all staging records",
+        "description": "Purges all staged candidate records for the specified job.",
+        "operationId": "discard_staging_job_api_ingest_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/ingest/jobs/{job_id}/triage": {
       "post": {
-        "tags": ["ingest", "ingest"],
+        "tags": [
+          "ingest",
+          "ingest"
+        ],
         "summary": "Submit interactive triage decisions for suspected duplicates",
         "description": "Applies triage decisions, persists committed POIs, and recalculates job status.\n\nArgs:\n    job_id: Ingest job UUID.\n    body: TriageRequest payload with list of decision items.\n    user: Authenticated tenant user.\n    ingest_repo: Active IngestJobRepository port.\n    poi_repo: Active IPOIRepository port.\n\nReturns:\n    Updated IngestJobProgressResponse.\n\nRaises:\n    IngestJobNotFoundError: If job is not found for tenant.",
         "operationId": "submit_triage_decisions_api_ingest_jobs__job_id__triage_post",
@@ -4062,7 +4291,10 @@
     },
     "/api/ingest/active-session": {
       "get": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Check if tenant has an in-progress uncommitted ingest session",
         "description": "Returns details of any in-progress uncommitted staging session.",
         "operationId": "get_active_session_api_ingest_active_session_get",
@@ -4124,7 +4356,10 @@
         }
       },
       "delete": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Wipe out active uncommitted ingest session progress",
         "description": "Purges all uncommitted staged candidate records for the tenant.",
         "operationId": "wipe_active_session_api_ingest_active_session_delete",
@@ -4188,9 +4423,12 @@
     },
     "/api/ingest/jobs/{job_id}/candidates": {
       "get": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Retrieve staged candidates for an ingest job",
-        "description": "Returns staged candidate records for the specified job.",
+        "description": "Returns staged candidate records for the specified job with unified filtering.",
         "operationId": "get_job_candidates_api_ingest_jobs__job_id__candidates_get",
         "parameters": [
           {
@@ -4217,6 +4455,54 @@
                 }
               ],
               "title": "Phase"
+            }
+          },
+          {
+            "name": "completeness",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Completeness"
+            }
+          },
+          {
+            "name": "disposition",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Disposition"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
             }
           },
           {
@@ -4277,8 +4563,106 @@
       }
     },
     "/api/ingest/jobs/{job_id}/candidates/{candidate_id}": {
+      "put": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Update details, disposition, or coordinates for a candidate",
+        "description": "Updates fields or disposition on an individual candidate.",
+        "operationId": "update_candidate_api_ingest_jobs__job_id__candidates__candidate_id__put",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateItemResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Update details, disposition, or coordinates for a candidate",
         "description": "Updates fields or disposition on an individual candidate.",
         "operationId": "update_candidate_api_ingest_jobs__job_id__candidates__candidate_id__patch",
@@ -4372,7 +4756,10 @@
     },
     "/api/ingest/jobs/{job_id}/phase1/proceed": {
       "post": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Advance confirmed Phase 1 triage records to Phase 2 enrichment",
         "description": "Transitions active candidates to Phase 2 and launches background parallel AI/web enrichment.",
         "operationId": "proceed_phase1_api_ingest_jobs__job_id__phase1_proceed_post",
@@ -4446,7 +4833,10 @@
     },
     "/api/ingest/jobs/{job_id}/phase1/cancel": {
       "post": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Abort Phase 1 triage and purge staged candidate records",
         "description": "Purges staging table for the job upon Phase 1 cancellation.",
         "operationId": "cancel_phase1_api_ingest_jobs__job_id__phase1_cancel_post",
@@ -4520,7 +4910,10 @@
     },
     "/api/ingest/jobs/{job_id}/phase2/commit": {
       "post": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Commit confirmed candidates to database pois table",
         "description": "Executes final database transaction committing accepted, child, and merged POIs.",
         "operationId": "commit_phase2_api_ingest_jobs__job_id__phase2_commit_post",
@@ -4594,7 +4987,10 @@
     },
     "/api/ingest/jobs/{job_id}/phase2/cancel": {
       "post": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Abort Phase 2 review and purge staged candidate records",
         "description": "Purges staging table for the job upon Phase 2 cancellation.",
         "operationId": "cancel_phase2_api_ingest_jobs__job_id__phase2_cancel_post",
@@ -4668,9 +5064,12 @@
     },
     "/api/ingest/jobs/{job_id}/phase2/enrich": {
       "post": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Queue background AI and web enrichment for active Phase 2 candidates",
-        "description": "Launches parallel background enrichment for Phase 2 candidates.",
+        "description": "Launches parallel background enrichment for Phase 2 candidates across 5 concurrent workers.",
         "operationId": "enrich_phase2_api_ingest_jobs__job_id__phase2_enrich_post",
         "parameters": [
           {
@@ -4742,7 +5141,10 @@
     },
     "/api/ingest/jobs/{job_id}/phase2/progress": {
       "get": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Poll real-time progress of Phase 2 AI and web enrichment",
         "description": "Retrieves real-time progress percentage and status of Phase 2 enrichment.",
         "operationId": "get_phase2_progress_api_ingest_jobs__job_id__phase2_progress_get",
@@ -4816,7 +5218,10 @@
     },
     "/api/ingest/jobs/{job_id}/phase2/back-to-phase1": {
       "post": {
-        "tags": ["ingest-staging", "ingest-staging"],
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
         "summary": "Revert candidate records from Phase 2 back to Phase 1 triage",
         "description": "Reverts candidates from Phase 2 to Phase 1.",
         "operationId": "back_to_phase1_api_ingest_jobs__job_id__phase2_back_to_phase1_post",
@@ -4888,9 +5293,341 @@
         }
       }
     },
+    "/api/ingest/jobs/{job_id}/candidates/{candidate_id}/enrich": {
+      "post": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Trigger targeted single-POI AI enrichment",
+        "description": "Enriches a single candidate on demand.",
+        "operationId": "enrich_single_candidate_api_ingest_jobs__job_id__candidates__candidate_id__enrich_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "candidate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Candidate Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateItemResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/enrich-all": {
+      "post": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Trigger asynchronous bulk AI enrichment for all eligible candidates",
+        "description": "Launches parallel background enrichment for eligible candidates.",
+        "operationId": "enrich_all_candidates_api_ingest_jobs__job_id__enrich_all_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Enrich All Candidates Api Ingest Jobs  Job Id  Enrich All Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/batch-edit": {
+      "post": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Batch update administrative location fields across selected candidates",
+        "description": "Updates location/date fields across multiple candidate rows.",
+        "operationId": "batch_edit_candidates_api_ingest_jobs__job_id__batch_edit_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchEditCandidatesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchEditResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/commit": {
+      "post": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Commit confirmed candidates to database pois table",
+        "description": "Commits accepted/sublocation/merged candidates to permanent PostGIS database.",
+        "operationId": "commit_workbench_job_api_ingest_jobs__job_id__commit_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/system/open-folder": {
       "post": {
-        "tags": ["system"],
+        "tags": [
+          "system"
+        ],
         "summary": "Open Folder Endpoint",
         "description": "Opens a local folder in the native OS file explorer (Windows Explorer, macOS Finder, Linux).",
         "operationId": "open_folder_endpoint_api_system_open_folder_post",
@@ -5000,7 +5737,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["has_active_session"],
+        "required": [
+          "has_active_session"
+        ],
         "title": "ActiveSessionResponse",
         "description": "Details of an active, uncommitted staging session for the current user."
       },
@@ -5068,9 +5807,89 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["country"],
+        "required": [
+          "country"
+        ],
         "title": "AddressRecord",
         "description": "Immutable structured address value object representing a geographic location."
+      },
+      "BatchEditCandidatesRequest": {
+        "properties": {
+          "candidate_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Candidate Ids"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "state_province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Province"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "date_visited": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Visited"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "candidate_ids"
+        ],
+        "title": "BatchEditCandidatesRequest",
+        "description": "Client payload for batch updating country, state/province, city, and date_visited across candidates."
+      },
+      "BatchEditResponse": {
+        "properties": {
+          "updated_count": {
+            "type": "integer",
+            "title": "Updated Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "updated_count"
+        ],
+        "title": "BatchEditResponse",
+        "description": "Result of batch editing candidate rows."
       },
       "Body_upload_csv_api_ingest_csv_post": {
         "properties": {
@@ -5104,10 +5923,24 @@
             ],
             "title": "Target List Name",
             "description": "Optional target list name to attach POIs to"
+          },
+          "column_mapping": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Mapping",
+            "description": "Optional JSON string of column mappings"
           }
         },
         "type": "object",
-        "required": ["file"],
+        "required": [
+          "file"
+        ],
         "title": "Body_upload_csv_api_ingest_csv_post"
       },
       "Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post": {
@@ -5181,7 +6014,9 @@
           }
         },
         "type": "object",
-        "required": ["file"],
+        "required": [
+          "file"
+        ],
         "title": "Body_upload_flexible_api_ingest_api_v1_ingest_upload_flexible_post"
       },
       "BulkAddressUpdatePayload": {
@@ -5252,7 +6087,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["poi_ids"],
+        "required": [
+          "poi_ids"
+        ],
         "title": "BulkDeleteRequest",
         "description": "Request payload for bulk deletion of POIs."
       },
@@ -5266,7 +6103,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["deleted_count"],
+        "required": [
+          "deleted_count"
+        ],
         "title": "BulkDeleteResponse",
         "description": "Response payload for bulk deletion."
       },
@@ -5387,7 +6226,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["poi_ids", "action", "payload"],
+        "required": [
+          "poi_ids",
+          "action",
+          "payload"
+        ],
         "title": "BulkEditRequest",
         "description": "Request payload for atomic bulk POI editing."
       },
@@ -5415,14 +6258,21 @@
           },
           "action": {
             "type": "string",
-            "enum": ["attach", "detach"],
+            "enum": [
+              "attach",
+              "detach"
+            ],
             "title": "Action",
             "description": "Action to perform: attach or detach"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["poi_ids", "list_ids", "action"],
+        "required": [
+          "poi_ids",
+          "list_ids",
+          "action"
+        ],
         "title": "BulkListsRequest",
         "description": "Request payload for bulk list membership association or disassociation."
       },
@@ -5436,7 +6286,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["modified_count"],
+        "required": [
+          "modified_count"
+        ],
         "title": "BulkOperationResponse",
         "description": "Response payload for bulk mutations."
       },
@@ -5464,14 +6316,21 @@
           },
           "action": {
             "type": "string",
-            "enum": ["attach", "detach"],
+            "enum": [
+              "attach",
+              "detach"
+            ],
             "title": "Action",
             "description": "Action to perform: attach or detach"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["poi_ids", "tag_ids", "action"],
+        "required": [
+          "poi_ids",
+          "tag_ids",
+          "action"
+        ],
         "title": "BulkTagsRequest",
         "description": "Request payload for bulk tag association or disassociation."
       },
@@ -5700,6 +6559,14 @@
             ],
             "title": "Wiki Url"
           },
+          "related_websites": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Related Websites"
+          },
           "hero_image_url": {
             "anyOf": [
               {
@@ -5757,6 +6624,78 @@
           "phase_state": {
             "$ref": "#/components/schemas/IngestCandidatePhaseState"
           },
+          "no_websites": {
+            "type": "boolean",
+            "title": "No Websites",
+            "default": false
+          },
+          "disposition_justification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition Justification"
+          },
+          "is_user_overridden": {
+            "type": "boolean",
+            "title": "Is User Overridden",
+            "default": false
+          },
+          "parent_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Candidate Id"
+          },
+          "parent_candidate_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Candidate Name"
+          },
+          "merge_target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Target Id"
+          },
+          "merge_target_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Target Name"
+          },
+          "is_duplicate": {
+            "type": "boolean",
+            "title": "Is Duplicate",
+            "default": false
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5805,7 +6744,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["job_id", "total_candidates"],
+        "required": [
+          "job_id",
+          "total_candidates"
+        ],
         "title": "CandidateListResponse",
         "description": "Collection response containing staged candidate items for an ingest job."
       },
@@ -6016,6 +6958,21 @@
             ],
             "title": "Wiki Url"
           },
+          "related_websites": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Related Websites"
+          },
           "hero_image_url": {
             "anyOf": [
               {
@@ -6081,6 +7038,63 @@
               }
             ],
             "title": "Is Skipped"
+          },
+          "no_websites": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Websites"
+          },
+          "disposition_justification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition Justification"
+          },
+          "is_user_overridden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is User Overridden"
+          },
+          "parent_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Candidate Id"
+          },
+          "merge_target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Target Id"
           }
         },
         "additionalProperties": false,
@@ -6096,10 +7110,12 @@
           },
           "total_active_hours": {
             "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Active Hours"
           },
           "threshold_hours": {
             "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Threshold Hours",
             "default": "10.00"
           },
@@ -6110,7 +7126,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["day_number", "total_active_hours", "message"],
+        "required": [
+          "day_number",
+          "total_active_hours",
+          "message"
+        ],
         "title": "CircuitBreakerWarning",
         "description": "Warning emitted when active daily exploration exceeds circuit breaker threshold."
       },
@@ -6148,7 +7168,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["job_id", "committed_count", "message"],
+        "required": [
+          "job_id",
+          "committed_count",
+          "message"
+        ],
         "title": "CommitSummaryResponse",
         "description": "Summary of committed POIs and database modifications upon completing Phase 2."
       },
@@ -6183,7 +7207,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["email", "confirmation_code"],
+        "required": [
+          "email",
+          "confirmation_code"
+        ],
         "title": "ConfirmSignUpRequest",
         "description": "Payload for confirming user signup via verification code."
       },
@@ -6208,7 +7235,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["confirmed", "user_id", "message"],
+        "required": [
+          "confirmed",
+          "user_id",
+          "message"
+        ],
         "title": "ConfirmSignUpResponse",
         "description": "Response returned upon successful account confirmation and provisioning."
       },
@@ -6230,7 +7261,10 @@
       },
       "DeduplicationPreset": {
         "type": "string",
-        "enum": ["urban", "macro"],
+        "enum": [
+          "urban",
+          "macro"
+        ],
         "title": "DeduplicationPreset",
         "description": "Proximity search preset for duplicate detection."
       },
@@ -6238,7 +7272,11 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["UNIQUE_LOCATION", "POTENTIAL_DUPLICATE", "NEARBY_PARENT"],
+            "enum": [
+              "UNIQUE_LOCATION",
+              "POTENTIAL_DUPLICATE",
+              "NEARBY_PARENT"
+            ],
             "title": "Status",
             "description": "Spatial triage classification"
           },
@@ -6295,7 +7333,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["macro", "medium", "micro"]
+                "enum": [
+                  "macro",
+                  "medium",
+                  "micro"
+                ]
               },
               {
                 "type": "null"
@@ -6306,7 +7348,11 @@
           },
           "recommended_action": {
             "type": "string",
-            "enum": ["proceed", "make_child", "abort"],
+            "enum": [
+              "proceed",
+              "make_child",
+              "abort"
+            ],
             "title": "Recommended Action",
             "description": "Recommended user triage workflow action",
             "default": "proceed"
@@ -6314,7 +7360,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["status"],
+        "required": [
+          "status"
+        ],
         "title": "DeduplicationVerdictSchema",
         "description": "Scale-aware duplicate and parent-child nesting triage verdict."
       },
@@ -6371,13 +7419,21 @@
       },
       "DuplicateTriageStatus": {
         "type": "string",
-        "enum": ["PENDING_REVIEW", "COMMITTED", "REJECTED"],
+        "enum": [
+          "PENDING_REVIEW",
+          "COMMITTED",
+          "REJECTED"
+        ],
         "title": "DuplicateTriageStatus",
         "description": "Review status for suspected duplicate POIs discovered during ingestion."
       },
       "EnrichmentStatus": {
         "type": "string",
-        "enum": ["SUCCESS", "PARTIAL", "FAILED"],
+        "enum": [
+          "SUCCESS",
+          "PARTIAL",
+          "FAILED"
+        ],
         "title": "EnrichmentStatus",
         "description": "Enrichment and geocoding resolution status."
       },
@@ -6397,7 +7453,10 @@
           }
         },
         "type": "object",
-        "required": ["latitude", "longitude"],
+        "required": [
+          "latitude",
+          "longitude"
+        ],
         "title": "ExclusionCheckRequest",
         "description": "Payload to check whether coordinates fall within an exclusion zone."
       },
@@ -6481,7 +7540,11 @@
           }
         },
         "type": "object",
-        "required": ["name", "latitude", "longitude"],
+        "required": [
+          "name",
+          "latitude",
+          "longitude"
+        ],
         "title": "ExclusionZoneCreateRequest",
         "description": "Payload to create a new geographic privacy exclusion zone."
       },
@@ -6691,7 +7754,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["source_url"],
+        "required": [
+          "source_url"
+        ],
         "title": "ExtractAndCheckRequest",
         "description": "Request payload for multi-source web extraction and deduplication triage."
       },
@@ -6728,13 +7793,19 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["candidate", "deduplication"],
+        "required": [
+          "candidate",
+          "deduplication"
+        ],
         "title": "ExtractAndCheckResponse",
         "description": "Comprehensive extraction candidate, tag recommendations, and duplicate verdict response."
       },
       "FilterConjunction": {
         "type": "string",
-        "enum": ["AND", "OR"],
+        "enum": [
+          "AND",
+          "OR"
+        ],
         "title": "FilterConjunction",
         "description": "Boolean conjunctions for joining query builder clauses."
       },
@@ -6778,7 +7849,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "FilterRuleCreateRequest",
         "description": "Payload to create a new named filter rule."
       },
@@ -6798,7 +7871,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["items", "total"],
+        "required": [
+          "items",
+          "total"
+        ],
         "title": "FilterRuleListResponse",
         "description": "List response containing filter rules for the current tenant."
       },
@@ -6873,7 +7949,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name", "query_tree", "table_config", "pin_color_scheme"],
+        "required": [
+          "name",
+          "query_tree",
+          "table_config",
+          "pin_color_scheme"
+        ],
         "title": "FilterRuleUpdateRequest",
         "description": "Payload to overwrite an existing filter rule."
       },
@@ -6888,7 +7969,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["email"],
+        "required": [
+          "email"
+        ],
         "title": "ForgotPasswordRequest",
         "description": "Payload to initiate a password reset code dispatch."
       },
@@ -6902,7 +7985,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["message"],
+        "required": [
+          "message"
+        ],
         "title": "ForgotPasswordResponse",
         "description": "Acknowledgement of password reset dispatch."
       },
@@ -7024,7 +8109,12 @@
       },
       "IngestCandidatePhaseState": {
         "type": "string",
-        "enum": ["phase_1_triage", "phase_2_enriched", "committed", "aborted"],
+        "enum": [
+          "phase_1_triage",
+          "phase_2_enriched",
+          "committed",
+          "aborted"
+        ],
         "title": "IngestCandidatePhaseState",
         "description": "Lifecycle stage of a staged candidate record."
       },
@@ -7035,6 +8125,7 @@
           "ignore",
           "update_existing",
           "sublocation",
+          "in_batch_merge",
           "exclude"
         ],
         "title": "IngestDisposition",
@@ -7147,7 +8238,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["job_id", "job_status", "total_rows", "message"],
+        "required": [
+          "job_id",
+          "job_status",
+          "total_rows",
+          "message"
+        ],
         "title": "IngestUploadResponse",
         "description": "Response returned upon accepting a bulk CSV upload."
       },
@@ -7166,7 +8262,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name", "reason"],
+        "required": [
+          "name",
+          "reason"
+        ],
         "title": "InvalidParam",
         "description": "Granular error breakdown for schema validation failures."
       },
@@ -7223,7 +8322,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["title", "destination", "start_date", "end_date"],
+        "required": [
+          "title",
+          "destination",
+          "start_date",
+          "end_date"
+        ],
         "title": "ItineraryCreate",
         "description": "Manual itinerary creation payload."
       },
@@ -7272,7 +8376,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["day_number", "calendar_date"],
+        "required": [
+          "day_number",
+          "calendar_date"
+        ],
         "title": "ItineraryDayCreate",
         "description": "Payload to create an itinerary day with items."
       },
@@ -7336,7 +8443,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["day_number", "calendar_date", "id", "itinerary_id"],
+        "required": [
+          "day_number",
+          "calendar_date",
+          "id",
+          "itinerary_id"
+        ],
         "title": "ItineraryDayResponse",
         "description": "Response payload for an itinerary day with populated items."
       },
@@ -7386,7 +8498,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["prompt", "destination", "start_date", "end_date"],
+        "required": [
+          "prompt",
+          "destination",
+          "start_date",
+          "end_date"
+        ],
         "title": "ItineraryGenerateRequest",
         "description": "Request payload for AI natural language prompt + PostGIS pgvector RAG itinerary generation."
       },
@@ -7456,7 +8573,8 @@
                 "minimum": 0.25
               },
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               }
             ],
             "title": "Duration Hours",
@@ -7530,7 +8648,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["title", "latitude", "longitude", "order_index"],
+        "required": [
+          "title",
+          "latitude",
+          "longitude",
+          "order_index"
+        ],
         "title": "ItineraryItemCreate",
         "description": "Payload to create an itinerary item."
       },
@@ -7578,7 +8701,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["item_id", "itinerary_day_id", "order_index"],
+        "required": [
+          "item_id",
+          "itinerary_day_id",
+          "order_index"
+        ],
         "title": "ItineraryItemReorderItem",
         "description": "Single item position specification in batch reorder."
       },
@@ -7594,7 +8721,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["items"],
+        "required": [
+          "items"
+        ],
         "title": "ItineraryItemReorderRequest",
         "description": "Batch reorder request across days and time slots."
       },
@@ -7658,6 +8787,7 @@
           },
           "duration_hours": {
             "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Duration Hours",
             "default": "1.00"
           },
@@ -7752,7 +8882,11 @@
       },
       "ItineraryItemSource": {
         "type": "string",
-        "enum": ["USER_SAVED", "AI_RECOMMENDED", "MANUAL"],
+        "enum": [
+          "USER_SAVED",
+          "AI_RECOMMENDED",
+          "MANUAL"
+        ],
         "title": "ItineraryItemSource",
         "description": "Source classification for scheduled itinerary items."
       },
@@ -7874,7 +9008,11 @@
       },
       "ItineraryStatus": {
         "type": "string",
-        "enum": ["draft", "confirmed", "archived"],
+        "enum": [
+          "draft",
+          "confirmed",
+          "archived"
+        ],
         "title": "ItineraryStatus",
         "description": "Itinerary state transition status."
       },
@@ -8081,7 +9219,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["job_id", "purged_count", "message"],
+        "required": [
+          "job_id",
+          "purged_count",
+          "message"
+        ],
         "title": "JobCancellationResponse",
         "description": "Acknowledgment payload upon aborting triage/review and purging staging records."
       },
@@ -8115,7 +9257,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["title"],
+        "required": [
+          "title"
+        ],
         "title": "ListCreateRequest",
         "description": "Request model for creating a curated list."
       },
@@ -8171,7 +9315,13 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "user_id", "title", "created_at", "updated_at"],
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "created_at",
+          "updated_at"
+        ],
         "title": "ListResponse",
         "description": "Curated list response model."
       },
@@ -8237,7 +9387,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "title": "LoginRequest",
         "description": "Payload for authenticating with credentials."
       },
@@ -8280,7 +9433,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["access_token", "id_token"],
+        "required": [
+          "access_token",
+          "id_token"
+        ],
         "title": "LoginResponse",
         "description": "Tokens returned upon successful login."
       },
@@ -8319,7 +9475,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["logged_out", "message"],
+        "required": [
+          "logged_out",
+          "message"
+        ],
         "title": "LogoutResponse",
         "description": "Acknowledgement of successful logout."
       },
@@ -8402,7 +9561,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["day_number", "meal_type", "gap_start", "gap_end"],
+        "required": [
+          "day_number",
+          "meal_type",
+          "gap_start",
+          "gap_end"
+        ],
         "title": "MissingMealAdvisory",
         "description": "Advisory emitted when lunch or dinner window lacks a meal."
       },
@@ -8414,7 +9578,9 @@
           }
         },
         "type": "object",
-        "required": ["path"],
+        "required": [
+          "path"
+        ],
         "title": "OpenFolderRequest"
       },
       "POICandidateSchema": {
@@ -8577,11 +9743,26 @@
             "type": "array",
             "title": "Extraction Sources",
             "description": "List of source domains consulted"
+          },
+          "related_websites": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Related Websites",
+            "description": "Structured related websites (e.g. Atlas Obscura, Tripadvisor, Wikipedia, Official)"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name", "description", "source_value"],
+        "required": [
+          "name",
+          "description",
+          "source_value"
+        ],
         "title": "POICandidateSchema",
         "description": "Normalized POI extraction candidate schema maintaining 1:1 parity with POI Editor."
       },
@@ -8885,7 +10066,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name", "lon", "lat"],
+        "required": [
+          "name",
+          "lon",
+          "lat"
+        ],
         "title": "POICreateRequest",
         "description": "Request payload for creating a new Point of Interest."
       },
@@ -8917,7 +10102,12 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["items", "total", "limit", "offset"],
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
         "title": "POIListResponse",
         "description": "Paginated collection of Point of Interest records."
       },
@@ -8944,7 +10134,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["query_tree"],
+        "required": [
+          "query_tree"
+        ],
         "title": "POIQueryRequest",
         "description": "Request payload for evaluated query builder AST search."
       },
@@ -9087,6 +10279,15 @@
             ],
             "title": "Wiki Url",
             "description": "Wikipedia or Wikidata reference"
+          },
+          "related_websites": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Related Websites",
+            "description": "Related external websites (name and url)"
           },
           "image_urls": {
             "items": {
@@ -9602,6 +10803,24 @@
             "title": "Wiki Url",
             "description": "Wikipedia URL"
           },
+          "related_websites": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Related Websites",
+            "description": "Array of related website objects with name and url"
+          },
           "directory_paths": {
             "anyOf": [
               {
@@ -9801,13 +11020,23 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["job_id", "message", "advanced_count", "ignored_count"],
+        "required": [
+          "job_id",
+          "message",
+          "advanced_count",
+          "ignored_count"
+        ],
         "title": "PhaseTransitionResponse",
         "description": "Acknowledgment payload upon advancing candidates from Phase 1 to Phase 2."
       },
       "PinColorMode": {
         "type": "string",
-        "enum": ["uniform", "rating", "visit_status", "custom"],
+        "enum": [
+          "uniform",
+          "rating",
+          "visit_status",
+          "custom"
+        ],
         "title": "PinColorMode",
         "description": "Map pin marker coloring schemes."
       },
@@ -9931,7 +11160,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["title", "status", "detail"],
+        "required": [
+          "title",
+          "status",
+          "detail"
+        ],
         "title": "ProblemDetails",
         "description": "RFC 7807 / RFC 9457 error representation envelope."
       },
@@ -10017,7 +11250,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "title": "RegisterRequest",
         "description": "Payload for user registration."
       },
@@ -10041,7 +11277,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["user_sub", "user_confirmed", "message"],
+        "required": [
+          "user_sub",
+          "user_confirmed",
+          "message"
+        ],
         "title": "RegisterResponse",
         "description": "Response returned upon successful registration."
       },
@@ -10069,7 +11309,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["email", "confirmation_code", "new_password"],
+        "required": [
+          "email",
+          "confirmation_code",
+          "new_password"
+        ],
         "title": "ResetPasswordRequest",
         "description": "Payload to complete password reset with received code."
       },
@@ -10083,7 +11327,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["message"],
+        "required": [
+          "message"
+        ],
         "title": "ResetPasswordResponse",
         "description": "Acknowledgement of successful password reset."
       },
@@ -10106,7 +11352,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["latitude", "longitude"],
+        "required": [
+          "latitude",
+          "longitude"
+        ],
         "title": "ReverseGeocodeRequest",
         "description": "Payload to reverse-geocode coordinates into a structured address."
       },
@@ -10134,7 +11383,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["field", "operator"],
+        "required": [
+          "field",
+          "operator"
+        ],
         "title": "RuleClauseSchema",
         "description": "Single condition rule in the query builder AST."
       },
@@ -10168,7 +11420,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["valid_scraping_domains"],
+        "required": [
+          "valid_scraping_domains"
+        ],
         "title": "ScrapingSourcesUpdateRequest",
         "description": "Payload to update the user's authorized secondary scraping domains."
       },
@@ -10189,19 +11443,30 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["list"],
+        "required": [
+          "list"
+        ],
         "title": "SharedListResponse",
         "description": "Public read-only curated list view containing member POIs."
       },
       "SortDirection": {
         "type": "string",
-        "enum": ["asc", "desc", "unsorted"],
+        "enum": [
+          "asc",
+          "desc",
+          "unsorted"
+        ],
         "title": "SortDirection",
         "description": "Table column sorting directions."
       },
       "SourceType": {
         "type": "string",
-        "enum": ["Web", "CSV", "Manual", "Photo"],
+        "enum": [
+          "Web",
+          "CSV",
+          "Manual",
+          "Photo"
+        ],
         "title": "SourceType",
         "description": "Source provenance of POI discovery or capture."
       },
@@ -10219,7 +11484,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["column"],
+        "required": [
+          "column"
+        ],
         "title": "TableColumnSortSchema",
         "description": "Table column sorting specification."
       },
@@ -10283,7 +11550,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "TagCreateRequest",
         "description": "Payload to create or register a new user-scoped tag."
       },
@@ -10397,7 +11666,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "name"],
+        "required": [
+          "id",
+          "name"
+        ],
         "title": "TagResponse",
         "description": "Detailed tag representation returned to clients."
       },
@@ -10413,7 +11685,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["row_number", "decision"],
+        "required": [
+          "row_number",
+          "decision"
+        ],
         "title": "TriageDecisionItem",
         "description": "User triage decision for an individual suspected duplicate row."
       },
@@ -10429,7 +11704,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["decisions"],
+        "required": [
+          "decisions"
+        ],
         "title": "TriageRequest",
         "description": "Batch payload containing duplicate triage decisions."
       },
@@ -10469,7 +11746,10 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["name", "slug"],
+        "required": [
+          "name",
+          "slug"
+        ],
         "title": "UserTagItemSchema",
         "description": "Configured user tag schema returned to extension."
       },
@@ -10506,12 +11786,20 @@
           }
         },
         "type": "object",
-        "required": ["loc", "msg", "type"],
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
         "title": "ValidationError"
       },
       "VisitState": {
         "type": "string",
-        "enum": ["not_visited", "visited_do_not_return", "visited_return"],
+        "enum": [
+          "not_visited",
+          "visited_do_not_return",
+          "visited_return"
+        ],
         "title": "VisitState",
         "description": "User visit status of a POI."
       },
@@ -10585,7 +11873,9 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["country"],
+        "required": [
+          "country"
+        ],
         "title": "ReverseGeocodeResponse",
         "description": "Response payload for reverse geocoding."
       },
@@ -10641,7 +11931,11 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["formatted_address", "country", "country_code"],
+        "required": [
+          "formatted_address",
+          "country",
+          "country_code"
+        ],
         "title": "ReverseGeocodeResponse",
         "description": "Structured reverse-geocoded address result."
       }

@@ -315,3 +315,86 @@ async def test_candidate_enricher_limits_tags_to_user_tags_library(mock_candidat
         assert result.tags == ["Historic", "Water"]
         assert "UnapprovedTag" not in result.tags
         assert "water" not in result.tags
+
+
+@pytest.mark.asyncio
+async def test_candidate_enricher_skips_scraping_when_no_websites_is_true(mock_candidate: IngestCandidate):
+    """Verifies that external website lookups are skipped when candidate.no_websites == True (FR-008, FR-015)."""
+    mock_candidate.no_websites = True
+    mock_candidate.description = "Already has description"
+    mock_candidate.reason_to_visit = "Already has rationale"
+    mock_candidate.estimated_visit_time_notes = "Already has duration notes"
+
+    mock_session = _build_mock_session()
+    mock_session_factory = MagicMock(return_value=mock_session)
+    mock_orchestrator = MagicMock()
+
+    enricher = CandidateEnricher(
+        session_factory=mock_session_factory,
+        orchestrator=mock_orchestrator,
+    )
+
+    with patch(
+        "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+    ) as MockCandidateRepo, patch(
+        "services.worker.candidate_enricher.WikipediaAdapter"
+    ) as MockWikiAdapter:
+        repo_instance = MagicMock()
+        repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
+        repo_instance.update_candidate = AsyncMock(side_effect=lambda u, c: c)
+        MockCandidateRepo.return_value = repo_instance
+
+        result = await enricher.enrich_candidate(
+            user_id=mock_candidate.user_id,
+            candidate_id=mock_candidate.id,
+            job_id=mock_candidate.job_id,
+        )
+
+        assert result is not None
+        assert result.no_websites is True
+        # Wikipedia adapter should not even be instantiated
+        MockWikiAdapter.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(mock_candidate: IngestCandidate):
+    """Verifies that candidate.no_websites is set to True when 0 sites are found during enrichment (FR-008, FR-015)."""
+    mock_candidate.no_websites = False
+    mock_candidate.official_url = None
+    mock_candidate.wiki_url = None
+    mock_candidate.description = "Has description"
+    mock_candidate.reason_to_visit = "Has rationale"
+    mock_candidate.estimated_visit_time_notes = "Has notes"
+
+    mock_session = _build_mock_session()
+    mock_session_factory = MagicMock(return_value=mock_session)
+    mock_orchestrator = MagicMock()
+
+    enricher = CandidateEnricher(
+        session_factory=mock_session_factory,
+        orchestrator=mock_orchestrator,
+    )
+
+    with patch(
+        "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+    ) as MockCandidateRepo, patch(
+        "services.worker.candidate_enricher.WikipediaAdapter"
+    ) as MockWikiAdapter:
+        repo_instance = MagicMock()
+        repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
+        repo_instance.update_candidate = AsyncMock(side_effect=lambda u, c: c)
+        MockCandidateRepo.return_value = repo_instance
+
+        wiki_instance = MagicMock()
+        wiki_instance.augment = AsyncMock(return_value={})  # 0 sites found
+        MockWikiAdapter.return_value = wiki_instance
+
+        result = await enricher.enrich_candidate(
+            user_id=mock_candidate.user_id,
+            candidate_id=mock_candidate.id,
+            job_id=mock_candidate.job_id,
+        )
+
+        assert result is not None
+        assert result.no_websites is True
+

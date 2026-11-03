@@ -16,6 +16,7 @@
 
 """Core domain models, value objects, and domain exceptions."""
 
+from vistarae_core.domain.enums import CandidateDisposition
 from vistarae_core.domain.entities import (
     POI,
     DuplicatePayloadItem,
@@ -75,6 +76,7 @@ from vistarae_core.domain.value_objects import (
 )
 
 __all__ = [
+    "CandidateDisposition",
     "AccountDisabledError",
     "AddressRecord",
     "BoundingBox",

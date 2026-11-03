@@ -15,6 +15,10 @@ import { exportPhase1Candidates, type ExportFormat } from "../../services/export
 //
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * @deprecated Superseded by CSVImportWorkbenchModal.tsx in 014-unified-import-staging-workbench.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import { Modal } from "../common/Modal";

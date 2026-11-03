@@ -166,12 +166,14 @@ def _build_aligned_addresses(
 def parse_and_sanitize_csv(  # noqa: C901
     file_bytes: bytes,
     content_type: str | None = None,
+    column_mapping: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Validates, parses, and sanitizes uploaded CSV content.
 
     Args:
         file_bytes: Raw binary content of the uploaded CSV.
         content_type: Optional MIME type from multipart header.
+        column_mapping: Optional user-provided mapping of CSV column names to Vistarae fields.
 
     Returns:
         List of dicts: [{'absolute_row_number': int, 'row_data': dict[str, Any]}].
@@ -228,8 +230,13 @@ def parse_and_sanitize_csv(  # noqa: C901
         if header_row is None:
             header_row = [h.strip().lower() for h in raw_row]
             name_aliases = {"name", "poi name", "poi_name"}
-            if not any(alias in header_row for alias in name_aliases):
-                raise InvalidCSVHeaderError(missing_headers=["name"])
+            effective_headers = set(header_row)
+            if column_mapping:
+                for src_col, target_field in column_mapping.items():
+                    if src_col.strip().lower() in header_row:
+                        effective_headers.add(target_field.strip().lower())
+            if not any(alias in effective_headers for alias in name_aliases):
+                raise InvalidCSVHeaderError(missing_headers=["name"], found_headers=header_row)
             continue
 
         # Data row
@@ -240,7 +247,12 @@ def parse_and_sanitize_csv(  # noqa: C901
         for idx, col_name in enumerate(header_row):
             cell_val = raw_row[idx] if idx < len(raw_row) else ""
             sanitized = sanitize_text_field(cell_val)
-            target_key = _COLUMN_MAPPINGS.get(col_name, col_name)
+            target_key = None
+            if column_mapping:
+                target_key = column_mapping.get(col_name) or column_mapping.get(col_name.lower())
+            if not target_key:
+                target_key = _COLUMN_MAPPINGS.get(col_name, col_name)
+
             if target_key in ("description", "reason_to_visit") and len(sanitized) > 4000:
                 sanitized = sanitized[:4000]
             raw_dict[target_key] = sanitized

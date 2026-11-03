@@ -229,5 +229,123 @@ describe("CSVUploadModal", () => {
       expect(onJobCreated).toHaveBeenCalledWith("job-new-999");
     });
   });
+
+  it("opens column mapping modal when CSV lacks name column, allowing user to map and submit", async () => {
+    (apiFetch as any).mockImplementation(async (url: string) => {
+      if (url === "/api/lists") return [];
+      if (url === "/api/ingest/active-session") {
+        return { has_active_session: false, job_id: null };
+      }
+      if (url === "/api/ingest/upload") {
+        return { job_id: "job-mapped-123" };
+      }
+      return {};
+    });
+
+    const onJobCreated = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <ToastProvider>
+        <CSVUploadModal
+          isOpen={true}
+          onClose={onClose}
+          onJobCreated={onJobCreated}
+        />
+      </ToastProvider>,
+    );
+
+    // Select file with unmapped headers (missing "name")
+    const csvContent = "Site,Locality,Notes\nMachu Picchu,Cusco,Inca Citadel";
+    const file = new File([csvContent], "peru_sites.csv", { type: "text/csv" });
+    file.text = async () => csvContent;
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText("peru_sites.csv")).toBeInTheDocument();
+      expect(screen.getByTestId("btn-open-mapping-preview")).toBeInTheDocument();
+    });
+
+    // Click Start Ingestion -> should trigger column mapping modal because name is missing
+    const startBtn = screen.getByRole("button", { name: /start ingestion/i });
+    fireEvent.click(startBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("column-mapping-modal")).toBeInTheDocument();
+      expect(screen.getByText("Map Travel Point Columns")).toBeInTheDocument();
+      expect(screen.getByTestId("select-mapping-Site")).toBeInTheDocument();
+    });
+
+    // Site is auto-suggested to poi_name; click Apply Mapping & Import
+    const applyBtn = screen.getByTestId("apply-column-mapping-btn");
+    fireEvent.click(applyBtn);
+
+    await waitFor(() => {
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/api/ingest/upload",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.any(FormData),
+        }),
+      );
+      expect(onJobCreated).toHaveBeenCalledWith("job-mapped-123");
+    });
+  });
+
+  it("displays 'Map Columns & Continue' in error banner when upload fails with Invalid CSV Header", async () => {
+    (apiFetch as any).mockImplementation(async (url: string) => {
+      if (url === "/api/lists") return [];
+      if (url === "/api/ingest/active-session") {
+        return { has_active_session: false, job_id: null };
+      }
+      if (url === "/api/ingest/upload") {
+        const err: any = new Error("CSV header validation failed: missing required column(s) ['name'].");
+        err.problem = {
+          title: "Invalid CSV Header",
+          detail: "CSV header validation failed: missing required column(s) ['name'].",
+          found_headers: ["wonders", "locality", "notes"],
+          missing_headers: ["name"],
+        };
+        throw err;
+      }
+      return {};
+    });
+
+    render(
+      <ToastProvider>
+        <CSVUploadModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onJobCreated={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    const csvContent = "wonders,locality,notes\nTaj Mahal,Agra,Mausoleum";
+    const file = new File([csvContent], "monuments.csv", { type: "text/csv" });
+    file.text = async () => csvContent;
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const startBtn = screen.getByRole("button", { name: /start ingestion/i });
+    fireEvent.click(startBtn);
+
+    // Error banner should display Map Columns & Continue button
+    await waitFor(() => {
+      expect(screen.getByText("Invalid CSV Header")).toBeInTheDocument();
+      expect(screen.getByTestId("open-column-mapping-btn")).toBeInTheDocument();
+    });
+
+    // Clicking button opens the Column Mapping modal
+    const openMappingBtn = screen.getByTestId("open-column-mapping-btn");
+    fireEvent.click(openMappingBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("column-mapping-modal")).toBeInTheDocument();
+    });
+  });
 });
 

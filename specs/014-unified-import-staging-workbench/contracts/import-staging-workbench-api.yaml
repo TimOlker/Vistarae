@@ -1,0 +1,331 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Unified Import Staging Workbench API
+  version: 1.0.0
+  description: API contract for the unified single-stage POI import, triage, targeted AI enrichment, and commit engine.
+
+paths:
+  /api/ingest/active-session:
+    get:
+      summary: Retrieve current active uncommitted staging session
+      operationId: getActiveStagingSession
+      tags: [Ingest Workbench]
+      responses:
+        '200':
+          description: Active staging job found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestStagingJobResponse'
+        '204':
+          description: No active uncommitted staging session exists
+
+  /api/ingest/jobs/{job_id}/candidates:
+    get:
+      summary: List staging candidates for the active job
+      operationId: listStagingCandidates
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: disposition
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: completeness
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, complete, incomplete, missing_photo, missing_location, missing_websites]
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Candidate list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IngestCandidateResponse'
+
+  /api/ingest/jobs/{job_id}/candidates/{candidate_id}:
+    put:
+      summary: Update a staging candidate record
+      operationId: updateStagingCandidate
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateUpdateRequest'
+      responses:
+        '200':
+          description: Candidate updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestCandidateResponse'
+        '422':
+          description: Validation error (e.g. Sublocation without parent or circular hierarchy)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/ingest/jobs/{job_id}/candidates/{candidate_id}/enrich:
+    post:
+      summary: Trigger targeted single-POI AI enrichment
+      operationId: enrichSingleCandidate
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Single candidate enriched with missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestCandidateResponse'
+
+  /api/ingest/jobs/{job_id}/enrich-all:
+    post:
+      summary: Trigger asynchronous bulk AI enrichment for all eligible candidates
+      operationId: enrichAllCandidates
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Batch enrichment enqueued in background
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string, format: uuid }
+                  status: { type: string, example: "enriching" }
+                  enqueued_candidates: { type: integer, example: 42 }
+
+  /api/ingest/jobs/{job_id}/batch-edit:
+    post:
+      summary: Batch update administrative location fields across selected candidates
+      operationId: batchEditCandidates
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchEditCandidatesRequest'
+      responses:
+        '200':
+          description: Candidates updated in batch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer, example: 15 }
+
+  /api/ingest/jobs/{job_id}/commit:
+    post:
+      summary: Commit accepted staging candidates to permanent PostGIS database
+      operationId: commitStagingJob
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Candidates committed and staging session cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  committed_pois: { type: integer, example: 38 }
+                  merged_candidates: { type: integer, example: 4 }
+                  sublocations_linked: { type: integer, example: 2 }
+                  skipped_candidates: { type: integer, example: 5 }
+
+  /api/ingest/jobs/{job_id}:
+    delete:
+      summary: Discard staging job and delete all staging records
+      operationId: discardStagingJob
+      tags: [Ingest Workbench]
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Staging job discarded
+
+components:
+  schemas:
+    IngestStagingJobResponse:
+      type: object
+      required: [id, user_id, filename, total_rows, candidate_count, status]
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        filename: { type: string }
+        total_rows: { type: integer }
+        candidate_count: { type: integer }
+        status: { type: string, enum: [staged, enriching, committed, discarded] }
+
+    IngestCandidateResponse:
+      type: object
+      required: [id, job_id, row_index, poi_name, disposition, no_websites]
+      properties:
+        id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        row_index: { type: integer }
+        poi_name: { type: string }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        street_address: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state_province: { type: string, nullable: true }
+        country: { type: string, nullable: true }
+        hero_image_url: { type: string, nullable: true }
+        related_websites:
+          type: array
+          items:
+            type: object
+            required: [name, url]
+            properties:
+              name: { type: string }
+              url: { type: string, format: uri }
+        no_websites: { type: boolean }
+        recommended_duration_hours: { type: number, nullable: true }
+        recommended_visit_days: { type: integer, nullable: true }
+        estimated_visit_time_notes: { type: string, nullable: true }
+        tags: { type: array, items: { type: string } }
+        description: { type: string, nullable: true }
+        reason_to_visit: { type: string, nullable: true }
+        disposition:
+          type: string
+          enum: [accept, sublocation, in_batch_merge, update_existing, exclude, ignore]
+        disposition_justification: { type: string, nullable: true }
+        is_user_overridden: { type: boolean }
+        parent_poi_id: { type: string, format: uuid, nullable: true }
+        parent_candidate_id: { type: string, format: uuid, nullable: true }
+        merge_target_id: { type: string, format: uuid, nullable: true }
+        confidence_score: { type: number }
+        is_duplicate: { type: boolean }
+
+    CandidateUpdateRequest:
+      type: object
+      properties:
+        poi_name: { type: string }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        street_address: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state_province: { type: string, nullable: true }
+        country: { type: string, nullable: true }
+        hero_image_url: { type: string, nullable: true }
+        related_websites:
+          type: array
+          items:
+            type: object
+            required: [name, url]
+            properties:
+              name: { type: string }
+              url: { type: string }
+        no_websites: { type: boolean }
+        recommended_duration_hours: { type: number, nullable: true }
+        recommended_visit_days: { type: integer, nullable: true }
+        estimated_visit_time_notes: { type: string, nullable: true }
+        tags: { type: array, items: { type: string } }
+        description: { type: string, nullable: true }
+        reason_to_visit: { type: string, nullable: true }
+        disposition: { type: string, enum: [accept, sublocation, in_batch_merge, update_existing, exclude, ignore] }
+        parent_poi_id: { type: string, format: uuid, nullable: true }
+        parent_candidate_id: { type: string, format: uuid, nullable: true }
+        merge_target_id: { type: string, format: uuid, nullable: true }
+
+    BatchEditCandidatesRequest:
+      type: object
+      required: [candidate_ids]
+      properties:
+        candidate_ids:
+          type: array
+          items: { type: string, format: uuid }
+        country: { type: string, nullable: true }
+        state_province: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        date_visited: { type: string, format: date, nullable: true }
+
+    ProblemDetails:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri, nullable: true }
+        invalid_params:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              reason: { type: string }
+

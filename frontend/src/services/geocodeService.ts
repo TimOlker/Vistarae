@@ -107,13 +107,14 @@ export async function forwardSearch(
 
   const endpoint = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
     query.trim(),
-  )}&limit=${limit}&addressdetails=1`;
+  )}&limit=${limit}&addressdetails=1&accept-language=en`;
 
   try {
     const res = await fetch(endpoint, {
       signal,
       headers: {
         Accept: "application/json",
+        "Accept-Language": "en",
       },
     });
 

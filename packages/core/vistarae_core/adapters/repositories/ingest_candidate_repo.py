@@ -80,6 +80,11 @@ def _row_to_entity(row: IngestCandidateTable) -> IngestCandidate:
         update_coordinates=row.update_coordinates,
         is_skipped=row.is_skipped,
         phase_state=IngestCandidatePhaseState(row.phase_state),
+        no_websites=bool(row.no_websites),
+        disposition_justification=row.disposition_justification,
+        is_user_overridden=bool(row.is_user_overridden),
+        parent_candidate_id=row.parent_candidate_id,
+        merge_target_id=row.merge_target_id,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -154,6 +159,11 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
                 update_coordinates=cand.update_coordinates,
                 is_skipped=cand.is_skipped,
                 phase_state=cand.phase_state.value,
+                no_websites=cand.no_websites,
+                disposition_justification=cand.disposition_justification,
+                is_user_overridden=cand.is_user_overridden,
+                parent_candidate_id=cand.parent_candidate_id,
+                merge_target_id=cand.merge_target_id,
                 created_at=cand.created_at,
                 updated_at=cand.updated_at,
             )
@@ -282,6 +292,11 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         row.update_coordinates = candidate.update_coordinates
         row.is_skipped = candidate.is_skipped
         row.phase_state = candidate.phase_state.value
+        row.no_websites = candidate.no_websites
+        row.disposition_justification = candidate.disposition_justification
+        row.is_user_overridden = candidate.is_user_overridden
+        row.parent_candidate_id = candidate.parent_candidate_id
+        row.merge_target_id = candidate.merge_target_id
         row.updated_at = datetime.now(UTC)
 
         if candidate.latitude is not None and candidate.longitude is not None:
@@ -460,6 +475,42 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
             effective_state = IngestCandidatePhaseState.PHASE_1_TRIAGE
 
         return (job_id, effective_state, total_count, created_at)
+
+    async def batch_edit(
+        self,
+        user_id: UUID,
+        candidate_ids: Sequence[UUID],
+        country: str | None = None,
+        state_province: str | None = None,
+        city: str | None = None,
+        date_visited: str | None = None,
+    ) -> int:
+        """Batch updates location and date visited fields for selected candidates."""
+        if not candidate_ids:
+            return 0
+
+        stmt = select(IngestCandidateTable).where(
+            IngestCandidateTable.user_id == user_id,
+            IngestCandidateTable.id.in_(candidate_ids),
+        )
+        res = await self._session.execute(stmt)
+        rows = list(res.scalars())
+        for row in rows:
+            if country is not None:
+                row.country = country
+            if state_province is not None:
+                row.state_province = state_province
+            if city is not None:
+                row.city = city
+            if date_visited:
+                current_dates = list(row.dates_visited or [])
+                if date_visited not in current_dates:
+                    current_dates.append(date_visited)
+                row.dates_visited = current_dates
+            row.updated_at = datetime.now(UTC)
+
+        await self._session.flush()
+        return len(rows)
 
     async def purge_active_sessions(
         self,

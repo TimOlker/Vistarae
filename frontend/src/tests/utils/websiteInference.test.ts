@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from "vitest";
-import { inferWebsiteName, KNOWN_DOMAIN_NAMES } from "../../utils/websiteInference";
+import { inferWebsiteName } from "../../utils/websiteInference";
 
 describe("websiteInference", () => {
   it("resolves known domains to human-readable names", () => {

@@ -53,27 +53,32 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
   const [job, setJob] = useState<IngestJobStatus | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [pollError, setPollError] = useState<string | null>(null);
+  const [isPermanentlyFailed, setIsPermanentlyFailed] = useState(false);
 
   // Timer: Track elapsed seconds while modal is open
   useEffect(() => {
     if (!isOpen || !jobId) {
       setElapsedSeconds(0);
       setPollError(null);
+      setIsPermanentlyFailed(false);
       return;
     }
+
+    if (isPermanentlyFailed) return;
 
     const timer = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isOpen, jobId]);
+  }, [isOpen, jobId, isPermanentlyFailed]);
 
   // Polling loop for job status
   useEffect(() => {
-    if (!isOpen || !jobId) return;
+    if (!isOpen || !jobId || isPermanentlyFailed) return;
 
     let isMounted = true;
+    let notFoundCount = 0;
 
     const pollJob = async () => {
       try {
@@ -81,6 +86,7 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
           `/api/ingest/jobs/${jobId}`,
         );
         if (!isMounted) return;
+        notFoundCount = 0;
         setJob(res);
         setPollError(null);
 
@@ -101,8 +107,18 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
         }
       } catch (err: unknown) {
         if (!isMounted) return;
-        const errObj = err as { message?: string; problem?: { detail?: string } };
+        const errObj = err as { message?: string; problem?: { detail?: string; status?: number } };
         const msg = errObj.problem?.detail || errObj.message || "Unable to reach ingestion service";
+        
+        if (errObj.problem?.status === 404 || msg.toLowerCase().includes("not found")) {
+          notFoundCount += 1;
+          if (notFoundCount >= 4) {
+            setIsPermanentlyFailed(true);
+            setPollError(`Ingestion job ${jobId} was not found on the server. The upload transaction may have failed or rolled back.`);
+            return;
+          }
+        }
+
         setPollError(msg);
         console.error("Error polling ingest job:", err);
       }
@@ -115,7 +131,7 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [isOpen, jobId, onOpenTriage, onJobComplete, onClose]);
+  }, [isOpen, jobId, isPermanentlyFailed, onOpenTriage, onJobComplete, onClose]);
 
   if (!isOpen || !jobId) return null;
 
@@ -260,7 +276,14 @@ export const CSVProgressModal: React.FC<CSVProgressModalProps> = ({
               fontSize: "12px",
             }}
           >
-            Connection warning: {pollError}. Retrying...
+            {isPermanentlyFailed ? (
+              <div>
+                <strong>Job Error: </strong>
+                {pollError}
+              </div>
+            ) : (
+              <div>Connection warning: {pollError}. Retrying...</div>
+            )}
           </div>
         )}
 
