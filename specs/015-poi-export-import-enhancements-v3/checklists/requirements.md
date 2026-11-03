@@ -34,3 +34,4 @@
 - Strict EARS requirement patterns applied across all 20 functional requirements (`Ubiquitous`, `Event-Driven`, `State-Driven`).
 - International ISO 3166-1 alpha-2 administrative tiers with English negotiation and fallbacks verified against urban, remote, city-state, and UK test cases.
 - Specification is complete and ready for planning (`/speckit-plan`).
+

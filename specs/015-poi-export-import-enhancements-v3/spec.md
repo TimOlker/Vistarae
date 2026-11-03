@@ -8,6 +8,14 @@
 
 **Input**: User description: "Unified POI Import Staging Workbench: Replace the split Phase 1 (Triage) and Phase 2 (Enrichment Review) modal workflow with a single, unified Import Staging Workbench using strict EARS syntax. Enhancement: (015-poi-export-import-enhancements-v3)"
 
+## Clarifications
+
+### Session 2026-11-02
+
+- Q: When a traveler moves the map pin or clicks to relocate a candidate's coordinates, should the system automatically re-reverse-geocode the address fields, or should it preserve current address fields and offer an explicit re-sync option? (FR-010) → A: Option A: Update coordinates immediately on pin movement and display a non-destructive "Re-sync Address from Pin" button to update address fields on demand.
+- Q: When two or more staged candidates are merged via in_batch_merge, how should their tags, dates visited, local photo directories, and related websites be combined upon database commit? (FR-008) → A: Option A: Additive union merge: combine all visit dates, tags, photo directories, and website pairs as deduplicated unions into the surviving target POI upon commit.
+- Q: Can travelers create and attach brand-new tags directly within the workbench, or is tag selection strictly constrained to existing tags in the account Tag Library? (FR-015) → A: Option B: Strict library selection: travelers can only select existing tags from their account Tag Library; new tags cannot be created ad-hoc within the workbench and must be created in account settings.
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Unified Staging Workbench Inspection & Perspective Sorting (Priority: P1)
@@ -56,7 +64,7 @@ As a traveler reviewing staged candidates, I want an interactive map for each ca
 **Acceptance Scenarios**:
 
 1. **Given** a candidate with latitude and longitude, **When** selected in the detail pane, **Then** the detail editor shall render an interactive map centered on the candidate with a prominent primary pin.
-2. **Given** the interactive map is rendered, **When** the traveler drags the primary pin or clicks a new location on the map, **Then** the latitude and longitude input fields shall update immediately to reflect the new coordinates.
+2. **Given** the interactive map is rendered, **When** the traveler drags the primary pin or clicks a new location on the map, **Then** the latitude and longitude input fields shall update immediately to reflect the new coordinates, and the editor shall present a non-destructive "Re-sync Address from Pin" button allowing the traveler to on-demand reverse-geocode and refresh address fields without destructive automatic overwrites.
 3. **Given** the candidate is displayed on the map, **When** the traveler adjusts the "Nearby Search Radius" slider (e.g. from 1 mi to 10 mi), **Then** the map shall dynamically plot markers for all nearby points from both the existing database and the staged import batch (excluding records marked as ignore or exclude) located within that radius, and display the total count in a nearby points badge.
 
 ---
@@ -73,10 +81,10 @@ As a traveler enriching my captured POIs, I want to manage dynamic website pairs
 
 1. **Given** a candidate with a hero photo URL, **When** displayed in the detail editor, **Then** the editor shall render an uncropped photo preview directly below the URL input.
 2. **Given** a candidate's related websites section, **When** the traveler clicks "Add Website", **Then** the system shall add the `{ name, url }` pair to the candidate; **When** the traveler clicks "Delete" on a website pair, **Then** the system shall prompt the traveler for confirmation (`"Are you sure you want to remove this website?"`) and remove it only upon confirmation.
-3. **Given** the traveler has vetted tags in their account "Tags Library", **When** viewing the detail editor, **Then** the system shall render clickable chip pills for each library tag, showing tags active on the candidate as selected and unassociated tags as unselected, toggling selection upon click.
+3. **Given** the traveler has vetted tags in their account "Tags Library", **When** viewing the detail editor, **Then** the system shall render clickable chip pills exclusively for tags present in the account library, showing tags active on the candidate as selected and unassociated tags as unselected, toggling selection upon click without permitting ad-hoc unvetted tag creation in the workbench.
 4. **Given** a candidate's local photo directories, **When** the traveler adds a folder path or removes an existing directory, **Then** the system shall update the candidate's `photo_directories` array and persist the change upon save.
 5. **Given** a candidate's assigned disposition, **When** rendered in the detail editor, **Then** the editor shall display a readonly text box containing the disposition and text rationale, with a confidence score badge color-coded by tier ($\ge 90\%$ green, $80\text{–}89\%$ lime, $70\text{–}79\%$ yellow, $< 70\%$ orange/red).
-6. **Given** an "in_batch_merge" disposition, **When** active on the candidate, **Then** the editor shall display the target candidate being merged into and provide a dropdown to select or change the target merge record.
+6. **Given** an "in_batch_merge" disposition, **When** active on the candidate, **Then** the editor shall display the target candidate being merged into, provide a dropdown to select or change the target merge record, and upon database commit, combine all visit dates, tags, photo directories, and website pairs as deduplicated unions into the surviving target POI.
 
 ---
 
@@ -123,14 +131,14 @@ As a traveler executing AI enrichment across a batch of candidates, I want the e
   - In "Location" mode, the table shall present columns `[Select, Status, Photo, Country, State/Province, City/Town, POI Name, Completeness, Disposition]` sorted geographically by country, state/province, and city/town.
   - POI Name shall always be rendered in bold font.
 - **FR-007**: _Event-Driven_: When the traveler clicks any table column header, the workbench shall sort candidates by that column, overriding the perspective's default sort while maintaining active column order.
-- **FR-008**: _State-Driven_: While candidate disposition is set to `in_batch_merge`, the detail editor shall display a merge target card indicating the selected merge target row index and name, and provide a dropdown selector to choose another candidate in the current batch.
+- **FR-008**: _State-Driven_: While candidate disposition is set to `in_batch_merge`, the detail editor shall display a merge target card indicating the selected merge target row index and name, and provide a dropdown selector to choose another candidate in the current batch; upon database commit, the ingestion engine shall execute an additive deduplicated union merge across dates visited, tags, photo directories, and related website pairs into the surviving target POI record.
 - **FR-009**: _State-Driven_: While a candidate has a valid hero photo URL, the detail editor shall display an uncropped image preview directly beneath the URL input.
-- **FR-010**: _Ubiquitous_: The detail editor shall embed an interactive map displaying the candidate's coordinates with a draggable pin and click-to-relocate handler that updates `latitude` and `longitude` inputs reactively.
+- **FR-010**: _Ubiquitous_: The detail editor shall embed an interactive map displaying the candidate's coordinates with a draggable pin and click-to-relocate handler that updates `latitude` and `longitude` inputs reactively, while providing a non-destructive "Re-sync Address from Pin" action allowing travelers to reverse-geocode and refresh administrative address tiers on demand.
 - **FR-011**: _State-Driven_: While viewing the candidate map, the system shall plot nearby POIs from both the user's database and the active batch (excluding ignored or excluded records) located within the distance range of the "Nearby Search Radius" slider, displaying a reactive count badge.
 - **FR-012**: _Ubiquitous_: The detail editor shall display related websites as dynamic `{ name, url }` pairs with "Add Website" and "Delete" actions.
 - **FR-013**: _Event-Driven_: When the traveler clicks the delete action on a website pair, the interface shall prompt the traveler for confirmation (`"Are you sure you want to remove this website?"`) before removing the record.
 - **FR-014**: _State-Driven_: While candidate websites count is $\ge 1$ or the "No Websites" checkbox is checked, the AI enrichment worker shall skip external website lookup; if website count is 0 and "No Websites" is unchecked, the worker shall query external sources and automatically set `no_websites = True` if no websites are found.
-- **FR-015**: _Ubiquitous_: The detail editor shall display all tags defined in the traveler's account Tag Library (`/api/tags`) as interactive chip pills, highlighting active tags as selected and toggling tag assignment upon click.
+- **FR-015**: _Ubiquitous_: The detail editor shall display all tags defined in the traveler's account Tag Library (`/api/tags`) as interactive chip pills, highlighting active tags as selected and toggling tag assignment upon click; the workbench shall restrict tag assignment strictly to existing vetted tags in the account Tag Library without inline ad-hoc creation.
 - **FR-016**: _Ubiquitous_: The detail editor shall render associated local photo directories with actions to add directory paths and delete existing directory references.
 - **FR-017**: _Ubiquitous_: The detail editor shall provide a dedicated multiline textarea for "Reason to Visit" experiential rationale.
 - **FR-018**: _Ubiquitous_: The detail editor shall render a readonly textarea displaying the assigned disposition and justification rationale, labeled with a confidence score badge color-coded by threshold ($\ge 90\%$ green, $80\text{–}89\%$ lime, $70\text{–}79\%$ yellow, $< 70\%$ orange/red).
@@ -168,3 +176,4 @@ As a traveler executing AI enrichment across a batch of candidates, I want the e
 - **English Language Availability in Nominatim**: OSM Nominatim provides English name aliases for major international landmarks; where English names are absent, Nominatim returns canonical names or standard Latin transliterations.
 - **Map Tile Source**: Interactive map rendering in the staging workbench utilizes MapLibre GL with vector or raster base tiles configured in the frontend environment.
 - **Browser File Directory Access**: Local photo directory picking relies on standard browser file directory picker APIs (`webkitdirectory` / Directory Picker) where supported, with manual path entry fallback.
+
