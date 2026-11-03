@@ -83,6 +83,12 @@ class POIResponse(StrictBaseModel):
     )
     address: str | None = Field(default=None, description="Geocoded street address")
     city: str | None = Field(default=None, description="City or municipality")
+    country_code: str = Field(default="US", description="ISO 3166-1 alpha-2 country code")
+    admin_level_1: str | None = Field(default=None, description="State, province, or primary division")
+    admin_level_2: str | None = Field(default=None, description="County, district, or secondary division")
+    locality: str | None = Field(default=None, description="City, town, or locality")
+    raw_geocoding: dict[str, Any] | None = Field(default=None, description="Full raw provider geocoding response")
+    photo_directories: list[str] = Field(default_factory=list, description="Array of local photo directories")
     states: list[str] = Field(
         default_factory=list,
         description="Administrative subdivisions or states spanned by POI",
@@ -96,7 +102,6 @@ class POIResponse(StrictBaseModel):
     )
     official_url: str | None = Field(default=None, description="Official entity website")
     wiki_url: str | None = Field(default=None, description="Wikipedia or Wikidata reference")
-    related_websites: list[dict[str, Any]] | None = Field(default=None, description="Related external websites (name and url)")
     related_websites: list[dict[str, Any]] = Field(default_factory=list, description="Related external websites (name and url)")
     image_urls: list[str] = Field(default_factory=list, description="Array of image URLs")
     directory_paths: list[str] = Field(
@@ -189,6 +194,18 @@ class POICreateRequest(StrictBaseModel):
     )
     address: str | None = Field(default=None, max_length=500, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
+    country_code: str | None = Field(default=None, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    locality: str | None = Field(default=None, max_length=150, description="City or locality")
+    related_websites: list[dict[str, Any]] | None = Field(
+        default=None, description="Related external websites"
+    )
+    photo_directories: list[str] | None = Field(
+        default=None, description="Associated local photo directories"
+    )
+    raw_geocoding: dict[str, Any] | None = Field(default=None, description="Raw geocoding response")
+    photo_directories: list[str] | None = Field(default=None, description="Photo directories")
     states: list[str] | None = Field(
         default=None,
         description="Array of states or provinces spanned by the POI",
@@ -206,6 +223,12 @@ class POICreateRequest(StrictBaseModel):
     official_url: str | None = Field(default=None, description="Official website URL")
     wiki_url: str | None = Field(default=None, description="Wikipedia URL")
     image_urls: list[str] = Field(default_factory=list, description="Image URLs")
+    related_websites: list[dict[str, Any]] = Field(
+        default_factory=list, description="Related external websites"
+    )
+    photo_directories: list[str] = Field(
+        default_factory=list, description="Associated local photo directories"
+    )
     tag_names: list[str] = Field(default_factory=list, description="Initial tag names to attach")
     visit_state: VisitState = Field(
         default=VisitState.NOT_VISITED, description="Visit tracking state"
@@ -263,6 +286,18 @@ class POIUpdateRequest(StrictBaseModel):
     )
     address: str | None = Field(default=None, max_length=500, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
+    country_code: str | None = Field(default=None, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    locality: str | None = Field(default=None, max_length=150, description="City or locality")
+    related_websites: list[dict[str, Any]] | None = Field(
+        default=None, description="Related external websites"
+    )
+    photo_directories: list[str] | None = Field(
+        default=None, description="Associated local photo directories"
+    )
+    raw_geocoding: dict[str, Any] | None = Field(default=None, description="Raw geocoding response")
+    photo_directories: list[str] | None = Field(default=None, description="Photo directories")
     states: list[str] | None = Field(
         default=None, description="Array of states or provinces spanned by the POI"
     )
@@ -378,6 +413,17 @@ class ReverseGeocodeResponse(StrictBaseModel):
         ..., min_length=2, max_length=100, description="Normalized English country name"
     )
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
+    country_code: str = Field(default="US", max_length=2, description="ISO 3166-1 alpha-2 code")
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    locality: str | None = Field(default=None, max_length=150, description="City or locality")
+    related_websites: list[dict[str, Any]] | None = Field(
+        default=None, description="Related external websites"
+    )
+    photo_directories: list[str] | None = Field(
+        default=None, description="Associated local photo directories"
+    )
+    raw_geocoding: dict[str, Any] | None = Field(default=None, description="Raw geocoding response")
     cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
 
 
@@ -393,6 +439,17 @@ class ForwardGeocodeResponse(StrictBaseModel):
     )
     country: str | None = Field(default=None, max_length=100, description="Country name")
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
+    country_code: str = Field(default="US", max_length=2, description="ISO 3166-1 alpha-2 code")
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    locality: str | None = Field(default=None, max_length=150, description="City or locality")
+    related_websites: list[dict[str, Any]] | None = Field(
+        default=None, description="Related external websites"
+    )
+    photo_directories: list[str] | None = Field(
+        default=None, description="Associated local photo directories"
+    )
+    raw_geocoding: dict[str, Any] | None = Field(default=None, description="Raw geocoding response")
     cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
 
 
@@ -502,3 +559,8 @@ class BulkDeleteResponse(StrictBaseModel):
     """Response payload for bulk deletion."""
 
     deleted_count: int = Field(..., description="Count of deleted POI records")
+
+
+POIResponse.model_rebuild()
+POICreateRequest.model_rebuild()
+POIUpdateRequest.model_rebuild()

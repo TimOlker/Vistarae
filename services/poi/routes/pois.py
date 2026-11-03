@@ -353,7 +353,7 @@ async def create_poi(
         source_value=source_value,
         official_url=req.official_url,
         wiki_url=req.wiki_url,
-        related_websites=req.related_websites or [],
+        related_websites=getattr(req, "related_websites", None) or [],
         image_urls=req.image_urls,
         visit_state=req.visit_state,
         rating=req.rating,

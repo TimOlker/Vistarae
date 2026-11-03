@@ -14,14 +14,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Modal } from "../common/Modal";
 import {
   ingestApi,
   type CandidateItem,
   type CandidateUpdateRequest,
 } from "../../services/ingestApi";
+import { apiFetch } from "../../services/api";
 import { useToast } from "../../context/ToastContext";
+import { WorkbenchMap, type NearbyPointMarker } from "./WorkbenchMap";
 import {
   X,
   MapPin,
@@ -35,6 +37,9 @@ import {
   Download,
   Trash2,
   Image as ImageIcon,
+  ExternalLink,
+  Folder,
+  Calendar,
 } from "lucide-react";
 
 export interface ExistingPOIMarker {
@@ -58,6 +63,8 @@ export type CompletenessFilter =
   | "missing_photo"
   | "missing_location"
   | "missing_websites";
+
+export type PerspectiveMode = "POI" | "Location";
 
 export const PROXIMITY_STEPS = [
   { label: "100 ft", miles: 100 / 5280 },
@@ -84,6 +91,18 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
   return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function getConfidenceBadgeColors(score: number) {
+  if (score >= 90) {
+    return { bg: "#dcfce7", text: "#15803d", border: "#bbf7d0" };
+  } else if (score >= 80) {
+    return { bg: "#ecfccb", text: "#4d7c0f", border: "#d9f99d" };
+  } else if (score >= 70) {
+    return { bg: "#fef9c3", text: "#a16207", border: "#fef08a" };
+  } else {
+    return { bg: "#fee2e2", text: "#b91c1c", border: "#fecaca" };
+  }
+}
+
 export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = ({
   jobId,
   isOpen,
@@ -101,6 +120,9 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
   const [isEnrichingSingle, setIsEnrichingSingle] = useState(false);
   const [isEnrichingAll, setIsEnrichingAll] = useState(false);
 
+  // Perspective Mode: "POI" (default) vs "Location"
+  const [perspective, setPerspective] = useState<PerspectiveMode>("POI");
+
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [completenessFilter, setCompletenessFilter] = useState<CompletenessFilter>("all");
@@ -116,8 +138,11 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
 
   // Sorting
-  const [sortField, setSortField] = useState<keyof CandidateItem | "completeness">("row_index");
+  const [sortField, setSortField] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+
+  // User Tags Library
+  const [libraryTags, setLibraryTags] = useState<string[]>([]);
 
   // Right-Panel Editor State
   const [editPoiName, setEditPoiName] = useState("");
@@ -130,14 +155,19 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
   const [editPostalCode, setEditPostalCode] = useState("");
   const [editCountry, setEditCountry] = useState("");
   const [editHeroImageUrl, setEditHeroImageUrl] = useState("");
-  const [editOfficialUrl, setEditOfficialUrl] = useState("");
-  const [editWikiUrl, setEditWikiUrl] = useState("");
+  const [editRelatedWebsites, setEditRelatedWebsites] = useState<Array<{ name: string; url: string }>>([]);
+  const [newWebsiteName, setNewWebsiteName] = useState("");
+  const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
   const [editNoWebsites, setEditNoWebsites] = useState(false);
   const [editDurationHours, setEditDurationHours] = useState("");
   const [editDurationDays, setEditDurationDays] = useState("");
   const [editDurationNotes, setEditDurationNotes] = useState("");
   const [editTags, setEditTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState("");
+  const [editPhotoDirectories, setEditPhotoDirectories] = useState<string[]>([]);
+  const [newDirectoryInput, setNewDirectoryInput] = useState("");
+  const [editDatesVisited, setEditDatesVisited] = useState<string[]>([]);
+  const [newVisitDateInput, setNewVisitDateInput] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editReasonToVisit, setEditReasonToVisit] = useState("");
   const [editParentPoiId, setEditParentPoiId] = useState<string>("");
@@ -146,34 +176,79 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
   const [editDispositionJustification, setEditDispositionJustification] = useState<string>("");
   const [editIsUserOverridden, setEditIsUserOverridden] = useState(false);
 
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch Tags Library
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchTags = async () => {
+      try {
+        const res = await apiFetch<Array<{ name: string; slug?: string }>>("/api/tags");
+        if (Array.isArray(res)) {
+          setLibraryTags(res.map((t) => t.name));
+        }
+      } catch {
+        // Tag library fetch fallback
+      }
+    };
+    fetchTags();
+  }, [isOpen]);
+
   // Selected candidate object
   const selectedCandidate = useMemo(() => {
     return candidates.find((c) => c.id === selectedCandidateId) || null;
   }, [candidates, selectedCandidateId]);
 
+  // Selected Merge Target candidate (when disposition is in_batch_merge)
+  const selectedMergeTargetCandidate = useMemo(() => {
+    if (editDisposition !== "in_batch_merge" || !editMergeTargetId) return null;
+    return candidates.find((c) => c.id === editMergeTargetId) || null;
+  }, [candidates, editDisposition, editMergeTargetId]);
+
   // Proximity search radius (FR-013, FR-026)
   const [proximityRadiusIndex, setProximityRadiusIndex] = useState(4); // default 1 mi
 
-  const nearbyPoints = useMemo(() => {
+  const nearbyPoints: NearbyPointMarker[] = useMemo(() => {
     const lat = parseFloat(editLatitude);
     const lon = parseFloat(editLongitude);
     if (isNaN(lat) || isNaN(lon)) return [];
 
     const radius = PROXIMITY_STEPS[proximityRadiusIndex].miles;
-    const list: Array<{ name: string; type: "DB POI" | "Batch Candidate"; distanceMiles: number }> = [];
+    const list: NearbyPointMarker[] = [];
 
     for (const p of existingPOIs) {
       const d = haversineMiles(lat, lon, p.latitude, p.longitude);
       if (d <= radius) {
-        list.push({ name: p.name, type: "DB POI", distanceMiles: d });
+        list.push({
+          name: p.name,
+          type: "DB POI",
+          latitude: p.latitude,
+          longitude: p.longitude,
+          distanceMiles: d,
+        });
       }
     }
 
     for (const c of candidates) {
-      if (c.id === selectedCandidateId || c.latitude == null || c.longitude == null) continue;
+      const cDisp = c.user_disposition || c.recommended_disposition;
+      if (
+        c.id === selectedCandidateId ||
+        c.latitude == null ||
+        c.longitude == null ||
+        cDisp === "ignore" ||
+        cDisp === "exclude"
+      ) {
+        continue;
+      }
       const d = haversineMiles(lat, lon, c.latitude, c.longitude);
       if (d <= radius) {
-        list.push({ name: c.poi_name, type: "Batch Candidate", distanceMiles: d });
+        list.push({
+          name: c.poi_name,
+          type: "Batch Candidate",
+          latitude: c.latitude,
+          longitude: c.longitude,
+          distanceMiles: d,
+        });
       }
     }
 
@@ -192,14 +267,13 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
       });
       setCandidates(res.candidates);
       if (res.candidates.length > 0) {
-        // If current selection is not in list, select the first
         if (!selectedCandidateId || !res.candidates.some((c) => c.id === selectedCandidateId)) {
           setSelectedCandidateId(res.candidates[0].id);
         }
       } else {
         setSelectedCandidateId(null);
       }
-    } catch (err: unknown) {
+    } catch {
       showToast("Failed to load candidates", "error");
     } finally {
       setIsLoading(false);
@@ -225,9 +299,26 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
       setEditPostalCode(selectedCandidate.postal_code || "");
       setEditCountry(selectedCandidate.country || "");
       setEditHeroImageUrl(selectedCandidate.hero_image_url || "");
-      setEditOfficialUrl(selectedCandidate.official_url || "");
-      setEditWikiUrl(selectedCandidate.wiki_url || "");
+
+      // Reconstruct dynamic websites list
+      const sites: Array<{ name: string; url: string }> = [];
+      if (Array.isArray(selectedCandidate.related_websites)) {
+        for (const rawW of selectedCandidate.related_websites) {
+          const w = rawW as Record<string, any>;
+          if (w && typeof w === "object" && w.url) {
+            sites.push({ name: String(w.name || "Website"), url: String(w.url) });
+          }
+        }
+      }
+      if (selectedCandidate.official_url && !sites.some((s) => s.url === selectedCandidate.official_url)) {
+        sites.unshift({ name: "Official Website", url: selectedCandidate.official_url });
+      }
+      if (selectedCandidate.wiki_url && !sites.some((s) => s.url === selectedCandidate.wiki_url)) {
+        sites.push({ name: "Wikipedia", url: selectedCandidate.wiki_url });
+      }
+      setEditRelatedWebsites(sites);
       setEditNoWebsites(Boolean(selectedCandidate.no_websites));
+
       setEditDurationHours(
         selectedCandidate.recommended_duration_hours != null
           ? String(selectedCandidate.recommended_duration_hours)
@@ -240,6 +331,20 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
       );
       setEditDurationNotes(selectedCandidate.estimated_visit_time_notes || "");
       setEditTags([...(selectedCandidate.tags || [])]);
+
+      // Associated photo directories
+      const dirs: string[] = [];
+      if (Array.isArray(selectedCandidate.photo_directories)) {
+        dirs.push(...selectedCandidate.photo_directories);
+      }
+      if (selectedCandidate.photo_directory && !dirs.includes(selectedCandidate.photo_directory)) {
+        dirs.unshift(selectedCandidate.photo_directory);
+      }
+      setEditPhotoDirectories(dirs);
+
+      // Dates visited
+      setEditDatesVisited([...(selectedCandidate.dates_visited || [])]);
+
       setEditDescription(selectedCandidate.description || "");
       setEditReasonToVisit(selectedCandidate.reason_to_visit || "");
       setEditParentPoiId(selectedCandidate.parent_poi_id || "");
@@ -253,29 +358,58 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
   // Completeness calculator helper
   const isCandidateComplete = (cand: CandidateItem): boolean => {
     const hasPhoto = Boolean(cand.hero_image_url && cand.hero_image_url.trim());
-    const hasLocation = cand.latitude != null && cand.longitude != null && Boolean(cand.street_address && cand.street_address.trim());
-    const hasWebsites = Boolean(cand.official_url && cand.official_url.trim()) || Boolean(cand.no_websites);
+    const hasLocation =
+      cand.latitude != null &&
+      cand.longitude != null &&
+      Boolean(cand.street_address && cand.street_address.trim());
+    const hasWebsites =
+      Boolean(cand.official_url && cand.official_url.trim()) ||
+      Boolean(cand.related_websites && cand.related_websites.length > 0) ||
+      Boolean(cand.no_websites);
     return hasPhoto && hasLocation && hasWebsites;
   };
 
   // Sort & filter candidates in table
   const sortedCandidates = useMemo(() => {
     return [...candidates].sort((a, b) => {
-      let valA: any = a[sortField as keyof CandidateItem];
-      let valB: any = b[sortField as keyof CandidateItem];
-      if (sortField === "completeness") {
-        valA = isCandidateComplete(a) ? 1 : 0;
-        valB = isCandidateComplete(b) ? 1 : 0;
+      // 1. Explicit user column header sort overrides perspective
+      if (sortField) {
+        let valA: any = a[sortField as keyof CandidateItem];
+        let valB: any = b[sortField as keyof CandidateItem];
+        if (sortField === "completeness") {
+          valA = isCandidateComplete(a) ? 1 : 0;
+          valB = isCandidateComplete(b) ? 1 : 0;
+        }
+        if (valA === valB) return 0;
+        if (valA == null) return 1;
+        if (valB == null) return -1;
+        if (valA < valB) return sortAsc ? -1 : 1;
+        return sortAsc ? 1 : -1;
       }
-      if (valA === valB) return 0;
-      if (valA == null) return 1;
-      if (valB == null) return -1;
-      if (valA < valB) return sortAsc ? -1 : 1;
-      return sortAsc ? 1 : -1;
-    });
-  }, [candidates, sortField, sortAsc]);
 
-  const handleSort = (field: keyof CandidateItem | "completeness") => {
+      // 2. Default Perspective-driven sort
+      if (perspective === "Location") {
+        const cA = (a.country || "").toLowerCase();
+        const cB = (b.country || "").toLowerCase();
+        if (cA !== cB) return cA.localeCompare(cB);
+
+        const sA = (a.state_province || "").toLowerCase();
+        const sB = (b.state_province || "").toLowerCase();
+        if (sA !== sB) return sA.localeCompare(sB);
+
+        const tA = (a.city || "").toLowerCase();
+        const tB = (b.city || "").toLowerCase();
+        if (tA !== tB) return tA.localeCompare(tB);
+
+        return (a.poi_name || "").localeCompare(b.poi_name || "");
+      }
+
+      // Default POI mode: alphabetical by POI Name
+      return (a.poi_name || "").localeCompare(b.poi_name || "");
+    });
+  }, [candidates, sortField, sortAsc, perspective]);
+
+  const handleSort = (field: string) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -300,7 +434,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
     );
   };
 
-  // Single-candidate enrichment: "AI Enrich POI" (FR-006)
+  // Single-candidate enrichment: "AI Enrich POI"
   const handleEnrichSingle = async () => {
     if (!jobId || !selectedCandidateId) return;
     setIsEnrichingSingle(true);
@@ -310,37 +444,104 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
         prev.map((c) => (c.id === selectedCandidateId ? enriched : c))
       );
       showToast(`Enriched ${enriched.poi_name}!`, "success");
-    } catch (err: unknown) {
+    } catch {
       showToast("Failed to enrich POI details", "error");
     } finally {
       setIsEnrichingSingle(false);
     }
   };
 
-  // Asynchronous Bulk Enrichment: "AI Enrich All" (FR-007, FR-030)
+  // Asynchronous Bulk Enrichment: "AI Enrich All"
   const handleEnrichAll = async () => {
     if (!jobId) return;
     setIsEnrichingAll(true);
     try {
       const res = await ingestApi.enrichAllCandidates(jobId);
       showToast(res.message || "Bulk AI enrichment queued in background", "info");
-      // Poll progress or reload after short delay
       setTimeout(() => {
         loadCandidates();
         setIsEnrichingAll(false);
       }, 3000);
-    } catch (err: unknown) {
+    } catch {
       showToast("Failed to launch batch enrichment", "error");
       setIsEnrichingAll(false);
     }
   };
 
-  // Reactive "No Websites" checkbox toggle (FR-010)
+  // Reactive "No Websites" checkbox toggle
   const handleNoWebsitesToggle = (checked: boolean) => {
     setEditNoWebsites(checked);
     if (checked) {
-      setEditOfficialUrl("");
-      setEditWikiUrl("");
+      setEditRelatedWebsites([]);
+    }
+  };
+
+  // Add website pair
+  const handleAddWebsite = () => {
+    if (!newWebsiteUrl.trim()) return;
+    const name = newWebsiteName.trim() || "Website";
+    const url = newWebsiteUrl.trim();
+    if (!editRelatedWebsites.some((w) => w.url === url)) {
+      setEditRelatedWebsites([...editRelatedWebsites, { name, url }]);
+    }
+    setNewWebsiteName("");
+    setNewWebsiteUrl("");
+    setEditNoWebsites(false);
+  };
+
+  // Remove website pair with confirmation
+  const handleRemoveWebsite = (index: number) => {
+    if (window.confirm("Are you sure you want to remove this website?")) {
+      setEditRelatedWebsites(editRelatedWebsites.filter((_, i) => i !== index));
+    }
+  };
+
+  // Directory handling
+  const handleAddDirectory = () => {
+    if (!newDirectoryInput.trim()) return;
+    const dir = newDirectoryInput.trim();
+    if (!editPhotoDirectories.includes(dir)) {
+      setEditPhotoDirectories([...editPhotoDirectories, dir]);
+    }
+    setNewDirectoryInput("");
+  };
+
+  const handlePickDirectoryNative = async () => {
+    try {
+      if ("showDirectoryPicker" in window) {
+        const handle = await (window as any).showDirectoryPicker();
+        if (handle && handle.name) {
+          const dirName = handle.name;
+          if (!editPhotoDirectories.includes(dirName)) {
+            setEditPhotoDirectories([...editPhotoDirectories, dirName]);
+          }
+        }
+      } else if (folderInputRef.current) {
+        folderInputRef.current.click();
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        folderInputRef.current?.click();
+      }
+    }
+  };
+
+  // Date Visited handling
+  const handleAddVisitDate = () => {
+    if (!newVisitDateInput.trim()) return;
+    const dateStr = newVisitDateInput.trim();
+    if (!editDatesVisited.includes(dateStr)) {
+      setEditDatesVisited([...editDatesVisited, dateStr]);
+    }
+    setNewVisitDateInput("");
+  };
+
+  // Tag chip click toggle
+  const handleToggleTag = (tag: string) => {
+    if (editTags.includes(tag)) {
+      setEditTags(editTags.filter((t) => t !== tag));
+    } else {
+      setEditTags([...editTags, tag]);
     }
   };
 
@@ -348,7 +549,6 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
   const handleSaveCandidateChanges = async () => {
     if (!jobId || !selectedCandidateId) return;
 
-    // Validate sublocation parent requirement (FR-018)
     if (editDisposition === "sublocation" && !editParentCandidateId && !editParentPoiId) {
       showToast("Sublocation requires an assigned parent POI", "error");
       return;
@@ -356,6 +556,13 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
 
     setIsSavingCandidate(true);
     try {
+      const officialSite =
+        editRelatedWebsites.find((w) => w.name.toLowerCase().includes("official"))?.url ||
+        editRelatedWebsites[0]?.url ||
+        null;
+      const wikiSite =
+        editRelatedWebsites.find((w) => w.url.toLowerCase().includes("wikipedia.org"))?.url || null;
+
       const updatePayload: CandidateUpdateRequest = {
         poi_name: editPoiName.trim(),
         user_disposition: editDisposition as any,
@@ -367,13 +574,17 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
         postal_code: editPostalCode.trim() || null,
         country: editCountry.trim() || null,
         hero_image_url: editHeroImageUrl.trim() || null,
-        official_url: editOfficialUrl.trim() || null,
-        wiki_url: editWikiUrl.trim() || null,
+        official_url: officialSite,
+        wiki_url: wikiSite,
+        related_websites: editRelatedWebsites,
         no_websites: editNoWebsites,
         recommended_duration_hours: editDurationHours ? parseFloat(editDurationHours) : null,
         recommended_visit_days: editDurationDays ? parseInt(editDurationDays, 10) : null,
         estimated_visit_time_notes: editDurationNotes.trim() || null,
         tags: editTags,
+        dates_visited: editDatesVisited,
+        photo_directory: editPhotoDirectories[0] || "",
+        photo_directories: editPhotoDirectories,
         description: editDescription.trim() || null,
         reason_to_visit: editReasonToVisit.trim() || null,
         parent_poi_id: editParentPoiId ? (editParentPoiId as any) : null,
@@ -396,7 +607,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
     }
   };
 
-  // Apply Batch Edits to selected rows (FR-024)
+  // Apply Batch Edits to selected rows
   const handleApplyBatchEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!jobId || selectedCandidateIds.length === 0) return;
@@ -413,97 +624,82 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
       setIsBatchEditOpen(false);
       setSelectedCandidateIds([]);
       loadCandidates();
-    } catch (err: unknown) {
+    } catch {
       showToast("Batch update failed", "error");
     } finally {
       setIsBatchUpdating(false);
     }
   };
 
-  // Commit All Accepted Candidates (FR-012)
-  const handleCommitWorkbench = async () => {
+  // Commit Import
+  const handleCommitImport = async () => {
     if (!jobId) return;
     setIsSubmitting(true);
     try {
       const summary = await ingestApi.commitWorkbenchJob(jobId);
-      showToast(`Committed ${summary.committed_count} POIs to your map!`, "success");
+      showToast(summary.message || "Import committed successfully!", "success");
       if (onCommitComplete) {
         onCommitComplete(summary);
       }
       onClose();
     } catch (err: any) {
-      showToast(err?.message || "Commit failed", "error");
+      showToast(err?.message || "Failed to commit import", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Discard Entire Staging Batch (FR-015)
-  const handleDiscardBatch = async () => {
+  // Discard Ingest Session
+  const handleDiscardSession = async () => {
     if (!jobId) return;
-    if (!window.confirm("Are you sure you want to discard this entire import batch? All staged records will be purged.")) {
+    if (!window.confirm("Are you sure you want to discard this import session? All changes will be purged.")) {
       return;
     }
     setIsSubmitting(true);
     try {
       await ingestApi.cancelPhase1(jobId);
-      showToast("Import batch discarded.", "info");
+      showToast("Import session discarded", "info");
       onClose();
-    } catch (err: unknown) {
-      showToast("Failed to discard batch", "error");
+    } catch {
+      showToast("Failed to discard session", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Export Selected / All Candidates to CSV (FR-014)
+  // CSV Export of current staged candidates
   const handleExportCSV = () => {
-    const listToExport = selectedCandidateIds.length > 0
-      ? candidates.filter((c) => selectedCandidateIds.includes(c.id))
-      : candidates;
-
-    if (listToExport.length === 0) {
-      showToast("No candidates available to export", "info");
-      return;
-    }
-
+    if (candidates.length === 0) return;
     const headers = [
-      "Row",
       "POI Name",
-      "Disposition",
+      "Street Address",
+      "City/Town",
+      "State/Province",
+      "Country",
       "Latitude",
       "Longitude",
-      "Address",
-      "City",
-      "State",
-      "Country",
-      "Hero Image URL",
-      "Official URL",
-      "Tags",
-      "Description",
+      "Disposition",
+      "Confidence Score",
+      "Photo URL",
     ];
-
-    const rows = listToExport.map((c) => [
-      c.row_index + 1,
+    const rows = candidates.map((c) => [
       `"${(c.poi_name || "").replace(/"/g, '""')}"`,
-      c.user_disposition || c.recommended_disposition,
-      c.latitude ?? "",
-      c.longitude ?? "",
       `"${(c.street_address || "").replace(/"/g, '""')}"`,
       `"${(c.city || "").replace(/"/g, '""')}"`,
       `"${(c.state_province || "").replace(/"/g, '""')}"`,
       `"${(c.country || "").replace(/"/g, '""')}"`,
+      c.latitude != null ? String(c.latitude) : "",
+      c.longitude != null ? String(c.longitude) : "",
+      c.user_disposition || c.recommended_disposition || "accept",
+      c.confidence_score != null ? String(c.confidence_score) : "",
       `"${(c.hero_image_url || "").replace(/"/g, '""')}"`,
-      `"${(c.official_url || "").replace(/"/g, '""')}"`,
-      `"${(c.tags || []).join("; ").replace(/"/g, '""')}"`,
-      `"${(c.description || "").replace(/"/g, '""')}"`,
     ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `vistarae_staging_export_${Date.now()}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `vistarae_staging_${jobId || "export"}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -511,132 +707,97 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
 
   if (!isOpen) return null;
 
+  const confColors = getConfidenceBadgeColors(selectedCandidate?.confidence_score || 0);
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        backgroundColor: "rgba(15, 23, 42, 0.75)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      data-testid="import-staging-workbench-modal"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title=""
+      maxWidth="min(1700px, 96vw)"
     >
       <div
+        data-testid="import-staging-workbench-modal"
         style={{
-          width: "96vw",
-          maxWidth: "1560px",
-          height: "92vh",
-          backgroundColor: "#ffffff",
-          borderRadius: "12px",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          height: "88vh",
+          margin: "-24px",
+          backgroundColor: "#ffffff",
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         }}
       >
-        {/* Top Header Bar */}
+        {/* HEADER BAR */}
         <div
           style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid #e2e8f0",
-            backgroundColor: "#f8fafc",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            flexShrink: 0,
+            padding: "12px 20px",
+            borderBottom: "1px solid #e2e8f0",
+            backgroundColor: "#ffffff",
           }}
         >
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                POI Import Staging Workbench
-              </h2>
-              <span
-                style={{
-                  fontSize: "12px",
-                  padding: "2px 8px",
-                  borderRadius: "12px",
-                  backgroundColor: "#e0f2fe",
-                  color: "#0369a1",
-                  fontWeight: 600,
-                }}
-              >
-                {candidates.length} Candidate{candidates.length === 1 ? "" : "s"}
-              </span>
-            </div>
-            <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0 0" }}>
-              Inspect, enrich with AI, and resolve POIs in one unified workspace before committing.
-            </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h2 style={{ fontSize: "17px", fontWeight: 700, color: "#0f172a", margin: 0 }}>
+              POI Import Staging Workbench
+            </h2>
+            <span
+              style={{
+                fontSize: "12px",
+                padding: "2px 8px",
+                borderRadius: "12px",
+                backgroundColor: "#e0f2fe",
+                color: "#0369a1",
+                fontWeight: 600,
+              }}
+              data-testid="candidate-count-badge"
+            >
+              {candidates.length} Candidates
+            </span>
           </div>
 
-          {/* Action buttons */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {selectedCandidateIds.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setIsBatchEditOpen(true)}
-                data-testid="batch-edit-btn"
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: "#334155",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  cursor: "pointer",
-                }}
-              >
-                <span>Batch Edit ({selectedCandidateIds.length})</span>
-              </button>
-            )}
-
+            {/* AI Enrich All Button */}
             <button
               type="button"
               onClick={handleEnrichAll}
               disabled={isEnrichingAll || candidates.length === 0}
               data-testid="ai-enrich-all-btn"
               style={{
-                padding: "6px 12px",
-                backgroundColor: "#eff6ff",
-                border: "1px solid #bfdbfe",
-                borderRadius: "6px",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "#1d4ed8",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid #c7d2fe",
+                backgroundColor: "#eef2ff",
+                color: "#4338ca",
+                fontSize: "12px",
+                fontWeight: 600,
                 cursor: isEnrichingAll ? "not-allowed" : "pointer",
               }}
             >
               {isEnrichingAll ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              <span>AI Enrich All</span>
+              <span>{isEnrichingAll ? "Enriching All..." : "AI Enrich All"}</span>
             </button>
 
+            {/* CSV Export Button */}
             <button
               type="button"
               onClick={handleExportCSV}
               data-testid="export-csv-btn"
-              title="Export candidates to CSV"
               style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
                 padding: "6px 12px",
-                backgroundColor: "#ffffff",
-                border: "1px solid #cbd5e1",
                 borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                backgroundColor: "#ffffff",
+                color: "#334155",
                 fontSize: "12px",
                 fontWeight: 600,
-                color: "#475569",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
                 cursor: "pointer",
               }}
             >
@@ -644,21 +805,23 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
               <span>Export</span>
             </button>
 
+            {/* Discard Session Button */}
             <button
               type="button"
-              onClick={handleDiscardBatch}
-              data-testid="discard-batch-btn"
+              onClick={handleDiscardSession}
+              disabled={isSubmitting}
+              data-testid="discard-session-btn"
               style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
                 padding: "6px 12px",
-                backgroundColor: "#fff1f2",
-                border: "1px solid #fecdd3",
                 borderRadius: "6px",
+                border: "1px solid #fecaca",
+                backgroundColor: "#fff1f2",
+                color: "#be123c",
                 fontSize: "12px",
                 fontWeight: 600,
-                color: "#be123c",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
                 cursor: "pointer",
               }}
             >
@@ -666,99 +829,121 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
               <span>Discard</span>
             </button>
 
+            {/* Commit Import Button */}
             <button
               type="button"
-              onClick={handleCommitWorkbench}
+              onClick={handleCommitImport}
               disabled={isSubmitting || candidates.length === 0}
               data-testid="commit-import-btn"
               style={{
-                padding: "7px 16px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 16px",
+                borderRadius: "6px",
                 backgroundColor: "#16a34a",
                 color: "#ffffff",
                 border: "none",
-                borderRadius: "6px",
-                fontSize: "13px",
+                fontSize: "12px",
                 fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
                 cursor: isSubmitting ? "not-allowed" : "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
               }}
             >
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              <span>Commit Import</span>
+              <span>{isSubmitting ? "Committing..." : "Commit Import"}</span>
             </button>
 
+            {/* Close Button */}
             <button
               type="button"
               onClick={onClose}
-              data-testid="workbench-close-btn"
+              data-testid="modal-close-btn"
               style={{
-                padding: "6px",
-                backgroundColor: "transparent",
                 border: "none",
+                background: "transparent",
                 color: "#64748b",
                 cursor: "pointer",
-                borderRadius: "6px",
-                marginLeft: "6px",
+                padding: "6px",
+                borderRadius: "4px",
               }}
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* Main Split Body Container */}
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          {/* Left Master Table Panel */}
+        {/* WORKSPACE DUAL-PANEL BODY */}
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          {/* LEFT PANEL: TABLE WORKBENCH */}
           <div
             style={{
-              flex: "0 0 58%",
+              flex: "1 1 58%",
+              minWidth: "480px",
               display: "flex",
               flexDirection: "column",
               borderRight: "1px solid #e2e8f0",
-              overflow: "hidden",
+              backgroundColor: "#ffffff",
             }}
           >
-            {/* Filter Bar */}
+            {/* TOOLBAR CONTROLS */}
             <div
               style={{
-                padding: "10px 14px",
-                borderBottom: "1px solid #f1f5f9",
-                backgroundColor: "#ffffff",
                 display: "flex",
-                alignItems: "center",
-                gap: "10px",
                 flexWrap: "wrap",
-                flexShrink: 0,
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 14px",
+                borderBottom: "1px solid #e2e8f0",
+                backgroundColor: "#fcfdfe",
               }}
             >
-              {/* Search input */}
-              <div
+              {/* Perspective Dropdown (POI vs Location) */}
+              <select
+                value={perspective}
+                onChange={(e) => {
+                  setPerspective(e.target.value as PerspectiveMode);
+                  setSortField(null); // Reset column sort to let perspective default take effect
+                }}
+                data-testid="perspective-select"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 10px",
-                  border: "1px solid #cbd5e1",
+                  fontSize: "12px",
+                  padding: "5px 10px",
                   borderRadius: "6px",
-                  flex: 1,
-                  minWidth: "180px",
+                  border: "1px solid #cbd5e1",
                   backgroundColor: "#ffffff",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  color: "#0f172a",
                 }}
               >
-                <Search size={14} color="#94a3b8" />
+                <option value="POI">Perspective: POI</option>
+                <option value="Location">Perspective: Location</option>
+              </select>
+
+              {/* Search Bar */}
+              <div style={{ position: "relative", flex: "1 1 180px", minWidth: "140px" }}>
+                <Search
+                  size={14}
+                  style={{
+                    position: "absolute",
+                    left: "9px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94a3b8",
+                  }}
+                />
                 <input
                   type="text"
                   placeholder="Search by name, city, tag..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  data-testid="workbench-search-input"
+                  data-testid="search-input"
                   style={{
-                    border: "none",
-                    outline: "none",
                     width: "100%",
+                    padding: "5px 10px 5px 28px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
                     fontSize: "12px",
                   }}
                 />
@@ -768,13 +953,12 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
               <select
                 value={completenessFilter}
                 onChange={(e) => setCompletenessFilter(e.target.value as CompletenessFilter)}
-                data-testid="workbench-completeness-filter"
+                data-testid="completeness-filter"
                 style={{
-                  padding: "6px 10px",
+                  fontSize: "12px",
+                  padding: "5px 8px",
                   borderRadius: "6px",
                   border: "1px solid #cbd5e1",
-                  fontSize: "12px",
-                  color: "#334155",
                   backgroundColor: "#f8fafc",
                   cursor: "pointer",
                 }}
@@ -782,7 +966,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                 <option value="all">All Items</option>
                 <option value="incomplete">Incomplete Only</option>
                 <option value="missing_photo">Missing Photo</option>
-                <option value="missing_location">Missing Coordinates/Address</option>
+                <option value="missing_location">Missing Location</option>
                 <option value="missing_websites">Missing Websites</option>
               </select>
 
@@ -790,13 +974,12 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
               <select
                 value={dispositionFilter}
                 onChange={(e) => setDispositionFilter(e.target.value)}
-                data-testid="workbench-disposition-filter"
+                data-testid="disposition-filter"
                 style={{
-                  padding: "6px 10px",
+                  fontSize: "12px",
+                  padding: "5px 8px",
                   borderRadius: "6px",
                   border: "1px solid #cbd5e1",
-                  fontSize: "12px",
-                  color: "#334155",
                   backgroundColor: "#f8fafc",
                   cursor: "pointer",
                 }}
@@ -809,9 +992,30 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                 <option value="exclude">Exclude</option>
                 <option value="ignore">Ignore</option>
               </select>
+
+              {/* Batch Edit Trigger */}
+              {selectedCandidateIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsBatchEditOpen(true)}
+                  data-testid="batch-edit-btn"
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    backgroundColor: "#e0f2fe",
+                    color: "#0369a1",
+                    border: "1px solid #bae6fd",
+                    cursor: "pointer",
+                  }}
+                >
+                  Edit {selectedCandidateIds.length} Selected
+                </button>
+              )}
             </div>
 
-            {/* Candidate Table */}
+            {/* CANDIDATE TABLE */}
             <div style={{ flex: 1, overflowY: "auto", overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                 <thead>
@@ -827,31 +1031,80 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     </th>
                     <th
                       onClick={() => handleSort("row_index")}
-                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "40px", cursor: "pointer" }}
+                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "36px", cursor: "pointer" }}
                     >
                       #
                     </th>
-                    <th style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "46px" }}>
+                    <th style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "44px" }}>
                       Photo
                     </th>
-                    <th
-                      onClick={() => handleSort("poi_name")}
-                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
-                    >
-                      POI Name
-                    </th>
+
+                    {/* Column order swaps based on perspective */}
+                    {perspective === "Location" ? (
+                      <>
+                        <th
+                          onClick={() => handleSort("country")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
+                        >
+                          Country
+                        </th>
+                        <th
+                          onClick={() => handleSort("state_province")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
+                        >
+                          State / Prov
+                        </th>
+                        <th
+                          onClick={() => handleSort("city")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
+                        >
+                          City / Town
+                        </th>
+                        <th
+                          onClick={() => handleSort("poi_name")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer", fontWeight: 700 }}
+                        >
+                          POI Name
+                        </th>
+                      </>
+                    ) : (
+                      <>
+                        <th
+                          onClick={() => handleSort("poi_name")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer", fontWeight: 700 }}
+                        >
+                          POI Name
+                        </th>
+                        <th
+                          onClick={() => handleSort("country")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
+                        >
+                          Country
+                        </th>
+                        <th
+                          onClick={() => handleSort("state_province")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
+                        >
+                          State / Prov
+                        </th>
+                        <th
+                          onClick={() => handleSort("city")}
+                          style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", cursor: "pointer" }}
+                        >
+                          City / Town
+                        </th>
+                      </>
+                    )}
+
                     <th
                       onClick={() => handleSort("completeness")}
-                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "110px", cursor: "pointer" }}
+                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "100px", cursor: "pointer" }}
                     >
                       Completeness
                     </th>
-                    <th style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0" }}>
-                      Location
-                    </th>
                     <th
                       onClick={() => handleSort("user_disposition")}
-                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "140px", cursor: "pointer" }}
+                      style={{ padding: "8px 10px", borderBottom: "1px solid #e2e8f0", width: "130px", cursor: "pointer" }}
                     >
                       Disposition
                     </th>
@@ -860,7 +1113,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                 <tbody>
                   {sortedCandidates.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "#94a3b8" }}>
+                      <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "#94a3b8" }}>
                         {isLoading ? "Loading candidates..." : "No candidates found matching the selected filters."}
                       </td>
                     </tr>
@@ -938,59 +1191,72 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                             )}
                           </td>
 
-                          {/* POI Name */}
-                          <td style={{ padding: "8px 10px" }}>
-                            <div style={{ fontWeight: 600, color: "#1e293b" }}>{cand.poi_name}</div>
-                            {cand.is_duplicate && (
-                              <span
-                                style={{
-                                  display: "inline-block",
-                                  fontSize: "10px",
-                                  padding: "1px 5px",
-                                  borderRadius: "4px",
-                                  backgroundColor: "#fef3c7",
-                                  color: "#b45309",
-                                  fontWeight: 600,
-                                  marginTop: "2px",
-                                }}
-                              >
-                                Potential Duplicate
-                              </span>
-                            )}
-                          </td>
+                          {/* Cells reordered according to perspective */}
+                          {perspective === "Location" ? (
+                            <>
+                              <td style={{ padding: "8px 10px", color: "#334155" }}>
+                                {cand.country || "-"}
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#334155" }}>
+                                {cand.state_province || "-"}
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#334155" }}>
+                                {cand.city || "-"}
+                              </td>
+                              <td style={{ padding: "8px 10px" }}>
+                                <div style={{ fontWeight: 700, color: "#0f172a" }}>{cand.poi_name}</div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td style={{ padding: "8px 10px" }}>
+                                <div style={{ fontWeight: 700, color: "#0f172a" }}>{cand.poi_name}</div>
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#334155" }}>
+                                {cand.country || "-"}
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#334155" }}>
+                                {cand.state_province || "-"}
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#334155" }}>
+                                {cand.city || "-"}
+                              </td>
+                            </>
+                          )}
 
                           {/* Completeness Badge */}
                           <td style={{ padding: "8px 10px" }}>
                             {complete ? (
                               <span
-                                data-testid={`completeness-badge-complete`}
+                                data-testid="completeness-badge-complete"
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
-                                  gap: "4px",
-                                  fontSize: "11px",
-                                  fontWeight: 600,
+                                  gap: "3px",
                                   padding: "2px 6px",
                                   borderRadius: "10px",
                                   backgroundColor: "#dcfce7",
-                                  color: "#15803d",
+                                  color: "#166534",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
                                 }}
                               >
                                 <Check size={11} /> Complete
                               </span>
+
                             ) : (
                               <span
-                                data-testid={`completeness-badge-incomplete`}
+                                data-testid="completeness-badge-incomplete"
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
-                                  gap: "4px",
-                                  fontSize: "11px",
-                                  fontWeight: 600,
+                                  gap: "3px",
                                   padding: "2px 6px",
                                   borderRadius: "10px",
                                   backgroundColor: "#fef3c7",
-                                  color: "#b45309",
+                                  color: "#92400e",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
                                 }}
                               >
                                 <AlertTriangle size={11} /> Incomplete
@@ -998,66 +1264,44 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                             )}
                           </td>
 
-                          {/* Location */}
-                          <td style={{ padding: "8px 10px", color: "#475569" }}>
-                            {cand.city
-                              ? `${cand.city}${cand.country ? `, ${cand.country}` : ""}`
-                              : cand.state_province
-                              ? `${cand.state_province}${cand.country ? `, ${cand.country}` : ""}`
-                              : cand.country || "No City"}
-                          </td>
-
-                          {/* Disposition */}
+                          {/* Disposition Badge */}
                           <td style={{ padding: "8px 10px" }}>
                             <span
                               style={{
                                 display: "inline-block",
+                                padding: "2px 8px",
+                                borderRadius: "4px",
                                 fontSize: "11px",
                                 fontWeight: 600,
-                                padding: "2px 6px",
-                                borderRadius: "4px",
+                                textTransform: "capitalize",
                                 backgroundColor:
                                   disp === "accept"
-                                    ? "#f0fdf4"
+                                    ? "#dcfce7"
                                     : disp === "sublocation"
-                                    ? "#faf5ff"
+                                    ? "#f3e8ff"
                                     : disp === "in_batch_merge"
-                                    ? "#eff6ff"
-                                    : disp === "exclude" || disp === "ignore"
-                                    ? "#fef2f2"
-                                    : "#f8fafc",
+                                    ? "#dbeafe"
+                                    : disp === "update_existing"
+                                    ? "#fef9c3"
+                                    : disp === "exclude"
+                                    ? "#fee2e2"
+                                    : "#f1f5f9",
                                 color:
                                   disp === "accept"
                                     ? "#166534"
                                     : disp === "sublocation"
-                                    ? "#7e22ce"
+                                    ? "#6b21a8"
                                     : disp === "in_batch_merge"
-                                    ? "#1d4ed8"
-                                    : disp === "exclude" || disp === "ignore"
+                                    ? "#1e40af"
+                                    : disp === "update_existing"
+                                    ? "#854d0e"
+                                    : disp === "exclude"
                                     ? "#991b1b"
                                     : "#475569",
-                                border: "1px solid #e2e8f0",
                               }}
                             >
-                              {disp}
+                              {disp.replace(/_/g, " ")}
                             </span>
-                            {cand.is_user_overridden && (
-                              <span
-                                data-testid={`override-badge-${cand.id}`}
-                                style={{
-                                  display: "inline-block",
-                                  marginLeft: "4px",
-                                  fontSize: "9px",
-                                  fontWeight: 700,
-                                  backgroundColor: "#fef3c7",
-                                  color: "#92400e",
-                                  padding: "1px 4px",
-                                  borderRadius: "3px",
-                                }}
-                              >
-                                Override
-                              </span>
-                            )}
                           </td>
                         </tr>
                       );
@@ -1068,66 +1312,77 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
             </div>
           </div>
 
-          {/* Right Candidate Editor Panel */}
+          {/* RIGHT PANEL: FULL CANDIDATE DETAIL EDITOR */}
           <div
             style={{
-              flex: "0 0 42%",
+              flex: "1 1 42%",
+              minWidth: "420px",
               display: "flex",
               flexDirection: "column",
               backgroundColor: "#ffffff",
-              overflow: "hidden",
             }}
           >
             {selectedCandidate ? (
-              <>
-                {/* Fixed Editor Header */}
+              <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                {/* CANDIDATE HEADER */}
                 <div
                   style={{
                     padding: "12px 18px",
                     borderBottom: "1px solid #e2e8f0",
-                    backgroundColor: "#f8fafc",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    flexShrink: 0,
+                    backgroundColor: "#f8fafc",
                   }}
                 >
                   <div>
-                    <span style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", textTransform: "uppercase" }}>
-                      Candidate #{selectedCandidate.row_index + 1} of {candidates.length}
-                    </span>
-                    <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#0f172a", margin: "2px 0 0 0" }}>
-                      {editPoiName || "Untitled POI"}
-                    </h3>
+                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#64748b" }}>
+                      CANDIDATE #{selectedCandidate.row_index + 1} OF {candidates.length}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        maxWidth: "300px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selectedCandidate.poi_name}
+                    </div>
                   </div>
 
-                  {/* Single-Candidate AI Enrich Button (FR-006) */}
                   <button
                     type="button"
                     onClick={handleEnrichSingle}
                     disabled={isEnrichingSingle}
                     data-testid="ai-enrich-poi-btn"
                     style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                       padding: "6px 12px",
+                      borderRadius: "6px",
                       backgroundColor: "#2563eb",
                       color: "#ffffff",
                       border: "none",
-                      borderRadius: "6px",
                       fontSize: "12px",
                       fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
                       cursor: isEnrichingSingle ? "not-allowed" : "pointer",
-                      boxShadow: "0 1px 2px rgba(37,99,235,0.2)",
                     }}
                   >
-                    {isEnrichingSingle ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    {isEnrichingSingle ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={13} />
+                    )}
                     <span>{isEnrichingSingle ? "Enriching..." : "AI Enrich POI"}</span>
                   </button>
                 </div>
 
-                {/* Scrollable Body Container */}
+                {/* SCROLLABLE FORM FIELDS */}
                 <div
                   style={{
                     flex: 1,
@@ -1179,34 +1434,52 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     </div>
                   </div>
 
-                  {/* Disposition Justification & Override Indicator */}
-                  {editIsUserOverridden && (
-                    <div
-                      style={{
-                        padding: "8px 12px",
-                        backgroundColor: "#fefce8",
-                        border: "1px solid #fef08a",
-                        borderRadius: "6px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#854d0e" }}>
-                          Disposition Justification (User Overridden):
-                        </span>
-                        <span style={{ fontSize: "10px", fontWeight: 700, backgroundColor: "#fde047", color: "#713f12", padding: "1px 5px", borderRadius: "3px" }}>
-                          Overridden
-                        </span>
-                      </div>
-                      <input
-                        type="text"
-                        value={editDispositionJustification}
-                        onChange={(e) => setEditDispositionJustification(e.target.value)}
-                        placeholder="Reason for changing disposition..."
-                        data-testid="disposition-justification-input"
-                        style={{ width: "100%", padding: "5px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
-                      />
+                  {/* Disposition Justification & Confidence Badge */}
+                  <div
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      backgroundColor: "#f8fafc",
+                    }}
+                    data-testid="disposition-rationale-container"
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#334155" }}>
+                        Assigned Disposition & Rationale:
+                      </span>
+                      <span
+                        data-testid="confidence-score-badge"
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          backgroundColor: confColors.bg,
+                          color: confColors.text,
+                          border: `1px solid ${confColors.border}`,
+                        }}
+                      >
+                        Confidence: {selectedCandidate.confidence_score || 0}%
+                      </span>
                     </div>
-                  )}
+                    <textarea
+                      readOnly
+                      rows={2}
+                      value={`Disposition: ${editDisposition.replace(/_/g, " ")}\nRationale: ${editDispositionJustification || selectedCandidate.disposition_justification || "Unique location verified"}`}
+                      data-testid="disposition-rationale-readonly"
+                      style={{
+                        width: "100%",
+                        padding: "6px 8px",
+                        borderRadius: "4px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "12px",
+                        backgroundColor: "#ffffff",
+                        color: "#475569",
+                        resize: "none",
+                      }}
+                    />
+                  </div>
 
                   {/* Sublocation Hierarchy Assignment */}
                   {editDisposition === "sublocation" && (
@@ -1288,7 +1561,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     </div>
                   )}
 
-                  {/* In-Batch Merge Target Assignment */}
+                  {/* In-Batch Merge Target Card & Selector */}
                   {editDisposition === "in_batch_merge" && (
                     <div
                       style={{
@@ -1296,11 +1569,41 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                         backgroundColor: "#eff6ff",
                         border: "1px solid #bfdbfe",
                         borderRadius: "6px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
                       }}
+                      data-testid="in-batch-merge-card"
                     >
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#1e40af", marginBottom: "4px" }}>
-                        Merge Target Candidate:
-                      </label>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#1e40af" }}>
+                          Merge Into Batch Candidate:
+                        </span>
+                        {selectedMergeTargetCandidate && (
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "#2563eb" }}>
+                            Target #{selectedMergeTargetCandidate.row_index + 1}
+                          </span>
+                        )}
+                      </div>
+
+                      {selectedMergeTargetCandidate && (
+                        <div
+                          style={{
+                            padding: "6px 8px",
+                            borderRadius: "4px",
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #dbeafe",
+                            fontSize: "12px",
+                            color: "#1e3a8a",
+                          }}
+                        >
+                          <strong>{selectedMergeTargetCandidate.poi_name}</strong>
+                          <div style={{ fontSize: "11px", color: "#64748b" }}>
+                            {[selectedMergeTargetCandidate.city, selectedMergeTargetCandidate.state_province, selectedMergeTargetCandidate.country].filter(Boolean).join(", ") || "No location details"}
+                          </div>
+                        </div>
+                      )}
+
                       <select
                         value={editMergeTargetId}
                         onChange={(e) => setEditMergeTargetId(e.target.value)}
@@ -1312,14 +1615,14 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                           .filter((c) => c.id !== selectedCandidate.id)
                           .map((c) => (
                             <option key={c.id} value={c.id}>
-                              Row #{c.row_index + 1}: {c.poi_name}
+                              Row #{c.row_index + 1}: {c.poi_name} ({c.city || c.country || "No location"})
                             </option>
                           ))}
                       </select>
                     </div>
                   )}
 
-                  {/* Hero Photo & Uncropped Preview */}
+                  {/* Hero Photo & Uncropped Live Preview */}
                   <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
                     <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
                       Hero Photo URL:
@@ -1333,14 +1636,14 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                       style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }}
                     />
 
-                    {/* Uncropped Live Preview */}
+                    {/* Live Uncropped Preview */}
                     {editHeroImageUrl && (
                       <div
                         style={{
                           marginTop: "10px",
                           borderRadius: "6px",
                           backgroundColor: "#0f172a",
-                          padding: "6px",
+                          padding: "8px",
                           textAlign: "center",
                         }}
                       >
@@ -1362,7 +1665,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     )}
                   </div>
 
-                  {/* Coordinates & Location Fields */}
+                  {/* Location Coordinates, Interactive Map & Address */}
                   <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                       <span style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -1395,6 +1698,19 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                       </div>
                     </div>
 
+                    {/* Interactive Map with draggable pin and nearby markers */}
+                    <div style={{ marginBottom: "10px" }}>
+                      <WorkbenchMap
+                        latitude={editLatitude ? parseFloat(editLatitude) : null}
+                        longitude={editLongitude ? parseFloat(editLongitude) : null}
+                        onChangeLocation={(newLat, newLon) => {
+                          setEditLatitude(newLat.toFixed(6));
+                          setEditLongitude(newLon.toFixed(6));
+                        }}
+                        nearbyPoints={nearbyPoints}
+                      />
+                    </div>
+
                     <div style={{ marginBottom: "6px" }}>
                       <label style={{ display: "block", fontSize: "10px", fontWeight: 600, color: "#64748b" }}>Street Address:</label>
                       <input
@@ -1407,7 +1723,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                       />
                     </div>
 
-                    <div style={{ display: "flex", gap: "8px" }}>
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: "block", fontSize: "10px", fontWeight: 600, color: "#64748b" }}>City / Town:</label>
                         <input
@@ -1440,10 +1756,9 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                       </div>
                     </div>
 
-                    {/* Proximity Radius Slider & Nearby Count Badge (FR-013, FR-026) */}
+                    {/* Proximity Radius Slider & Nearby Count Badge */}
                     <div
                       style={{
-                        marginTop: "12px",
                         padding: "10px",
                         backgroundColor: "#f8fafc",
                         borderRadius: "6px",
@@ -1497,7 +1812,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     </div>
                   </div>
 
-                  {/* Related Websites & Reactive "No Websites" Checkbox (FR-010) */}
+                  {/* Dynamic Related Websites List */}
                   <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                       <span style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -1529,33 +1844,96 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
 
                     {!editNoWebsites ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        <div>
-                          <label style={{ display: "block", fontSize: "10px", fontWeight: 600, color: "#64748b" }}>Official Website:</label>
+                        {/* Current Websites List */}
+                        {editRelatedWebsites.map((site, idx) => (
+                          <div
+                            key={idx}
+                            data-testid={`website-row-${idx}`}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: "8px",
+                              padding: "6px 8px",
+                              borderRadius: "4px",
+                              backgroundColor: "#f8fafc",
+                              border: "1px solid #e2e8f0",
+                              fontSize: "12px",
+                            }}
+                          >
+                            <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <strong style={{ color: "#1e293b" }}>{site.name}:</strong>{" "}
+                              <a
+                                href={site.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#2563eb", textDecoration: "none" }}
+                              >
+                                {site.url}
+                              </a>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                              <a
+                                href={site.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#64748b", padding: "2px" }}
+                              >
+                                <ExternalLink size={13} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveWebsite(idx)}
+                                data-testid={`delete-website-btn-${idx}`}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#ef4444",
+                                  cursor: "pointer",
+                                  padding: "2px",
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Add Website Form */}
+                        <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                          <input
+                            type="text"
+                            placeholder="Website Name (e.g. Official Site)"
+                            value={newWebsiteName}
+                            onChange={(e) => setNewWebsiteName(e.target.value)}
+                            data-testid="new-website-name-input"
+                            style={{ flex: 1, padding: "5px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                          />
                           <input
                             type="url"
-                            value={editOfficialUrl}
-                            onChange={(e) => {
-                              setEditOfficialUrl(e.target.value);
-                              if (e.target.value.trim()) setEditNoWebsites(false);
-                            }}
                             placeholder="https://..."
-                            data-testid="official-url-input"
-                            style={{ width: "100%", padding: "5px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                            value={newWebsiteUrl}
+                            onChange={(e) => setNewWebsiteUrl(e.target.value)}
+                            data-testid="new-website-url-input"
+                            style={{ flex: 2, padding: "5px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
                           />
-                        </div>
-                        <div>
-                          <label style={{ display: "block", fontSize: "10px", fontWeight: 600, color: "#64748b" }}>Wikipedia Article:</label>
-                          <input
-                            type="url"
-                            value={editWikiUrl}
-                            onChange={(e) => {
-                              setEditWikiUrl(e.target.value);
-                              if (e.target.value.trim()) setEditNoWebsites(false);
+                          <button
+                            type="button"
+                            onClick={handleAddWebsite}
+                            data-testid="add-website-btn"
+                            style={{
+                              padding: "5px 10px",
+                              borderRadius: "4px",
+                              backgroundColor: "#2563eb",
+                              color: "#ffffff",
+                              border: "none",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              cursor: "pointer",
                             }}
-                            placeholder="https://en.wikipedia.org/wiki/..."
-                            data-testid="wiki-url-input"
-                            style={{ width: "100%", padding: "5px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
-                          />
+                          >
+                            Add
+                          </button>
                         </div>
                       </div>
                     ) : (
@@ -1569,7 +1947,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                           fontStyle: "italic",
                         }}
                       >
-                        Web scraping skipped: POI verified to have no relevant web presence.
+                        Web scraping skipped: POI verified to have no relevant web presence
                       </div>
                     )}
                   </div>
@@ -1612,41 +1990,54 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     </div>
                   </div>
 
-                  {/* Tags */}
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
-                      Tags:
+                  {/* Account Tags Library Interactive Chips */}
+                  <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "6px" }}>
+                      Tags Library:
                     </label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
-                      {editTags.map((tag) => (
-                        <span
-                          key={tag}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            padding: "2px 8px",
-                            borderRadius: "12px",
-                            backgroundColor: "#f1f5f9",
-                            fontSize: "11px",
-                            color: "#334155",
-                          }}
-                        >
-                          {tag}
+
+                    {/* All tags from library (selected vs unselected) */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        marginBottom: "8px",
+                        maxHeight: "120px",
+                        overflowY: "auto",
+                      }}
+                      data-testid="tags-library-container"
+                    >
+                      {Array.from(new Set([...libraryTags, ...editTags])).map((tag) => {
+                        const isSelected = editTags.includes(tag);
+                        return (
                           <button
+                            key={tag}
                             type="button"
-                            onClick={() => setEditTags(editTags.filter((t) => t !== tag))}
-                            style={{ border: "none", background: "none", padding: 0, cursor: "pointer", color: "#94a3b8" }}
+                            onClick={() => handleToggleTag(tag)}
+                            data-testid={`tag-chip-${tag}`}
+                            style={{
+                              padding: "3px 8px",
+                              borderRadius: "12px",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              border: isSelected ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                              backgroundColor: isSelected ? "#2563eb" : "#f1f5f9",
+                              color: isSelected ? "#ffffff" : "#334155",
+                              transition: "all 0.15s ease",
+                            }}
                           >
-                            ×
+                            {isSelected ? `✓ ${tag}` : tag}
                           </button>
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
+
                     <div style={{ display: "flex", gap: "6px" }}>
                       <input
                         type="text"
-                        placeholder="Add tag and press Enter..."
+                        placeholder="Add new custom tag and press Enter..."
                         value={newTagInput}
                         onChange={(e) => setNewTagInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -1663,7 +2054,190 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     </div>
                   </div>
 
-                  {/* Description & Reason to Visit */}
+                  {/* Associated Photo Directories Manager */}
+                  <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "flex", alignItems: "center", gap: "5px" }}>
+                        <Folder size={13} color="#2563eb" /> Associated Photo Directories:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handlePickDirectoryNative}
+                        data-testid="browse-directory-btn"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          backgroundColor: "#f1f5f9",
+                          color: "#1e293b",
+                          border: "1px solid #cbd5e1",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Browse Folder...
+                      </button>
+                    </div>
+
+                    {/* Hidden folder input fallback */}
+                    <input
+                      type="file"
+                      ref={folderInputRef}
+                      style={{ display: "none" }}
+                      {...({ webkitdirectory: "", directory: "" } as any)}
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          const relativePath = files[0].webkitRelativePath || "";
+                          const folderName = relativePath.split("/")[0] || files[0].name;
+                          if (folderName && !editPhotoDirectories.includes(folderName)) {
+                            setEditPhotoDirectories([...editPhotoDirectories, folderName]);
+                          }
+                        }
+                      }}
+                    />
+
+                    {/* Directories List */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "6px" }}>
+                      {editPhotoDirectories.map((dir, idx) => (
+                        <div
+                          key={idx}
+                          data-testid={`directory-item-${idx}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            backgroundColor: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            fontSize: "11px",
+                            color: "#334155",
+                          }}
+                        >
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            📁 {dir}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditPhotoDirectories(editPhotoDirectories.filter((_, i) => i !== idx))}
+                            style={{ border: "none", background: "none", color: "#ef4444", cursor: "pointer", padding: "1px 4px" }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add Directory Manual Input */}
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <input
+                        type="text"
+                        placeholder="Path / folder name..."
+                        value={newDirectoryInput}
+                        onChange={(e) => setNewDirectoryInput(e.target.value)}
+                        data-testid="new-directory-input"
+                        style={{ flex: 1, padding: "5px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddDirectory}
+                        data-testid="add-directory-btn"
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: "4px",
+                          backgroundColor: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dates Visited Manager */}
+                  <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "6px" }}>
+                      <Calendar size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
+                      Dates Visited:
+                    </label>
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+                      {editDatesVisited.map((dateStr, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "2px 8px",
+                            borderRadius: "12px",
+                            backgroundColor: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
+                            fontSize: "11px",
+                            color: "#166534",
+                          }}
+                        >
+                          {dateStr}
+                          <button
+                            type="button"
+                            onClick={() => setEditDatesVisited(editDatesVisited.filter((_, i) => i !== idx))}
+                            style={{ border: "none", background: "none", color: "#86efac", cursor: "pointer", padding: 0 }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <input
+                        type="date"
+                        value={newVisitDateInput}
+                        onChange={(e) => setNewVisitDateInput(e.target.value)}
+                        data-testid="new-visit-date-input"
+                        style={{ padding: "4px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddVisitDate}
+                        data-testid="add-visit-date-btn"
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "4px",
+                          backgroundColor: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Add Date
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reason to Visit (Multiline Textarea) */}
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                      Reason to Visit:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editReasonToVisit}
+                      onChange={(e) => setEditReasonToVisit(e.target.value)}
+                      placeholder="Experiential rationale explaining why a traveler should visit..."
+                      data-testid="reason-to-visit-textarea"
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px", resize: "vertical" }}
+                    />
+                  </div>
+
+                  {/* Description */}
                   <div>
                     <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
                       Description:
@@ -1678,7 +2252,7 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                   </div>
                 </div>
 
-                {/* PINNED FOOTER CONTAINER (FR-003, FR-011) */}
+                {/* PINNED FOOTER CONTAINER */}
                 <div
                   style={{
                     flexShrink: 0,
@@ -1698,17 +2272,26 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                       if (selectedCandidate) {
                         setEditPoiName(selectedCandidate.poi_name || "");
                         setEditHeroImageUrl(selectedCandidate.hero_image_url || "");
-                        showToast("Changes reset", "info");
+                        setEditLatitude(selectedCandidate.latitude != null ? String(selectedCandidate.latitude) : "");
+                        setEditLongitude(selectedCandidate.longitude != null ? String(selectedCandidate.longitude) : "");
+                        setEditStreetAddress(selectedCandidate.street_address || "");
+                        setEditCity(selectedCandidate.city || "");
+                        setEditStateProvince(selectedCandidate.state_province || "");
+                        setEditPostalCode(selectedCandidate.postal_code || "");
+                        setEditCountry(selectedCandidate.country || "");
+                        setEditDescription(selectedCandidate.description || "");
+                        setEditReasonToVisit(selectedCandidate.reason_to_visit || "");
+                        setEditDisposition(selectedCandidate.user_disposition || selectedCandidate.recommended_disposition || "accept");
                       }
                     }}
                     style={{
-                      padding: "8px 14px",
+                      padding: "6px 14px",
                       borderRadius: "6px",
                       border: "1px solid #cbd5e1",
                       backgroundColor: "#ffffff",
                       fontSize: "12px",
                       fontWeight: 600,
-                      color: "#475569",
+                      color: "#64748b",
                       cursor: "pointer",
                     }}
                   >
@@ -1721,32 +2304,31 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
                     disabled={isSavingCandidate}
                     data-testid="save-candidate-changes-btn"
                     style={{
-                      padding: "8px 18px",
-                      borderRadius: "6px",
-                      border: "none",
-                      backgroundColor: "#2563eb",
-                      color: "#ffffff",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      display: "flex",
+                      display: "inline-flex",
                       alignItems: "center",
                       gap: "6px",
+                      padding: "6px 18px",
+                      borderRadius: "6px",
+                      backgroundColor: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      fontSize: "12px",
+                      fontWeight: 600,
                       cursor: isSavingCandidate ? "not-allowed" : "pointer",
-                      boxShadow: "0 1px 2px rgba(37,99,235,0.25)",
                     }}
                   >
-                    {isSavingCandidate ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    <span>Save Candidate Changes</span>
+                    {isSavingCandidate ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                    <span>{isSavingCandidate ? "Saving..." : "Save Candidate Changes"}</span>
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
               <div
                 style={{
-                  flex: 1,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  height: "100%",
                   color: "#94a3b8",
                   fontSize: "13px",
                 }}
@@ -1757,96 +2339,136 @@ export const CSVImportWorkbenchModal: React.FC<CSVImportWorkbenchModalProps> = (
           </div>
         </div>
 
-        {/* Batch Edit Modal Dialog (FR-024) */}
+        {/* BATCH EDIT MODAL OVERLAY */}
         {isBatchEditOpen && (
-          <Modal
-            isOpen={true}
-            onClose={() => setIsBatchEditOpen(false)}
-            title={`Batch Edit ${selectedCandidateIds.length} Candidate${selectedCandidateIds.length === 1 ? "" : "s"}`}
-            maxWidth="480px"
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(15, 23, 42, 0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100,
+            }}
+            data-testid="batch-edit-modal-overlay"
           >
-            <form onSubmit={handleApplyBatchEdit} data-testid="batch-edit-form" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
-                Leave fields blank to keep existing values. Any entered value will be applied across all {selectedCandidateIds.length} selected candidates.
-              </p>
-
-              <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#334155", marginBottom: "4px" }}>Country:</label>
-                <input
-                  type="text"
-                  value={batchCountry}
-                  onChange={(e) => setBatchCountry(e.target.value)}
-                  placeholder="e.g. Japan"
-                  data-testid="batch-country-input"
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#334155", marginBottom: "4px" }}>State / Province:</label>
-                <input
-                  type="text"
-                  value={batchState}
-                  onChange={(e) => setBatchState(e.target.value)}
-                  placeholder="e.g. Kansai"
-                  data-testid="batch-state-input"
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#334155", marginBottom: "4px" }}>City / Town:</label>
-                <input
-                  type="text"
-                  value={batchCity}
-                  onChange={(e) => setBatchCity(e.target.value)}
-                  placeholder="e.g. Kyoto"
-                  data-testid="batch-city-input"
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#334155", marginBottom: "4px" }}>Date Visited:</label>
-                <input
-                  type="date"
-                  value={batchDateVisited}
-                  onChange={(e) => setBatchDateVisited(e.target.value)}
-                  data-testid="batch-date-visited-input"
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }}
-                />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+            <div
+              style={{
+                width: "440px",
+                backgroundColor: "#ffffff",
+                borderRadius: "8px",
+                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                overflow: "hidden",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid #e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor: "#f8fafc",
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: "14px", color: "#0f172a" }}>
+                  Batch Edit ({selectedCandidateIds.length} Selected)
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsBatchEditOpen(false)}
-                  style={{ padding: "6px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "#fff", fontSize: "12px", cursor: "pointer" }}
+                  style={{ border: "none", background: "none", color: "#64748b", cursor: "pointer" }}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isBatchUpdating}
-                  data-testid="apply-batch-edit-btn"
-                  style={{
-                    padding: "6px 16px",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: "#2563eb",
-                    color: "#fff",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    cursor: isBatchUpdating ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {isBatchUpdating ? "Applying..." : "Apply Changes"}
+                  <X size={16} />
                 </button>
               </div>
-            </form>
-          </Modal>
+
+              <form onSubmit={handleApplyBatchEdit} style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#475569", marginBottom: "3px" }}>
+                    Country:
+                  </label>
+                  <input
+                    type="text"
+                    value={batchCountry}
+                    onChange={(e) => setBatchCountry(e.target.value)}
+                    placeholder="e.g. United States"
+                    data-testid="batch-country-input"
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#475569", marginBottom: "3px" }}>
+                    State / Province:
+                  </label>
+                  <input
+                    type="text"
+                    value={batchState}
+                    onChange={(e) => setBatchState(e.target.value)}
+                    placeholder="e.g. California"
+                    data-testid="batch-state-input"
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#475569", marginBottom: "3px" }}>
+                    City / Town:
+                  </label>
+                  <input
+                    type="text"
+                    value={batchCity}
+                    onChange={(e) => setBatchCity(e.target.value)}
+                    placeholder="e.g. San Francisco"
+                    data-testid="batch-city-input"
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#475569", marginBottom: "3px" }}>
+                    Date Visited:
+                  </label>
+                  <input
+                    type="date"
+                    value={batchDateVisited}
+                    onChange={(e) => setBatchDateVisited(e.target.value)}
+                    data-testid="batch-date-visited-input"
+                    style={{ width: "100%", padding: "6px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "12px" }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchEditOpen(false)}
+                    style={{ padding: "6px 12px", borderRadius: "4px", border: "1px solid #cbd5e1", background: "#ffffff", fontSize: "12px", cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isBatchUpdating}
+                    data-testid="apply-batch-edit-btn"
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "4px",
+                      backgroundColor: "#2563eb",
+                      color: "#ffffff",
+                      border: "none",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: isBatchUpdating ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {isBatchUpdating ? "Applying..." : "Apply Updates"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 };

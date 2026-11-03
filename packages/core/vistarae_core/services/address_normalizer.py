@@ -512,6 +512,95 @@ class AddressNormalizer:
         return "XX"
 
     @classmethod
+    def parse_nominatim_iso_address(cls, raw: dict[str, Any]) -> dict[str, Any]:
+        """Parses Nominatim reverse/forward geocoding response into standardized ISO address dictionary (REQ-1.2).
+
+        Rules:
+        - street_address: Combine address.house_number and (address.road or address.pedestrian or address.footway). Return None if no road is present.
+        - postal_code: address.postcode -> None.
+        - country_code: upper(address.country_code).
+        - admin_level_1 fallback: address.state -> address.province -> address.region -> address.state_district -> None.
+        - admin_level_2 fallback: address.county -> address.district -> address.department -> None.
+        - locality fallback: address.city -> address.town -> address.municipality -> address.village -> address.hamlet -> address.suburb -> None.
+        - String cleanup: Trim whitespace; convert empty strings ("") to None/NULL.
+        """
+        addr = raw.get("address", {}) if isinstance(raw, dict) else {}
+        if not addr and isinstance(raw, dict) and any(k in raw for k in ("road", "city", "country")):
+            addr = raw
+
+        # 1. street_address: Combine house_number and (road or pedestrian or footway)
+        road = (
+            addr.get("road")
+            or addr.get("pedestrian")
+            or addr.get("footway")
+            or addr.get("street")
+            or addr.get("path")
+        )
+        house = addr.get("house_number")
+        street_address = None
+        if road and str(road).strip():
+            road_clean = str(road).strip()
+            if house and str(house).strip():
+                street_address = f"{str(house).strip()} {road_clean}".strip()
+            else:
+                street_address = road_clean
+
+        # 2. postal_code: address.postcode -> None
+        postcode = addr.get("postcode")
+        postal_code = str(postcode).strip() if postcode and str(postcode).strip() else None
+
+        # 3. country_code: upper(address.country_code)
+        raw_cc = addr.get("country_code")
+        if raw_cc and str(raw_cc).strip():
+            country_code = str(raw_cc).strip().upper()
+        else:
+            raw_country = addr.get("country")
+            country_code = cls.country_to_iso_code(raw_country) if raw_country else "US"
+
+        # 4. admin_level_1 fallback: state -> province -> region -> state_district -> None
+        raw_admin1 = (
+            addr.get("state")
+            or addr.get("province")
+            or addr.get("region")
+            or addr.get("state_district")
+        )
+        admin_level_1 = str(raw_admin1).strip() if raw_admin1 and str(raw_admin1).strip() else None
+
+        # 5. admin_level_2 fallback: county -> district -> department -> None
+        raw_admin2 = (
+            addr.get("county")
+            or addr.get("district")
+            or addr.get("department")
+        )
+        admin_level_2 = str(raw_admin2).strip() if raw_admin2 and str(raw_admin2).strip() else None
+
+        # 6. locality fallback: city -> town -> municipality -> village -> hamlet -> suburb -> None
+        raw_locality = (
+            addr.get("city")
+            or addr.get("town")
+            or addr.get("municipality")
+            or addr.get("village")
+            or addr.get("hamlet")
+            or addr.get("suburb")
+            or addr.get("post_town")
+        )
+        locality = str(raw_locality).strip() if raw_locality and str(raw_locality).strip() else None
+
+        country_name = addr.get("country") or "Unknown"
+        norm_country = cls.normalize_country(country_name)
+
+        return {
+            "street_address": street_address,
+            "postal_code": postal_code,
+            "country_code": country_code,
+            "admin_level_1": admin_level_1,
+            "admin_level_2": admin_level_2,
+            "locality": locality,
+            "country": norm_country,
+            "raw_geocoding": raw,
+        }
+
+    @classmethod
     def strip_leading_glyphs(cls, text: str | None) -> str:
         """Strips leading non-alphanumeric icon glyphs (pushpins 🖈, 📍, 📌, 🗺, bullets, icons)."""
         if not text:

@@ -372,6 +372,13 @@ class POITable(Base):
     reason_to_visit: Mapped[str | None] = mapped_column(Text, nullable=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country_code: Mapped[str] = mapped_column(
+        String(2), nullable=False, default="US", server_default=text("'US'")
+    )
+    admin_level_1: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    admin_level_2: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    locality: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    raw_geocoding: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     states: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
@@ -406,6 +413,12 @@ class POITable(Base):
         server_default=text("'[]'::jsonb"),
     )
     directory_paths: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=text("'[]'::jsonb"),
+    )
+    photo_directories: Mapped[list[str]] = mapped_column(
         JSONB,
         nullable=False,
         default=list,
@@ -525,6 +538,7 @@ class POITable(Base):
         ),
         Index("idx_pois_parent_poi_id", "parent_poi_id"),
         Index("idx_pois_user_parent", "user_id", "parent_poi_id"),
+        Index("idx_pois_iso_location", "country_code", "admin_level_1", "locality"),
         Index(
             "idx_pois_addresses_path",
             "addresses",
@@ -1055,6 +1069,13 @@ class IngestCandidateTable(Base):
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
     street_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country_code: Mapped[str] = mapped_column(
+        String(2), nullable=False, default="US", server_default=text("'US'")
+    )
+    admin_level_1: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    admin_level_2: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    locality: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    raw_geocoding: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     state_province: Mapped[str | None] = mapped_column(String(100), nullable=True)
     postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     country: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -1065,6 +1086,9 @@ class IngestCandidateTable(Base):
         JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False
     )
     photo_directory: Mapped[str] = mapped_column(Text, nullable=False)
+    photo_directories: Mapped[list[str]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False
+    )
     confidence_score: Mapped[int] = mapped_column(
         Integer, server_default=text("0"), default=0, nullable=False
     )
@@ -1131,6 +1155,7 @@ class IngestCandidateTable(Base):
     __table_args__ = (
         Index("idx_ingest_candidates_user_job", "user_id", "job_id"),
         Index("idx_ingest_candidates_geom", "geom", postgresql_using="gist"),
+        Index("idx_candidates_iso_location", "country_code", "admin_level_1", "locality"),
     )
 
 

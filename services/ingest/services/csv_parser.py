@@ -89,6 +89,15 @@ _COLUMN_MAPPINGS: dict[str, str] = {
     "reason_to_visit": "reason_to_visit",
     "why_visit": "reason_to_visit",
     "rating": "rating",
+    "country_code": "country_code",
+    "country code": "country_code",
+    "admin_level_1": "admin_level_1",
+    "admin level 1": "admin_level_1",
+    "admin_level_2": "admin_level_2",
+    "admin level 2": "admin_level_2",
+    "locality": "city",
+    "photo_directories": "photo_directories",
+    "photo directories": "photo_directories",
 }
 
 

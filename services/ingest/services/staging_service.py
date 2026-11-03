@@ -38,6 +38,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 from vistarae_core.adapters.repositories.exclusion_zone_repo import haversine_distance_km
+from vistarae_core.services.address_normalizer import AddressNormalizer
 from vistarae_core.domain.entities import POI, IngestCandidate, TagEntity
 from vistarae_core.domain.enums import TagResolutionAction
 from vistarae_core.domain.exceptions import IngestCandidateNotFoundError
@@ -251,6 +252,11 @@ class StagingService:
             state = rec.state_province[0] if rec.state_province else None
             postal = rec.zip_code[0] if rec.zip_code else None
             country = rec.country[0] if rec.country else None
+            country_code = "US"
+            admin_level_1 = None
+            admin_level_2 = None
+            locality = None
+            raw_geocoding = None
             addresses_list: list[dict[str, Any]] = []
 
             # 1. Reverse geocoding fallback if coordinates exist but address is missing (REQ-ING-003)
@@ -263,6 +269,11 @@ class StagingService:
                     state = state or first.state_province
                     postal = postal or first.postal_code
                     country = country or first.country
+                    country_code = getattr(first, "country_code", None) or AddressNormalizer.country_to_iso_code(country)
+                    admin_level_1 = getattr(first, "admin_level_1", None) or state
+                    admin_level_2 = getattr(first, "admin_level_2", None)
+                    locality = getattr(first, "locality", None) or city
+                    raw_geocoding = getattr(first, "raw_geocoding", None)
                     addresses_list = [a.model_dump() for a in rev_addrs]
 
             # 2. Forward geocoding fallback if coordinates are missing (REQ-ING-004, REQ-ING-005)
@@ -285,6 +296,11 @@ class StagingService:
                         state = state or first.state_province
                         postal = postal or first.postal_code
                         country = country or first.country
+                        country_code = getattr(first, "country_code", None) or AddressNormalizer.country_to_iso_code(country)
+                        admin_level_1 = getattr(first, "admin_level_1", None) or state
+                        admin_level_2 = getattr(first, "admin_level_2", None)
+                        locality = getattr(first, "locality", None) or city
+                        raw_geocoding = getattr(first, "raw_geocoding", None)
                         addresses_list = [a.model_dump() for a in fwd_addrs]
 
             # 3. Privacy Exclusion Zones Check
@@ -362,9 +378,15 @@ class StagingService:
                 longitude=Decimal(str(round(lon, 7))) if lon is not None else None,
                 street_address=street,
                 city=city,
+                country_code=country_code or "US",
+                admin_level_1=admin_level_1 or state,
+                admin_level_2=admin_level_2,
+                locality=locality or city,
+                raw_geocoding=raw_geocoding,
                 state_province=state,
                 postal_code=postal,
                 country=country,
+                photo_directories=[rec.photo_directory] if rec.photo_directory else [],
                 addresses=addresses_list,
                 dates_visited=list(rec.dates_visited),
                 photo_directory=rec.photo_directory,
@@ -493,6 +515,11 @@ class StagingService:
                     state = state or first.state_province
                     postal = postal or first.postal_code
                     country = country or first.country
+                    country_code = getattr(first, "country_code", None) or AddressNormalizer.country_to_iso_code(country)
+                    admin_level_1 = getattr(first, "admin_level_1", None) or state
+                    admin_level_2 = getattr(first, "admin_level_2", None)
+                    locality = getattr(first, "locality", None) or city
+                    raw_geocoding = getattr(first, "raw_geocoding", None)
                     addresses_list = [a.model_dump() for a in rev_addrs]
 
             # 2. Forward geocoding fallback
@@ -514,6 +541,11 @@ class StagingService:
                         state = state or first.state_province
                         postal = postal or first.postal_code
                         country = country or first.country
+                        country_code = getattr(first, "country_code", None) or AddressNormalizer.country_to_iso_code(country)
+                        admin_level_1 = getattr(first, "admin_level_1", None) or state
+                        admin_level_2 = getattr(first, "admin_level_2", None)
+                        locality = getattr(first, "locality", None) or city
+                        raw_geocoding = getattr(first, "raw_geocoding", None)
                         addresses_list = [a.model_dump() for a in fwd_addrs]
 
             # 3. Privacy Exclusion Zones Check
@@ -1012,6 +1044,12 @@ class StagingService:
                 reason_to_visit=cand.reason_to_visit,
                 address=cand.street_address,
                 city=cand.city,
+                country_code=cand.country_code or "US",
+                admin_level_1=cand.admin_level_1,
+                admin_level_2=cand.admin_level_2,
+                locality=cand.locality,
+                raw_geocoding=cand.raw_geocoding,
+                photo_directories=cand.photo_directories or ([cand.photo_directory] if cand.photo_directory else []),
                 states=[cand.state_province] if cand.state_province else [],
                 countries=[cand.country] if cand.country else [],
                 addresses=[

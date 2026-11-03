@@ -20,6 +20,36 @@ import { CSVImportWorkbenchModal } from "../../components/ingest/CSVImportWorkbe
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { ToastProvider } from "../../context/ToastContext";
 
+vi.mock("maplibre-gl", () => ({
+  default: {
+    Map: vi.fn().mockImplementation(() => ({
+      addControl: vi.fn(),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+      getSource: vi.fn(),
+      flyTo: vi.fn(),
+      remove: vi.fn(),
+      resize: vi.fn(),
+      on: vi.fn(),
+      getZoom: vi.fn().mockReturnValue(12),
+    })),
+    Marker: vi.fn().mockImplementation(() => ({
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+      remove: vi.fn(),
+      on: vi.fn(),
+      getLngLat: vi.fn().mockReturnValue({ lat: 35.3606, lng: 138.7274 }),
+      setPopup: vi.fn().mockReturnThis(),
+    })),
+    Popup: vi.fn().mockImplementation(() => ({
+      setHTML: vi.fn().mockReturnThis(),
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+    })),
+    NavigationControl: vi.fn(),
+  },
+}));
+
 vi.mock("../../services/ingestApi", () => ({
   ingestApi: {
     listStagingCandidates: vi.fn(),
@@ -49,11 +79,20 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       city: "Fujinomiya",
       state_province: "Shizuoka",
       country: "Japan",
+      country_code: "JP",
+      admin_level_1: "Shizuoka Prefecture",
+      admin_level_2: "Fujinomiya City",
+      locality: "Fujinomiya",
       hero_image_url: "https://example.com/fuji.jpg",
       official_url: "https://fujisan.jp",
+      related_websites: [
+        { name: "Official Guide", url: "https://fujisan.jp/guide" }
+      ],
       no_websites: false,
       confidence_score: 95,
+      disposition_justification: "High confidence coordinate match from authoritative geocoder.",
       photo_directory: "Japan/Fuji",
+      photo_directories: ["Japan/Fuji"],
       dates_visited: ["2024-05-01"],
       tags: ["Volcano", "Scenic"],
       phase_state: "phase_1_triage" as any,
@@ -75,11 +114,15 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       city: "Fujikawaguchiko",
       state_province: "Yamanashi",
       country: "Japan",
+      country_code: "JP",
       hero_image_url: null,
       official_url: null,
+      related_websites: [],
       no_websites: false,
       confidence_score: 50,
+      disposition_justification: "Missing coordinates; proximity to Fuji suggests child sublocation.",
       photo_directory: "Japan/Kawaguchi",
+      photo_directories: ["Japan/Kawaguchi"],
       dates_visited: [],
       tags: ["Lake"],
       phase_state: "phase_1_triage" as any,
@@ -113,7 +156,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("import-staging-workbench-modal")).toBeInTheDocument();
-      expect(screen.getByText("Mount Fuji")).toBeInTheDocument();
+      expect(screen.getAllByText("Mount Fuji").length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText("Lake Kawaguchi")).toBeInTheDocument();
     });
 
@@ -124,6 +167,20 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     // Check pinned footer in editor
     expect(screen.getByTestId("candidate-editor-pinned-footer")).toBeInTheDocument();
     expect(screen.getByTestId("save-candidate-changes-btn")).toBeInTheDocument();
+  });
+
+  it("toggles perspective between POI and Location modes", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("perspective-select")).toBeInTheDocument();
+    });
+
+    const perspectiveSelect = screen.getByTestId("perspective-select") as HTMLSelectElement;
+    expect(perspectiveSelect.value).toBe("POI");
+
+    fireEvent.change(perspectiveSelect, { target: { value: "Location" } });
+    expect(perspectiveSelect.value).toBe("Location");
   });
 
   it("toggles reactive 'No Websites' checkbox and unsets URLs", async () => {
@@ -142,6 +199,33 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Official and Wiki inputs should now be replaced by skipped message
     expect(screen.getByText(/Web scraping skipped: POI verified to have no relevant web presence/i)).toBeInTheDocument();
+  });
+
+  it("adds and deletes a dynamic website with confirmation prompt", async () => {
+    window.confirm = vi.fn().mockReturnValue(true);
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("add-website-btn")).toBeInTheDocument();
+    });
+
+    // Add website
+    fireEvent.change(screen.getByTestId("new-website-name-input"), {
+      target: { value: "Fuji Webcam" },
+    });
+    fireEvent.change(screen.getByTestId("new-website-url-input"), {
+      target: { value: "https://fuji-cam.jp" },
+    });
+    fireEvent.click(screen.getByTestId("add-website-btn"));
+
+    expect(screen.getByText(/Fuji Webcam/i)).toBeInTheDocument();
+
+    // Delete a website
+    const deleteBtn = screen.getByTestId("delete-website-btn-0");
+    fireEvent.click(deleteBtn);
+
+    expect(window.confirm).toHaveBeenCalledWith("Are you sure you want to remove this website?");
   });
 
   it("invokes single-POI enrichment when 'AI Enrich POI' is clicked", async () => {
@@ -236,6 +320,37 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("sublocation-missing-parent-error")).toBeInTheDocument();
       expect(screen.getByText(/Parent POI required for Sublocation disposition/i)).toBeInTheDocument();
+    });
+  });
+
+  it("displays confidence score badge with color scale and rationale", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("confidence-score-badge")).toBeInTheDocument();
+      expect(screen.getByTestId("disposition-rationale-readonly")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("confidence-score-badge")).toHaveTextContent("95%");
+    expect(screen.getByTestId("disposition-rationale-readonly")).toHaveValue(
+      "Disposition: accept\nRationale: High confidence coordinate match from authoritative geocoder."
+    );
+  });
+
+  it("displays in-batch merge target selector when disposition is in_batch_merge", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-disposition-select")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId("editor-disposition-select"), {
+      target: { value: "in_batch_merge" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("in-batch-merge-card")).toBeInTheDocument();
+      expect(screen.getByTestId("merge-target-select")).toBeInTheDocument();
     });
   });
 

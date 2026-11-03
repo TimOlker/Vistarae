@@ -1340,6 +1340,33 @@ export interface components {
              * @description Postal or ZIP code
              */
             postal_code?: string | null;
+            /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 code
+             */
+            country_code?: string | null;
+            /**
+             * Admin Level 1
+             * @description State or province
+             */
+            admin_level_1?: string | null;
+            /**
+             * Admin Level 2
+             * @description County or district
+             */
+            admin_level_2?: string | null;
+            /**
+             * Locality
+             * @description City, town, or locality
+             */
+            locality?: string | null;
+            /**
+             * Raw Geocoding
+             * @description Full raw geocoding response
+             */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * BatchEditCandidatesRequest
@@ -1580,6 +1607,21 @@ export interface components {
             street_address?: string | null;
             /** City */
             city?: string | null;
+            /**
+             * Country Code
+             * @default US
+             */
+            country_code: string;
+            /** Admin Level 1 */
+            admin_level_1?: string | null;
+            /** Admin Level 2 */
+            admin_level_2?: string | null;
+            /** Locality */
+            locality?: string | null;
+            /** Raw Geocoding */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
             /** State Province */
             state_province?: string | null;
             /** Postal Code */
@@ -1590,6 +1632,8 @@ export interface components {
             dates_visited?: string[];
             /** Photo Directory */
             photo_directory: string;
+            /** Photo Directories */
+            photo_directories?: string[];
             /**
              * Confidence Score
              * @default 0
@@ -1699,6 +1743,18 @@ export interface components {
             street_address?: string | null;
             /** City */
             city?: string | null;
+            /** Country Code */
+            country_code?: string | null;
+            /** Admin Level 1 */
+            admin_level_1?: string | null;
+            /** Admin Level 2 */
+            admin_level_2?: string | null;
+            /** Locality */
+            locality?: string | null;
+            /** Raw Geocoding */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
             /** State Province */
             state_province?: string | null;
             /** Postal Code */
@@ -1709,6 +1765,8 @@ export interface components {
             dates_visited?: string[] | null;
             /** Photo Directory */
             photo_directory?: string | null;
+            /** Photo Directories */
+            photo_directories?: string[] | null;
             /** Tags */
             tags?: string[] | null;
             /** Description */
@@ -2243,6 +2301,34 @@ export interface components {
              * @description Postal / ZIP code
              */
             postal_code?: string | null;
+            /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 code
+             * @default US
+             */
+            country_code: string;
+            /**
+             * Admin Level 1
+             * @description State or province
+             */
+            admin_level_1?: string | null;
+            /**
+             * Admin Level 2
+             * @description County or district
+             */
+            admin_level_2?: string | null;
+            /**
+             * Locality
+             * @description City or locality
+             */
+            locality?: string | null;
+            /**
+             * Raw Geocoding
+             * @description Raw geocoding response
+             */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Cached
              * @description True if resolved from PostGIS geocache
@@ -3072,6 +3158,38 @@ export interface components {
              */
             city?: string | null;
             /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 country code
+             */
+            country_code?: string | null;
+            /**
+             * Admin Level 1
+             * @description State or province
+             */
+            admin_level_1?: string | null;
+            /**
+             * Admin Level 2
+             * @description County or district
+             */
+            admin_level_2?: string | null;
+            /**
+             * Locality
+             * @description City or locality
+             */
+            locality?: string | null;
+            /**
+             * Raw Geocoding
+             * @description Raw geocoding response
+             */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Photo Directories
+             * @description Photo directories
+             */
+            photo_directories?: string[] | null;
+            /**
              * States
              * @description Array of states or provinces spanned by the POI
              */
@@ -3255,6 +3373,39 @@ export interface components {
              * @description City or municipality
              */
             city?: string | null;
+            /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 country code
+             * @default US
+             */
+            country_code: string;
+            /**
+             * Admin Level 1
+             * @description State, province, or primary division
+             */
+            admin_level_1?: string | null;
+            /**
+             * Admin Level 2
+             * @description County, district, or secondary division
+             */
+            admin_level_2?: string | null;
+            /**
+             * Locality
+             * @description City, town, or locality
+             */
+            locality?: string | null;
+            /**
+             * Raw Geocoding
+             * @description Full raw provider geocoding response
+             */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Photo Directories
+             * @description Array of local photo directories
+             */
+            photo_directories?: string[];
             /**
              * States
              * @description Administrative subdivisions or states spanned by POI
@@ -3462,6 +3613,38 @@ export interface components {
              * @description City or municipality
              */
             city?: string | null;
+            /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 country code
+             */
+            country_code?: string | null;
+            /**
+             * Admin Level 1
+             * @description State or province
+             */
+            admin_level_1?: string | null;
+            /**
+             * Admin Level 2
+             * @description County or district
+             */
+            admin_level_2?: string | null;
+            /**
+             * Locality
+             * @description City or locality
+             */
+            locality?: string | null;
+            /**
+             * Raw Geocoding
+             * @description Raw geocoding response
+             */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Photo Directories
+             * @description Photo directories
+             */
+            photo_directories?: string[] | null;
             /**
              * States
              * @description Array of states or provinces spanned by the POI
@@ -4099,6 +4282,34 @@ export interface components {
              * @description Postal / ZIP code
              */
             postal_code?: string | null;
+            /**
+             * Country Code
+             * @description ISO 3166-1 alpha-2 code
+             * @default US
+             */
+            country_code: string;
+            /**
+             * Admin Level 1
+             * @description State or province
+             */
+            admin_level_1?: string | null;
+            /**
+             * Admin Level 2
+             * @description County or district
+             */
+            admin_level_2?: string | null;
+            /**
+             * Locality
+             * @description City or locality
+             */
+            locality?: string | null;
+            /**
+             * Raw Geocoding
+             * @description Raw geocoding response
+             */
+            raw_geocoding?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Cached
              * @description True if resolved from PostGIS geocache

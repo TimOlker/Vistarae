@@ -102,6 +102,11 @@ class ReverseGeocodeService:
                     state_province=data.get("state_province"),
                     country=data.get("country", "Unknown"),
                     postal_code=data.get("postal_code"),
+                    country_code=data.get("country_code", "US"),
+                    admin_level_1=data.get("admin_level_1"),
+                    admin_level_2=data.get("admin_level_2"),
+                    locality=data.get("locality"),
+                    raw_geocoding=data.get("raw_geocoding"),
                     cached=True,
                 )
             except (json.JSONDecodeError, TypeError):
@@ -151,47 +156,23 @@ class ReverseGeocodeService:
 
             if resp.status_code == 200:
                 body = resp.json()
-                addr = body.get("address", {})
-                street = (
-                    addr.get("road")
-                    or addr.get("pedestrian")
-                    or addr.get("street")
-                    or addr.get("footway")
-                    or addr.get("path")
-                )
-                city = (
-                    addr.get("city")
-                    or addr.get("town")
-                    or addr.get("village")
-                    or addr.get("municipality")
-                    or addr.get("administrative")
-                    or addr.get("county")
-                    or addr.get("state_district")
-                    or addr.get("subdistrict")
-                    or addr.get("hamlet")
-                    or addr.get("suburb")
-                )
-                raw_state = (
-                    addr.get("state")
-                    or addr.get("province")
-                    or addr.get("state_district")
-                    or addr.get("region")
-                )
-                raw_country = addr.get("country") or "Unknown"
-                postal_code = addr.get("postcode")
-
-                # Normalize country and state to English standard
-                norm_country = AddressNormalizer.normalize_country(raw_country)
+                parsed = AddressNormalizer.parse_nominatim_iso_address(body)
+                norm_country = parsed["country"]
                 norm_state = AddressNormalizer.normalize_state_province(
-                    raw_state, country=norm_country
-                )
+                    parsed["admin_level_1"], country=norm_country
+                ) if parsed["admin_level_1"] else None
 
                 payload = {
-                    "street": street.strip() if street else None,
-                    "city": AddressNormalizer.normalize_city(city, country=norm_country) if city else None,
+                    "street": parsed["street_address"],
+                    "city": AddressNormalizer.normalize_city(parsed["locality"], country=norm_country) if parsed["locality"] else None,
                     "state_province": norm_state,
                     "country": norm_country,
-                    "postal_code": postal_code.strip() if postal_code else None,
+                    "postal_code": parsed["postal_code"],
+                    "country_code": parsed["country_code"],
+                    "admin_level_1": parsed["admin_level_1"],
+                    "admin_level_2": parsed["admin_level_2"],
+                    "locality": parsed["locality"],
+                    "raw_geocoding": body,
                 }
 
                 # Cache result with 90-day TTL

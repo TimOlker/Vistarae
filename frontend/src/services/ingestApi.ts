@@ -17,7 +17,8 @@
 import { apiFetch } from "./api";
 import type { components } from "../types/api";
 
-export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"], "no_websites" | "is_user_overridden" | "is_duplicate" | "created_at" | "updated_at" | "update_coordinates" | "is_skipped"> & {
+export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"], "no_websites" | "is_user_overridden" | "is_duplicate" | "created_at" | "updated_at" | "update_coordinates" | "is_skipped" | "country_code"> & {
+  country_code?: string | null;
   no_websites?: boolean;
   is_user_overridden?: boolean;
   is_duplicate?: boolean;

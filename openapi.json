@@ -5803,6 +5803,71 @@
             ],
             "title": "Postal Code",
             "description": "Postal or ZIP code"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 code"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State or province"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County or district"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City, town, or locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Full raw geocoding response"
           }
         },
         "additionalProperties": false,
@@ -6457,6 +6522,56 @@
             ],
             "title": "City"
           },
+          "country_code": {
+            "type": "string",
+            "title": "Country Code",
+            "default": "US"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding"
+          },
           "state_province": {
             "anyOf": [
               {
@@ -6500,6 +6615,13 @@
           "photo_directory": {
             "type": "string",
             "title": "Photo Directory"
+          },
+          "photo_directories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photo Directories"
           },
           "confidence_score": {
             "type": "integer",
@@ -6842,6 +6964,62 @@
             ],
             "title": "City"
           },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding"
+          },
           "state_province": {
             "anyOf": [
               {
@@ -6899,6 +7077,20 @@
               }
             ],
             "title": "Photo Directory"
+          },
+          "photo_directories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Directories"
           },
           "tags": {
             "anyOf": [
@@ -8081,6 +8273,65 @@
             ],
             "title": "Postal Code",
             "description": "Postal / ZIP code"
+          },
+          "country_code": {
+            "type": "string",
+            "maxLength": 2,
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 code",
+            "default": "US"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State or province"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County or district"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City or locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Raw geocoding response"
           },
           "cached": {
             "type": "boolean",
@@ -9867,6 +10118,86 @@
             "title": "City",
             "description": "City or municipality"
           },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State or province"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County or district"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City or locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Raw geocoding response"
+          },
+          "photo_directories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Directories",
+            "description": "Photo directories"
+          },
           "states": {
             "anyOf": [
               {
@@ -10231,6 +10562,69 @@
             ],
             "title": "City",
             "description": "City or municipality"
+          },
+          "country_code": {
+            "type": "string",
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 country code",
+            "default": "US"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State, province, or primary division"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County, district, or secondary division"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City, town, or locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Full raw provider geocoding response"
+          },
+          "photo_directories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photo Directories",
+            "description": "Array of local photo directories"
           },
           "states": {
             "items": {
@@ -10626,6 +11020,86 @@
             ],
             "title": "City",
             "description": "City or municipality"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State or province"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County or district"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City or locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Raw geocoding response"
+          },
+          "photo_directories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Directories",
+            "description": "Photo directories"
           },
           "states": {
             "anyOf": [
@@ -11863,6 +12337,65 @@
             ],
             "title": "Postal Code",
             "description": "Postal / ZIP code"
+          },
+          "country_code": {
+            "type": "string",
+            "maxLength": 2,
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 code",
+            "default": "US"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State or province"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County or district"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City or locality"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Raw geocoding response"
           },
           "cached": {
             "type": "boolean",

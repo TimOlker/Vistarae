@@ -167,6 +167,12 @@ class POI:
     reason_to_visit: str | None = None
     address: str | None = None
     city: str | None = None
+    country_code: str = "US"
+    admin_level_1: str | None = None
+    admin_level_2: str | None = None
+    locality: str | None = None
+    raw_geocoding: dict[str, Any] | None = None
+    photo_directories: list[str] = field(default_factory=list)
     states: list[str] = field(default_factory=list)
     countries: list[str] = field(default_factory=list)
     addresses: list[AddressRecord] = field(default_factory=list)
@@ -344,9 +350,15 @@ class IngestCandidate:
     longitude: Decimal | None = None
     street_address: str | None = None
     city: str | None = None
+    country_code: str = "US"
+    admin_level_1: str | None = None
+    admin_level_2: str | None = None
+    locality: str | None = None
+    raw_geocoding: dict[str, Any] | None = None
     state_province: str | None = None
     postal_code: str | None = None
     country: str | None = None
+    photo_directories: list[str] = field(default_factory=list)
     addresses: list[dict[str, Any]] = field(default_factory=list)
     dates_visited: list[str] = field(default_factory=list)
     photo_directory: str = ""

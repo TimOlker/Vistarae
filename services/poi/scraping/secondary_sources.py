@@ -799,14 +799,14 @@ class WikipediaAdapter(SecondarySourceAdapter):
                     return summary_res
 
             for q_term in candidate_queries:
-                gen_search_res = await self._try_generator_search_query(q_term, client, headers)
-                if gen_search_res:
-                    return gen_search_res
-
-            for q_term in candidate_queries:
                 opensearch_res = await self._try_opensearch_query(q_term, client, headers)
                 if opensearch_res:
                     return opensearch_res
+
+            for q_term in candidate_queries:
+                gen_search_res = await self._try_generator_search_query(q_term, client, headers)
+                if gen_search_res:
+                    return gen_search_res
 
             for q_term in candidate_queries[:2]:
                 cirrus_res = await self._try_cirrus_query(q_term, client, headers)
