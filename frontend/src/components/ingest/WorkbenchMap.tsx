@@ -14,8 +14,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import maplibregl from "maplibre-gl";
+import type { LayerConfig, MapLayerId } from "../../types/map";
+import { getMapLayers } from "../map/MapLayerSwitcher";
+import {
+  isInChinaBBox,
+  wgs84_to_gcj02,
+  gcj02_to_wgs84,
+  wgs84_to_bd09,
+  bd09_to_wgs84,
+} from "../../utils/coordinates";
 
 export interface NearbyPointMarker {
   name: string;
@@ -32,6 +41,32 @@ export interface WorkbenchMapProps {
   nearbyPoints?: NearbyPointMarker[];
 }
 
+function createRasterStyle(
+  layerConfig: LayerConfig,
+): maplibregl.StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      "raster-tiles": {
+        type: "raster",
+        tiles: layerConfig.tiles,
+        tileSize: 256,
+        attribution: layerConfig.attribution,
+        maxzoom: layerConfig.maxZoom,
+      },
+    },
+    layers: [
+      {
+        id: "raster-layer",
+        type: "raster",
+        source: "raster-tiles",
+        minzoom: 0,
+        maxzoom: layerConfig.maxZoom,
+      },
+    ],
+  };
+}
+
 export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
   latitude,
   longitude,
@@ -43,6 +78,48 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
   const primaryMarkerRef = useRef<maplibregl.Marker | null>(null);
   const nearbyMarkersRef = useRef<maplibregl.Marker[]>([]);
 
+  const availableLayers = useMemo(() => getMapLayers("local"), []);
+  const [activeLayerId, setActiveLayerId] = useState<MapLayerId>("osm");
+  const activeLayer = useMemo(
+    () =>
+      availableLayers.find((l) => l.id === activeLayerId) || availableLayers[0],
+    [availableLayers, activeLayerId],
+  );
+  const activeLayerRef = useRef(activeLayer);
+  activeLayerRef.current = activeLayer;
+
+  // Helper to project canonical WGS-84 coordinate to visual map space (shifted if in China and layer is shifted)
+  const toDisplayCoords = (lat: number, lon: number): [number, number] => {
+    if (isInChinaBBox(lon, lat)) {
+      if (activeLayer.id === "amap") {
+        const shifted = wgs84_to_gcj02(lon, lat);
+        return [shifted.lng, shifted.lat];
+      } else if (activeLayer.id === "baidu") {
+        const shifted = wgs84_to_bd09(lon, lat);
+        return [shifted.lng, shifted.lat];
+      }
+    }
+    return [lon, lat];
+  };
+
+  // Helper to convert clicked/dragged visual map space coordinate back to canonical WGS-84
+  const toWgs84Coords = (
+    dispLat: number,
+    dispLon: number,
+  ): { lat: number; lon: number } => {
+    if (isInChinaBBox(dispLon, dispLat)) {
+      const curLayer = activeLayerRef.current;
+      if (curLayer.id === "amap") {
+        const unshifted = gcj02_to_wgs84(dispLon, dispLat);
+        return { lat: unshifted.lat, lon: unshifted.lng };
+      } else if (curLayer.id === "baidu") {
+        const unshifted = bd09_to_wgs84(dispLon, dispLat);
+        return { lat: unshifted.lat, lon: unshifted.lng };
+      }
+    }
+    return { lat: dispLat, lon: dispLon };
+  };
+
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -51,41 +128,27 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
     const defaultLat = latitude != null ? latitude : 20.0;
     const defaultLon = longitude != null ? longitude : 0.0;
     const defaultZoom = latitude != null && longitude != null ? 13 : 2;
+    const [initLon, initLat] = toDisplayCoords(defaultLat, defaultLon);
 
     try {
       const map = new maplibregl.Map({
         container: mapContainerRef.current,
-        style: {
-          version: 8,
-          sources: {
-            "osm-tiles": {
-              type: "raster",
-              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-              tileSize: 256,
-              attribution: "&copy; OpenStreetMap contributors",
-            },
-          },
-          layers: [
-            {
-              id: "osm-layer",
-              type: "raster",
-              source: "osm-tiles",
-              minzoom: 0,
-              maxzoom: 19,
-            },
-          ],
-        },
-        center: [defaultLon, defaultLat],
+        style: createRasterStyle(activeLayerRef.current),
+        center: [initLon, initLat],
         zoom: defaultZoom,
       });
 
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+      map.addControl(
+        new maplibregl.NavigationControl({ showCompass: false }),
+        "top-left",
+      );
 
       // Click to relocate pin
       if (typeof (map as any).on === "function") {
         (map as any).on("click", (e: any) => {
           if (e && e.lngLat) {
-            onChangeLocation(e.lngLat.lat, e.lngLat.lng);
+            const canonical = toWgs84Coords(e.lngLat.lat, e.lngLat.lng);
+            onChangeLocation(canonical.lat, canonical.lon);
           }
         });
       }
@@ -103,12 +166,34 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
     };
   }, []);
 
+  // Update map style when active layer changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || typeof map.setStyle !== "function") return;
+    try {
+      if (activeLayer.type === "vector" && activeLayer.styleUrl) {
+        map.setStyle(activeLayer.styleUrl);
+      } else {
+        map.setStyle(createRasterStyle(activeLayer));
+      }
+    } catch (err) {
+      console.warn("Could not set map layer in WorkbenchMap:", err);
+    }
+  }, [activeLayerId, activeLayer]);
+
   // Synchronize Primary Marker & Viewport
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    if (latitude != null && longitude != null && !isNaN(latitude) && !isNaN(longitude)) {
+    if (
+      latitude != null &&
+      longitude != null &&
+      !isNaN(latitude) &&
+      !isNaN(longitude)
+    ) {
+      const [dispLon, dispLat] = toDisplayCoords(latitude, longitude);
+
       if (!primaryMarkerRef.current) {
         // Create draggable marker
         const el = document.createElement("div");
@@ -122,29 +207,35 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
         el.style.cursor = "grab";
 
         const marker = new maplibregl.Marker({ element: el, draggable: true })
-          .setLngLat([longitude, latitude])
+          .setLngLat([dispLon, dispLat])
           .addTo(map);
 
         if (typeof (marker as any).on === "function") {
           (marker as any).on("dragend", () => {
             const pos = marker.getLngLat();
-            if (pos) onChangeLocation(pos.lat, pos.lng);
+            if (pos) {
+              const canonical = toWgs84Coords(pos.lat, pos.lng);
+              onChangeLocation(canonical.lat, canonical.lon);
+            }
           });
         }
 
         primaryMarkerRef.current = marker;
       } else {
-        primaryMarkerRef.current.setLngLat([longitude, latitude]);
+        primaryMarkerRef.current.setLngLat([dispLon, dispLat]);
       }
 
-      map.flyTo({ center: [longitude, latitude], zoom: Math.max(map.getZoom(), 12) });
+      map.flyTo({
+        center: [dispLon, dispLat],
+        zoom: Math.max(map.getZoom(), 12),
+      });
     } else {
       if (primaryMarkerRef.current) {
         primaryMarkerRef.current.remove();
         primaryMarkerRef.current = null;
       }
     }
-  }, [latitude, longitude, onChangeLocation]);
+  }, [latitude, longitude, activeLayerId, onChangeLocation]);
 
   // Synchronize Nearby Markers
   useEffect(() => {
@@ -156,7 +247,15 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
     nearbyMarkersRef.current = [];
 
     nearbyPoints.forEach((pt) => {
-      if (pt.latitude == null || pt.longitude == null || isNaN(pt.latitude) || isNaN(pt.longitude)) return;
+      if (
+        pt.latitude == null ||
+        pt.longitude == null ||
+        isNaN(pt.latitude) ||
+        isNaN(pt.longitude)
+      )
+        return;
+
+      const [ptLon, ptLat] = toDisplayCoords(pt.latitude, pt.longitude);
 
       const el = document.createElement("div");
       el.className = "nearby-pin";
@@ -169,17 +268,25 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
       el.style.cursor = "pointer";
 
       const popup = new maplibregl.Popup({ offset: 12 }).setHTML(
-        `<strong>${pt.name}</strong><br/><span style="font-size:11px;color:#64748b;">${pt.type} (~${pt.distanceMiles < 0.1 ? Math.round(pt.distanceMiles * 5280) + ' ft' : pt.distanceMiles.toFixed(1) + ' mi'})</span>`
+        `<strong>${
+          pt.name
+        }</strong><br/><span style="font-size:11px;color:#64748b;">${
+          pt.type
+        } (~${
+          pt.distanceMiles < 0.1
+            ? Math.round(pt.distanceMiles * 5280) + " ft"
+            : pt.distanceMiles.toFixed(1) + " mi"
+        })</span>`,
       );
 
       const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([pt.longitude, pt.latitude])
+        .setLngLat([ptLon, ptLat])
         .setPopup(popup)
         .addTo(map);
 
       nearbyMarkersRef.current.push(marker);
     });
-  }, [nearbyPoints]);
+  }, [nearbyPoints, activeLayerId]);
 
   return (
     <div
@@ -200,6 +307,49 @@ export const WorkbenchMap: React.FC<WorkbenchMapProps> = ({
         data-testid="workbench-map-container"
         style={{ width: "100%", height: "100%" }}
       />
+
+      {/* Map Vendor / Layer Selector */}
+      <div
+        style={{
+          position: "absolute",
+          top: "8px",
+          right: "8px",
+          zIndex: 10,
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          borderRadius: "4px",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+          padding: "2px 6px",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+        }}
+        data-testid="workbench-map-layer-selector"
+      >
+        <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b" }}>
+          Layer:
+        </span>
+        <select
+          value={activeLayerId}
+          onChange={(e) => setActiveLayerId(e.target.value as MapLayerId)}
+          data-testid="workbench-map-layer-select"
+          style={{
+            fontSize: "11px",
+            border: "none",
+            backgroundColor: "transparent",
+            color: "#0f172a",
+            fontWeight: 600,
+            cursor: "pointer",
+            outline: "none",
+          }}
+        >
+          {availableLayers.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {latitude == null && (
         <div
           data-testid="map-no-coords-overlay"

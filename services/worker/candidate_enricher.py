@@ -285,10 +285,18 @@ class CandidateEnricher:
                 return cand
 
             # If coordinates are missing, attempt forward geocoding resolution
-            if (cand.latitude is None or cand.longitude is None) and self._orchestrator and getattr(self._orchestrator, "geocoding_service", None):
+            if (
+                (cand.latitude is None or cand.longitude is None)
+                and self._orchestrator
+                and getattr(self._orchestrator, "geocoding_service", None)
+            ):
                 try:
                     geo = self._orchestrator.geocoding_service
-                    query = f"{cand.poi_name}, {cand.city}, {cand.country}" if (cand.city and cand.country) else cand.poi_name
+                    query = (
+                        f"{cand.poi_name}, {cand.city}, {cand.country}"
+                        if (cand.city and cand.country)
+                        else cand.poi_name
+                    )
                     lat, lon, addrs, _ = await geo.geocode(query)
                     if lat is not None and lon is not None:
                         cand.latitude = Decimal(str(lat))
@@ -302,7 +310,9 @@ class CandidateEnricher:
                             cand.country = cand.country or first.country
                         if cand.recommended_disposition == IngestDisposition.IGNORE:
                             cand.recommended_disposition = IngestDisposition.ACCEPT
-                            cand.disposition_justification = "Coordinates resolved via enrichment geocoding"
+                            cand.disposition_justification = (
+                                "Coordinates resolved via enrichment geocoding"
+                            )
                 except Exception as exc:
                     logger.debug("Enrichment geocoding failed for '%s': %s", cand.poi_name, exc)
 

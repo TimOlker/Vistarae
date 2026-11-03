@@ -66,6 +66,7 @@ def mock_staging_service() -> MagicMock:
     svc.cancel_staging = AsyncMock(return_value=3)
     svc.commit_job = AsyncMock(return_value=(2, [uuid.uuid4()], [uuid.uuid4()]))
     from vistarae_core.schemas.ingest_staging import ActiveSessionResponse
+
     svc.get_active_session = AsyncMock(return_value=ActiveSessionResponse(has_active_session=False))
     return svc
 
@@ -334,7 +335,9 @@ async def test_get_job_candidates_with_filters(
         assert resp.json()["candidates"][0]["poi_name"] == "Kyoto Temple"
 
         # Filter by completeness: incomplete
-        resp_comp = await client.get(f"/api/ingest/jobs/{job_id}/candidates?completeness=incomplete")
+        resp_comp = await client.get(
+            f"/api/ingest/jobs/{job_id}/candidates?completeness=incomplete"
+        )
         assert resp_comp.status_code == 200
         assert resp_comp.json()["total_candidates"] == 1
         assert resp_comp.json()["candidates"][0]["poi_name"] == "Tokyo Shrine"
@@ -395,12 +398,15 @@ async def test_upload_active_session_guard_returns_409(
     mock_staging_service: MagicMock,
 ) -> None:
     from vistarae_core.schemas.ingest_staging import ActiveSessionResponse
+
     active_job_id = uuid.uuid4()
-    mock_staging_service.get_active_session = AsyncMock(return_value=ActiveSessionResponse(
-        has_active_session=True,
-        job_id=active_job_id,
-        total_candidates=10,
-    ))
+    mock_staging_service.get_active_session = AsyncMock(
+        return_value=ActiveSessionResponse(
+            has_active_session=True,
+            job_id=active_job_id,
+            total_candidates=10,
+        )
+    )
 
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service

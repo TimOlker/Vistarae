@@ -107,7 +107,7 @@ def _extract_or_generate_trace_context(request: Request) -> dict[str, str]:
     response_model=IngestUploadResponse,
     include_in_schema=False,
 )
-async def upload_csv(
+async def upload_csv(  # noqa: C901
     request: Request,
     file: Annotated[UploadFile, File(description="CSV file to ingest")],
     target_list_id: Annotated[UUID | None, Form(description="Optional target list ID")] = None,
@@ -159,13 +159,16 @@ async def upload_csv(
     mapping_dict = None
     if column_mapping:
         import json
+
         with contextlib.suppress(Exception):
             mapping_dict = json.loads(column_mapping)
             if not isinstance(mapping_dict, dict):
                 mapping_dict = None
 
     file_bytes = await file.read()
-    parsed_rows = parse_and_sanitize_csv(file_bytes, content_type=file.content_type, column_mapping=mapping_dict)
+    parsed_rows = parse_and_sanitize_csv(
+        file_bytes, content_type=file.content_type, column_mapping=mapping_dict
+    )
 
     # Resolve or create target list if specified by name
     if target_list_name and target_list_name.strip() and not target_list_id:

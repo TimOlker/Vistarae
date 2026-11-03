@@ -637,7 +637,11 @@ class ScrapingOrchestrator:
             if res.get("description"):
                 merged["secondary_extracts"].append(str(res["description"]))
             if res.get("related_websites"):
-                seen_urls = {w["url"].rstrip("/").lower() for w in merged["related_websites"] if isinstance(w, dict) and "url" in w}
+                seen_urls = {
+                    w["url"].rstrip("/").lower()
+                    for w in merged["related_websites"]
+                    if isinstance(w, dict) and "url" in w
+                }
                 for site in res["related_websites"]:
                     if isinstance(site, dict) and site.get("url"):
                         k = site["url"].rstrip("/").lower()
@@ -645,17 +649,25 @@ class ScrapingOrchestrator:
                             seen_urls.add(k)
                             merged["related_websites"].append(site)
 
-        existing_urls = {w["url"].rstrip("/").lower() for w in merged["related_websites"] if isinstance(w, dict) and "url" in w}
+        existing_urls = {
+            w["url"].rstrip("/").lower()
+            for w in merged["related_websites"]
+            if isinstance(w, dict) and "url" in w
+        }
         if merged["official_website_url"]:
             off_k = merged["official_website_url"].rstrip("/").lower()
             if off_k not in existing_urls:
                 existing_urls.add(off_k)
-                merged["related_websites"].insert(0, {"name": "Official Website", "url": merged["official_website_url"]})
+                merged["related_websites"].insert(
+                    0, {"name": "Official Website", "url": merged["official_website_url"]}
+                )
         if merged["wikipedia_url"]:
             wiki_k = merged["wikipedia_url"].rstrip("/").lower()
             if wiki_k not in existing_urls:
                 existing_urls.add(wiki_k)
-                merged["related_websites"].append({"name": "Wikipedia", "url": merged["wikipedia_url"]})
+                merged["related_websites"].append(
+                    {"name": "Wikipedia", "url": merged["wikipedia_url"]}
+                )
 
         return merged
 

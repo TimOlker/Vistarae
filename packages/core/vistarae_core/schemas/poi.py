@@ -84,11 +84,19 @@ class POIResponse(StrictBaseModel):
     address: str | None = Field(default=None, description="Geocoded street address")
     city: str | None = Field(default=None, description="City or municipality")
     country_code: str = Field(default="US", description="ISO 3166-1 alpha-2 country code")
-    admin_level_1: str | None = Field(default=None, description="State, province, or primary division")
-    admin_level_2: str | None = Field(default=None, description="County, district, or secondary division")
+    admin_level_1: str | None = Field(
+        default=None, description="State, province, or primary division"
+    )
+    admin_level_2: str | None = Field(
+        default=None, description="County, district, or secondary division"
+    )
     locality: str | None = Field(default=None, description="City, town, or locality")
-    raw_geocoding: dict[str, Any] | None = Field(default=None, description="Full raw provider geocoding response")
-    photo_directories: list[str] = Field(default_factory=list, description="Array of local photo directories")
+    raw_geocoding: dict[str, Any] | None = Field(
+        default=None, description="Full raw provider geocoding response"
+    )
+    photo_directories: list[str] = Field(
+        default_factory=list, description="Array of local photo directories"
+    )
     states: list[str] = Field(
         default_factory=list,
         description="Administrative subdivisions or states spanned by POI",
@@ -102,7 +110,9 @@ class POIResponse(StrictBaseModel):
     )
     official_url: str | None = Field(default=None, description="Official entity website")
     wiki_url: str | None = Field(default=None, description="Wikipedia or Wikidata reference")
-    related_websites: list[dict[str, Any]] = Field(default_factory=list, description="Related external websites (name and url)")
+    related_websites: list[dict[str, Any]] = Field(
+        default_factory=list, description="Related external websites (name and url)"
+    )
     image_urls: list[str] = Field(default_factory=list, description="Array of image URLs")
     directory_paths: list[str] = Field(
         default_factory=list, description="Associated local file directory paths"
@@ -194,9 +204,13 @@ class POICreateRequest(StrictBaseModel):
     )
     address: str | None = Field(default=None, max_length=500, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
-    country_code: str | None = Field(default=None, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    country_code: str | None = Field(
+        default=None, max_length=2, description="ISO 3166-1 alpha-2 country code"
+    )
     admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
-    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
     locality: str | None = Field(default=None, max_length=150, description="City or locality")
     related_websites: list[dict[str, Any]] | None = Field(
         default=None, description="Related external websites"
@@ -286,9 +300,13 @@ class POIUpdateRequest(StrictBaseModel):
     )
     address: str | None = Field(default=None, max_length=500, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
-    country_code: str | None = Field(default=None, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    country_code: str | None = Field(
+        default=None, max_length=2, description="ISO 3166-1 alpha-2 country code"
+    )
     admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
-    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
     locality: str | None = Field(default=None, max_length=150, description="City or locality")
     related_websites: list[dict[str, Any]] | None = Field(
         default=None, description="Related external websites"
@@ -415,7 +433,9 @@ class ReverseGeocodeResponse(StrictBaseModel):
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
     country_code: str = Field(default="US", max_length=2, description="ISO 3166-1 alpha-2 code")
     admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
-    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
     locality: str | None = Field(default=None, max_length=150, description="City or locality")
     related_websites: list[dict[str, Any]] | None = Field(
         default=None, description="Related external websites"
@@ -441,7 +461,9 @@ class ForwardGeocodeResponse(StrictBaseModel):
     postal_code: str | None = Field(default=None, max_length=32, description="Postal / ZIP code")
     country_code: str = Field(default="US", max_length=2, description="ISO 3166-1 alpha-2 code")
     admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
-    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
     locality: str | None = Field(default=None, max_length=150, description="City or locality")
     related_websites: list[dict[str, Any]] | None = Field(
         default=None, description="Related external websites"

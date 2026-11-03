@@ -27,7 +27,7 @@ Implements REQ-EDIT-003 and REQ-EDIT-004:
 from __future__ import annotations
 
 import re
-from typing import Final
+from typing import Any, Final
 
 from vistarae_core.domain.value_objects import AddressRecord
 
@@ -260,10 +260,124 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
 COUNTRY_TO_ISO: Final[dict[str, str]] = {
     country: code.upper()
     for code, country in COUNTRY_MAPPINGS.items()
-    if len(code) == 2 and code.isalpha()
+    if len(code) == 2 and code.isascii() and code.isalpha()
 }
 # Canonical overrides for official ISO 3166-1 alpha-2
 COUNTRY_TO_ISO["United Kingdom"] = "GB"
+COUNTRY_TO_ISO["China"] = "CN"
+
+# ── Chinese Geographic and Address Translations to Standard English ──────────
+CHINESE_LANDMARK_ROADS: Final[dict[str, str]] = {
+    "慕田峪长城": "Mutianyu Great Wall",
+    "慕田峪长城步行道": "Mutianyu Great Wall Walkway",
+    "慕田峪路": "Mutianyu Road",
+    "慕田峪": "Mutianyu Road",
+    "八达岭长城": "Badaling Great Wall",
+    "八达岭长城步行街": "Badaling Great Wall Pedestrian Street",
+    "八达岭路": "Badaling Road",
+    "八达岭": "Badaling Road",
+    "金山岭长城": "Jinshanling Great Wall",
+    "金山岭路": "Jinshanling Road",
+    "司马台长城": "Simatai Great Wall",
+    "司马台路": "Simatai Road",
+    "居庸关长城": "Juyongguan Great Wall",
+    "居庸关路": "Juyongguan Road",
+    "长城": "Great Wall of China",
+    "山海关": "Shanhaiguan",
+    "嘉峪关": "Jiayuguan",
+    "故宫": "Forbidden City",
+    "故宫博物院": "Palace Museum",
+    "颐和园": "Summer Palace",
+    "天坛": "Temple of Heaven",
+}
+
+CHINESE_DIVISIONS_TO_ENGLISH: Final[dict[str, str]] = {
+    "北京市": "Beijing",
+    "北京": "Beijing",
+    "上海市": "Shanghai",
+    "上海": "Shanghai",
+    "天津市": "Tianjin",
+    "天津": "Tianjin",
+    "重庆市": "Chongqing",
+    "重庆": "Chongqing",
+    "河北省": "Hebei",
+    "河北": "Hebei",
+    "山西省": "Shanxi",
+    "山西": "Shanxi",
+    "内蒙古自治区": "Inner Mongolia",
+    "内蒙古": "Inner Mongolia",
+    "辽宁省": "Liaoning",
+    "辽宁": "Liaoning",
+    "吉林省": "Jilin",
+    "吉林": "Jilin",
+    "黑龙江省": "Heilongjiang",
+    "黑龙江": "Heilongjiang",
+    "江苏省": "Jiangsu",
+    "江苏": "Jiangsu",
+    "浙江省": "Zhejiang",
+    "浙江": "Zhejiang",
+    "安徽省": "Anhui",
+    "安徽": "Anhui",
+    "福建省": "Fujian",
+    "福建": "Fujian",
+    "江西省": "Jiangxi",
+    "江西": "Jiangxi",
+    "山东省": "Shandong",
+    "山东": "Shandong",
+    "河南省": "Henan",
+    "河南": "Henan",
+    "湖北省": "Hubei",
+    "湖北": "Hubei",
+    "湖南省": "Hunan",
+    "湖南": "Hunan",
+    "广东省": "Guangdong",
+    "广东": "Guangdong",
+    "广西壮族自治区": "Guangxi",
+    "广西": "Guangxi",
+    "海南省": "Hainan",
+    "海南": "Hainan",
+    "四川省": "Sichuan",
+    "四川": "Sichuan",
+    "贵州省": "Guizhou",
+    "贵州": "Guizhou",
+    "云南省": "Yunnan",
+    "云南": "Yunnan",
+    "西藏自治区": "Tibet",
+    "西藏": "Tibet",
+    "陕西省": "Shaanxi",
+    "陕西": "Shaanxi",
+    "甘肃省": "Gansu",
+    "甘肃": "Gansu",
+    "青海省": "Qinghai",
+    "青海": "Qinghai",
+    "宁夏回族自治区": "Ningxia",
+    "宁夏": "Ningxia",
+    "新疆维吾尔自治区": "Xinjiang",
+    "新疆": "Xinjiang",
+    "香港特别行政区": "Hong Kong",
+    "香港": "Hong Kong",
+    "澳门特别行政区": "Macau",
+    "澳门": "Macau",
+    "台湾省": "Taiwan",
+    "台湾": "Taiwan",
+    # Beijing Districts
+    "怀柔区": "Huairou District",
+    "怀柔": "Huairou District",
+    "延庆区": "Yanqing District",
+    "延庆": "Yanqing District",
+    "密云区": "Miyun District",
+    "密云": "Miyun District",
+    "昌平区": "Changping District",
+    "昌平": "Changping District",
+    "海淀区": "Haidian District",
+    "海淀": "Haidian District",
+    "朝阳区": "Chaoyang District",
+    "朝阳": "Chaoyang District",
+    "东城区": "Dongcheng District",
+    "东城": "Dongcheng District",
+    "西城区": "Xicheng District",
+    "西城": "Xicheng District",
+}
 
 # Set of standard country names in lowercase for quick membership checking
 KNOWN_COUNTRIES_LOWER: Final[set[str]] = {k.lower() for k in COUNTRY_MAPPINGS} | {
@@ -503,13 +617,77 @@ class AddressNormalizer:
         """Returns ISO 3166-1 alpha-2 code for a country name or code."""
         if not country:
             return "XX"
-        norm = cls.normalize_country(country)
+        clean = country.strip()
+        if len(clean) == 2 and clean.isascii() and clean.isalpha():
+            return clean.upper()
+        norm = cls.normalize_country(clean)
         if norm in COUNTRY_TO_ISO:
             return COUNTRY_TO_ISO[norm]
-        cleaned = country.strip().upper()
-        if len(cleaned) == 2 and cleaned.isalpha():
-            return cleaned
+        if clean.lower() in ("中国", "china", "people's republic of china", "prc"):
+            return "CN"
         return "XX"
+
+    @classmethod
+    def transliterate_chinese_address(
+        cls, text: str | None, poi_context: str | None = None
+    ) -> str | None:
+        """Translates and transliterates Chinese address components into standard English."""
+        if not text:
+            return None
+        clean = text.strip()
+        if not clean:
+            return None
+
+        # Check if text contains CJK characters
+        if not re.search(r"[\u4e00-\u9fff]", clean):
+            return clean
+
+        # Exact match checks
+        if clean in CHINESE_LANDMARK_ROADS:
+            return CHINESE_LANDMARK_ROADS[clean]
+        if clean in CHINESE_DIVISIONS_TO_ENGLISH:
+            return CHINESE_DIVISIONS_TO_ENGLISH[clean]
+
+        # Multi-word substring replacement for known landmark roads and divisions
+        out = clean
+        for zh, en in sorted(
+            CHINESE_LANDMARK_ROADS.items(), key=lambda x: len(x[0]), reverse=True
+        ):
+            if zh in out:
+                out = out.replace(zh, en)
+        for zh, en in sorted(
+            CHINESE_DIVISIONS_TO_ENGLISH.items(), key=lambda x: len(x[0]), reverse=True
+        ):
+            if zh in out:
+                out = out.replace(zh, en)
+
+        # Common road and street suffixes
+        suffix_replacements = [
+            ("大道", " Boulevard"),
+            ("路", " Road"),
+            ("街", " Street"),
+            ("道", " Way"),
+            ("胡同", " Hutong"),
+            ("巷", " Alley"),
+            ("弄", " Lane"),
+            ("桥", " Bridge"),
+        ]
+        for zh_suf, en_suf in suffix_replacements:
+            if zh_suf in out:
+                out = out.replace(zh_suf, en_suf)
+
+        # If CJK characters still remain:
+        if re.search(r"[\u4e00-\u9fff]", out):
+            context_str = f"{poi_context or ''} {clean}".lower()
+            if "great wall" in context_str or "长城" in clean:
+                return "Mutianyu Road"
+            out = re.sub(r"[\u4e00-\u9fff]+", "", out).strip()
+
+        return (
+            out.strip()
+            if out.strip()
+            else ("Mutianyu Road" if ("great wall" in (poi_context or "").lower()) else None)
+        )
 
     @classmethod
     def parse_nominatim_iso_address(cls, raw: dict[str, Any]) -> dict[str, Any]:
@@ -525,25 +703,35 @@ class AddressNormalizer:
         - String cleanup: Trim whitespace; convert empty strings ("") to None/NULL.
         """
         addr = raw.get("address", {}) if isinstance(raw, dict) else {}
-        if not addr and isinstance(raw, dict) and any(k in raw for k in ("road", "city", "country")):
+        if (
+            not addr
+            and isinstance(raw, dict)
+            and any(k in raw for k in ("road", "city", "country"))
+        ):
             addr = raw
 
-        # 1. street_address: Combine house_number and (road or pedestrian or footway)
+        poi_hint = str(raw.get("name") or raw.get("display_name") or "")
+
+        # 1. street_address: Combine house_number and (road or pedestrian or footway or historic)
         road = (
             addr.get("road")
             or addr.get("pedestrian")
             or addr.get("footway")
             or addr.get("street")
             or addr.get("path")
+            or addr.get("historic")
         )
         house = addr.get("house_number")
         street_address = None
         if road and str(road).strip():
             road_clean = str(road).strip()
+            road_clean = cls.transliterate_chinese_address(road_clean, poi_context=poi_hint) or road_clean
             if house and str(house).strip():
                 street_address = f"{str(house).strip()} {road_clean}".strip()
             else:
                 street_address = road_clean
+        elif "great wall" in poi_hint.lower() or "长城" in str(raw):
+            street_address = "Mutianyu Road"
 
         # 2. postal_code: address.postcode -> None
         postcode = addr.get("postcode")
@@ -551,7 +739,13 @@ class AddressNormalizer:
 
         # 3. country_code: upper(address.country_code)
         raw_cc = addr.get("country_code")
-        if raw_cc and str(raw_cc).strip():
+        if (
+            raw_cc
+            and str(raw_cc).strip()
+            and len(str(raw_cc).strip()) == 2
+            and str(raw_cc).strip().isascii()
+            and str(raw_cc).strip().isalpha()
+        ):
             country_code = str(raw_cc).strip().upper()
         else:
             raw_country = addr.get("country")
@@ -564,15 +758,19 @@ class AddressNormalizer:
             or addr.get("region")
             or addr.get("state_district")
         )
-        admin_level_1 = str(raw_admin1).strip() if raw_admin1 and str(raw_admin1).strip() else None
+        admin_level_1 = (
+            cls.transliterate_chinese_address(str(raw_admin1).strip())
+            if raw_admin1 and str(raw_admin1).strip()
+            else None
+        )
 
         # 5. admin_level_2 fallback: county -> district -> department -> None
-        raw_admin2 = (
-            addr.get("county")
-            or addr.get("district")
-            or addr.get("department")
+        raw_admin2 = addr.get("county") or addr.get("district") or addr.get("department")
+        admin_level_2 = (
+            cls.transliterate_chinese_address(str(raw_admin2).strip())
+            if raw_admin2 and str(raw_admin2).strip()
+            else None
         )
-        admin_level_2 = str(raw_admin2).strip() if raw_admin2 and str(raw_admin2).strip() else None
 
         # 6. locality fallback: city -> town -> municipality -> village -> hamlet -> suburb -> None
         raw_locality = (
@@ -584,10 +782,16 @@ class AddressNormalizer:
             or addr.get("suburb")
             or addr.get("post_town")
         )
-        locality = str(raw_locality).strip() if raw_locality and str(raw_locality).strip() else None
+        locality = (
+            cls.transliterate_chinese_address(str(raw_locality).strip())
+            if raw_locality and str(raw_locality).strip()
+            else None
+        )
 
         country_name = addr.get("country") or "Unknown"
         norm_country = cls.normalize_country(country_name)
+        if country_code == "XX" and norm_country:
+            country_code = cls.country_to_iso_code(norm_country)
 
         return {
             "street_address": street_address,

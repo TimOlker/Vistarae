@@ -23,6 +23,7 @@ Principle 4 (prohibiting PostgreSQL native ENUM types).
 from __future__ import annotations
 
 from enum import StrEnum
+
 from pydantic import Field
 
 from vistarae_core.domain.base import StrictBaseModel

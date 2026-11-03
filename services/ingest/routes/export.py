@@ -153,16 +153,25 @@ class ExportService:
                 latitude=lat,
                 longitude=lon,
                 street_address=c.street_address or "",
-                city=getattr(c, "city", None) or getattr(c, "locality", None) or getattr(c, "town_city", "") or "",
-                state_province=getattr(c, "state_province", None) or getattr(c, "admin_level_1", "") or "",
+                city=getattr(c, "city", None)
+                or getattr(c, "locality", None)
+                or getattr(c, "town_city", "")
+                or "",
+                state_province=getattr(c, "state_province", None)
+                or getattr(c, "admin_level_1", "")
+                or "",
                 postal_code=getattr(c, "postal_code", None) or getattr(c, "zip_code", "") or "",
                 country=getattr(c, "country", None) or getattr(c, "country_code", "") or "",
                 tags=c.tags or [],
                 dates_visited=c.dates_visited or [],
                 photo_directory=c.photo_directory or "",
-                location_confidence_percent=getattr(c, "confidence_score", None) or getattr(c, "location_confidence_percent", 0) or 0,
+                location_confidence_percent=getattr(c, "confidence_score", None)
+                or getattr(c, "location_confidence_percent", 0)
+                or 0,
                 user_disposition=c.user_disposition,
-                rejection_reason=getattr(c, "disposition_justification", None) or getattr(c, "rejection_reason", "") or "",
+                rejection_reason=getattr(c, "disposition_justification", None)
+                or getattr(c, "rejection_reason", "")
+                or "",
                 ai_description=c.ai_description or "",
                 reason_to_visit=c.reason_to_visit or "",
                 recommended_duration_hours=float(c.recommended_duration_hours)

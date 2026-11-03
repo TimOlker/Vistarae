@@ -147,4 +147,3 @@ async def test_exclusion_zone_candidate_assigned_exclude_disposition() -> None:
     cand = staged[0]
     assert cand.recommended_disposition == IngestDisposition.EXCLUDE
     assert cand.disposition_justification == "Point falls within user exclusion zone"
-

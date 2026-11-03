@@ -62,4 +62,3 @@ def downgrade() -> None:
     """Drops related_websites columns."""
     op.drop_column("ingest_candidates", "related_websites")
     op.drop_column("pois", "related_websites")
-

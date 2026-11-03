@@ -8320,6 +8320,37 @@
             "title": "Locality",
             "description": "City or locality"
           },
+          "related_websites": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Related Websites",
+            "description": "Related external websites"
+          },
+          "photo_directories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Directories",
+            "description": "Associated local photo directories"
+          },
           "raw_geocoding": {
             "anyOf": [
               {
@@ -10170,6 +10201,23 @@
             "title": "Locality",
             "description": "City or locality"
           },
+          "related_websites": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Related Websites",
+            "description": "Related external websites"
+          },
+          "photo_directories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photo Directories",
+            "description": "Associated local photo directories"
+          },
           "raw_geocoding": {
             "anyOf": [
               {
@@ -10182,21 +10230,6 @@
             ],
             "title": "Raw Geocoding",
             "description": "Raw geocoding response"
-          },
-          "photo_directories": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo Directories",
-            "description": "Photo directories"
           },
           "states": {
             "anyOf": [
@@ -11073,18 +11106,23 @@
             "title": "Locality",
             "description": "City or locality"
           },
-          "raw_geocoding": {
+          "related_websites": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Raw Geocoding",
-            "description": "Raw geocoding response"
+            "title": "Related Websites",
+            "description": "Array of related website objects with name and url"
           },
           "photo_directories": {
             "anyOf": [
@@ -11100,6 +11138,19 @@
             ],
             "title": "Photo Directories",
             "description": "Photo directories"
+          },
+          "raw_geocoding": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Geocoding",
+            "description": "Raw geocoding response"
           },
           "states": {
             "anyOf": [
@@ -11276,24 +11327,6 @@
             ],
             "title": "Wiki Url",
             "description": "Wikipedia URL"
-          },
-          "related_websites": {
-            "anyOf": [
-              {
-                "items": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Related Websites",
-            "description": "Array of related website objects with name and url"
           },
           "directory_paths": {
             "anyOf": [
@@ -12383,6 +12416,37 @@
             ],
             "title": "Locality",
             "description": "City or locality"
+          },
+          "related_websites": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Related Websites",
+            "description": "Related external websites"
+          },
+          "photo_directories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Directories",
+            "description": "Associated local photo directories"
           },
           "raw_geocoding": {
             "anyOf": [

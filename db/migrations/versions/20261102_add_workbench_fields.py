@@ -22,10 +22,9 @@ Create Date: 2026-11-02 12:45:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import UUID
-
 
 # revision identifiers, used by Alembic.
 revision = "0015"
@@ -83,4 +82,3 @@ def downgrade() -> None:
     op.drop_column("ingest_candidates", "is_user_overridden")
     op.drop_column("ingest_candidates", "disposition_justification")
     op.drop_column("ingest_candidates", "no_websites")
-

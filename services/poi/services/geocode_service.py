@@ -158,13 +158,21 @@ class ReverseGeocodeService:
                 body = resp.json()
                 parsed = AddressNormalizer.parse_nominatim_iso_address(body)
                 norm_country = parsed["country"]
-                norm_state = AddressNormalizer.normalize_state_province(
-                    parsed["admin_level_1"], country=norm_country
-                ) if parsed["admin_level_1"] else None
+                norm_state = (
+                    AddressNormalizer.normalize_state_province(
+                        parsed["admin_level_1"], country=norm_country
+                    )
+                    if parsed["admin_level_1"]
+                    else None
+                )
 
                 payload = {
                     "street": parsed["street_address"],
-                    "city": AddressNormalizer.normalize_city(parsed["locality"], country=norm_country) if parsed["locality"] else None,
+                    "city": AddressNormalizer.normalize_city(
+                        parsed["locality"], country=norm_country
+                    )
+                    if parsed["locality"]
+                    else None,
                     "state_province": norm_state,
                     "country": norm_country,
                     "postal_code": parsed["postal_code"],

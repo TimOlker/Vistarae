@@ -255,9 +255,7 @@ class InvalidMimeTypeError(DomainError):
 class InvalidCSVHeaderError(DomainError):
     """Raised when a CSV upload is missing required canonical column headers."""
 
-    def __init__(
-        self, missing_headers: list[str], found_headers: list[str] | None = None
-    ) -> None:
+    def __init__(self, missing_headers: list[str], found_headers: list[str] | None = None) -> None:
         """Initializes an invalid CSV header error.
 
         Args:
