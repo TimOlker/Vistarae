@@ -210,3 +210,4 @@ $$\text{photo\_directories}_{\text{final}} = \bigcup_{i=1}^k \text{photo\_direct
 $$\text{related\_websites}_{\text{final}} = \text{dedup\_by\_url}\left(\bigcup_{i=1}^k \text{related\_websites}(C_i)\right)$$
 
 The surviving coordinates and administrative tiers default to $C_{\text{target}}$ unless explicitly modified by the user in the detail editor.
+

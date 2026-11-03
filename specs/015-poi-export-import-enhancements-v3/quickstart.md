@@ -105,3 +105,4 @@ python -m pytest tests/unit/services/worker/ -o addopts=""
    - **Photo Directories**: Add a directory path and remove an existing path.
    - **In-Batch Merge**: For a duplicate row, set disposition to `in_batch_merge` and select the target candidate.
    - **Commit**: Click **Commit Import** and verify candidates transition into canonical POIs.
+

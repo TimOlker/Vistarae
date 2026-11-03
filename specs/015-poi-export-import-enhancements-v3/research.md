@@ -155,3 +155,4 @@ locality = (
 | **Principle 6**: Middleware & Rate Limiting | W3C tracing (`traceparent`, `X-Source`, `X-Destination`), Nominatim policy compliance (1 req/sec, User-Agent `VistaraeTravelEngine/1.0`, internal SHA256 geocache). |
 | **Principle 7**: Observability & Messaging Protocol | Structured logging using messaging tags: `MSG ->|`, `MSG <-|`, `MSG   |->`, `MSG   |<-`. |
 | **Principle 8**: PyTest & SDD Governance | Comprehensive unit and integration test coverage across ingest, poi, and worker services. Zero regressions. |
+
