@@ -10,36 +10,36 @@
 
 ## ISO Address Mapping & Field Completeness
 
-- [ ] CHK001 Are the exact CSV header column names and order for the ISO administrative address format explicitly enumerated in the specification? [Completeness, Spec §FR-020]
-- [ ] CHK002 Does the spec explicitly define how the photo scraper populates `country_code`, `admin_level_1`, `admin_level_2`, and `locality` when reverse geocoding EXIF coordinates? [Clarity, Spec §FR-004]
-- [ ] CHK003 Are requirements defined for mapping legacy CSV column aliases (`Town/City`, `State/Province`, `Zip Code`, `Country`) to the new ISO tiers during ingestion? [Consistency, Spec §FR-020]
-- [ ] CHK004 Is the behavior specified for photos taken in wilderness or natural landmarks where `street_address`, `postal_code`, and `locality` resolve to NULL? [Coverage, Edge Case, Spec §Edge Cases]
-- [ ] CHK005 Does the spec require the raw geocoder JSON response to be captured in `raw_geocoding` for audit and re-parsing? [Completeness, Spec §FR-001]
+- [x] CHK001 Are the exact CSV header column names and order for the ISO administrative address format explicitly enumerated in the specification? [Completeness, Spec §FR-020]
+- [x] CHK002 Does the spec explicitly define how the photo scraper populates `country_code`, `admin_level_1`, `admin_level_2`, and `locality` when reverse geocoding EXIF coordinates? [Clarity, Spec §FR-004]
+- [x] CHK003 Are requirements defined for mapping legacy CSV column aliases (`Town/City`, `State/Province`, `Zip Code`, `Country`) to the new ISO tiers during ingestion? [Consistency, Spec §FR-020]
+- [x] CHK004 Is the behavior specified for photos taken in wilderness or natural landmarks where `street_address`, `postal_code`, and `locality` resolve to NULL? [Coverage, Edge Case, Spec §Edge Cases]
+- [x] CHK005 Does the spec require the raw geocoder JSON response to be captured in `raw_geocoding` for audit and re-parsing? [Completeness, Spec §FR-001]
 
 ## EXIF Geolocation & Timestamp Extraction Clarity
 
-- [ ] CHK006 Is the coordinate precision and datum requirement (WGS-84 / EPSG:4326) specified for GPS coordinates parsed from photo EXIF tags? [Clarity, Spec §FR-001]
-- [ ] CHK007 Are parsing requirements defined for handling EXIF GPS reference directions (North/South, East/West hemispherics)? [Completeness, Spec §FR-010]
-- [ ] CHK008 Are datetime formatting requirements (ISO 8601 `YYYY-MM-DD`) specified for `dates_visited` extracted from EXIF DateTimeOriginal? [Consistency, Spec §FR-019]
-- [ ] CHK009 Is the confidence scoring algorithm specified for photo-scraped records with valid GPS coordinates versus coordinates inferred from directory names? [Measurability, Spec §FR-018]
+- [x] CHK006 Is the coordinate precision and datum requirement (WGS-84 / EPSG:4326) specified for GPS coordinates parsed from photo EXIF tags? [Clarity, Spec §FR-001]
+- [x] CHK007 Are parsing requirements defined for handling EXIF GPS reference directions (North/South, East/West hemispherics)? [Completeness, Spec §FR-010]
+- [x] CHK008 Are datetime formatting requirements (ISO 8601 `YYYY-MM-DD`) specified for `dates_visited` extracted from EXIF DateTimeOriginal? [Consistency, Spec §FR-019]
+- [x] CHK009 Is the confidence scoring algorithm specified for photo-scraped records with valid GPS coordinates versus coordinates inferred from directory names? [Measurability, Spec §FR-018]
 
 ## Multi-Directory & Association Consistency
 
-- [ ] CHK010 Are requirements defined for aggregating multiple photo directories into the `photo_directories` JSON array during multi-visit in-batch merges? [Consistency, Spec §FR-008]
-- [ ] CHK011 Does the spec define whether local directory paths stored in `photo_directories` use normalized forward slashes or platform-native path separators? [Clarity, Spec §FR-016]
-- [ ] CHK012 Are validation constraints defined for directory paths entered manually or chosen via the browser directory picker? [Security, Spec §FR-016]
+- [x] CHK010 Are requirements defined for aggregating multiple photo directories into the `photo_directories` JSON array during multi-visit in-batch merges? [Consistency, Spec §FR-008]
+- [x] CHK011 Does the spec define whether local directory paths stored in `photo_directories` use normalized forward slashes or platform-native path separators? [Clarity, Spec §FR-016]
+- [x] CHK012 Are validation constraints defined for directory paths entered manually or chosen via the browser directory picker? [Security, Spec §FR-016]
 
 ## Geocoding Negotiation & Internationalization
 
-- [ ] CHK013 Is English language negotiation (`Accept-Language: en` / `accept-language=en`) required for reverse geocoding photo coordinates worldwide? [Completeness, Spec §FR-005]
-- [ ] CHK014 Are fallback requirements defined when photo coordinates resolve in non-Latin alphabet jurisdictions with no English OSM translation? [Edge Case, Spec §Edge Cases]
-- [ ] CHK015 Does the spec explicitly enforce the Nominatim 1 request/second rate limit and internal PostGIS geocache lookup policy during photo batch reverse geocoding? [Non-Functional, Spec §Assumptions]
+- [x] CHK013 Is English language negotiation (`Accept-Language: en` / `accept-language=en`) required for reverse geocoding photo coordinates worldwide? [Completeness, Spec §FR-005]
+- [x] CHK014 Are fallback requirements defined when photo coordinates resolve in non-Latin alphabet jurisdictions with no English OSM translation? [Edge Case, Spec §Edge Cases]
+- [x] CHK015 Does the spec explicitly enforce the Nominatim 1 request/second rate limit and internal PostGIS geocache lookup policy during photo batch reverse geocoding? [Non-Functional, Spec §Assumptions]
 
 ## Exception Flows & Negative Scenarios
 
-- [ ] CHK016 Are requirements specified for photos that lack GPS metadata (missing EXIF tags)? [Coverage, Exception Flow, Spec §Edge Cases]
-- [ ] CHK017 Does the spec define error handling when a photo file is unreadable, corrupted, or unsupported in format? [Coverage, Gap]
-- [ ] CHK018 Are deduplication threshold requirements specified when multiple photos in the same directory map to identical spatial coordinates? [Clarity, Spec §FR-008]
+- [x] CHK016 Are requirements specified for photos that lack GPS metadata (missing EXIF tags)? [Coverage, Exception Flow, Spec §Edge Cases]
+- [x] CHK017 Does the spec define error handling when a photo file is unreadable, corrupted, or unsupported in format? [Coverage, Gap]
+- [x] CHK018 Are deduplication threshold requirements specified when multiple photos in the same directory map to identical spatial coordinates? [Clarity, Spec §FR-008]
 
 ## Notes
 
@@ -47,3 +47,4 @@
 - Leave items unchecked when they still require clarification, correction, or reviewer evaluation
 - `/speckit-implement` reads checklist checkbox state as a gate and must not modify markers
 - Items are numbered sequentially (CHK001–CHK018) for traceability
+
