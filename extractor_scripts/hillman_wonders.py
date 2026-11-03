@@ -29,7 +29,11 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from bs4 import BeautifulSoup, Tag  # noqa: E402
-from vistarae_core.schemas.extractor import ExtractorRecord, WebsiteRecord  # noqa: E402
+from vistarae_core.schemas.extractor import (  # noqa: E402
+    AdditionalAddressRecord,
+    ExtractorRecord,
+    WebsiteRecord,
+)
 
 from extractor_scripts.common.base import (  # noqa: E402
     BaseExtractor,
@@ -38,6 +42,9 @@ from extractor_scripts.common.base import (  # noqa: E402
 )
 
 HILLMAN_BASE_URL = "https://www.hillmanwonders.com/top_1000/index.htm"
+
+SHARED_BRACKET_REGEX = re.compile(r"\s*\[\s*(?:with|w/)\s*([^\]]+)\]", re.IGNORECASE)
+ROUTE_BRACKET_REGEX = re.compile(r"\s*\[\s*([A-Za-z\s]+)\s+to\s+([A-Za-z\s]+)\]", re.IGNORECASE)
 
 COUNTRY_CODE_MAP = {
     "Afghanistan": "AF",
@@ -73,6 +80,7 @@ COUNTRY_CODE_MAP = {
     "Denmark": "DK",
     "Ecuador": "EC",
     "Egypt": "EG",
+    "England": "GB",
     "Estonia": "EE",
     "Ethiopia": "ET",
     "Finland": "FI",
@@ -81,6 +89,8 @@ COUNTRY_CODE_MAP = {
     "Greece": "GR",
     "Guatemala": "GT",
     "Haiti": "HT",
+    "Holland": "NL",
+    "Holland (Netherlands)": "NL",
     "Honduras": "HN",
     "Hungary": "HU",
     "Iceland": "IS",
@@ -125,6 +135,7 @@ COUNTRY_CODE_MAP = {
     "Russia": "RU",
     "Rwanda": "RW",
     "Saudi Arabia": "SA",
+    "Scotland": "GB",
     "Senegal": "SN",
     "Serbia": "RS",
     "Singapore": "SG",
@@ -148,6 +159,7 @@ COUNTRY_CODE_MAP = {
     "United Kingdom": "GB",
     "United States": "US",
     "Uruguay": "UY",
+    "USA": "US",
     "Uzbekistan": "UZ",
     "Vatican City": "VA",
     "Venezuela": "VE",
@@ -217,6 +229,132 @@ class HillmanWondersExtractor(BaseExtractor):
 
         return hero_url, lat, lon
 
+    def _extract_shared_country(
+        self, raw_name: str, primary_country: str
+    ) -> tuple[str, str | None]:
+        """Extracts shared country note and strips bracket annotation.
+
+        Args:
+            raw_name: Raw wonder title potentially containing bracketed country info.
+            primary_country: Primary country under which the wonder is harvested.
+
+        Returns:
+            Tuple of (cleaned_title, secondary_country_name_or_none).
+        """
+        match_shared = SHARED_BRACKET_REGEX.search(raw_name)
+        if match_shared:
+            shared_raw = match_shared.group(1).strip()
+            cleaned = SHARED_BRACKET_REGEX.sub("", raw_name).strip()
+            return cleaned, shared_raw
+
+        match_route = ROUTE_BRACKET_REGEX.search(raw_name)
+        if match_route:
+            cleaned = ROUTE_BRACKET_REGEX.sub("", raw_name).strip()
+            c1, c2 = match_route.group(1).strip(), match_route.group(2).strip()
+            shared_raw = c2 if primary_country.lower() == c1.lower() else c1
+            return cleaned, shared_raw
+
+        return raw_name, None
+
+    def _clean_shared_poi(
+        self, raw_name: str, primary_country: str
+    ) -> tuple[str, list[AdditionalAddressRecord]]:
+        """Normalizes shared POI names and returns additional address records for shared locations.
+
+        Args:
+            raw_name: Raw wonder title from DOM.
+            primary_country: Primary country under which the wonder is harvested.
+
+        Returns:
+            Tuple of (canonical_poi_name, list_of_additional_address_records).
+        """
+        cleaned, shared_country_raw = self._extract_shared_country(raw_name, primary_country)
+        if not shared_country_raw:
+            return cleaned, []
+
+        # Canonicalize name spelling and abbreviations
+        cleaned = re.sub(r"^Mt\b", "Mount", cleaned)
+        cleaned = re.sub(r"^Igua[cç]u\b", "Iguazu", cleaned)
+
+        country_name = (
+            "United States"
+            if shared_country_raw.upper() in ("USA", "AMERICA")
+            else shared_country_raw
+        )
+        country_code = COUNTRY_CODE_MAP.get(country_name, "")
+        if not country_code and country_name == "United States":
+            country_code = "US"
+
+        addr = AdditionalAddressRecord(
+            country=country_name,
+            country_code=country_code,
+        )
+        return cleaned, [addr]
+
+    def _merge_duplicate_shared_wonder(
+        self, existing: ExtractorRecord, candidate: ExtractorRecord
+    ) -> None:
+        """Merges supplemental location, coordinate, or media info into existing shared POI.
+
+        Args:
+            existing: Retained canonical ExtractorRecord.
+            candidate: Duplicate ExtractorRecord from secondary country.
+        """
+        existing_countries = {(a.country or "").lower() for a in existing.additional_addresses}
+        if existing.country:
+            existing_countries.add(existing.country.lower())
+
+        if candidate.country and candidate.country.lower() not in existing_countries:
+            existing.additional_addresses.append(
+                AdditionalAddressRecord(
+                    country=candidate.country,
+                    country_code=candidate.country_code,
+                )
+            )
+            existing_countries.add(candidate.country.lower())
+
+        for addr in candidate.additional_addresses:
+            if addr.country and addr.country.lower() not in existing_countries:
+                existing.additional_addresses.append(addr)
+                existing_countries.add(addr.country.lower())
+
+        if existing.latitude is None and candidate.latitude is not None:
+            existing.latitude = candidate.latitude
+            existing.longitude = candidate.longitude
+
+        if not existing.hero_image_url and candidate.hero_image_url:
+            existing.hero_image_url = candidate.hero_image_url
+
+        existing_urls = {w.url for w in existing.websites}
+        for w in candidate.websites:
+            if w.url not in existing_urls:
+                existing.websites.append(w)
+                existing_urls.add(w.url)
+
+    def _deduplicate_shared_wonders(self, records: list[ExtractorRecord]) -> list[ExtractorRecord]:
+        """Deduplicates shared POIs across multiple countries, consolidating into additional addresses.
+
+        Args:
+            records: Raw list of harvested wonder records.
+
+        Returns:
+            Consolidated list of records with duplicate shared POIs merged.
+        """
+        shared_seen: dict[str, ExtractorRecord] = {}
+        deduped: list[ExtractorRecord] = []
+
+        for rec in records:
+            if rec.additional_addresses:
+                key = rec.poi_name.lower().strip()
+                if key in shared_seen:
+                    self._merge_duplicate_shared_wonder(shared_seen[key], rec)
+                    continue
+                shared_seen[key] = rec
+
+            deduped.append(rec)
+
+        return deduped
+
     def _create_wonder_record(
         self,
         country_name: str,
@@ -237,7 +375,11 @@ class HillmanWondersExtractor(BaseExtractor):
         """
         raw_name = "".join(name_parts)
         cleaned = re.sub(r"[\xa0\ufffd\r\n\t]+", " ", raw_name)
-        poi_name = re.sub(r"\s{2,}", " ", cleaned).strip(" \t\n\r")
+        raw_poi_name = re.sub(r"\s{2,}", " ", cleaned).strip(" \t\n\r")
+        if not raw_poi_name or len(raw_poi_name) < 2:
+            return None
+
+        poi_name, additional_addresses = self._clean_shared_poi(raw_poi_name, country_name)
         if not poi_name or len(poi_name) < 2:
             return None
 
@@ -251,6 +393,7 @@ class HillmanWondersExtractor(BaseExtractor):
             country_code=country_code,
             tags=tags,
             websites=websites,
+            additional_addresses=additional_addresses,
         )
 
     def _parse_wonders_from_cell(
@@ -332,8 +475,6 @@ class HillmanWondersExtractor(BaseExtractor):
 
             cell_records = self._parse_wonders_from_cell(wonder_td, country_name, country_code)
             records.extend(cell_records)
-            if self.config.limit and len(records) >= self.config.limit:
-                return records[: self.config.limit]
 
         return records
 
@@ -354,7 +495,12 @@ class HillmanWondersExtractor(BaseExtractor):
         rank = int(rank_match.group(0)) if rank_match else 0
 
         name_elem = cells[1].find("a") or cells[1]
-        poi_name = name_elem.get_text(strip=True)
+        raw_poi_name = name_elem.get_text(strip=True)
+        if not raw_poi_name:
+            return None
+
+        country_name = cells[2].get_text(strip=True)
+        poi_name, additional_addresses = self._clean_shared_poi(raw_poi_name, country_name)
         if not poi_name:
             return None
 
@@ -363,7 +509,6 @@ class HillmanWondersExtractor(BaseExtractor):
             href = str(name_elem.get("href", ""))
         subpage_url = urljoin(HILLMAN_BASE_URL, href) if href else ""
 
-        country_name = cells[2].get_text(strip=True)
         award_text = cells[3].get_text(strip=True) if len(cells) > 3 else ""
 
         tier_tag = self._determine_tier_tag(rank, award_text)
@@ -392,6 +537,7 @@ class HillmanWondersExtractor(BaseExtractor):
             tags=tags,
             websites=websites,
             hero_image_url=hero_url,
+            additional_addresses=additional_addresses,
         )
 
     def harvest_records(self) -> list[ExtractorRecord]:
@@ -405,25 +551,26 @@ class HillmanWondersExtractor(BaseExtractor):
 
         # Live site format with CountryName and WonderList cells
         if soup.select("td.WonderList"):
-            return self._harvest_from_country_directory(soup)
+            records = self._harvest_from_country_directory(soup)
+        else:
+            # Fallback for structured test fixture table (e.g. table.wonder_list)
+            table = soup.select_one("table.wonder_list") or soup.find("table")
+            if not table:
+                return []
 
-        # Fallback for structured test fixture table (e.g. table.wonder_list)
-        table = soup.select_one("table.wonder_list") or soup.find("table")
-        if not table:
-            return []
+            records = []
+            rows = table.find_all("tr")
+            for row in rows:
+                if not isinstance(row, Tag):
+                    continue
+                rec = self._parse_row(row)
+                if rec:
+                    records.append(rec)
 
-        records: list[ExtractorRecord] = []
-        rows = table.find_all("tr")
-        for row in rows:
-            if not isinstance(row, Tag):
-                continue
-            rec = self._parse_row(row)
-            if rec:
-                records.append(rec)
-                if self.config.limit and len(records) >= self.config.limit:
-                    break
-
-        return records
+        deduped = self._deduplicate_shared_wonders(records)
+        if self.config.limit:
+            return deduped[: self.config.limit]
+        return deduped
 
 
 @extractor_options(default_output="hillman_wonders.csv")

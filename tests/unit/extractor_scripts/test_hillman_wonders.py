@@ -20,6 +20,11 @@ from pathlib import Path
 
 import httpx
 from click.testing import CliRunner
+from vistarae_core.schemas.extractor import (
+    AdditionalAddressRecord,
+    ExtractorRecord,
+    WebsiteRecord,
+)
 
 from extractor_scripts.common.http_client import ResilientHttpClient
 from extractor_scripts.common.models import ExtractorConfig
@@ -213,11 +218,154 @@ def test_hillman_wonders_country_directory_layout() -> None:
     assert records[1].tags == ["HillmanWonder:Gold"]
 
     # Check silver
-    assert "Khyber Pass" in records[2].poi_name
+    assert records[2].poi_name == "Khyber Pass"
     assert records[2].tags == ["HillmanWonder:Silver"]
+    assert len(records[2].additional_addresses) == 1
+    assert records[2].additional_addresses[0].country == "Pakistan"
+    assert records[2].additional_addresses[0].country_code == "PK"
 
     # Check America normalization to United States
     assert records[3].poi_name == "Grand Canyon"
     assert records[3].country == "United States"
     assert records[3].country_code == "US"
     assert records[3].tags == ["HillmanWonder:Gold"]
+
+
+def test_hillman_wonders_shared_poi_deduplication() -> None:
+    """Verifies that shared wonders across multiple countries are consolidated into one POI.
+
+    Tests both (Amazon Rain Forest [with Brazil] / [with Peru]) and
+    (Mount Everest [with China] / Mt Everest [with Nepal]) with Mt normalization.
+    """
+    html = """
+    <table>
+      <tr>
+        <td class="CountryName">Brazil</td>
+        <td class="WonderList">
+          <img src="b_gold.gif"/>Amazon Rain Forest<span style="font-weight:normal;">&nbsp;[with Peru]</span><br/>
+          <img src="b_gold.gif"/>Iguacu Falls<span style="font-weight:normal;">&nbsp;[with Argentina]</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="CountryName">China</td>
+        <td class="WonderList">
+          <img src="b_gold.gif"/>Mt Everest<span style="font-weight:normal;">&nbsp;[with Nepal]</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="CountryName">Peru</td>
+        <td class="WonderList">
+          <img src="b_gold.gif"/>Amazon Rain Forest<span style="font-weight:normal;">&nbsp;[with Brazil]</span><br/>
+          <img src="b_silver.gif"/>Machu Picchu
+        </td>
+      </tr>
+      <tr>
+        <td class="CountryName">Nepal</td>
+        <td class="WonderList">
+          <img src="b_gold.gif"/>Mount Everest<span style="font-weight:normal;">&nbsp;[with China]</span>
+        </td>
+      </tr>
+    </table>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("out.csv"), cache_enabled=False)
+    extractor = HillmanWondersExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    # 4 unique POIs instead of 6: Amazon Rain Forest, Iguazu Falls, Mount Everest, Machu Picchu
+    assert len(records) == 4
+    poi_names = [r.poi_name for r in records]
+    assert poi_names == ["Amazon Rain Forest", "Iguazu Falls", "Mount Everest", "Machu Picchu"]
+
+    # Verify Amazon Rain Forest
+    amazon = records[0]
+    assert amazon.poi_name == "Amazon Rain Forest"
+    assert amazon.country == "Brazil"
+    assert len(amazon.additional_addresses) == 1
+    assert amazon.additional_addresses[0].country == "Peru"
+    assert amazon.additional_addresses[0].country_code == "PE"
+
+    # Verify Mount Everest
+    everest = records[2]
+    assert everest.poi_name == "Mount Everest"
+    assert everest.country == "China"
+    assert len(everest.additional_addresses) == 1
+    assert everest.additional_addresses[0].country == "Nepal"
+    assert everest.additional_addresses[0].country_code == "NP"
+
+
+def test_hillman_wonders_route_shared_poi() -> None:
+    """Verifies route-bracket shared POIs (e.g. Danube Cruise [Austria to Hungary])."""
+    html = """
+    <table>
+      <tr>
+        <td class="CountryName">Austria</td>
+        <td class="WonderList">
+          <img src="b_bronze.gif"/>Danube Cruise<span style="font-weight:normal;">&nbsp;[Austria to Hungary]</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="CountryName">Hungary</td>
+        <td class="WonderList">
+          <img src="b_bronze.gif"/>Danube Cruise<span style="font-weight:normal;">&nbsp;[Austria to Hungary]</span>
+        </td>
+      </tr>
+    </table>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("out.csv"), cache_enabled=False)
+    extractor = HillmanWondersExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 1
+    assert records[0].poi_name == "Danube Cruise"
+    assert records[0].country == "Austria"
+    assert len(records[0].additional_addresses) == 1
+    assert records[0].additional_addresses[0].country == "Hungary"
+    assert records[0].additional_addresses[0].country_code == "HU"
+
+
+def test_hillman_wonders_merge_supplemental_details() -> None:
+    """Verifies that duplicate shared POIs merge missing coordinates, hero images, and websites."""
+    config = ExtractorConfig(output_path=Path("out.csv"), cache_enabled=False)
+    extractor = HillmanWondersExtractor(config=config)
+
+    rec1 = ExtractorRecord(
+        poi_name="Shared Wonder",
+        country="Country A",
+        country_code="CA",
+        additional_addresses=[AdditionalAddressRecord(country="Country B", country_code="CB")],
+    )
+    rec2 = ExtractorRecord(
+        poi_name="Shared Wonder",
+        country="Country B",
+        country_code="CB",
+        latitude=12.34,
+        longitude=56.78,
+        hero_image_url="https://example.com/hero.jpg",
+        websites=[WebsiteRecord(name="Official", url="https://example.com")],
+        additional_addresses=[
+            AdditionalAddressRecord(country="Country C", country_code="CC"),
+        ],
+    )
+
+    deduped = extractor._deduplicate_shared_wonders([rec1, rec2])
+    assert len(deduped) == 1
+    merged = deduped[0]
+    assert float(merged.latitude) == 12.34
+    assert float(merged.longitude) == 56.78
+    assert merged.hero_image_url == "https://example.com/hero.jpg"
+    assert len(merged.websites) == 1
+    assert len(merged.additional_addresses) == 2
+    countries = {a.country for a in merged.additional_addresses}
+    assert countries == {"Country B", "Country C"}
