@@ -40,7 +40,95 @@ from extractor_scripts.common.base import (  # noqa: E402
     run_extractor_cli,
 )
 
-NPS_BASE_URL = "https://www.nps.gov/findmypark/index.htm"
+NPS_BASE_URL = "https://www.nps.gov/aboutus/national-park-system.htm"
+
+US_STATE_CODES: dict[str, str] = {
+    "Alabama": "AL",
+    "Alaska": "AK",
+    "Arizona": "AZ",
+    "Arkansas": "AR",
+    "California": "CA",
+    "Colorado": "CO",
+    "Connecticut": "CT",
+    "Delaware": "DE",
+    "District of Columbia": "DC",
+    "Florida": "FL",
+    "Georgia": "GA",
+    "Hawaii": "HI",
+    "Idaho": "ID",
+    "Illinois": "IL",
+    "Indiana": "IN",
+    "Iowa": "IA",
+    "Kansas": "KS",
+    "Kentucky": "KY",
+    "Louisiana": "LA",
+    "Maine": "ME",
+    "Maryland": "MD",
+    "Massachusetts": "MA",
+    "Michigan": "MI",
+    "Minnesota": "MN",
+    "Mississippi": "MS",
+    "Missouri": "MO",
+    "Montana": "MT",
+    "Nebraska": "NE",
+    "Nevada": "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    "Ohio": "OH",
+    "Oklahoma": "OK",
+    "Oregon": "OR",
+    "Pennsylvania": "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    "Tennessee": "TN",
+    "Texas": "TX",
+    "Utah": "UT",
+    "Vermont": "VT",
+    "Virginia": "VA",
+    "Washington": "WA",
+    "West Virginia": "WV",
+    "Wisconsin": "WI",
+    "Wyoming": "WY",
+    "American Samoa": "AS",
+    "Guam": "GU",
+    "Northern Mariana Islands": "MP",
+    "Puerto Rico": "PR",
+    "Virgin Islands": "VI",
+}
+
+DESIGNATION_MAP: dict[str, str] = {
+    "National Battlefields": "National Battlefield",
+    "National Battlefield Parks": "National Battlefield Park",
+    "National Battlefield Sites": "National Battlefield Site",
+    "National Military Parks": "National Military Park",
+    "National Historical Parks": "National Historical Park",
+    "National Historic Sites": "National Historic Site",
+    "International Historic Sites": "International Historic Site",
+    "National Lakeshores": "National Lakeshore",
+    "National Memorials": "National Memorial",
+    "National Monuments": "National Monument",
+    "National Parks": "National Park",
+    "National Parkways": "National Parkway",
+    "National Preserves": "National Preserve",
+    "National Reserves": "National Reserve",
+    "National Recreation Areas": "National Recreation Area",
+    "National Rivers": "National River",
+    "National Wild and Scenic Rivers": "National Wild and Scenic River",
+    "National Scenic Trails": "National Scenic Trail",
+    "National Seashores": "National Seashore",
+    "Affiliated Areas": "Affiliated Area",
+    "Authorized Areas": "Authorized Area",
+    "Co-Managed Areas": "Co-Managed Area",
+    "Commemorative Sites": "Commemorative Site",
+    "National Heritage Areas": "National Heritage Area",
+    "National Trails System": "National Scenic Trail",
+    "National Wild and Scenic Rivers System": "National Wild and Scenic River",
+}
 
 
 class NPSSitesExtractor(BaseExtractor):
@@ -172,14 +260,125 @@ class NPSSitesExtractor(BaseExtractor):
             additional_addresses=additional_addresses,
         )
 
-    def harvest_records(self) -> list[ExtractorRecord]:
-        """Harvests NPS sites from directory.
+    def _parse_state_string(self, state_raw: str) -> tuple[str | None, list[str]]:
+        """Parses full state names or postal codes into primary and secondary state codes.
+
+        Args:
+            state_raw: Raw state text (e.g. 'Kentucky and Tennessee' or 'WY, MT, ID').
 
         Returns:
-            List of parsed ExtractorRecord objects.
+            Tuple of (primary_state_code, list_of_secondary_state_codes).
         """
-        html = self.http.get(NPS_BASE_URL)
-        soup = BeautifulSoup(html, "html.parser")
+        if not state_raw:
+            return None, []
+
+        matches: list[tuple[int, str]] = []
+        for state_name, code in US_STATE_CODES.items():
+            for m in re.finditer(r"\b" + re.escape(state_name) + r"\b", state_raw, re.IGNORECASE):
+                matches.append((m.start(), code))
+
+        if not matches:
+            for code in US_STATE_CODES.values():
+                for m in re.finditer(r"\b" + re.escape(code) + r"\b", state_raw):
+                    matches.append((m.start(), code))
+
+        if not matches:
+            return None, []
+
+        matches.sort(key=lambda x: x[0])
+        ordered_codes: list[str] = []
+        for _, code in matches:
+            if code not in ordered_codes:
+                ordered_codes.append(code)
+
+        return ordered_codes[0], ordered_codes[1:]
+
+    def _parse_accordion_entry(self, a_tag: Tag, desig: str) -> ExtractorRecord | None:
+        """Parses an individual park link node from an accordion panel.
+
+        Args:
+            a_tag: DOM link element pointing to park portal.
+            desig: Official park designation string.
+
+        Returns:
+            Constructed ExtractorRecord or None if invalid.
+        """
+        href = str(a_tag.get("href", "")).strip()
+        name = a_tag.get_text(strip=True)
+        if not href or not name or not href.startswith("http"):
+            return None
+
+        next_sibling = a_tag.next_sibling
+        state_text = (
+            next_sibling.strip(" ,\r\n\t")
+            if (next_sibling and isinstance(next_sibling, str))
+            else ""
+        )
+        primary_st, additional_sts = self._parse_state_string(state_text)
+
+        tags = self.resolve_tags([desig] if desig else [])
+        websites: list[WebsiteRecord] = []
+        if href and href != NPS_BASE_URL:
+            websites.append(WebsiteRecord(name="National Park Service", url=href))
+
+        addrs = [
+            AdditionalAddressRecord(
+                state_province=st,
+                country="United States",
+                country_code="US",
+            )
+            for st in additional_sts
+        ]
+
+        return ExtractorRecord(
+            poi_name=name,
+            state_province=primary_st,
+            country="United States",
+            country_code="US",
+            tags=tags,
+            websites=websites,
+            additional_addresses=addrs,
+        )
+
+    def _harvest_from_accordions(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests NPS records from the official National Park System accordion directory.
+
+        Args:
+            soup: Parsed HTML of the official NPS directory page.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
+        main = soup.select_one("#main, article, [role=main]") or soup
+        accordions = main.find_all("h4", class_="usa-accordion__heading")
+
+        records: list[ExtractorRecord] = []
+        for h4 in accordions:
+            btn = h4.find("button")
+            raw_heading = btn.get_text(strip=True) if btn else h4.get_text(strip=True)
+            desig_raw = re.sub(r"\s*\(\d+\)", "", raw_heading).strip()
+            desig = DESIGNATION_MAP.get(desig_raw, "")
+
+            content = h4.find_next_sibling(class_="usa-accordion__content")
+            if not content:
+                continue
+
+            for a in content.find_all("a"):
+                rec = self._parse_accordion_entry(a, desig)
+                if rec:
+                    records.append(rec)
+
+        return records
+
+    def _harvest_from_items(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests NPS records from structured park item cards (test fixtures).
+
+        Args:
+            soup: Parsed HTML containing .park-item elements.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
         items = soup.select(".park-item")
         if not items:
             items = soup.find_all(class_=re.compile(r"park-item|park-row"))
@@ -191,9 +390,25 @@ class NPSSitesExtractor(BaseExtractor):
             rec = self._parse_park_item(item)
             if rec:
                 records.append(rec)
-                if self.config.limit and len(records) >= self.config.limit:
-                    break
 
+        return records
+
+    def harvest_records(self) -> list[ExtractorRecord]:
+        """Harvests NPS sites from directory or live NPS portal.
+
+        Returns:
+            List of parsed ExtractorRecord objects.
+        """
+        html = self.http.get(NPS_BASE_URL)
+        soup = BeautifulSoup(html, "html.parser")
+
+        if soup.select(".park-item, .park-row"):
+            records = self._harvest_from_items(soup)
+        else:
+            records = self._harvest_from_accordions(soup)
+
+        if self.config.limit:
+            return records[: self.config.limit]
         return records
 
 

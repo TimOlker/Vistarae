@@ -134,3 +134,66 @@ def test_nps_sites_malformed_items() -> None:
     assert records[0].latitude is None
     assert len(records[0].additional_addresses) == 1
     assert records[0].additional_addresses[0].latitude is None
+
+
+def test_nps_sites_harvest_live_accordions() -> None:
+    """Verifies parsing of the live official National Park System accordion layout."""
+    html = """
+    <div id="main">
+      <h4 class="usa-accordion__heading">
+        <button class="usa-accordion__button">National Battlefields (2)</button>
+      </h4>
+      <div class="usa-accordion__content">
+        <p>
+          <a href="https://www.nps.gov/anti/index.htm">Antietam National Battlefield</a>, Maryland<br/>
+          <a href="https://www.nps.gov/fodo/index.htm">Fort Donelson National Battlefield</a>, Kentucky and Tennessee
+        </p>
+      </div>
+      <h4 class="usa-accordion__heading">
+        <button class="usa-accordion__button">National Parks (1)</button>
+      </h4>
+      <div class="usa-accordion__content">
+        <p>
+          <a href="https://www.nps.gov/acad/index.htm">Acadia National Park</a>, Maine
+        </p>
+      </div>
+    </div>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("out.csv"), cache_enabled=False)
+    extractor = NPSSitesExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 3
+
+    # Check Antietam
+    anti = records[0]
+    assert anti.poi_name == "Antietam National Battlefield"
+    assert anti.state_province == "MD"
+    assert anti.country == "United States"
+    assert anti.country_code == "US"
+    assert "NPS" in anti.tags
+    assert "National Battlefield" in anti.tags
+    assert len(anti.websites) == 1
+    assert anti.websites[0].url == "https://www.nps.gov/anti/index.htm"
+    assert len(anti.additional_addresses) == 0
+
+    # Check Fort Donelson with multi-state
+    fodo = records[1]
+    assert fodo.poi_name == "Fort Donelson National Battlefield"
+    assert fodo.state_province == "KY"
+    assert len(fodo.additional_addresses) == 1
+    assert fodo.additional_addresses[0].state_province == "TN"
+    assert fodo.additional_addresses[0].country == "United States"
+    assert fodo.additional_addresses[0].country_code == "US"
+
+    # Check Acadia
+    acad = records[2]
+    assert acad.poi_name == "Acadia National Park"
+    assert acad.state_province == "ME"
+    assert "National Park" in acad.tags
