@@ -183,37 +183,25 @@ class HillmanWondersExtractor(BaseExtractor):
 
     def _parse_subpage_details(
         self, subpage_url: str
-    ) -> tuple[str | None, str | None, float | None, float | None, float | None]:
-        """Harvests extended details from a wonder subpage when --deep is specified.
+    ) -> tuple[str | None, float | None, float | None]:
+        """Harvests hero photo and coordinates from a subpage when --deep is specified.
 
         Args:
             subpage_url: Absolute URL to the individual wonder page.
 
         Returns:
-            Tuple of (hero_image_url, overview_text, est_hours, latitude, longitude).
+            Tuple of (hero_image_url, latitude, longitude).
         """
         try:
             html = self.http.get(subpage_url)
         except Exception:
-            return None, None, None, None, None
+            return None, None, None
 
         soup = BeautifulSoup(html, "html.parser")
         hero_url = None
         img_elem = soup.select_one("img.hero") or soup.find("img")
         if img_elem and isinstance(img_elem, Tag) and img_elem.get("src"):
             hero_url = urljoin(subpage_url, str(img_elem.get("src")))
-
-        overview = None
-        overview_div = soup.select_one(".overview") or soup.find("p")
-        if overview_div:
-            overview = overview_div.get_text(strip=True)
-
-        est_hours = None
-        tips_div = soup.select_one(".tips")
-        if tips_div:
-            match = re.search(r"(\d+(?:\.\d+)?)\s+hours?", tips_div.get_text(), re.IGNORECASE)
-            if match:
-                est_hours = float(match.group(1))
 
         lat, lon = None, None
         coord_div = soup.select_one(".coordinates")
@@ -227,7 +215,7 @@ class HillmanWondersExtractor(BaseExtractor):
                 except ValueError:
                     pass
 
-        return hero_url, overview, est_hours, lat, lon
+        return hero_url, lat, lon
 
     def _create_wonder_record(
         self,
@@ -254,9 +242,8 @@ class HillmanWondersExtractor(BaseExtractor):
             return None
 
         tags = self.resolve_tags([tier_tag])
-        websites = [WebsiteRecord(name="Hillman Wonders", url=HILLMAN_BASE_URL)]
-        desc = f"Hillman Wonders ranked site: {poi_name} in {country_name}."
-        reason = f"Top global wonder in {country_name} recognized by Hillman Wonders."
+        # Do not populate source directory list website URL
+        websites: list[WebsiteRecord] = []
 
         return ExtractorRecord(
             poi_name=poi_name,
@@ -264,8 +251,6 @@ class HillmanWondersExtractor(BaseExtractor):
             country_code=country_code,
             tags=tags,
             websites=websites,
-            description=desc,
-            reason_to_visit=reason,
         )
 
     def _parse_wonders_from_cell(
@@ -376,7 +361,7 @@ class HillmanWondersExtractor(BaseExtractor):
         href = ""
         if isinstance(name_elem, Tag) and name_elem.name == "a":
             href = str(name_elem.get("href", ""))
-        subpage_url = urljoin(HILLMAN_BASE_URL, href) if href else HILLMAN_BASE_URL
+        subpage_url = urljoin(HILLMAN_BASE_URL, href) if href else ""
 
         country_name = cells[2].get_text(strip=True)
         award_text = cells[3].get_text(strip=True) if len(cells) > 3 else ""
@@ -385,17 +370,16 @@ class HillmanWondersExtractor(BaseExtractor):
         tags = self.resolve_tags([tier_tag])
         country_code = COUNTRY_CODE_MAP.get(country_name, "")
 
-        websites = [WebsiteRecord(name="Hillman Wonders", url=subpage_url)]
-        desc = f"Hillman Wonders ranked wonder #{rank}: {poi_name} in {country_name}."
-        reason = f"Ranked #{rank} wonder in the world by Hillman Wonders."
+        # Only populate website if it is a unique subpage URL, not the source list
+        websites: list[WebsiteRecord] = []
+        if subpage_url and subpage_url != HILLMAN_BASE_URL:
+            websites.append(WebsiteRecord(name="Hillman Wonders", url=subpage_url))
+
         hero_url = None
-        est_hours = None
         lat, lon = None, None
 
         if self.config.deep_scrape and href:
-            hero_url, deep_desc, est_hours, dlat, dlon = self._parse_subpage_details(subpage_url)
-            if deep_desc:
-                desc = deep_desc
+            hero_url, dlat, dlon = self._parse_subpage_details(subpage_url)
             if dlat is not None and dlon is not None:
                 lat, lon = dlat, dlon
 
@@ -408,9 +392,6 @@ class HillmanWondersExtractor(BaseExtractor):
             tags=tags,
             websites=websites,
             hero_image_url=hero_url,
-            estimated_visit_hours=est_hours,
-            description=desc,
-            reason_to_visit=reason,
         )
 
     def harvest_records(self) -> list[ExtractorRecord]:

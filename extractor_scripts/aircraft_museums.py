@@ -111,25 +111,23 @@ class AircraftMuseumsExtractor(BaseExtractor):
             geo_elem = cells[4].select_one(".geo") or cells[4]
             lat, lon = self._parse_coordinates(geo_elem.get_text(strip=True))
 
-        # Websites
+        # Websites: only populate unique URLs, omit directory list URL
         websites: list[WebsiteRecord] = []
-        if wiki_url:
+        if wiki_href and wiki_url != AVIATION_MUSEUMS_URL:
             websites.append(WebsiteRecord(name="Wikipedia", url=wiki_url))
 
         if len(cells) > 5:
             museum_link = cells[5].find("a")
             if museum_link and isinstance(museum_link, Tag) and museum_link.get("href"):
                 url = str(museum_link.get("href"))
-                name = museum_link.get_text(strip=True) or "Official Website"
-                websites.append(WebsiteRecord(name=name, url=url))
+                if url and url != AVIATION_MUSEUMS_URL:
+                    name = museum_link.get_text(strip=True) or "Official Website"
+                    websites.append(WebsiteRecord(name=name, url=url))
 
         # Tag resolution: baseline Aircraft ONLY (no collection focus tags)
         tags = self.resolve_tags([])
 
         country_code = COUNTRY_MAP.get(country_name, "")
-        loc_str = f"{city_airfield}, {country_name}" if city_airfield else country_name
-        desc = f"Aviation museum {poi_name} located in {loc_str}."
-        reason = f"Explore historic aircraft collections at {poi_name}."
 
         return ExtractorRecord(
             poi_name=poi_name,
@@ -141,8 +139,6 @@ class AircraftMuseumsExtractor(BaseExtractor):
             longitude=lon,
             tags=tags,
             websites=websites,
-            description=desc,
-            reason_to_visit=reason,
         )
 
     def harvest_records(self) -> list[ExtractorRecord]:

@@ -149,25 +149,24 @@ class MuseumShipsExtractor(BaseExtractor):
             geo_elem = cells[4].select_one(".geo") or cells[4]
             lat, lon = self._parse_coordinates(geo_elem.get_text(strip=True))
 
-        # Museum link
+        # Museum link: only populate unique URLs, omit directory list URL
         websites: list[WebsiteRecord] = []
-        if wiki_url:
+        if wiki_href and wiki_url != WIKI_SHIPS_URL:
             websites.append(WebsiteRecord(name="Wikipedia", url=wiki_url))
 
         if len(cells) > 5:
             museum_link = cells[5].find("a")
             if museum_link and isinstance(museum_link, Tag) and museum_link.get("href"):
                 url = str(museum_link.get("href"))
-                name = museum_link.get_text(strip=True) or "Official Museum"
-                websites.append(WebsiteRecord(name=name, url=url))
+                if url and url != WIKI_SHIPS_URL:
+                    name = museum_link.get_text(strip=True) or "Official Museum"
+                    websites.append(WebsiteRecord(name=name, url=url))
 
         # Tag logic: baseline "Ship" + conditional "Military" (no naval classification)
         conditional_tags = ["Military"] if self._is_warship(poi_name, vessel_type) else []
         tags = self.resolve_tags(conditional_tags)
 
         country_code = COUNTRY_MAP.get(country_name, "")
-        desc = f"Historic museum vessel {poi_name} ({vessel_type}) berthed in {berth_location}."
-        reason = f"Explore the preserved historic ship {poi_name}."
 
         return ExtractorRecord(
             poi_name=poi_name,
@@ -179,8 +178,6 @@ class MuseumShipsExtractor(BaseExtractor):
             longitude=lon,
             tags=tags,
             websites=websites,
-            description=desc,
-            reason_to_visit=reason,
         )
 
     def harvest_records(self) -> list[ExtractorRecord]:

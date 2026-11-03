@@ -82,7 +82,7 @@ class CastlesExtractor(BaseExtractor):
         href = ""
         if link_elem and isinstance(link_elem, Tag):
             href = str(link_elem.get("href", ""))
-        detail_url = urljoin(CASTLES_BASE_URL, href) if href else CASTLES_BASE_URL
+        detail_url = urljoin(CASTLES_BASE_URL, href) if href else ""
 
         country_elem = card.select_one(".country")
         country_name = country_elem.get_text(strip=True) if country_elem else "Unknown"
@@ -113,16 +113,13 @@ class CastlesExtractor(BaseExtractor):
         if img_elem and isinstance(img_elem, Tag) and img_elem.get("src"):
             hero_img = urljoin(CASTLES_BASE_URL, str(img_elem.get("src")))
 
-        # Websites
-        websites: list[WebsiteRecord] = [WebsiteRecord(name="Castles World", url=detail_url)]
+        # Websites: only populate unique POI URLs, omit directory list URL
+        websites: list[WebsiteRecord] = []
+        if href and detail_url != CASTLES_BASE_URL:
+            websites.append(WebsiteRecord(name="Castles World", url=detail_url))
 
         # Tag resolution: baseline Fortification ONLY (no architectural classifications)
         tags = self.resolve_tags([])
-
-        summary_elem = card.select_one(".summary") or card.find("p")
-        summary = summary_elem.get_text(strip=True) if summary_elem else ""
-        desc = summary or f"Historic fortification {poi_name} in {country_name}."
-        reason = f"Explore historic fortress {poi_name}."
 
         return ExtractorRecord(
             poi_name=poi_name,
@@ -135,8 +132,6 @@ class CastlesExtractor(BaseExtractor):
             tags=tags,
             websites=websites,
             hero_image_url=hero_img,
-            description=desc,
-            reason_to_visit=reason,
         )
 
     def harvest_records(self) -> list[ExtractorRecord]:

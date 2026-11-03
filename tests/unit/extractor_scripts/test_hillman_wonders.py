@@ -64,6 +64,8 @@ def test_hillman_wonders_harvest_shallow() -> None:
     assert len(rec_0.websites) == 1
     assert rec_0.websites[0].name == "Hillman Wonders"
     assert "giza_pyramids.htm" in rec_0.websites[0].url
+    assert rec_0.description is None
+    assert rec_0.reason_to_visit is None
 
     # Check silver record
     rec_silver = next(r for r in records if r.poi_name == "Acropolis of Athens")
@@ -79,7 +81,7 @@ def test_hillman_wonders_harvest_shallow() -> None:
 
 
 def test_hillman_wonders_harvest_deep() -> None:
-    """Verifies deep parsing fetching subpage details (hero image, hours, coordinates)."""
+    """Verifies deep parsing fetching subpage details (hero image, coordinates)."""
     index_html = (FIXTURES_DIR / "hillman_index.html").read_text(encoding="utf-8")
     detail_html = (FIXTURES_DIR / "hillman_detail.html").read_text(encoding="utf-8")
 
@@ -107,10 +109,10 @@ def test_hillman_wonders_harvest_deep() -> None:
     rec = records[0]
     assert rec.poi_name == "Pyramids of Giza"
     assert rec.hero_image_url == "https://www.hillmanwonders.com/photos/pyramids_hero.jpg"
-    assert float(rec.estimated_visit_hours) == 4.0
     assert float(rec.latitude) == 29.9792
     assert float(rec.longitude) == 31.1342
-    assert "oldest of the ancient Seven Wonders" in rec.description
+    assert rec.description is None
+    assert rec.reason_to_visit is None
 
 
 def test_hillman_cli_dry_run(monkeypatch) -> None:
@@ -202,6 +204,9 @@ def test_hillman_wonders_country_directory_layout() -> None:
     assert records[0].country == "Afghanistan"
     assert records[0].country_code == "AF"
     assert records[0].tags == ["HillmanWonder:Bronze"]
+    # Verify no source list website populated
+    assert len(records[0].websites) == 0
+    assert records[0].description is None
 
     # Check gold
     assert records[1].poi_name == "Kabul Old City"

@@ -149,17 +149,13 @@ class NPSSitesExtractor(BaseExtractor):
         conditional_tags = [designation] if designation else []
         tags = self.resolve_tags(conditional_tags)
 
-        # JSON websites
+        # JSON websites: only populate unique POI URLs, not source directory URL
         websites: list[WebsiteRecord] = []
-        if url:
+        if url and url != NPS_BASE_URL:
             websites.append(WebsiteRecord(name="National Park Service", url=url))
 
         # Secondary locations
         additional_addresses = self._parse_additional_addresses(item)
-
-        desc_elem = item.select_one(".description")
-        description = desc_elem.get_text(strip=True) if desc_elem else ""
-        reason = f"Explore {poi_name}, a protected US National Park Service unit."
 
         return ExtractorRecord(
             poi_name=poi_name,
@@ -174,8 +170,6 @@ class NPSSitesExtractor(BaseExtractor):
             tags=tags,
             websites=websites,
             additional_addresses=additional_addresses,
-            description=description,
-            reason_to_visit=reason,
         )
 
     def harvest_records(self) -> list[ExtractorRecord]:
