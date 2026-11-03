@@ -164,3 +164,89 @@ async def test_commit_job_creates_pois_and_purges_staging() -> None:
     mock_poi_repo.create.assert_awaited_once()
     mock_candidate_repo.purge_by_job.assert_awaited_once_with(user_id, job_id)
 
+
+@pytest.mark.asyncio
+async def test_commit_job_in_batch_merge_performs_additive_union() -> None:
+    """Verifies that in-batch merge candidates execute additive deduplicated union on commit (FR-008, T-029)."""
+    user_id = uuid.uuid4()
+    job_id = uuid.uuid4()
+    target_id = uuid.uuid4()
+    merge_source_id = uuid.uuid4()
+
+    target_candidate = IngestCandidate(
+        id=target_id,
+        user_id=user_id,
+        job_id=job_id,
+        row_index=0,
+        poi_name="Grand Canyon South Rim",
+        recommended_disposition=IngestDisposition.ACCEPT,
+        user_disposition=None,
+        latitude=Decimal("36.0544"),
+        longitude=Decimal("-112.1401"),
+        dates_visited=["2023-06-15"],
+        tags=["National Park", "Canyon"],
+        photo_directories=["GrandCanyon/2023"],
+        related_websites=[{"name": "NPS Official", "url": "https://nps.gov/grca"}],
+        phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    merge_source_candidate = IngestCandidate(
+        id=merge_source_id,
+        user_id=user_id,
+        job_id=job_id,
+        row_index=1,
+        poi_name="Grand Canyon South Rim Overlook",
+        recommended_disposition=IngestDisposition.IN_BATCH_MERGE,
+        user_disposition=IngestDisposition.IN_BATCH_MERGE,
+        merge_target_id=target_id,
+        latitude=Decimal("36.0545"),
+        longitude=Decimal("-112.1402"),
+        dates_visited=["2024-05-10"],
+        tags=["Scenic", "Canyon"],
+        photo_directories=["GrandCanyon/2024", "GrandCanyon/2023"],
+        related_websites=[
+            {"name": "NPS Official", "url": "https://nps.gov/grca"},
+            {"name": "Park Shuttle", "url": "https://nps.gov/grca/planyourvisit/shuttle.htm"},
+        ],
+        phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    mock_candidate_repo = MagicMock()
+    mock_candidate_repo.list_by_job = AsyncMock(
+        return_value=[target_candidate, merge_source_candidate]
+    )
+    mock_candidate_repo.purge_by_job = AsyncMock(return_value=2)
+
+    mock_poi_repo = MagicMock()
+    created_poi = POI(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        name="Grand Canyon South Rim",
+        geom=WGS84Point(lat=36.0544, lon=-112.1401),
+    )
+    mock_poi_repo.create = AsyncMock(return_value=created_poi)
+
+    service = StagingService(
+        candidate_repo=mock_candidate_repo,
+        poi_repo=mock_poi_repo,
+    )
+
+    total, created, merged = await service.commit_job(user_id, job_id)
+
+    assert total == 1
+    assert len(created) == 1
+    # Check that surviving target candidate has union of dates, tags, photo directories, and websites
+    assert target_candidate.dates_visited == ["2023-06-15", "2024-05-10"]
+    assert target_candidate.tags == ["Canyon", "National Park", "Scenic"]
+    assert target_candidate.photo_directories == ["GrandCanyon/2023", "GrandCanyon/2024"]
+    assert len(target_candidate.related_websites) == 2
+    assert target_candidate.related_websites[0]["url"] == "https://nps.gov/grca"
+    assert (
+        target_candidate.related_websites[1]["url"]
+        == "https://nps.gov/grca/planyourvisit/shuttle.htm"
+    )
+    assert merge_source_candidate.is_skipped is True

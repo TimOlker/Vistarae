@@ -27,6 +27,8 @@ export interface ModalProps {
   children: React.ReactNode;
   maxWidth?: string;
   closeOnBackdropClick?: boolean;
+  contentStyle?: React.CSSProperties;
+  bodyStyle?: React.CSSProperties;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -36,6 +38,8 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = "500px",
   closeOnBackdropClick = true,
+  contentStyle,
+  bodyStyle,
 }) => {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -96,6 +100,7 @@ export const Modal: React.FC<ModalProps> = ({
           display: "flex",
           flexDirection: "column",
           maxHeight: "90vh",
+          ...contentStyle,
         }}
       >
         {title && (
@@ -122,7 +127,19 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         )}
 
-        <div style={{ padding: "20px", overflowY: "auto" }}>{children}</div>
+        <div
+          style={{
+            padding: "20px",
+            overflowY: "auto",
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            ...bodyStyle,
+          }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

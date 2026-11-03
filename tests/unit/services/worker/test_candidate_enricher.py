@@ -318,7 +318,9 @@ async def test_candidate_enricher_limits_tags_to_user_tags_library(mock_candidat
 
 
 @pytest.mark.asyncio
-async def test_candidate_enricher_skips_scraping_when_no_websites_is_true(mock_candidate: IngestCandidate):
+async def test_candidate_enricher_skips_scraping_when_no_websites_is_true(
+    mock_candidate: IngestCandidate,
+):
     """Verifies that external website lookups are skipped when candidate.no_websites == True (FR-008, FR-015)."""
     mock_candidate.no_websites = True
     mock_candidate.description = "Already has description"
@@ -334,11 +336,12 @@ async def test_candidate_enricher_skips_scraping_when_no_websites_is_true(mock_c
         orchestrator=mock_orchestrator,
     )
 
-    with patch(
-        "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
-    ) as MockCandidateRepo, patch(
-        "services.worker.candidate_enricher.WikipediaAdapter"
-    ) as MockWikiAdapter:
+    with (
+        patch(
+            "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+        ) as MockCandidateRepo,
+        patch("services.worker.candidate_enricher.WikipediaAdapter") as MockWikiAdapter,
+    ):
         repo_instance = MagicMock()
         repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
         repo_instance.update_candidate = AsyncMock(side_effect=lambda u, c: c)
@@ -357,7 +360,9 @@ async def test_candidate_enricher_skips_scraping_when_no_websites_is_true(mock_c
 
 
 @pytest.mark.asyncio
-async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(mock_candidate: IngestCandidate):
+async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(
+    mock_candidate: IngestCandidate,
+):
     """Verifies that candidate.no_websites is set to True when 0 sites are found during enrichment (FR-008, FR-015)."""
     mock_candidate.no_websites = False
     mock_candidate.official_url = None
@@ -375,11 +380,12 @@ async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(mo
         orchestrator=mock_orchestrator,
     )
 
-    with patch(
-        "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
-    ) as MockCandidateRepo, patch(
-        "services.worker.candidate_enricher.WikipediaAdapter"
-    ) as MockWikiAdapter:
+    with (
+        patch(
+            "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+        ) as MockCandidateRepo,
+        patch("services.worker.candidate_enricher.WikipediaAdapter") as MockWikiAdapter,
+    ):
         repo_instance = MagicMock()
         repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
         repo_instance.update_candidate = AsyncMock(side_effect=lambda u, c: c)
@@ -397,4 +403,3 @@ async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(mo
 
         assert result is not None
         assert result.no_websites is True
-

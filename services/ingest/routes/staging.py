@@ -27,6 +27,7 @@ Exposes:
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -107,6 +108,13 @@ def _to_candidate_response(
         state_province=candidate.state_province,
         postal_code=candidate.postal_code,
         country=candidate.country,
+        country_code=candidate.country_code or "US",
+        admin_level_1=candidate.admin_level_1,
+        admin_level_2=candidate.admin_level_2,
+        locality=candidate.locality,
+        raw_geocoding=candidate.raw_geocoding,
+        photo_directories=candidate.photo_directories
+        or ([candidate.photo_directory] if candidate.photo_directory else []),
         dates_visited=candidate.dates_visited,
         photo_directory=candidate.photo_directory,
         confidence_score=candidate.confidence_score,
@@ -228,7 +236,8 @@ async def get_job_candidates(
     if search and search.strip():
         q = search.strip().lower()
         candidates = [
-            c for c in candidates
+            c
+            for c in candidates
             if q in c.poi_name.lower()
             or (c.city and q in c.city.lower())
             or (c.state_province and q in c.state_province.lower())
@@ -240,7 +249,8 @@ async def get_job_candidates(
     if disposition and disposition.strip():
         d_val = disposition.strip().lower()
         candidates = [
-            c for c in candidates
+            c
+            for c in candidates
             if (c.user_disposition and c.user_disposition.value == d_val)
             or (not c.user_disposition and c.recommended_disposition.value == d_val)
         ]
@@ -250,7 +260,8 @@ async def get_job_candidates(
         comp = completeness.strip().lower()
         if comp == "incomplete":
             candidates = [
-                c for c in candidates
+                c
+                for c in candidates
                 if not c.hero_image_url
                 or (c.latitude is None or c.longitude is None or not c.street_address)
                 or (not c.official_url and not c.no_websites)
@@ -259,14 +270,12 @@ async def get_job_candidates(
             candidates = [c for c in candidates if not c.hero_image_url]
         elif comp == "missing_location":
             candidates = [
-                c for c in candidates
+                c
+                for c in candidates
                 if c.latitude is None or c.longitude is None or not c.street_address
             ]
         elif comp == "missing_websites":
-            candidates = [
-                c for c in candidates
-                if not c.official_url and not c.no_websites
-            ]
+            candidates = [c for c in candidates if not c.official_url and not c.no_websites]
 
     cand_name_map = {c.id: c.poi_name for c in candidates}
     name_map = await _resolve_poi_names(candidates, user.id, poi_repo)
@@ -581,11 +590,14 @@ async def enrich_all_candidates(
 ) -> dict[str, Any]:
     """Launches parallel background enrichment for eligible candidates."""
     import asyncio
+
     candidates = await staging_service.list_candidates(user.id, job_id)
     eligible = [
-        c for c in candidates
+        c
+        for c in candidates
         if not c.is_skipped
-        and (c.user_disposition or c.recommended_disposition) not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+        and (c.user_disposition or c.recommended_disposition)
+        not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
     ]
     asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
     return {
@@ -670,4 +682,3 @@ async def discard_staging_job(
 ) -> None:
     """Purges all staged candidate records for the specified job."""
     await staging_service.cancel_staging(user.id, job_id)
-

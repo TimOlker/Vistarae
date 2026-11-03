@@ -16,7 +16,7 @@
 ## Requirement Completeness
 
 - [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous (strict EARS syntax verified across FR-001 through FR-031)
+- [x] Requirements are testable and unambiguous (strict EARS syntax verified across REQ-WB-001 through REQ-WB-028)
 - [x] Success criteria are measurable (SC-001 through SC-008)
 - [x] Success criteria are technology-agnostic (no implementation details)
 - [x] All acceptance scenarios are defined across 6 user journeys
@@ -26,12 +26,12 @@
 ## Architecture & Tenancy Guardrails
 
 - [x] User-scoped isolation enforced across all candidate and workbench operations
-- [x] User scenarios cover primary flows and advanced hierarchy/merge workflows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] All 5 interactive clarification decisions encoded into requirements (In-Batch Merge aggregation, multi-level sublocation depth, asynchronous non-blocking bulk enrichment, active upload session guard, adaptive justification with override badge)
+- [x] ISO-3166 administrative address hierarchy fully defined (`country_code`, `admin_level_1`, `admin_level_2`, `locality`)
+- [x] Non-destructive Alembic migration path specified for existing POI records
+- [x] Workbench UI enhancements specified (POI vs Location view toggle, uncropped hero image, interactive map with radius, dynamic website list, Tags Library chips, photo directories, reason to visit, confidence badge)
 
 ## Notes
 
-- All 31 functional requirements strictly follow EARS syntax conventions (Ubiquitous, Event-driven, State-driven, Unwanted behavior).
+- All 28 functional requirements strictly follow EARS syntax conventions (Ubiquitous, Event-driven, State-driven, Unwanted behavior).
 - Fully audited and aligned against `.specify/memory/constitution.md` (asynchronous queues, rate limits, tenancy isolation, and early return guards).
 - Ready for `/speckit-plan`.

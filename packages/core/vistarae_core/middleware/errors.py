@@ -369,8 +369,6 @@ def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Catches unhandled exceptions and returns a 500 ProblemDetails response."""
-        import traceback
-        tb = traceback.format_exc()
         logger.exception("Unhandled exception on %s: %s", request.url, exc)
         return _problem_response(
             ProblemDetails(

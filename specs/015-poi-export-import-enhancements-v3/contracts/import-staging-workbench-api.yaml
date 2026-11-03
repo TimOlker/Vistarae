@@ -1,0 +1,470 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Unified Import Staging Workbench API
+  version: 1.0.0
+  description: API boundary contracts for inspecting, enriching, editing, and committing staged travel POIs.
+paths:
+  /api/ingest/{job_id}/candidates:
+    get:
+      summary: List staged candidate items for an ingestion job
+      operationId: listStagingCandidates
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: completeness
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, incomplete, missing_photo, missing_location, missing_websites]
+        - name: disposition
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Collection of staged candidate items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateListResponse'
+        '404':
+          description: Ingest job not found
+
+  /api/ingest/{job_id}/candidates/{candidate_id}:
+    patch:
+      summary: Update a staged candidate's attributes or disposition
+      operationId: updateStagingCandidate
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateUpdateRequest'
+      responses:
+        '200':
+          description: Updated candidate record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateItemResponse'
+        '404':
+          description: Candidate or job not found
+        '422':
+          description: Validation error
+
+  /api/ingest/{job_id}/batch-edit:
+    post:
+      summary: Apply batch edits across multiple candidates
+      operationId: batchEditCandidates
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchEditCandidatesRequest'
+      responses:
+        '200':
+          description: Batch edit result summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count:
+                    type: integer
+
+  /api/ingest/{job_id}/candidates/{candidate_id}/enrich:
+    post:
+      summary: Trigger single candidate AI enrichment
+      operationId: enrichSingleCandidate
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Enriched candidate record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateItemResponse'
+
+  /api/ingest/{job_id}/commit-workbench:
+    post:
+      summary: Commit all valid candidates into canonical POIs
+      operationId: commitWorkbenchJob
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Commit summary result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitSummaryResponse'
+
+components:
+  schemas:
+    CandidateItemResponse:
+      type: object
+      required:
+        - id
+        - job_id
+        - row_index
+        - poi_name
+        - recommended_disposition
+        - photo_directory
+        - confidence_score
+        - phase_state
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        row_index:
+          type: integer
+        poi_name:
+          type: string
+        recommended_disposition:
+          type: string
+          enum: [accept, ignore, update_existing, sublocation, in_batch_merge, exclude]
+        user_disposition:
+          type: string
+          nullable: true
+          enum: [accept, ignore, update_existing, sublocation, in_batch_merge, exclude]
+        matched_existing_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        parent_candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+        merge_target_id:
+          type: string
+          format: uuid
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        street_address:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        country_code:
+          type: string
+          nullable: true
+          default: US
+        admin_level_1:
+          type: string
+          nullable: true
+        admin_level_2:
+          type: string
+          nullable: true
+        locality:
+          type: string
+          nullable: true
+        raw_geocoding:
+          type: object
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state_province:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        hero_image_url:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        wiki_url:
+          type: string
+          nullable: true
+        related_websites:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              url:
+                type: string
+        photo_directory:
+          type: string
+        photo_directories:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        dates_visited:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        reason_to_visit:
+          type: string
+          nullable: true
+        confidence_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        disposition_justification:
+          type: string
+          nullable: true
+        no_websites:
+          type: boolean
+          default: false
+        phase_state:
+          type: string
+          enum: [phase_1_triage, phase_2_enriched]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CandidateListResponse:
+      type: object
+      required:
+        - job_id
+        - total_candidates
+        - candidates
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        total_candidates:
+          type: integer
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateItemResponse'
+
+    CandidateUpdateRequest:
+      type: object
+      properties:
+        poi_name:
+          type: string
+        user_disposition:
+          type: string
+          enum: [accept, ignore, update_existing, sublocation, in_batch_merge, exclude]
+        matched_existing_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        parent_poi_id:
+          type: string
+          format: uuid
+          nullable: true
+        parent_candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+        merge_target_id:
+          type: string
+          format: uuid
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        street_address:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        country_code:
+          type: string
+          nullable: true
+        admin_level_1:
+          type: string
+          nullable: true
+        admin_level_2:
+          type: string
+          nullable: true
+        locality:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state_province:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        hero_image_url:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        wiki_url:
+          type: string
+          nullable: true
+        related_websites:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              url:
+                type: string
+        photo_directory:
+          type: string
+          nullable: true
+        photo_directories:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        dates_visited:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        reason_to_visit:
+          type: string
+          nullable: true
+        no_websites:
+          type: boolean
+        recommended_duration_hours:
+          type: number
+          nullable: true
+        recommended_visit_days:
+          type: integer
+          nullable: true
+        estimated_visit_time_notes:
+          type: string
+          nullable: true
+
+    BatchEditCandidatesRequest:
+      type: object
+      required:
+        - candidate_ids
+      properties:
+        candidate_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        country:
+          type: string
+          nullable: true
+        state_province:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        date_visited:
+          type: string
+          nullable: true
+
+    CommitSummaryResponse:
+      type: object
+      required:
+        - job_id
+        - total_committed
+        - new_pois_count
+        - updated_pois_count
+        - sublocations_count
+        - ignored_count
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        total_committed:
+          type: integer
+        new_pois_count:
+          type: integer
+        updated_pois_count:
+          type: integer
+        sublocations_count:
+          type: integer
+        ignored_count:
+          type: integer
+

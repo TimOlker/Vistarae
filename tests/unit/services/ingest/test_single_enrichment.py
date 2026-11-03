@@ -26,7 +26,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 from vistarae_core.domain.entities import IngestCandidate, User
-from vistarae_core.domain.exceptions import IngestCandidateNotFoundError
 from vistarae_core.domain.value_objects import (
     IngestCandidatePhaseState,
     IngestDisposition,
@@ -147,9 +146,7 @@ async def test_enrich_single_candidate_populates_missing_preserves_existing(
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
     app.dependency_overrides[get_poi_repo] = lambda: mock_poi_repo
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post(
             f"/api/ingest/jobs/{sample_candidate.job_id}/candidates/{sample_candidate.id}/enrich"
         )
@@ -180,12 +177,8 @@ async def test_enrich_all_candidates_enqueues_background_task(
     app.dependency_overrides[get_current_user] = lambda: mock_user
     app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.post(
-            f"/api/ingest/jobs/{sample_candidate.job_id}/enrich-all"
-        )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(f"/api/ingest/jobs/{sample_candidate.job_id}/enrich-all")
 
     app.dependency_overrides.clear()
 
@@ -194,4 +187,3 @@ async def test_enrich_all_candidates_enqueues_background_task(
     assert data["status"] == "enriching"
     assert data["enqueued_candidates"] == 1
     mock_staging_service.enrich_candidates_phase2.assert_called_once()
-

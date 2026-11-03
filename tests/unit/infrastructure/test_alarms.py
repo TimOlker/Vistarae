@@ -72,9 +72,9 @@ class TestCloudWatchAlarmsAndLimits:
         ]
 
         # Must not exceed 2 alarms (ApplicationErrorAlarm and DlqMessageAlarm)
-        assert (
-            len(alarm_resources) <= 2
-        ), f"Too many alarms defined: {alarm_resources}. Max allowed is 2 (<10)."
+        assert len(alarm_resources) <= 2, (
+            f"Too many alarms defined: {alarm_resources}. Max allowed is 2 (<10)."
+        )
         assert "ApplicationErrorAlarm" in alarm_resources
         assert "DlqMessageAlarm" in alarm_resources
 
@@ -86,14 +86,14 @@ class TestCloudWatchAlarmsAndLimits:
             res_type = res_def.get("Type", "")
 
             # No CloudWatch Synthetics canaries
-            assert (
-                res_type != "AWS::Synthetics::Canary"
-            ), f"Resource {res_id} is a Canary. Scheduled pings prevent Neon scale-to-zero!"
+            assert res_type != "AWS::Synthetics::Canary", (
+                f"Resource {res_id} is a Canary. Scheduled pings prevent Neon scale-to-zero!"
+            )
 
             # No Route 53 health check
-            assert (
-                res_type != "AWS::Route53::HealthCheck"
-            ), f"Resource {res_id} is a Route53 HealthCheck. Pings prevent Neon scale-to-zero!"
+            assert res_type != "AWS::Route53::HealthCheck", (
+                f"Resource {res_id} is a Route53 HealthCheck. Pings prevent Neon scale-to-zero!"
+            )
 
             # If EventBridge rule, verify it is NOT a recurring schedule
             if res_type == "AWS::Events::Rule":

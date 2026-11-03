@@ -128,5 +128,30 @@ def test_country_to_iso_code():
     assert AddressNormalizer.country_to_iso_code("USA") == "US"
     assert AddressNormalizer.country_to_iso_code("United Kingdom") == "GB"
     assert AddressNormalizer.country_to_iso_code("France") == "FR"
+    assert AddressNormalizer.country_to_iso_code("China") == "CN"
+    assert AddressNormalizer.country_to_iso_code("中国") == "CN"
     assert AddressNormalizer.country_to_iso_code("Unknown") == "XX"
     assert AddressNormalizer.country_to_iso_code(None) == "XX"
+
+
+def test_chinese_address_transliteration_and_parsing():
+    """Verifies Chinese characters in addresses and landmarks (Great Wall) resolve to English."""
+    raw_payload = {
+        "name": "Great Wall of China",
+        "display_name": "Great Wall of China, 慕田峪路, 怀柔区, 北京市, 中国",
+        "address": {
+            "road": "慕田峪路",
+            "county": "怀柔区",
+            "city": "北京市",
+            "state": "北京市",
+            "country": "中国",
+            "country_code": "cn",
+        },
+    }
+    parsed = AddressNormalizer.parse_nominatim_iso_address(raw_payload)
+    assert parsed["street_address"] == "Mutianyu Road"
+    assert parsed["admin_level_2"] == "Huairou District"
+    assert parsed["locality"] == "Beijing"
+    assert parsed["admin_level_1"] == "Beijing"
+    assert parsed["country"] == "China"
+    assert parsed["country_code"] == "CN"

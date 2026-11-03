@@ -196,11 +196,35 @@ WIKIDATA_PROPERTY_MAP: dict[str, tuple[str, Any]] = {
             else f"https://www.tripadvisor.com/{val}"
         ),
     ),
-    "P4056": ("National Trust", lambda val: f"https://www.nationaltrust.org.uk/{val}" if not str(val).startswith("http") else str(val)),
-    "P3516": ("English Heritage", lambda val: f"https://www.english-heritage.org.uk/visit/places/{val}" if not str(val).startswith("http") else str(val)),
-    "P6766": ("AllTrails", lambda val: f"https://www.alltrails.com/trail/{val}" if not str(val).startswith("http") else str(val)),
+    "P4056": (
+        "National Trust",
+        lambda val: (
+            f"https://www.nationaltrust.org.uk/{val}"
+            if not str(val).startswith("http")
+            else str(val)
+        ),
+    ),
+    "P3516": (
+        "English Heritage",
+        lambda val: (
+            f"https://www.english-heritage.org.uk/visit/places/{val}"
+            if not str(val).startswith("http")
+            else str(val)
+        ),
+    ),
+    "P6766": (
+        "AllTrails",
+        lambda val: (
+            f"https://www.alltrails.com/trail/{val}"
+            if not str(val).startswith("http")
+            else str(val)
+        ),
+    ),
     "P402": ("OpenStreetMap", lambda val: f"https://www.openstreetmap.org/relation/{val}"),
-    "P10689": ("Google Arts & Culture", lambda val: f"https://artsandculture.google.com/entity/{val}"),
+    "P10689": (
+        "Google Arts & Culture",
+        lambda val: f"https://artsandculture.google.com/entity/{val}",
+    ),
 }
 
 KNOWN_DOMAIN_NAMES: dict[str, str] = {
@@ -336,11 +360,7 @@ class WikidataAdapter(SecondarySourceAdapter):
             if not entity:
                 return None
 
-            label = (
-                entity.get("labels", {}).get("en", {}).get("value")
-                or query_hint
-                or qid
-            )
+            label = entity.get("labels", {}).get("en", {}).get("value") or query_hint or qid
             desc = entity.get("descriptions", {}).get("en", {}).get("value")
             claims = entity.get("claims", {})
             sitelinks = entity.get("sitelinks", {})
@@ -358,7 +378,11 @@ class WikidataAdapter(SecondarySourceAdapter):
             if coords:
                 mainsnak = coords[0].get("mainsnak", {})
                 datavalue = mainsnak.get("datavalue", {}).get("value")
-                if isinstance(datavalue, dict) and "latitude" in datavalue and "longitude" in datavalue:
+                if (
+                    isinstance(datavalue, dict)
+                    and "latitude" in datavalue
+                    and "longitude" in datavalue
+                ):
                     result["latitude"] = float(datavalue["latitude"])
                     result["longitude"] = float(datavalue["longitude"])
 
@@ -436,7 +460,9 @@ class WikidataAdapter(SecondarySourceAdapter):
         if sitelinks:
             enwiki = sitelinks.get("enwiki", {}).get("title")
             if enwiki:
-                _add("Wikipedia", f"https://en.wikipedia.org/wiki/{quote(enwiki.replace(' ', '_'))}")
+                _add(
+                    "Wikipedia", f"https://en.wikipedia.org/wiki/{quote(enwiki.replace(' ', '_'))}"
+                )
 
         for prop, (site_name, formatter) in WIKIDATA_PROPERTY_MAP.items():
             prop_claims = claims.get(prop, [])
@@ -480,8 +506,16 @@ class WikidataAdapter(SecondarySourceAdapter):
             candidates = await self.search_entities(query_title, client, headers)
             for score, qid, item in candidates:
                 if score > 0.2:
-                    logger.info("MSG   |<- Wikidata resolved '%s' -> %s ('%s', score=%.2f)", query_title, qid, item.get("label"), score)
-                    res = await self.fetch_entity_details(qid, client, headers, query_hint=item.get("label", query_title))
+                    logger.info(
+                        "MSG   |<- Wikidata resolved '%s' -> %s ('%s', score=%.2f)",
+                        query_title,
+                        qid,
+                        item.get("label"),
+                        score,
+                    )
+                    res = await self.fetch_entity_details(
+                        qid, client, headers, query_hint=item.get("label", query_title)
+                    )
                     if res:
                         return res
         except Exception as exc:
@@ -799,14 +833,14 @@ class WikipediaAdapter(SecondarySourceAdapter):
                     return summary_res
 
             for q_term in candidate_queries:
-                gen_search_res = await self._try_generator_search_query(q_term, client, headers)
-                if gen_search_res:
-                    return gen_search_res
-
-            for q_term in candidate_queries:
                 opensearch_res = await self._try_opensearch_query(q_term, client, headers)
                 if opensearch_res:
                     return opensearch_res
+
+            for q_term in candidate_queries:
+                gen_search_res = await self._try_generator_search_query(q_term, client, headers)
+                if gen_search_res:
+                    return gen_search_res
 
             for q_term in candidate_queries[:2]:
                 cirrus_res = await self._try_cirrus_query(q_term, client, headers)
@@ -814,7 +848,9 @@ class WikipediaAdapter(SecondarySourceAdapter):
                     return cirrus_res
 
             # Fallback to direct Wikidata knowledge search (elevates POIs like "Beaser Garden Maze")
-            wd_res = await self._wikidata.augment(article_title, source_url=source_url, client=client)
+            wd_res = await self._wikidata.augment(
+                article_title, source_url=source_url, client=client
+            )
             if wd_res:
                 return wd_res
         except BaseException as exc:
@@ -901,7 +937,9 @@ class WikipediaAdapter(SecondarySourceAdapter):
             parsed_result["related_websites"] = []
         clean = url.strip()
         key = clean.rstrip("/").lower()
-        if not any(r.get("url", "").rstrip("/").lower() == key for r in parsed_result["related_websites"]):
+        if not any(
+            r.get("url", "").rstrip("/").lower() == key for r in parsed_result["related_websites"]
+        ):
             parsed_result["related_websites"].append({"name": name, "url": clean})
 
     async def _enrich_from_extlinks(
@@ -962,7 +1000,9 @@ class WikipediaAdapter(SecondarySourceAdapter):
 
                     for u_dom in user_domains:
                         if u_dom.lower() in link_lower:
-                            site_name = KNOWN_DOMAIN_NAMES.get(u_dom.lower(), u_dom.split(".")[0].capitalize())
+                            site_name = KNOWN_DOMAIN_NAMES.get(
+                                u_dom.lower(), u_dom.split(".")[0].capitalize()
+                            )
                             self._add_related_website(parsed_result, site_name, link)
         except BaseException as exc:
             logger.debug("External links lookup failed: %s", exc)
@@ -987,7 +1027,9 @@ class WikipediaAdapter(SecondarySourceAdapter):
                 wikibase_item, client, headers, query_hint=title
             )
             if wd_details:
-                if not parsed_result.get("official_website_url") and wd_details.get("official_website_url"):
+                if not parsed_result.get("official_website_url") and wd_details.get(
+                    "official_website_url"
+                ):
                     parsed_result["official_website_url"] = wd_details["official_website_url"]
                 if not parsed_result.get("hero_image_url") and wd_details.get("hero_image_url"):
                     parsed_result["hero_image_url"] = wd_details["hero_image_url"]
@@ -1000,7 +1042,9 @@ class WikipediaAdapter(SecondarySourceAdapter):
                 await self._enrich_wikidata_claims(wikibase_item, parsed_result, client, headers)
 
         if parsed_result.get("official_website_url"):
-            self._add_related_website(parsed_result, "Official Website", parsed_result["official_website_url"])
+            self._add_related_website(
+                parsed_result, "Official Website", parsed_result["official_website_url"]
+            )
 
         await self._enrich_from_extlinks(title, parsed_result, client, headers)
 

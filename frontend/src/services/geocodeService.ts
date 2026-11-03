@@ -20,10 +20,10 @@
  */
 
 import { apiFetch } from "./api";
-import type { components } from "../types/poi-edit-api";
+import type { components as CoreComponents } from "../types/api";
 
 export type ReverseGeocodeResponse =
-  components["schemas"]["ReverseGeocodeResponse"];
+  CoreComponents["schemas"]["vistarae_core__schemas__poi__ReverseGeocodeResponse"];
 
 export interface ForwardSearchResult {
   lat: number;
@@ -193,4 +193,3 @@ export async function forwardGeocode(
     `/api/pois/geocode/forward?q=${encodeURIComponent(trimmed)}`,
   );
 }
-

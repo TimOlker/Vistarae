@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -52,6 +53,68 @@ class AddressRecord(StrictBaseModel):
         ..., min_length=2, max_length=100, description="Normalized English standard country name"
     )
     postal_code: str | None = Field(None, max_length=32, description="Postal or ZIP code")
+    country_code: str | None = Field(
+        default=None, max_length=2, description="ISO 3166-1 alpha-2 code"
+    )
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
+    locality: str | None = Field(
+        default=None, max_length=150, description="City, town, or locality"
+    )
+    raw_geocoding: dict[str, Any] | None = Field(
+        default=None, description="Full raw geocoding response"
+    )
+
+    country_code: str | None = Field(
+        default=None, max_length=2, description="ISO 3166-1 alpha-2 code"
+    )
+
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
+
+    locality: str | None = Field(
+        default=None, max_length=150, description="City, town, or locality"
+    )
+
+    raw_geocoding: dict[str, Any] | None = Field(
+        default=None, description="Full raw geocoding response"
+    )
+    country_code: str | None = Field(
+        default=None, max_length=2, description="ISO 3166-1 alpha-2 code"
+    )
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
+    locality: str | None = Field(
+        default=None, max_length=150, description="City, town, or locality"
+    )
+    raw_geocoding: dict[str, Any] | None = Field(
+        default=None, description="Full raw geocoding response"
+    )
+
+    country_code: str | None = Field(
+        default=None, max_length=2, description="ISO 3166-1 alpha-2 code"
+    )
+
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+
+    admin_level_2: str | None = Field(
+        default=None, max_length=100, description="County or district"
+    )
+
+    locality: str | None = Field(
+        default=None, max_length=150, description="City, town, or locality"
+    )
+
+    raw_geocoding: dict[str, Any] | None = Field(
+        default=None, description="Full raw geocoding response"
+    )
 
     @field_validator("country")
     @classmethod

@@ -113,8 +113,14 @@ class CandidateEnricher:
         )
 
         wiki_data: dict[str, Any] = {}
-        should_query_links = overrides.recalculate_links or not (
-            candidate.wiki_url and candidate.official_url
+        websites_count = len(candidate.related_websites or [])
+        if candidate.official_url and str(candidate.official_url).strip():
+            websites_count += 1
+        if candidate.wiki_url and str(candidate.wiki_url).strip():
+            websites_count += 1
+
+        should_query_links = overrides.recalculate_links or (
+            websites_count == 0 and not candidate.no_websites
         )
         if should_query_links and any("wikipedia" in d.lower() for d in valid_domains):
             try:
@@ -163,6 +169,17 @@ class CandidateEnricher:
                                     candidate.related_websites.append(site)
             except Exception as exc:
                 logger.debug("Wikipedia enrichment failed for '%s': %s", candidate.poi_name, exc)
+
+        if should_query_links:
+            new_count = len(candidate.related_websites or [])
+            if candidate.official_url and str(candidate.official_url).strip():
+                new_count += 1
+            if candidate.wiki_url and str(candidate.wiki_url).strip():
+                new_count += 1
+            if new_count == 0:
+                candidate.no_websites = True
+            else:
+                candidate.no_websites = False
 
         secondary_extracts = (
             [wiki_data["description"]] if (wiki_data and wiki_data.get("description")) else []
@@ -268,10 +285,18 @@ class CandidateEnricher:
                 return cand
 
             # If coordinates are missing, attempt forward geocoding resolution
-            if (cand.latitude is None or cand.longitude is None) and self._orchestrator and getattr(self._orchestrator, "geocoding_service", None):
+            if (
+                (cand.latitude is None or cand.longitude is None)
+                and self._orchestrator
+                and getattr(self._orchestrator, "geocoding_service", None)
+            ):
                 try:
                     geo = self._orchestrator.geocoding_service
-                    query = f"{cand.poi_name}, {cand.city}, {cand.country}" if (cand.city and cand.country) else cand.poi_name
+                    query = (
+                        f"{cand.poi_name}, {cand.city}, {cand.country}"
+                        if (cand.city and cand.country)
+                        else cand.poi_name
+                    )
                     lat, lon, addrs, _ = await geo.geocode(query)
                     if lat is not None and lon is not None:
                         cand.latitude = Decimal(str(lat))
@@ -285,7 +310,9 @@ class CandidateEnricher:
                             cand.country = cand.country or first.country
                         if cand.recommended_disposition == IngestDisposition.IGNORE:
                             cand.recommended_disposition = IngestDisposition.ACCEPT
-                            cand.disposition_justification = "Coordinates resolved via enrichment geocoding"
+                            cand.disposition_justification = (
+                                "Coordinates resolved via enrichment geocoding"
+                            )
                 except Exception as exc:
                     logger.debug("Enrichment geocoding failed for '%s': %s", cand.poi_name, exc)
 

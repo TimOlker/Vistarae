@@ -76,11 +76,17 @@ class CandidateItemResponse(StrictBaseModel):
     longitude: float | None = None
     street_address: str | None = None
     city: str | None = None
+    country_code: str = "US"
+    admin_level_1: str | None = None
+    admin_level_2: str | None = None
+    locality: str | None = None
+    raw_geocoding: dict[str, Any] | None = None
     state_province: str | None = None
     postal_code: str | None = None
     country: str | None = None
     dates_visited: list[str] = Field(default_factory=list)
     photo_directory: str
+    photo_directories: list[str] = Field(default_factory=list)
     confidence_score: int = Field(default=0, ge=0, le=100)
     tags: list[str] = Field(default_factory=list)
     description: str | None = None
@@ -102,7 +108,6 @@ class CandidateItemResponse(StrictBaseModel):
     parent_candidate_name: str | None = None
     merge_target_id: UUID | None = None
     merge_target_name: str | None = None
-    related_websites: list[dict[str, Any]] = Field(default_factory=list)
     is_duplicate: bool = False
     created_at: datetime
     updated_at: datetime
@@ -127,11 +132,17 @@ class CandidateUpdateRequest(StrictBaseModel):
     longitude: float | None = None
     street_address: str | None = None
     city: str | None = None
+    country_code: str | None = None
+    admin_level_1: str | None = None
+    admin_level_2: str | None = None
+    locality: str | None = None
+    raw_geocoding: dict[str, Any] | None = None
     state_province: str | None = None
     postal_code: str | None = None
     country: str | None = None
     dates_visited: list[str] | None = None
     photo_directory: str | None = None
+    photo_directories: list[str] | None = None
     tags: list[str] | None = None
     description: str | None = None
     reason_to_visit: str | None = None
@@ -149,7 +160,6 @@ class CandidateUpdateRequest(StrictBaseModel):
     is_user_overridden: bool | None = None
     parent_candidate_id: UUID | None = None
     merge_target_id: UUID | None = None
-    related_websites: list[dict[str, Any]] | None = None
 
 
 class Phase2ProgressResponse(StrictBaseModel):

@@ -29,7 +29,6 @@ from vistarae_core.domain.entities import POI, IngestCandidate
 from vistarae_core.domain.value_objects import (
     IngestCandidatePhaseState,
     IngestDisposition,
-    WGS84Point,
 )
 from vistarae_core.schemas.ingest_staging import CandidateUpdateRequest
 
@@ -309,4 +308,3 @@ async def test_commit_sublocation_resolves_batch_parent_id() -> None:
     child_poi = next(p for p in created_pois if p.name == "Mather Point")
 
     assert child_poi.parent_poi_id == parent_poi.id
-

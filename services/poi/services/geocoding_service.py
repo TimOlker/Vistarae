@@ -163,32 +163,19 @@ class GeocodingService:
                     first = results[0]
                     lat = float(first["lat"])
                     lon = float(first["lon"])
-                    addr = first.get("address", {})
-
-                    street = addr.get("road") or addr.get("street") or addr.get("pedestrian")
-                    city = (
-                        addr.get("city")
-                        or addr.get("town")
-                        or addr.get("village")
-                        or addr.get("municipality")
-                        or addr.get("administrative")
-                        or addr.get("county")
-                        or addr.get("state_district")
-                        or addr.get("subdistrict")
-                        or addr.get("hamlet")
-                        or addr.get("suburb")
-                    )
-                    state = addr.get("state") or addr.get("province") or addr.get("region")
-                    country = addr.get("country") or "Unknown"
-                    postal = addr.get("postcode")
-
+                    parsed = AddressNormalizer.parse_nominatim_iso_address(first)
                     base_address = AddressNormalizer.normalize_address(
                         AddressRecord(
-                            street=street.strip() if street else None,
-                            city=city.strip() if city else None,
-                            state_province=state.strip() if state else None,
-                            country=country,
-                            postal_code=postal.strip() if postal else None,
+                            street=parsed["street_address"],
+                            city=parsed["locality"],
+                            state_province=parsed["admin_level_1"],
+                            country=parsed["country"],
+                            postal_code=parsed["postal_code"],
+                            country_code=parsed["country_code"],
+                            admin_level_1=parsed["admin_level_1"],
+                            admin_level_2=parsed["admin_level_2"],
+                            locality=parsed["locality"],
+                            raw_geocoding=first,
                         )
                     )
         except Exception as exc:

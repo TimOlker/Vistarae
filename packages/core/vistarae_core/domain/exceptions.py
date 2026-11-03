@@ -91,16 +91,27 @@ class TenantNotFoundError(DomainError):
 class CyclicHierarchyError(DomainError):
     """Raised when setting a POI parent would cause a directed cyclic loop."""
 
-    def __init__(self, poi_id: str, proposed_parent_id: str) -> None:
+    def __init__(
+        self,
+        poi_id: str = "",
+        proposed_parent_id: str = "",
+        message: str | None = None,
+    ) -> None:
         """Initializes a cyclic hierarchy error.
 
         Args:
             poi_id: ID of the POI being updated.
             proposed_parent_id: Proposed parent ID that creates a cycle.
+            message: Optional override error message.
         """
-        super().__init__(
-            f"Assigning parent {proposed_parent_id} to POI {poi_id} would create a circular hierarchy."
-        )
+        if message is None:
+            if poi_id and proposed_parent_id:
+                message = f"Assigning parent {proposed_parent_id} to POI {poi_id} would create a circular hierarchy."
+            elif poi_id:
+                message = f"Circular hierarchy detected for POI {poi_id}."
+            else:
+                message = "Circular hierarchy detected."
+        super().__init__(message)
         self.poi_id = poi_id
         self.proposed_parent_id = proposed_parent_id
 
@@ -244,9 +255,7 @@ class InvalidMimeTypeError(DomainError):
 class InvalidCSVHeaderError(DomainError):
     """Raised when a CSV upload is missing required canonical column headers."""
 
-    def __init__(
-        self, missing_headers: list[str], found_headers: list[str] | None = None
-    ) -> None:
+    def __init__(self, missing_headers: list[str], found_headers: list[str] | None = None) -> None:
         """Initializes an invalid CSV header error.
 
         Args:
@@ -258,16 +267,3 @@ class InvalidCSVHeaderError(DomainError):
         )
         self.missing_headers = missing_headers
         self.found_headers = found_headers or []
-
-
-class CyclicHierarchyError(DomainError):
-    """Raised when a circular parent-child reference is detected in a POI hierarchy."""
-
-    def __init__(self, message: str = "Circular hierarchy detected.") -> None:
-        """Initializes a cyclic hierarchy error.
-
-        Args:
-            message: Explanation of the cycle.
-        """
-        super().__init__(message)
-

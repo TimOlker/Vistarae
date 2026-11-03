@@ -20,6 +20,37 @@ import { CSVImportWorkbenchModal } from "../../components/ingest/CSVImportWorkbe
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { ToastProvider } from "../../context/ToastContext";
 
+vi.mock("maplibre-gl", () => ({
+  default: {
+    Map: vi.fn().mockImplementation(() => ({
+      addControl: vi.fn(),
+      addSource: vi.fn(),
+      addLayer: vi.fn(),
+      getSource: vi.fn(),
+      flyTo: vi.fn(),
+      remove: vi.fn(),
+      resize: vi.fn(),
+      on: vi.fn(),
+      setStyle: vi.fn(),
+      getZoom: vi.fn().mockReturnValue(12),
+    })),
+    Marker: vi.fn().mockImplementation(() => ({
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+      remove: vi.fn(),
+      on: vi.fn(),
+      getLngLat: vi.fn().mockReturnValue({ lat: 35.3606, lng: 138.7274 }),
+      setPopup: vi.fn().mockReturnThis(),
+    })),
+    Popup: vi.fn().mockImplementation(() => ({
+      setHTML: vi.fn().mockReturnThis(),
+      setLngLat: vi.fn().mockReturnThis(),
+      addTo: vi.fn().mockReturnThis(),
+    })),
+    NavigationControl: vi.fn(),
+  },
+}));
+
 vi.mock("../../services/ingestApi", () => ({
   ingestApi: {
     listStagingCandidates: vi.fn(),
@@ -30,6 +61,31 @@ vi.mock("../../services/ingestApi", () => ({
     commitWorkbenchJob: vi.fn(),
     cancelPhase1: vi.fn(),
   },
+}));
+
+vi.mock("../../services/api", () => ({
+  apiFetch: vi.fn().mockImplementation((url: string) => {
+    if (url.includes("/api/tags")) {
+      return Promise.resolve([
+        { name: "Volcano", slug: "volcano" },
+        { name: "Scenic", slug: "scenic" },
+        { name: "Historic", slug: "historic" },
+      ]);
+    }
+    return Promise.resolve({});
+  }),
+}));
+
+vi.mock("../../services/geocodeService", () => ({
+  reverseGeocode: vi.fn().mockResolvedValue({
+    street: "123 New Road",
+    city: "Fujinomiya",
+    locality: "Fujinomiya",
+    state_province: "Shizuoka",
+    admin_level_1: "Shizuoka Prefecture",
+    country: "Japan",
+    country_code: "JP",
+  }),
 }));
 
 describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
@@ -49,11 +105,21 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       city: "Fujinomiya",
       state_province: "Shizuoka",
       country: "Japan",
+      country_code: "JP",
+      admin_level_1: "Shizuoka Prefecture",
+      admin_level_2: "Fujinomiya City",
+      locality: "Fujinomiya",
       hero_image_url: "https://example.com/fuji.jpg",
       official_url: "https://fujisan.jp",
+      related_websites: [
+        { name: "Official Guide", url: "https://fujisan.jp/guide" },
+      ],
       no_websites: false,
       confidence_score: 95,
+      disposition_justification:
+        "High confidence coordinate match from authoritative geocoder.",
       photo_directory: "Japan/Fuji",
+      photo_directories: ["Japan/Fuji"],
       dates_visited: ["2024-05-01"],
       tags: ["Volcano", "Scenic"],
       phase_state: "phase_1_triage" as any,
@@ -75,11 +141,16 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       city: "Fujikawaguchiko",
       state_province: "Yamanashi",
       country: "Japan",
+      country_code: "JP",
       hero_image_url: null,
       official_url: null,
+      related_websites: [],
       no_websites: false,
       confidence_score: 50,
+      disposition_justification:
+        "Missing coordinates; proximity to Fuji suggests child sublocation.",
       photo_directory: "Japan/Kawaguchi",
+      photo_directories: ["Japan/Kawaguchi"],
       dates_visited: [],
       tags: ["Lake"],
       phase_state: "phase_1_triage" as any,
@@ -105,35 +176,67 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
           isOpen={true}
           onClose={vi.fn()}
         />
-      </ToastProvider>
+      </ToastProvider>,
     );
 
   it("renders split layout with master table on left and editor on right", async () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("import-staging-workbench-modal")).toBeInTheDocument();
-      expect(screen.getByText("Mount Fuji")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("import-staging-workbench-modal"),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText("Mount Fuji").length).toBeGreaterThanOrEqual(
+        1,
+      );
       expect(screen.getByText("Lake Kawaguchi")).toBeInTheDocument();
     });
 
     // Check completeness badges
-    expect(screen.getByTestId("completeness-badge-complete")).toBeInTheDocument();
-    expect(screen.getByTestId("completeness-badge-incomplete")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("completeness-badge-complete"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("completeness-badge-incomplete"),
+    ).toBeInTheDocument();
 
     // Check pinned footer in editor
-    expect(screen.getByTestId("candidate-editor-pinned-footer")).toBeInTheDocument();
-    expect(screen.getByTestId("save-candidate-changes-btn")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("candidate-editor-pinned-footer"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("save-candidate-changes-btn"),
+    ).toBeInTheDocument();
+  });
+
+  it("toggles perspective between POI and Location modes", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("perspective-select")).toBeInTheDocument();
+    });
+
+    const perspectiveSelect = screen.getByTestId(
+      "perspective-select",
+    ) as HTMLSelectElement;
+    expect(perspectiveSelect.value).toBe("POI");
+
+    fireEvent.change(perspectiveSelect, { target: { value: "Location" } });
+    expect(perspectiveSelect.value).toBe("Location");
   });
 
   it("toggles reactive 'No Websites' checkbox and unsets URLs", async () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Mount Fuji");
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Mount Fuji",
+      );
     });
 
-    const noWebsitesCheckbox = screen.getByTestId("no-websites-checkbox") as HTMLInputElement;
+    const noWebsitesCheckbox = screen.getByTestId(
+      "no-websites-checkbox",
+    ) as HTMLInputElement;
     expect(noWebsitesCheckbox.checked).toBe(false);
 
     // Toggle No Websites to true
@@ -141,7 +244,40 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     expect(noWebsitesCheckbox.checked).toBe(true);
 
     // Official and Wiki inputs should now be replaced by skipped message
-    expect(screen.getByText(/Web scraping skipped: POI verified to have no relevant web presence/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Web scraping skipped: POI verified to have no relevant web presence/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("adds and deletes a dynamic website with confirmation prompt", async () => {
+    window.confirm = vi.fn().mockReturnValue(true);
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("add-website-btn")).toBeInTheDocument();
+    });
+
+    // Add website
+    fireEvent.change(screen.getByTestId("new-website-name-input"), {
+      target: { value: "Fuji Webcam" },
+    });
+    fireEvent.change(screen.getByTestId("new-website-url-input"), {
+      target: { value: "https://fuji-cam.jp" },
+    });
+    fireEvent.click(screen.getByTestId("add-website-btn"));
+
+    expect(screen.getByText(/Fuji Webcam/i)).toBeInTheDocument();
+
+    // Delete a website
+    const deleteBtn = screen.getByTestId("delete-website-btn-0");
+    fireEvent.click(deleteBtn);
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      "Are you sure you want to remove this website?",
+    );
   });
 
   it("invokes single-POI enrichment when 'AI Enrich POI' is clicked", async () => {
@@ -159,7 +295,10 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     fireEvent.click(screen.getByTestId("ai-enrich-poi-btn"));
 
     await waitFor(() => {
-      expect(ingestApi.enrichSingleCandidate).toHaveBeenCalledWith("job-1", "cand-1");
+      expect(ingestApi.enrichSingleCandidate).toHaveBeenCalledWith(
+        "job-1",
+        "cand-1",
+      );
     });
   });
 
@@ -187,7 +326,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
         "cand-1",
         expect.objectContaining({
           poi_name: "Mount Fuji Sacred Peak",
-        })
+        }),
       );
     });
   });
@@ -203,12 +342,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
             {
               id: "poi-nearby-1",
               name: "Mount Fuji Station 5",
-              latitude: 35.3610,
-              longitude: 138.7280,
+              latitude: 35.361,
+              longitude: 138.728,
             },
           ]}
         />
-      </ToastProvider>
+      </ToastProvider>,
     );
 
     await waitFor(() => {
@@ -217,14 +356,18 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     });
 
     // Mount Fuji Station 5 is ~0.04 mi away, so within 1 mi radius it shows 1 Nearby Point
-    expect(screen.getByTestId("nearby-poi-count-badge")).toHaveTextContent(/1 Nearby Point/i);
+    expect(screen.getByTestId("nearby-poi-count-badge")).toHaveTextContent(
+      /1 Nearby Point/i,
+    );
   });
 
   it("shows inline validation error when disposition is Sublocation without parent", async () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("editor-disposition-select")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("editor-disposition-select"),
+      ).toBeInTheDocument();
     });
 
     // Change disposition to sublocation
@@ -234,13 +377,56 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Inline error should appear
     await waitFor(() => {
-      expect(screen.getByTestId("sublocation-missing-parent-error")).toBeInTheDocument();
-      expect(screen.getByText(/Parent POI required for Sublocation disposition/i)).toBeInTheDocument();
+      expect(
+        screen.getByTestId("sublocation-missing-parent-error"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Parent POI required for Sublocation disposition/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("displays confidence score badge with color scale and rationale", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("confidence-score-badge")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("disposition-rationale-readonly"),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("confidence-score-badge")).toHaveTextContent(
+      "95%",
+    );
+    expect(screen.getByTestId("disposition-rationale-readonly")).toHaveValue(
+      "Disposition: accept\nRationale: High confidence coordinate match from authoritative geocoder.",
+    );
+  });
+
+  it("displays in-batch merge target selector when disposition is in_batch_merge", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("editor-disposition-select"),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByTestId("editor-disposition-select"), {
+      target: { value: "in_batch_merge" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("in-batch-merge-card")).toBeInTheDocument();
+      expect(screen.getByTestId("merge-target-select")).toBeInTheDocument();
     });
   });
 
   it("applies batch edits across selected candidates", async () => {
-    vi.mocked(ingestApi.batchEditCandidates).mockResolvedValue({ updated_count: 2 });
+    vi.mocked(ingestApi.batchEditCandidates).mockResolvedValue({
+      updated_count: 2,
+    });
 
     renderModal();
 
@@ -272,8 +458,205 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
         expect.objectContaining({
           candidate_ids: ["cand-1", "cand-2"],
           country: "Japan",
-        })
+        }),
       );
     });
+  });
+
+  it("re-syncs address from pin coordinates via reverseGeocode", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+    renderModal();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("resync-address-from-pin-btn"),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("resync-address-from-pin-btn"));
+
+    await waitFor(() => {
+      expect(reverseGeocode).toHaveBeenCalledWith(35.3606, 138.7274);
+      expect(screen.getByTestId("street-address-input")).toHaveValue(
+        "123 New Road",
+      );
+    });
+  });
+
+  it("renders uncropped hero photo preview directly beneath URL input", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("hero-image-uncropped-preview"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("hero-image-uncropped-preview"),
+      ).toHaveAttribute("src", "https://example.com/fuji.jpg");
+    });
+  });
+
+  it("toggles Tag Library chips selection strictly", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tag-chip-Volcano")).toBeInTheDocument();
+    });
+
+    // Volcano is initially active (✓ Volcano)
+    expect(screen.getByTestId("tag-chip-Volcano")).toHaveTextContent(/Volcano/);
+
+    // Click to toggle off
+    fireEvent.click(screen.getByTestId("tag-chip-Volcano"));
+    expect(screen.getByTestId("tag-chip-Volcano")).not.toHaveTextContent(/✓/);
+
+    // Click again to toggle back on
+    fireEvent.click(screen.getByTestId("tag-chip-Volcano"));
+    expect(screen.getByTestId("tag-chip-Volcano")).toHaveTextContent(
+      /✓ Volcano/,
+    );
+  });
+
+  it("manages local photo directories adding and removing entries", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("directory-item-0")).toBeInTheDocument();
+    });
+
+    // Add new directory path
+    fireEvent.change(screen.getByTestId("new-directory-input"), {
+      target: { value: "Japan/2026_Trip" },
+    });
+    fireEvent.click(screen.getByTestId("add-directory-btn"));
+
+    expect(screen.getByText(/Japan\/2026_Trip/)).toBeInTheDocument();
+  });
+
+  it("manages visit dates adding and removing ISO dates", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByText("2024-05-01")).toBeInTheDocument();
+    });
+
+    // Add new visit date
+    fireEvent.change(screen.getByTestId("new-visit-date-input"), {
+      target: { value: "2025-10-15" },
+    });
+    fireEvent.click(screen.getByTestId("add-visit-date-btn"));
+
+    expect(screen.getByText("2025-10-15")).toBeInTheDocument();
+  });
+
+  it("resets latitude and longitude to last saved value when reset button is clicked", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latitude-input")).toHaveValue("35.3606");
+      expect(screen.getByTestId("longitude-input")).toHaveValue("138.7274");
+    });
+
+    // User edits coordinates manually
+    fireEvent.change(screen.getByTestId("latitude-input"), {
+      target: { value: "40.1234" },
+    });
+    fireEvent.change(screen.getByTestId("longitude-input"), {
+      target: { value: "-74.5678" },
+    });
+    expect(screen.getByTestId("latitude-input")).toHaveValue("40.1234");
+    expect(screen.getByTestId("longitude-input")).toHaveValue("-74.5678");
+
+    // Click the Reset location button
+    const resetBtn = screen.getByTestId("reset-location-btn");
+    expect(resetBtn).toBeInTheDocument();
+    fireEvent.click(resetBtn);
+
+    // Coordinates reset back to last saved value
+    expect(screen.getByTestId("latitude-input")).toHaveValue("35.3606");
+    expect(screen.getByTestId("longitude-input")).toHaveValue("138.7274");
+  });
+
+  it("normalizes Chinese characters to English fields and displays adjusted confidence and rationale for Great Wall of China", async () => {
+    const greatWallCandidate: CandidateItem = {
+      id: "cand-gw",
+      job_id: "job-1",
+      row_index: 0,
+      poi_name: "Great Wall of China",
+      recommended_disposition: "accept" as any,
+      user_disposition: null,
+      matched_existing_poi_id: null,
+      parent_poi_id: null,
+      latitude: 40.4319,
+      longitude: 116.5704,
+      street_address: "慕田峪路",
+      city: "北京市",
+      state_province: "北京市",
+      postal_code: "101405",
+      country: "中国",
+      country_code: "中国" as any,
+      locality: "北京市",
+      admin_level_1: "北京市",
+      admin_level_2: "怀柔区",
+      tags: [],
+      photo_directory: null,
+      photo_directories: [],
+      hero_image_url: null,
+      dates_visited: [],
+      description: null,
+      reason_to_visit: null,
+      official_url: null,
+      wiki_url: null,
+      related_websites: [],
+      no_websites: false,
+      recommended_duration_hours: null,
+      recommended_visit_days: null,
+      estimated_visit_time_notes: null,
+      confidence_score: null,
+      disposition_justification: null,
+      is_user_overridden: false,
+      parent_candidate_id: null,
+      merge_target_id: null,
+      addresses: [],
+      update_coordinates: false,
+      is_skipped: false,
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [greatWallCandidate],
+      status: "phase_1_staging",
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Great Wall of China",
+      );
+    });
+
+    // All fields are in English
+    expect(screen.getByTestId("street-address-input")).toHaveValue(
+      "Mutianyu Road",
+    );
+    expect(screen.getByTestId("country-code-input")).toHaveValue("CN");
+    expect(screen.getByTestId("country-input")).toHaveValue("China");
+    expect(screen.getByTestId("city-input")).toHaveValue("Beijing");
+    expect(screen.getByTestId("state-province-input")).toHaveValue("Beijing");
+    expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+      "Huairou District",
+    );
+
+    // Confidence is 75% for Great Wall (slightly lower to reflect multiple site sections)
+    expect(screen.getByTestId("confidence-score-badge")).toHaveTextContent(
+      "Confidence: 75%",
+    );
+
+    // Rationale states Great Wall of China is correctly identified with multiple possible locations
+    expect(screen.getByTestId("disposition-rationale-readonly")).toHaveValue(
+      "Disposition: accept\nRationale: Great Wall of China correctly identified; multiple possible locations exist across this extensive site.",
+    );
   });
 });
