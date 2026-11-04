@@ -230,6 +230,8 @@ export interface components {
             city?: string | null;
             /** Format: date */
             date_visited?: string | null;
+            add_tag?: string | null;
+            remove_tag?: string | null;
         };
         ProblemDetails: {
             /** Format: uri */

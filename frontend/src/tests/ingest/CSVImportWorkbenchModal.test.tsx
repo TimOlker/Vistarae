@@ -472,6 +472,16 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       target: { value: "Japan" },
     });
 
+    // Fill in batch add_tag and remove_tag
+    expect(screen.getByTestId("batch-add-tag-input")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("batch-add-tag-input"), {
+      target: { value: "MustVisit" },
+    });
+    expect(screen.getByTestId("batch-remove-tag-input")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("batch-remove-tag-input"), {
+      target: { value: "Draft" },
+    });
+
     // Submit batch edit
     fireEvent.click(screen.getByTestId("apply-batch-edit-btn"));
 
@@ -481,6 +491,8 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
         expect.objectContaining({
           candidate_ids: ["cand-1", "cand-2"],
           country: "Japan",
+          add_tag: "MustVisit",
+          remove_tag: "Draft",
         }),
       );
     });

@@ -201,13 +201,15 @@ class JobCancellationResponse(StrictBaseModel):
 
 
 class BatchEditCandidatesRequest(StrictBaseModel):
-    """Client payload for batch updating country, state/province, city, and date_visited across candidates."""
+    """Client payload for batch updating location, date_visited, and tags across candidates."""
 
     candidate_ids: list[UUID]
     country: str | None = None
     state_province: str | None = None
     city: str | None = None
     date_visited: str | None = None
+    add_tag: str | None = None
+    remove_tag: str | None = None
 
 
 class BatchEditResponse(StrictBaseModel):

@@ -43,6 +43,8 @@ export interface BatchEditCandidatesPayload {
   state_province?: string | null;
   city?: string | null;
   date_visited?: string | null;
+  add_tag?: string | null;
+  remove_tag?: string | null;
 }
 
 export interface CandidateListResult {

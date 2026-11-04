@@ -216,6 +216,8 @@ export const CSVImportWorkbenchModal: React.FC<
   const [batchState, setBatchState] = useState("");
   const [batchCity, setBatchCity] = useState("");
   const [batchDateVisited, setBatchDateVisited] = useState("");
+  const [batchAddTag, setBatchAddTag] = useState("");
+  const [batchRemoveTag, setBatchRemoveTag] = useState("");
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
 
   // Sorting
@@ -1038,10 +1040,14 @@ export const CSVImportWorkbenchModal: React.FC<
         state_province: batchState.trim() || undefined,
         city: batchCity.trim() || undefined,
         date_visited: batchDateVisited.trim() || undefined,
+        add_tag: batchAddTag.trim() || undefined,
+        remove_tag: batchRemoveTag.trim() || undefined,
       });
       showToast(`Updated ${res.updated_count} candidates!`, "success");
       setIsBatchEditOpen(false);
       setSelectedCandidateIds([]);
+      setBatchAddTag("");
+      setBatchRemoveTag("");
       loadCandidates();
     } catch {
       showToast("Batch update failed", "error");
@@ -1488,7 +1494,15 @@ export const CSVImportWorkbenchModal: React.FC<
               {selectedCandidateIds.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setIsBatchEditOpen(true)}
+                  onClick={() => {
+                    setBatchCountry("");
+                    setBatchState("");
+                    setBatchCity("");
+                    setBatchDateVisited("");
+                    setBatchAddTag("");
+                    setBatchRemoveTag("");
+                    setIsBatchEditOpen(true);
+                  }}
                   data-testid="batch-edit-btn"
                   style={{
                     fontSize: "11px",
@@ -4202,6 +4216,79 @@ export const CSVImportWorkbenchModal: React.FC<
                       fontSize: "12px",
                     }}
                   />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#475569",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    Add Tag (to all selected):
+                  </label>
+                  <input
+                    type="text"
+                    list="batch-add-tag-datalist"
+                    value={batchAddTag}
+                    onChange={(e) => setBatchAddTag(e.target.value)}
+                    placeholder="e.g. World Wonder"
+                    data-testid="batch-add-tag-input"
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px",
+                      borderRadius: "4px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <datalist id="batch-add-tag-datalist">
+                    {libraryTags.map((tag) => (
+                      <option key={`add-${tag}`} value={tag} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#475569",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    Remove Tag (from all selected):
+                  </label>
+                  <input
+                    type="text"
+                    list="batch-remove-tag-datalist"
+                    value={batchRemoveTag}
+                    onChange={(e) => setBatchRemoveTag(e.target.value)}
+                    placeholder="e.g. ObsoleteTag"
+                    data-testid="batch-remove-tag-input"
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px",
+                      borderRadius: "4px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <datalist id="batch-remove-tag-datalist">
+                    {Array.from(
+                      new Set([
+                        ...libraryTags,
+                        ...candidates.flatMap((c) => c.tags || []),
+                      ]),
+                    ).map((tag) => (
+                      <option key={`rem-${tag}`} value={tag} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div

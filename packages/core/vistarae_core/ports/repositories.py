@@ -1217,8 +1217,10 @@ class IIngestCandidateRepository(Protocol):
         state_province: str | None = None,
         city: str | None = None,
         date_visited: str | None = None,
+        add_tag: str | None = None,
+        remove_tag: str | None = None,
     ) -> int:
-        """Batch updates location and date visited fields across selected candidates.
+        """Batch updates location, date visited, and tag fields across selected candidates.
 
         Args:
             user_id: Tenant user UUID.
@@ -1227,6 +1229,8 @@ class IIngestCandidateRepository(Protocol):
             state_province: Optional state/province string to set.
             city: Optional city string to set.
             date_visited: Optional date string to add/set.
+            add_tag: Optional tag string to append if not already present.
+            remove_tag: Optional tag string to remove if present.
 
         Returns:
             Count of rows updated.

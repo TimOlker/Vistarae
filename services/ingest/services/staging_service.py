@@ -1418,18 +1418,24 @@ class StagingService:
         job_id: UUID,
         req: Any,
     ) -> int:
-        """Applies batch updates to Country, State/Province, City, and Date Visited across candidates (FR-014, FR-024)."""
-        update_dict: dict[str, Any] = {}
-        if req.country is not None:
-            update_dict["country"] = req.country
-        if req.state_province is not None:
-            update_dict["state_province"] = req.state_province
-        if req.city is not None:
-            update_dict["city"] = req.city
-        if req.date_visited is not None:
-            update_dict["dates_visited"] = [req.date_visited]
-
-        if not update_dict or not req.candidate_ids:
+        """Applies batch updates to Country, State/Province, City, Date Visited, and Tags across candidates (FR-014, FR-024)."""
+        if not req.candidate_ids:
             return 0
 
-        return await self._candidate_repo.batch_edit(user_id, req.candidate_ids, update_dict)
+        has_updates = any(
+            getattr(req, field, None) is not None
+            for field in ("country", "state_province", "city", "date_visited", "add_tag", "remove_tag")
+        )
+        if not has_updates:
+            return 0
+
+        return await self._candidate_repo.batch_edit(
+            user_id=user_id,
+            candidate_ids=req.candidate_ids,
+            country=getattr(req, "country", None),
+            state_province=getattr(req, "state_province", None),
+            city=getattr(req, "city", None),
+            date_visited=getattr(req, "date_visited", None),
+            add_tag=getattr(req, "add_tag", None),
+            remove_tag=getattr(req, "remove_tag", None),
+        )

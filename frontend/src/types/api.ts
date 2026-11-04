@@ -1383,6 +1383,10 @@ export interface components {
       city?: string | null;
       /** Date Visited */
       date_visited?: string | null;
+      /** Add Tag */
+      add_tag?: string | null;
+      /** Remove Tag */
+      remove_tag?: string | null;
     };
     /**
      * BatchEditResponse
