@@ -581,6 +581,79 @@ class TestFilterRulesRouter:
         finally:
             app.dependency_overrides.clear()
 
+    def test_create_filter_rule_with_client_ui_ids_and_aliases(self) -> None:
+        mock_user = User(
+            id=uuid4(),
+            cognito_sub="sub-test",
+            email="traveler@example.com",
+            is_active=True,
+        )
+        mock_repo = AsyncMock(spec=IFilterRuleRepository)
+        mock_repo.get_by_name.return_value = None
+        mock_repo.create.side_effect = lambda entity: entity
+
+        app.dependency_overrides[get_current_user] = lambda: mock_user
+        app.dependency_overrides[get_filter_rule_repo] = lambda: mock_repo
+
+        payload = {
+            "name": "Kyoto High Rating",
+            "query_tree": {
+                "id": "root",
+                "conjunction": "AND",
+                "rules": [
+                    {
+                        "id": "clause-abc123",
+                        "field": "city",
+                        "operator": "equals",
+                        "value": "Kyoto",
+                    },
+                    {
+                        "id": "clause-def456",
+                        "field": "rating",
+                        "operator": ">=",
+                        "value": 4,
+                    },
+                    {
+                        "id": "group-sub789",
+                        "conjunction": "OR",
+                        "rules": [
+                            {
+                                "id": "clause-nested1",
+                                "field": "tag",
+                                "operator": "has_tag",
+                                "value": "temple",
+                            }
+                        ],
+                    },
+                ],
+            },
+            "table_config": {
+                "visible_columns": ["name", "city", "rating", "visit_state", "tags"],
+                "column_order": ["name", "city", "rating", "visit_state", "tags"],
+                "sort": {"column": "name", "direction": "ASC"},
+            },
+            "pin_color_scheme": {
+                "mode": "UNIFORM",
+                "default_color": "2563EB",
+                "palette": {},
+                "rule_mappings": [],
+            },
+        }
+
+        try:
+            client = TestClient(app)
+            res = client.post("/api/pois/filter-rules", json=payload)
+            assert res.status_code == 201
+            data = res.json()
+            assert data["name"] == "Kyoto High Rating"
+            assert data["query_tree"]["id"] == "root"
+            assert data["query_tree"]["rules"][0]["id"] == "clause-abc123"
+            assert data["query_tree"]["rules"][1]["operator"] == "greater_than_or_equal"
+            assert data["pin_color_scheme"]["default_color"] == "#2563EB"
+            assert data["table_config"]["sort"]["direction"] == "asc"
+        finally:
+            app.dependency_overrides.clear()
+
     def test_create_filter_rule_conflict_409(self) -> None:
         mock_user = User(
             id=uuid4(),
