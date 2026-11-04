@@ -679,7 +679,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Rationale states Great Wall of China is correctly identified with multiple possible locations
     expect(screen.getByTestId("disposition-rationale-readonly")).toHaveValue(
-      "Disposition: accept\nRationale: Great Wall of China correctly identified; multiple possible locations exist across this extensive site.",
+      "Disposition: accept\nRationale: Great Wall of China correctly identified; multiple possible locations exist across this extensive site.\nMissing: Photo, Websites",
     );
   });
 
@@ -766,5 +766,59 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     fireEvent.click(clearBtn);
 
     expect(searchInput).toHaveValue("");
+  });
+
+  it("populates missing completeness fields into Assigned Disposition & Rationale when candidate is incomplete", async () => {
+    const petraCandidate: CandidateItem = {
+      id: "cand-petra",
+      job_id: "job-1",
+      row_index: 2,
+      poi_name: "Petra",
+      recommended_disposition: "accept" as any,
+      user_disposition: null,
+      matched_existing_poi_id: null,
+      parent_poi_id: null,
+      latitude: 30.3285,
+      longitude: 35.4444,
+      street_address: null, // Ancient site has no street address
+      city: "Wadi Musa",
+      state_province: "Ma'an Governorate",
+      country: "Jordan",
+      country_code: "JO",
+      hero_image_url: null,
+      official_url: null,
+      related_websites: [],
+      no_websites: false,
+      confidence_score: 90,
+      disposition_justification: "Unique coordinate location verified",
+      tags: ["World Wonder"],
+      phase_state: "phase_1_triage" as any,
+      photo_directory: "" as any,
+      photo_directories: [],
+      dates_visited: [],
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [petraCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Petra");
+    });
+
+    // Verify Incomplete badge has title attribute listing what's missing
+    const badge = screen.getByTestId("completeness-badge-incomplete");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveAttribute("title", "Missing: Photo, Street Address, Websites");
+
+    // Verify Assigned Disposition & Rationale readonly textarea includes the missing fields
+    const rationaleTextarea = screen.getByTestId("disposition-rationale-readonly");
+    expect(rationaleTextarea).toHaveValue(
+      "Disposition: accept\nRationale: Unique coordinate location verified\nMissing: Photo, Street Address, Websites",
+    );
   });
 });

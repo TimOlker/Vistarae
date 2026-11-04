@@ -80,6 +80,41 @@ export type CompletenessFilter =
 
 export type PerspectiveMode = "POI" | "Location";
 
+/**
+ * Calculates which completeness criteria are missing for a staged candidate.
+ */
+export function getCandidateMissingFields(cand: {
+  hero_image_url?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  street_address?: string | null;
+  official_url?: string | null;
+  related_websites?: any[] | null;
+  no_websites?: boolean | null;
+}): string[] {
+  const missing: string[] = [];
+  const hasPhoto = Boolean(cand.hero_image_url && cand.hero_image_url.trim());
+  if (!hasPhoto) missing.push("Photo");
+
+  const hasCoords = cand.latitude != null && cand.longitude != null;
+  if (!hasCoords) missing.push("Coordinates");
+
+  const hasStreet = Boolean(cand.street_address && cand.street_address.trim());
+  if (!hasStreet) missing.push("Street Address");
+
+  const hasWebsites =
+    Boolean(cand.official_url && cand.official_url.trim()) ||
+    Boolean(cand.related_websites && cand.related_websites.length > 0) ||
+    Boolean(cand.no_websites);
+  if (!hasWebsites) missing.push("Websites");
+
+  return missing;
+}
+
+export function isCandidateComplete(cand: CandidateItem): boolean {
+  return getCandidateMissingFields(cand).length === 0;
+}
+
 export const PROXIMITY_STEPS = [
   { label: "100 ft", miles: 100 / 5280 },
   { label: "500 ft", miles: 500 / 5280 },
@@ -555,19 +590,29 @@ export const CSVImportWorkbenchModal: React.FC<
     }
   }, [selectedCandidate]);
 
-  // Completeness calculator helper
-  const isCandidateComplete = (cand: CandidateItem): boolean => {
-    const hasPhoto = Boolean(cand.hero_image_url && cand.hero_image_url.trim());
-    const hasLocation =
-      cand.latitude != null &&
-      cand.longitude != null &&
-      Boolean(cand.street_address && cand.street_address.trim());
-    const hasWebsites =
-      Boolean(cand.official_url && cand.official_url.trim()) ||
-      Boolean(cand.related_websites && cand.related_websites.length > 0) ||
-      Boolean(cand.no_websites);
-    return hasPhoto && hasLocation && hasWebsites;
-  };
+  // Active missing fields for currently selected candidate in detail editor
+  const editorCandidateMissingFields = useMemo(() => {
+    if (!selectedCandidate) return [];
+    const lat = editLatitude && editLatitude.trim() ? parseFloat(editLatitude) : selectedCandidate.latitude;
+    const lng = editLongitude && editLongitude.trim() ? parseFloat(editLongitude) : selectedCandidate.longitude;
+    return getCandidateMissingFields({
+      hero_image_url: editHeroImageUrl,
+      latitude: lat,
+      longitude: lng,
+      street_address: editStreetAddress,
+      official_url: selectedCandidate.official_url,
+      related_websites: editRelatedWebsites,
+      no_websites: editNoWebsites,
+    });
+  }, [
+    selectedCandidate,
+    editHeroImageUrl,
+    editLatitude,
+    editLongitude,
+    editStreetAddress,
+    editRelatedWebsites,
+    editNoWebsites,
+  ]);
 
   // Sort & filter candidates in table
   const sortedCandidates = useMemo(() => {
@@ -1823,6 +1868,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             {complete ? (
                               <span
                                 data-testid="completeness-badge-complete"
+                                title="All completeness criteria satisfied (Photo, Location & Address, Websites)"
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -1840,6 +1886,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             ) : (
                               <span
                                 data-testid="completeness-badge-incomplete"
+                                title={`Missing: ${getCandidateMissingFields(cand).join(", ")}`}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -2126,7 +2173,7 @@ export const CSVImportWorkbenchModal: React.FC<
                     </div>
                     <textarea
                       readOnly
-                      rows={2}
+                      rows={editorCandidateMissingFields.length > 0 ? 3 : 2}
                       value={`Disposition: ${editDisposition.replace(
                         /_/g,
                         " ",
@@ -2136,6 +2183,10 @@ export const CSVImportWorkbenchModal: React.FC<
                         (isSelectedGreatWall
                           ? "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
                           : "Unique location verified")
+                      }${
+                        editorCandidateMissingFields.length > 0
+                          ? `\nMissing: ${editorCandidateMissingFields.join(", ")}`
+                          : ""
                       }`}
                       data-testid="disposition-rationale-readonly"
                       style={{
