@@ -40,18 +40,84 @@ from extractor_scripts.common.base import (  # noqa: E402
 AVIATION_MUSEUMS_URL = "https://en.wikipedia.org/wiki/List_of_aviation_museums"
 
 COUNTRY_MAP = {
-    "United States": "US",
-    "United Kingdom": "GB",
+    "Afghanistan": "AF",
+    "Argentina": "AR",
+    "Armenia": "AM",
+    "Australia": "AU",
+    "Austria": "AT",
+    "Belarus": "BY",
+    "Belgium": "BE",
+    "Bolivia": "BO",
+    "Brazil": "BR",
+    "Bulgaria": "BG",
+    "Burma": "MM",
+    "Cambodia": "KH",
+    "Canada": "CA",
+    "Chile": "CL",
+    "China": "CN",
+    "Colombia": "CO",
+    "Croatia": "HR",
+    "Cuba": "CU",
+    "Czech Republic": "CZ",
+    "Denmark": "DK",
+    "Ecuador": "EC",
+    "El Salvador": "SV",
+    "Estonia": "EE",
+    "Finland": "FI",
     "France": "FR",
     "Germany": "DE",
-    "Canada": "CA",
-    "Australia": "AU",
-    "Japan": "JP",
+    "Greece": "GR",
+    "Honduras": "HN",
+    "Hungary": "HU",
+    "Iceland": "IS",
+    "India": "IN",
+    "Indonesia": "ID",
+    "Iran": "IR",
+    "Ireland": "IE",
+    "Israel": "IL",
     "Italy": "IT",
-    "Sweden": "SE",
-    "Poland": "PL",
-    "New Zealand": "NZ",
+    "Japan": "JP",
+    "Laos": "LA",
+    "Latvia": "LV",
+    "Lebanon": "LB",
+    "Lithuania": "LT",
+    "Malaysia": "MY",
+    "Malta": "MT",
+    "Mexico": "MX",
+    "Nepal": "NP",
     "Netherlands": "NL",
+    "New Zealand": "NZ",
+    "Nigeria": "NG",
+    "Norway": "NO",
+    "Pakistan": "PK",
+    "Peru": "PE",
+    "Philippines": "PH",
+    "Poland": "PL",
+    "Portugal": "PT",
+    "Romania": "RO",
+    "Russia": "RU",
+    "Saudi Arabia": "SA",
+    "Serbia": "RS",
+    "Singapore": "SG",
+    "Slovakia": "SK",
+    "Slovenia": "SI",
+    "South Africa": "ZA",
+    "South Korea": "KR",
+    "Spain": "ES",
+    "Sri Lanka": "LK",
+    "Sweden": "SE",
+    "Switzerland": "CH",
+    "Taiwan": "TW",
+    "Thailand": "TH",
+    "Turkey": "TR",
+    "Ukraine": "UA",
+    "United Arab Emirates": "AE",
+    "United Kingdom": "GB",
+    "United States": "US",
+    "Uruguay": "UY",
+    "Venezuela": "VE",
+    "Vietnam": "VN",
+    "Zimbabwe": "ZW",
 }
 
 
@@ -141,14 +207,110 @@ class AircraftMuseumsExtractor(BaseExtractor):
             websites=websites,
         )
 
-    def harvest_records(self) -> list[ExtractorRecord]:
-        """Harvests aviation museums from Wikipedia directory.
+    def _parse_list_item(
+        self, li: Tag, country_name: str, region_name: str
+    ) -> ExtractorRecord | None:
+        """Parses a museum list item from a Wikipedia country or region section.
+
+        Args:
+            li: DOM list item element.
+            country_name: Authoritative country name from parent h2 section.
+            region_name: State, province, or region name from parent h3 section.
+
+        Returns:
+            ExtractorRecord instance or None if invalid.
+        """
+        a_tag = li.find("a")
+        if not a_tag or not isinstance(a_tag, Tag):
+            return None
+
+        poi_name = a_tag.get_text(strip=True)
+        if not poi_name or poi_name.lower().startswith(("category:", "list of")):
+            return None
+
+        href = str(a_tag.get("href", "")).strip()
+        wiki_url = (
+            urljoin("https://en.wikipedia.org", href) if href and not href.startswith("#") else ""
+        )
+
+        full_txt = li.get_text(strip=True)
+        cleaned_txt = re.sub(r"\[.*?\]", "", full_txt).strip()
+        loc_part = (
+            cleaned_txt[len(poi_name) :].strip(" ,–-\t\r\n")
+            if cleaned_txt.startswith(poi_name)
+            else ""
+        )
+
+        country_code = COUNTRY_MAP.get(country_name, "")
+        tags = self.resolve_tags([])
+
+        websites: list[WebsiteRecord] = []
+        if wiki_url and wiki_url != AVIATION_MUSEUMS_URL:
+            websites.append(WebsiteRecord(name="Wikipedia", url=wiki_url))
+
+        return ExtractorRecord(
+            poi_name=poi_name,
+            town_city=loc_part or None,
+            state_province=region_name or None,
+            country=country_name,
+            country_code=country_code,
+            tags=tags,
+            websites=websites,
+        )
+
+    def _harvest_from_wiki_sections(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests aviation museums from Wikipedia's section/list hierarchy.
+
+        Args:
+            soup: Parsed HTML of the Wikipedia list page.
 
         Returns:
             List of parsed ExtractorRecord items.
         """
-        html = self.http.get(AVIATION_MUSEUMS_URL)
-        soup = BeautifulSoup(html, "html.parser")
+        non_country_headings = {
+            "Contents",
+            "References",
+            "See also",
+            "External links",
+            "Notes",
+            "Bibliography",
+        }
+        records: list[ExtractorRecord] = []
+
+        for section in soup.select(".mw-parser-output > section"):
+            h2 = section.find("h2")
+            if not h2:
+                continue
+            country = h2.get_text(strip=True).replace("[edit]", "").strip()
+            if not country or country in non_country_headings:
+                continue
+
+            inner_sections = section.find_all("section", recursive=False)
+            if inner_sections:
+                for inner in inner_sections:
+                    h3 = inner.find(["h3", "h4"])
+                    region = h3.get_text(strip=True).replace("[edit]", "").strip() if h3 else ""
+                    for li in inner.find_all("li"):
+                        rec = self._parse_list_item(li, country, region)
+                        if rec:
+                            records.append(rec)
+            else:
+                for li in section.find_all("li"):
+                    rec = self._parse_list_item(li, country, "")
+                    if rec:
+                        records.append(rec)
+
+        return records
+
+    def _harvest_from_tables(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests aviation museums from structured wikitable elements (test fixture).
+
+        Args:
+            soup: Parsed HTML containing wikitable elements.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
         tables = soup.find_all("table", class_=re.compile(r"wikitable"))
         if not tables:
             tables = soup.find_all("table")
@@ -162,9 +324,24 @@ class AircraftMuseumsExtractor(BaseExtractor):
                 rec = self._parse_row(row)
                 if rec:
                     records.append(rec)
-                    if self.config.limit and len(records) >= self.config.limit:
-                        return records
+        return records
 
+    def harvest_records(self) -> list[ExtractorRecord]:
+        """Harvests aviation museums from Wikipedia directory.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
+        html = self.http.get(AVIATION_MUSEUMS_URL)
+        soup = BeautifulSoup(html, "html.parser")
+
+        if soup.select("table.wikitable"):
+            records = self._harvest_from_tables(soup)
+        else:
+            records = self._harvest_from_wiki_sections(soup)
+
+        if self.config.limit:
+            return records[: self.config.limit]
         return records
 
 

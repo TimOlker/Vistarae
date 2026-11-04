@@ -40,18 +40,24 @@ from extractor_scripts.common.base import (  # noqa: E402
 CASTLES_BASE_URL = "https://www.castlesworld.com/selection/list.php"
 
 COUNTRY_MAP = {
-    "Germany": "DE",
-    "United Kingdom": "GB",
-    "Switzerland": "CH",
-    "France": "FR",
     "Austria": "AT",
-    "Italy": "IT",
-    "Spain": "ES",
+    "Belgium": "BE",
+    "Bosnia and Herzegovina": "BA",
+    "Croatia": "HR",
     "Czech Republic": "CZ",
+    "France": "FR",
+    "Germany": "DE",
+    "Ireland": "IE",
+    "Italy": "IT",
+    "Japan": "JP",
+    "Luxembourg": "LU",
+    "Netherlands": "NL",
     "Poland": "PL",
     "Portugal": "PT",
-    "Ireland": "IE",
-    "Japan": "JP",
+    "Slovenia": "SI",
+    "Spain": "ES",
+    "Switzerland": "CH",
+    "United Kingdom": "GB",
 }
 
 
@@ -134,14 +140,60 @@ class CastlesExtractor(BaseExtractor):
             hero_image_url=hero_img,
         )
 
-    def harvest_records(self) -> list[ExtractorRecord]:
-        """Harvests castles from directory.
+    def _parse_table_row(self, row: Tag) -> ExtractorRecord | None:
+        """Parses a table row from the live Castles World selection directory.
+
+        Args:
+            row: BeautifulSoup table row element.
+
+        Returns:
+            ExtractorRecord or None if invalid.
+        """
+        link_elem = row.select_one("a.castlename")
+        if not link_elem:
+            return None
+
+        poi_name = link_elem.get_text(strip=True)
+        if not poi_name:
+            return None
+
+        href = str(link_elem.get("href", "")).strip()
+        detail_url = urljoin(CASTLES_BASE_URL, href) if href else ""
+
+        tds = row.find_all("td")
+        country_name = tds[1].get_text(strip=True) if len(tds) > 1 else "Unknown"
+        country_code = COUNTRY_MAP.get(country_name, "")
+
+        location_raw = tds[2].get_text(strip=True) if len(tds) > 2 else ""
+        parts = [p.strip() for p in location_raw.split(",") if p.strip()]
+        town = parts[0] if parts else None
+        region = parts[1] if len(parts) > 1 else None
+
+        websites: list[WebsiteRecord] = []
+        if detail_url and detail_url != CASTLES_BASE_URL:
+            websites.append(WebsiteRecord(name="Castles World", url=detail_url))
+
+        tags = self.resolve_tags([])
+
+        return ExtractorRecord(
+            poi_name=poi_name,
+            town_city=town,
+            state_province=region,
+            country=country_name,
+            country_code=country_code,
+            tags=tags,
+            websites=websites,
+        )
+
+    def _harvest_from_cards(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests castles from structured card elements (test fixture).
+
+        Args:
+            soup: Parsed HTML DOM containing .castle-card elements.
 
         Returns:
             List of parsed ExtractorRecord items.
         """
-        html = self.http.get(CASTLES_BASE_URL)
-        soup = BeautifulSoup(html, "html.parser")
         cards = soup.select(".castle-card")
         if not cards:
             cards = soup.find_all(class_=re.compile(r"castle-card|castle-item"))
@@ -153,9 +205,43 @@ class CastlesExtractor(BaseExtractor):
             rec = self._parse_card(card)
             if rec:
                 records.append(rec)
-                if self.config.limit and len(records) >= self.config.limit:
-                    break
+        return records
 
+    def _harvest_from_table(self, soup: BeautifulSoup) -> list[ExtractorRecord]:
+        """Harvests castles from the live directory table layout.
+
+        Args:
+            soup: Parsed HTML DOM of Castles World page.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
+        records: list[ExtractorRecord] = []
+        for a in soup.select("a.castlename"):
+            row = a.find_parent("tr")
+            if not row:
+                continue
+            rec = self._parse_table_row(row)
+            if rec:
+                records.append(rec)
+        return records
+
+    def harvest_records(self) -> list[ExtractorRecord]:
+        """Harvests castles from directory.
+
+        Returns:
+            List of parsed ExtractorRecord items.
+        """
+        html = self.http.get(CASTLES_BASE_URL)
+        soup = BeautifulSoup(html, "html.parser")
+
+        if soup.select(".castle-card, .castle-item"):
+            records = self._harvest_from_cards(soup)
+        else:
+            records = self._harvest_from_table(soup)
+
+        if self.config.limit:
+            return records[: self.config.limit]
         return records
 
 

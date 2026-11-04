@@ -131,3 +131,84 @@ def test_castles_malformed_cards() -> None:
     assert len(records) == 1
     assert records[0].poi_name == "Test Castle"
     assert records[0].latitude is None
+
+
+def test_castles_harvest_live_table() -> None:
+    """Verifies parsing of the live Castles World selection table layout."""
+    html = """
+    <table>
+      <tr>
+        <td><a class="castlename" href="https://www.castlesworld.com/castles/castle-of-hierges.php">Castle of Hierges</a></td>
+        <td>France</td>
+        <td>Hierges, Ardennes department</td>
+        <td>★★★★☆</td>
+      </tr>
+      <tr>
+        <td><a class="castlename" href="https://www.castlesworld.com/castles/castle-of-sedan.php">Castle of Sedan</a></td>
+        <td>France</td>
+        <td>Sedan</td>
+        <td>★★★★★</td>
+      </tr>
+    </table>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("castles.csv"), cache_enabled=False)
+    extractor = CastlesExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 2
+
+    # Check Hierges
+    hierges = records[0]
+    assert hierges.poi_name == "Castle of Hierges"
+    assert hierges.country == "France"
+    assert hierges.country_code == "FR"
+    assert hierges.town_city == "Hierges"
+    assert hierges.state_province == "Ardennes department"
+    assert hierges.tags == ["Fortification"]
+    assert len(hierges.websites) == 1
+    assert "castle-of-hierges.php" in hierges.websites[0].url
+
+    # Check Sedan
+    sedan = records[1]
+    assert sedan.poi_name == "Castle of Sedan"
+    assert sedan.country == "France"
+    assert sedan.town_city == "Sedan"
+    assert sedan.state_province is None
+
+
+def test_castles_harvest_table_edge_cases() -> None:
+    """Verifies edge cases in Castles World table parsing."""
+    html = """
+    <table>
+      <tr>
+        <td>No castle link here</td>
+      </tr>
+      <tr>
+        <td><a class="castlename" href=""></a></td>
+      </tr>
+      <tr>
+        <td><a class="castlename" href="#">Castle Solo</a></td>
+      </tr>
+    </table>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("castles.csv"), cache_enabled=False)
+    extractor = CastlesExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 1
+    assert records[0].poi_name == "Castle Solo"
+    assert records[0].country == "Unknown"
+    assert records[0].town_city is None
+    assert len(records[0].websites) == 0

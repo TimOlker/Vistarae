@@ -118,3 +118,103 @@ def test_aircraft_museums_malformed_rows() -> None:
     assert extractor.harvest_records() == []
     # Test invalid coordinate parsing directly
     assert extractor._parse_coordinates("invalid coords") == (None, None)
+
+
+def test_aircraft_museums_harvest_wiki_sections() -> None:
+    """Verifies parsing of the live Wikipedia section/list layout."""
+    html = """
+    <div class="mw-parser-output">
+      <section>
+        <div class="mw-heading mw-heading2"><h2>France</h2></div>
+        <ul>
+          <li><a href="/wiki/Aeroscopia">Aeroscopia</a>, Blagnac</li>
+        </ul>
+      </section>
+      <section>
+        <div class="mw-heading mw-heading2"><h2>United States</h2></div>
+        <section>
+          <div class="mw-heading mw-heading3"><h3>Alabama</h3></div>
+          <ul>
+            <li><a href="/wiki/Southern_Museum_of_Flight">Southern Museum of Flight</a>, Birmingham</li>
+          </ul>
+        </section>
+      </section>
+      <section>
+        <div class="mw-heading mw-heading2"><h2>References</h2></div>
+      </section>
+    </div>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("aircraft.csv"), cache_enabled=False)
+    extractor = AircraftMuseumsExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 2
+
+    # Check French museum
+    aero = records[0]
+    assert aero.poi_name == "Aeroscopia"
+    assert aero.country == "France"
+    assert aero.country_code == "FR"
+    assert aero.town_city == "Blagnac"
+    assert aero.tags == ["Aircraft"]
+    assert len(aero.websites) == 1
+    assert "Aeroscopia" in aero.websites[0].url
+
+    # Check US museum with state subdivision
+    flight = records[1]
+    assert flight.poi_name == "Southern Museum of Flight"
+    assert flight.country == "United States"
+    assert flight.country_code == "US"
+    assert flight.state_province == "Alabama"
+    assert flight.town_city == "Birmingham"
+    assert flight.tags == ["Aircraft"]
+
+
+def test_aircraft_museums_wiki_sections_edge_cases() -> None:
+    """Verifies edge cases in Wikipedia section harvesting and list parsing."""
+    html = """
+    <div class="mw-parser-output">
+      <section>
+        <!-- No h2 -->
+        <ul><li>Item without section h2</li></ul>
+      </section>
+      <section>
+        <h2>See also</h2>
+        <ul><li>Ignored</li></ul>
+      </section>
+      <section>
+        <h2>Canada</h2>
+        <ul>
+          <li>Plain text no link</li>
+          <li><a href="/wiki/Category:Airports">Category:Airports</a></li>
+          <li><a href="/wiki/List_of_airports">List of airports</a></li>
+          <li><a href="#Internal">Local Museum</a> - Somewhere</li>
+        </ul>
+      </section>
+      <table>
+        <tr><td>Not enough cells</td></tr>
+      </table>
+    </div>
+    """
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = ResilientHttpClient(delay_seconds=0.0, cache_enabled=False, transport=transport)
+    config = ExtractorConfig(output_path=Path("aircraft.csv"), cache_enabled=False)
+    extractor = AircraftMuseumsExtractor(config=config, http_client=http_client)
+    records = extractor.harvest_records()
+
+    assert len(records) == 1
+    assert records[0].poi_name == "Local Museum"
+    assert records[0].country == "Canada"
+    assert records[0].country_code == "CA"
+    # Local # href should not produce a website
+    assert len(records[0].websites) == 0
