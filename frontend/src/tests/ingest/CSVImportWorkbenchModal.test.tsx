@@ -86,6 +86,29 @@ vi.mock("../../services/geocodeService", () => ({
     country: "Japan",
     country_code: "JP",
   }),
+  forwardSearch: vi.fn().mockResolvedValue([
+    {
+      lat: 35.3606,
+      lng: 138.7274,
+      display_name:
+        "Mount Fuji, Kitayama, Fujinomiya, Shizuoka Prefecture, Japan",
+      name: "Mount Fuji",
+      type: "volcano",
+      class: "natural",
+      suggestedZoom: 17,
+      isSpecificLandmark: true,
+    },
+    {
+      lat: 35.4000,
+      lng: 138.8000,
+      display_name: "Fuji-Hakone-Izu National Park, Japan",
+      name: "Fuji-Hakone-Izu National Park",
+      type: "national_park",
+      class: "leisure",
+      suggestedZoom: 12,
+      isSpecificLandmark: false,
+    },
+  ]),
 }));
 
 describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
@@ -599,7 +622,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       admin_level_1: "北京市",
       admin_level_2: "怀柔区",
       tags: [],
-      photo_directory: null,
+      photo_directory: "" as any,
       photo_directories: [],
       hero_image_url: null,
       dates_visited: [],
@@ -612,7 +635,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       recommended_duration_hours: null,
       recommended_visit_days: null,
       estimated_visit_time_notes: null,
-      confidence_score: null,
+      confidence_score: 75,
       disposition_justification: null,
       is_user_overridden: false,
       parent_candidate_id: null,
@@ -620,13 +643,13 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       addresses: [],
       update_coordinates: false,
       is_skipped: false,
+      phase_state: "phase_1_triage" as any,
     };
 
     vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
       job_id: "job-1",
       total_candidates: 1,
       candidates: [greatWallCandidate],
-      status: "phase_1_staging",
     });
 
     renderModal();
@@ -658,5 +681,90 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     expect(screen.getByTestId("disposition-rationale-readonly")).toHaveValue(
       "Disposition: accept\nRationale: Great Wall of China correctly identified; multiple possible locations exist across this extensive site.",
     );
+  });
+
+  it("renders location search input and performs text search to lookup and set POI location", async () => {
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 2,
+      candidates: mockCandidates,
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Mount Fuji",
+      );
+    });
+
+    // 1. Verify search input, find button, and candidate name lookup button are rendered
+    const searchInput = screen.getByTestId("location-search-input");
+    const findBtn = screen.getByTestId("find-location-btn");
+    const candidateNameBtn = screen.getByTestId("use-candidate-name-btn");
+
+    expect(searchInput).toBeInTheDocument();
+    expect(findBtn).toBeInTheDocument();
+    expect(candidateNameBtn).toBeInTheDocument();
+
+    // 2. Type a search query for city/state/POI
+    fireEvent.change(searchInput, { target: { value: "Mount Fuji" } });
+    expect(searchInput).toHaveValue("Mount Fuji");
+
+    // 3. Click Find Location button
+    fireEvent.click(findBtn);
+
+    // 4. Dropdown results should appear
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("location-search-dropdown"),
+      ).toBeInTheDocument();
+    });
+
+    const result0 = screen.getByTestId("location-search-result-0");
+    const result1 = screen.getByTestId("location-search-result-1");
+    expect(result0).toHaveTextContent("Mount Fuji");
+    expect(result1).toHaveTextContent("Fuji-Hakone-Izu National Park");
+
+    // 5. Click the first match to set coordinates and sync address
+    fireEvent.click(result0);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latitude-input")).toHaveValue("35.360600");
+      expect(screen.getByTestId("longitude-input")).toHaveValue("138.727400");
+    });
+
+    // 6. Address fields should be populated via reverse geocode
+    await waitFor(() => {
+      expect(screen.getByTestId("street-address-input")).toHaveValue(
+        "123 New Road",
+      );
+      expect(screen.getByTestId("city-input")).toHaveValue("Fujinomiya");
+      expect(screen.getByTestId("country-code-input")).toHaveValue("JP");
+    });
+  });
+
+  it("allows clearing the location search input", async () => {
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 2,
+      candidates: mockCandidates,
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search-input")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId("location-search-input");
+    fireEvent.change(searchInput, { target: { value: "Tokyo Tower" } });
+    expect(searchInput).toHaveValue("Tokyo Tower");
+
+    const clearBtn = screen.getByTestId("clear-location-search-btn");
+    expect(clearBtn).toBeInTheDocument();
+    fireEvent.click(clearBtn);
+
+    expect(searchInput).toHaveValue("");
   });
 });

@@ -28,7 +28,11 @@ import {
   type CandidateUpdateRequest,
 } from "../../services/ingestApi";
 import { apiFetch } from "../../services/api";
-import { reverseGeocode } from "../../services/geocodeService";
+import {
+  reverseGeocode,
+  forwardSearch,
+  type ForwardSearchResult,
+} from "../../services/geocodeService";
 import { useToast } from "../../context/ToastContext";
 import { WorkbenchMap, type NearbyPointMarker } from "./WorkbenchMap";
 import {
@@ -231,6 +235,33 @@ export const CSVImportWorkbenchModal: React.FC<
   const [editIsUserOverridden, setEditIsUserOverridden] = useState(false);
   const [isResyncingAddress, setIsResyncingAddress] = useState(false);
 
+  // Location text search states (within Location Coordinates & Address)
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [locationSearchResults, setLocationSearchResults] = useState<
+    ForwardSearchResult[]
+  >([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [showLocationSearchDropdown, setShowLocationSearchDropdown] =
+    useState(false);
+  const locationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationSearchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        locationSearchContainerRef.current &&
+        !locationSearchContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowLocationSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch Tags Library
@@ -380,6 +411,9 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditLatitude(initLat);
       setEditLongitude(initLng);
       setSavedCoords({ lat: initLat, lng: initLng });
+      setLocationSearchQuery("");
+      setLocationSearchResults([]);
+      setShowLocationSearchDropdown(false);
 
       const isGreatWall = (selectedCandidate.poi_name || "")
         .toLowerCase()
@@ -741,6 +775,109 @@ export const CSVImportWorkbenchModal: React.FC<
       showToast(err.message || "Failed to reverse geocode address", "error");
     } finally {
       setIsResyncingAddress(false);
+    }
+  };
+
+  // Location Search Handlers
+  const handleSelectLocationMatch = async (match: ForwardSearchResult) => {
+    setShowLocationSearchDropdown(false);
+    setLocationSearchQuery(match.name || match.display_name.split(",")[0]);
+    const latStr = match.lat.toFixed(6);
+    const lngStr = match.lng.toFixed(6);
+    setEditLatitude(latStr);
+    setEditLongitude(lngStr);
+
+    setIsResyncingAddress(true);
+    try {
+      const res = await reverseGeocode(match.lat, match.lng);
+      if (res.street) setEditStreetAddress(res.street);
+      if (res.postal_code) setEditPostalCode(res.postal_code);
+      if (res.locality || res.city) {
+        const loc = res.locality || res.city || "";
+        setEditLocality(loc);
+        setEditCity(loc);
+      }
+      if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
+      if (res.admin_level_1 || res.state_province) {
+        const a1 = res.admin_level_1 || res.state_province || "";
+        setEditAdminLevel1(a1);
+        setEditStateProvince(a1);
+      }
+      if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
+      if (res.country) setEditCountry(res.country);
+      showToast(`Location set to ${match.name}`, "success");
+    } catch {
+      showToast(`Location coordinates set to (${latStr}, ${lngStr})`, "info");
+    } finally {
+      setIsResyncingAddress(false);
+    }
+  };
+
+  const executeLocationSearch = async (queryText: string) => {
+    const q = queryText.trim();
+    if (!q || q.length < 2) return;
+
+    if (locationDebounceRef.current) {
+      clearTimeout(locationDebounceRef.current);
+    }
+
+    setIsSearchingLocation(true);
+    try {
+      const results = await forwardSearch(q, 5);
+      setLocationSearchResults(results);
+      if (results.length === 1) {
+        await handleSelectLocationMatch(results[0]);
+      } else if (results.length > 1) {
+        setShowLocationSearchDropdown(true);
+      } else {
+        setShowLocationSearchDropdown(false);
+        showToast(`No locations found for "${q}"`, "info");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to search location", "error");
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  const handleLocationSearchInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const val = e.target.value;
+    setLocationSearchQuery(val);
+
+    if (locationDebounceRef.current) {
+      clearTimeout(locationDebounceRef.current);
+    }
+
+    if (val.trim().length < 2) {
+      setLocationSearchResults([]);
+      setShowLocationSearchDropdown(false);
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    locationDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await forwardSearch(val, 5);
+        setLocationSearchResults(results);
+        setShowLocationSearchDropdown(results.length > 0);
+      } catch {
+        // Silent catch on debounce typing
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }, 400);
+  };
+
+  const handleLocationSearchKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      executeLocationSearch(locationSearchQuery);
+    } else if (e.key === "Escape") {
+      setShowLocationSearchDropdown(false);
     }
   };
 
@@ -2356,6 +2493,240 @@ export const CSVImportWorkbenchModal: React.FC<
                             : "Re-sync Address from Pin"}
                         </span>
                       </button>
+                    </div>
+
+                    {/* Location / POI Text Search Field */}
+                    <div
+                      ref={locationSearchContainerRef}
+                      style={{
+                        position: "relative",
+                        marginBottom: "10px",
+                        padding: "8px 10px",
+                        backgroundColor: "#f8fafc",
+                        borderRadius: "6px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <label
+                          htmlFor="location-search-input"
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            color: "#334155",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <Search size={12} color="#0284c7" /> Search Location / POI:
+                        </label>
+                        {selectedCandidate?.poi_name && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const q = selectedCandidate.poi_name || "";
+                              setLocationSearchQuery(q);
+                              executeLocationSearch(q);
+                            }}
+                            data-testid="use-candidate-name-btn"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0284c7",
+                              fontSize: "10px",
+                              cursor: "pointer",
+                              padding: "0 2px",
+                              textDecoration: "underline",
+                            }}
+                            title="Lookup candidate POI name"
+                          >
+                            Lookup &quot;{selectedCandidate.poi_name.length > 25 ? selectedCandidate.poi_name.slice(0, 22) + "..." : selectedCandidate.poi_name}&quot;
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", gap: "6px", position: "relative" }}>
+                        <div style={{ flex: 1, position: "relative" }}>
+                          <input
+                            id="location-search-input"
+                            type="text"
+                            value={locationSearchQuery}
+                            onChange={handleLocationSearchInput}
+                            onKeyDown={handleLocationSearchKeyDown}
+                            onFocus={() => {
+                              if (locationSearchResults.length > 0) {
+                                setShowLocationSearchDropdown(true);
+                              }
+                            }}
+                            placeholder="Type a city, state, POI name, or combo (e.g. Space Needle, Denver CO)..."
+                            data-testid="location-search-input"
+                            style={{
+                              width: "100%",
+                              padding: "5px 24px 5px 8px",
+                              borderRadius: "4px",
+                              border: "1px solid #cbd5e1",
+                              fontSize: "12px",
+                              backgroundColor: "#ffffff",
+                              color: "#0f172a",
+                            }}
+                          />
+                          {locationSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLocationSearchQuery("");
+                                setLocationSearchResults([]);
+                                setShowLocationSearchDropdown(false);
+                              }}
+                              data-testid="clear-location-search-btn"
+                              style={{
+                                position: "absolute",
+                                right: "6px",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                background: "none",
+                                border: "none",
+                                padding: "2px",
+                                cursor: "pointer",
+                                color: "#94a3b8",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                              title="Clear search"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => executeLocationSearch(locationSearchQuery)}
+                          disabled={isSearchingLocation || !locationSearchQuery.trim()}
+                          data-testid="find-location-btn"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "4px 10px",
+                            borderRadius: "4px",
+                            backgroundColor: "#0284c7",
+                            color: "#ffffff",
+                            border: "none",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor:
+                              isSearchingLocation || !locationSearchQuery.trim()
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity:
+                              isSearchingLocation || !locationSearchQuery.trim()
+                                ? 0.6
+                                : 1,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {isSearchingLocation ? (
+                            <>
+                              <Loader2 size={12} className="animate-spin" />
+                              <span>Searching...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Search size={12} />
+                              <span>Find</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Dropdown with search results */}
+                      {showLocationSearchDropdown && locationSearchResults.length > 0 && (
+                        <div
+                          data-testid="location-search-dropdown"
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            left: 0,
+                            right: 0,
+                            maxHeight: "220px",
+                            overflowY: "auto",
+                            backgroundColor: "#ffffff",
+                            borderRadius: "6px",
+                            boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                            border: "1px solid #cbd5e1",
+                            zIndex: 1000,
+                          }}
+                        >
+                          {locationSearchResults.map((match, idx) => (
+                            <div
+                              key={idx}
+                              data-testid={`location-search-result-${idx}`}
+                              onClick={() => handleSelectLocationMatch(match)}
+                              style={{
+                                padding: "7px 10px",
+                                cursor: "pointer",
+                                borderBottom:
+                                  idx < locationSearchResults.length - 1
+                                    ? "1px solid #f1f5f9"
+                                    : "none",
+                                fontSize: "11px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "2px",
+                                transition: "background-color 0.15s ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.backgroundColor =
+                                  "#f0f9ff";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.backgroundColor =
+                                  "transparent";
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <span style={{ fontWeight: 600, color: "#0f172a" }}>
+                                  {match.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: "9px",
+                                    color: "#64748b",
+                                    backgroundColor: "#f1f5f9",
+                                    padding: "1px 5px",
+                                    borderRadius: "3px",
+                                  }}
+                                >
+                                  {match.type || match.class}
+                                </span>
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  color: "#64748b",
+                                  lineHeight: 1.3,
+                                }}
+                              >
+                                {match.display_name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div
