@@ -361,7 +361,8 @@ export const CSVImportWorkbenchModal: React.FC<
         c.latitude == null ||
         c.longitude == null ||
         cDisp === "ignore" ||
-        cDisp === "exclude"
+        cDisp === "exclude" ||
+        cDisp === "existing"
       ) {
         continue;
       }
@@ -1486,6 +1487,7 @@ export const CSVImportWorkbenchModal: React.FC<
                 <option value="sublocation">Sublocation</option>
                 <option value="in_batch_merge">In-Batch Merge</option>
                 <option value="update_existing">Update Existing POI</option>
+                <option value="existing">Existing</option>
                 <option value="exclude">Exclude</option>
                 <option value="ignore">Ignore</option>
               </select>
@@ -1937,9 +1939,11 @@ export const CSVImportWorkbenchModal: React.FC<
                                         ? "#dbeafe"
                                         : disp === "update_existing"
                                           ? "#fef9c3"
-                                          : disp === "exclude"
-                                            ? "#fee2e2"
-                                            : "#f1f5f9",
+                                          : disp === "existing"
+                                            ? "#e2e8f0"
+                                            : disp === "exclude"
+                                              ? "#fee2e2"
+                                              : "#f1f5f9",
                                 color:
                                   disp === "accept"
                                     ? "#166534"
@@ -1949,9 +1953,11 @@ export const CSVImportWorkbenchModal: React.FC<
                                         ? "#1e40af"
                                         : disp === "update_existing"
                                           ? "#854d0e"
-                                          : disp === "exclude"
-                                            ? "#991b1b"
-                                            : "#475569",
+                                          : disp === "existing"
+                                            ? "#475569"
+                                            : disp === "exclude"
+                                              ? "#991b1b"
+                                              : "#475569",
                               }}
                             >
                               {disp.replace(/_/g, " ")}
@@ -2137,6 +2143,7 @@ export const CSVImportWorkbenchModal: React.FC<
                         <option value="update_existing">
                           Update Existing POI
                         </option>
+                        <option value="existing">Existing</option>
                         <option value="exclude">Exclude</option>
                         <option value="ignore">Ignore</option>
                       </select>

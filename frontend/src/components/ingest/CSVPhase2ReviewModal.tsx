@@ -370,7 +370,7 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
       const res = await ingestApi.getJobCandidates(jobId, "phase_2_enriched");
       const active = (res.candidates || []).filter((c) => {
         const disp = c.user_disposition || c.recommended_disposition;
-        return disp !== "ignore" && disp !== "exclude";
+        return disp !== "ignore" && disp !== "exclude" && disp !== "existing";
       });
       const normalized = active.map((c) => ({
         ...c,

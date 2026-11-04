@@ -345,7 +345,7 @@ class CandidateEnricher:
                     logger.debug("Enrichment geocoding failed for '%s': %s", cand.poi_name, exc)
 
             effective_disp = cand.user_disposition or cand.recommended_disposition
-            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
                 return cand
 
             # 1. Fetch user's configured datasources

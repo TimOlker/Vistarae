@@ -83,7 +83,7 @@ def _to_candidate_response(
     is_dup = bool(
         candidate.merge_target_id
         or candidate.matched_existing_poi_id
-        or disp in (IngestDisposition.IN_BATCH_MERGE, IngestDisposition.UPDATE_EXISTING)
+        or disp in (IngestDisposition.IN_BATCH_MERGE, IngestDisposition.UPDATE_EXISTING, IngestDisposition.EXISTING)
     )
 
     return CandidateItemResponse(
@@ -459,7 +459,7 @@ async def enrich_phase2(
         for cand in candidates
         if not cand.is_skipped
         and (cand.user_disposition or cand.recommended_disposition)
-        not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+        not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING)
     ]
 
     # Filter to candidates missing any data (hero image, wiki url, official url, description, reason, duration, tags)
@@ -597,7 +597,7 @@ async def enrich_all_candidates(
         for c in candidates
         if not c.is_skipped
         and (c.user_disposition or c.recommended_disposition)
-        not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+        not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING)
     ]
     asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
     return {

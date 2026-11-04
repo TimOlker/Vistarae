@@ -217,6 +217,174 @@ class StagingService:
                 return existing
         return None
 
+    async def _check_if_import_changes_poi(  # noqa: C901
+        self,
+        existing_poi: Any,
+        user_id: UUID,
+        *,
+        lat: float | None = None,
+        lon: float | None = None,
+        street: str | None = None,
+        city: str | None = None,
+        state: str | None = None,
+        country: str | None = None,
+        tags: list[str] | None = None,
+        dates_visited: list[str] | None = None,
+        photo_directory: str | None = None,
+        description: str | None = None,
+        reason_to_visit: str | None = None,
+        official_url: str | None = None,
+        wiki_url: str | None = None,
+        hero_image_url: str | None = None,
+        related_websites: list[dict[str, Any]] | None = None,
+        recommended_duration_hours: float | Decimal | None = None,
+        recommended_visit_days: int | None = None,
+        estimated_visit_time_notes: str | None = None,
+    ) -> bool:
+        """Determines if importing an incoming record would introduce new or updated values.
+
+        Returns True if importing introduces any new tags, dates, URLs, notes, addresses,
+        or modified coordinates. Returns False if all incoming data already exists on the POI.
+        """
+        # 1. Tags
+        if tags:
+            clean_incoming = {t.strip().lower() for t in tags if t and t.strip()}
+            if clean_incoming:
+                existing_tags: set[str] = set()
+                if self._tag_repo:
+                    try:
+                        db_tags = await self._tag_repo.get_tags_for_poi(existing_poi.id)
+                        existing_tags.update(t.name.strip().lower() for t in db_tags)
+                    except Exception as exc:
+                        logger.debug("Failed querying existing tags for POI %s: %s", existing_poi.id, exc)
+                if hasattr(existing_poi, "tags") and existing_poi.tags:
+                    for t in existing_poi.tags:
+                        if isinstance(t, str) and t.strip():
+                            existing_tags.add(t.strip().lower())
+                if not clean_incoming.issubset(existing_tags):
+                    return True
+
+        # 2. Visited dates
+        if dates_visited:
+            clean_dates = {d.strip() for d in dates_visited if d and d.strip()}
+            if clean_dates:
+                existing_dates = set(existing_poi.visited_dates or [])
+                if not clean_dates.issubset(existing_dates):
+                    return True
+
+        # 3. Photo directory
+        if photo_directory and photo_directory.strip():
+            cand_dir = photo_directory.strip()
+            if cand_dir not in (existing_poi.directory_paths or []):
+                return True
+
+        # 4. Coordinates
+        if lat is not None and lon is not None and getattr(existing_poi, "geom", None):
+            db_lat = float(existing_poi.geom.lat)
+            db_lon = float(existing_poi.geom.lon)
+            dist = haversine_distance_meters(lat, lon, db_lat, db_lon)
+            if dist > 25.0:
+                return True
+
+        # 5. Street address
+        if street and street.strip():
+            cand_street = street.strip().lower()
+            existing_streets: set[str] = set()
+            if existing_poi.address:
+                existing_streets.add(existing_poi.address.strip().lower())
+            for addr in getattr(existing_poi, "addresses", []) or []:
+                s = getattr(addr, "street", None) or (addr.get("street") if isinstance(addr, dict) else None)
+                if s:
+                    existing_streets.add(str(s).strip().lower())
+            if cand_street not in existing_streets:
+                return True
+
+        # 6. City
+        if city and city.strip():
+            cand_city = city.strip().lower()
+            existing_city = (existing_poi.city or "").strip().lower()
+            if not existing_city or cand_city != existing_city:
+                return True
+
+        # 7. State / Province
+        if state and state.strip():
+            cand_state = state.strip().lower()
+            existing_state = (existing_poi.admin_level_1 or "").strip().lower()
+            existing_states = {s.strip().lower() for s in (getattr(existing_poi, "states", []) or [])}
+            if existing_state:
+                if cand_state != existing_state and cand_state not in existing_states:
+                    return True
+            elif not existing_states:
+                return True
+
+        # 8. URLs
+        if official_url and official_url.strip():
+            cand_url = official_url.strip().rstrip("/").lower()
+            db_url = (existing_poi.official_url or "").strip().rstrip("/").lower()
+            if not db_url or cand_url != db_url:
+                return True
+
+        if wiki_url and wiki_url.strip():
+            cand_wiki = wiki_url.strip().rstrip("/").lower()
+            db_wiki = (existing_poi.wiki_url or "").strip().rstrip("/").lower()
+            if not db_wiki or cand_wiki != db_wiki:
+                return True
+
+        if hero_image_url and hero_image_url.strip():
+            cand_img = hero_image_url.strip()
+            if cand_img not in (existing_poi.image_urls or []):
+                return True
+
+        if related_websites:
+            db_urls = {
+                w["url"].rstrip("/").lower()
+                for w in (getattr(existing_poi, "related_websites", []) or [])
+                if isinstance(w, dict) and w.get("url")
+            }
+            for site in related_websites:
+                if isinstance(site, dict) and site.get("url"):
+                    u = site["url"].rstrip("/").lower()
+                    if u not in db_urls:
+                        return True
+
+        # 9. Descriptions / Notes
+        if description and description.strip():
+            cand_desc = description.strip()
+            db_desc = (existing_poi.description or "").strip()
+            if not db_desc or cand_desc != db_desc:
+                return True
+
+        if reason_to_visit and reason_to_visit.strip():
+            cand_reason = reason_to_visit.strip()
+            db_reason = (existing_poi.reason_to_visit or "").strip()
+            if not db_reason or cand_reason != db_reason:
+                return True
+
+        # 10. Duration & Visit Days
+        if recommended_duration_hours is not None:
+            if existing_poi.recommended_duration_hours is None:
+                return True
+            try:
+                if float(recommended_duration_hours) != float(existing_poi.recommended_duration_hours):
+                    return True
+            except (ValueError, TypeError):
+                pass
+
+        if (
+            recommended_visit_days is not None
+            and recommended_visit_days > 1
+            and (existing_poi.recommended_visit_days or 1) != recommended_visit_days
+        ):
+            return True
+
+        if estimated_visit_time_notes and estimated_visit_time_notes.strip():
+            cand_notes = estimated_visit_time_notes.strip()
+            db_notes = (existing_poi.estimated_visit_time_notes or "").strip()
+            if not db_notes or cand_notes != db_notes:
+                return True
+
+        return False
+
     async def stage_records(  # noqa: C901
         self,
         user_id: UUID,
@@ -369,9 +537,43 @@ class StagingService:
                     longitude=lon,
                 )
                 if verdict.status == "POTENTIAL_DUPLICATE":
-                    recommended_disposition = IngestDisposition.UPDATE_EXISTING
                     matched_existing_poi_id = verdict.existing_poi_id
-                    disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
+                    changes_values = True
+                    if self._poi_repo:
+                        try:
+                            existing_poi = await self._poi_repo.get_by_id(matched_existing_poi_id, user_id)
+                            if existing_poi:
+                                changes_values = await self._check_if_import_changes_poi(
+                                    existing_poi=existing_poi,
+                                    user_id=user_id,
+                                    lat=lat,
+                                    lon=lon,
+                                    street=street,
+                                    city=city,
+                                    state=state,
+                                    country=country,
+                                    tags=getattr(rec, "tags", None) or [],
+                                    dates_visited=getattr(rec, "dates_visited", None) or [],
+                                    photo_directory=getattr(rec, "photo_directory", None) or "",
+                                    description=getattr(rec, "description", None) or getattr(rec, "ai_description", None),
+                                    reason_to_visit=getattr(rec, "reason_to_visit", None),
+                                    official_url=getattr(rec, "official_website", None) or getattr(rec, "official_url", None),
+                                    wiki_url=getattr(rec, "wikipedia_url", None) or getattr(rec, "wiki_url", None),
+                                    hero_image_url=getattr(rec, "hero_image_url", None),
+                                    related_websites=getattr(rec, "related_websites", None) or [],
+                                    recommended_duration_hours=getattr(rec, "recommended_duration_hours", None),
+                                    recommended_visit_days=getattr(rec, "itinerary_days", None) or getattr(rec, "recommended_visit_days", None),
+                                    estimated_visit_time_notes=getattr(rec, "estimated_visit_time_notes", None),
+                                )
+                        except Exception as exc:
+                            logger.debug("Failed checking POI changes: %s", exc)
+
+                    if not changes_values:
+                        recommended_disposition = IngestDisposition.EXISTING
+                        disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' with identical values (no changes detected)"
+                    else:
+                        recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                        disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
                 elif verdict.status == "NEARBY_PARENT":
                     recommended_disposition = IngestDisposition.SUBLOCATION
                     parent_poi_id = verdict.existing_poi_id
@@ -606,12 +808,36 @@ class StagingService:
             matched_tenant_poi = False
             if rec.poi_id and self._poi_repo:
                 try:
-                    existing_poi = await self._poi_repo.get_by_id(rec.poi_id)
+                    existing_poi = await self._poi_repo.get_by_id(rec.poi_id, user_id)
                     if existing_poi and existing_poi.user_id == user_id:
-                        recommended_disposition = IngestDisposition.UPDATE_EXISTING
-                        user_disposition = IngestDisposition.UPDATE_EXISTING
                         matched_existing_poi_id = rec.poi_id
                         matched_tenant_poi = True
+                        changes_values = await self._check_if_import_changes_poi(
+                            existing_poi=existing_poi,
+                            user_id=user_id,
+                            lat=lat,
+                            lon=lon,
+                            street=street,
+                            city=city,
+                            state=state,
+                            country=country,
+                            tags=rec.tags,
+                            dates_visited=rec.dates_visited,
+                            photo_directory=rec.photo_directory or "",
+                            description=rec.ai_description or rec.notes,
+                            reason_to_visit=rec.reason_to_visit,
+                            official_url=rec.official_website,
+                            wiki_url=rec.wikipedia_url,
+                            hero_image_url=rec.hero_image_url,
+                            recommended_duration_hours=rec.recommended_duration_hours,
+                            recommended_visit_days=rec.itinerary_days,
+                        )
+                        if not changes_values:
+                            recommended_disposition = IngestDisposition.EXISTING
+                            user_disposition = IngestDisposition.EXISTING
+                        else:
+                            recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                            user_disposition = IngestDisposition.UPDATE_EXISTING
                 except Exception as exc:
                     logger.debug("Failed querying existing POI %s: %s", rec.poi_id, exc)
 
@@ -633,8 +859,39 @@ class StagingService:
                         longitude=lon,
                     )
                     if verdict.status == "POTENTIAL_DUPLICATE":
-                        recommended_disposition = IngestDisposition.UPDATE_EXISTING
                         matched_existing_poi_id = verdict.existing_poi_id
+                        changes_values = True
+                        if self._poi_repo:
+                            try:
+                                existing_poi = await self._poi_repo.get_by_id(matched_existing_poi_id, user_id)
+                                if existing_poi:
+                                    changes_values = await self._check_if_import_changes_poi(
+                                        existing_poi=existing_poi,
+                                        user_id=user_id,
+                                        lat=lat,
+                                        lon=lon,
+                                        street=street,
+                                        city=city,
+                                        state=state,
+                                        country=country,
+                                        tags=rec.tags,
+                                        dates_visited=rec.dates_visited,
+                                        photo_directory=rec.photo_directory or "",
+                                        description=rec.ai_description or rec.notes,
+                                        reason_to_visit=rec.reason_to_visit,
+                                        official_url=rec.official_website,
+                                        wiki_url=rec.wikipedia_url,
+                                        hero_image_url=rec.hero_image_url,
+                                        recommended_duration_hours=rec.recommended_duration_hours,
+                                        recommended_visit_days=rec.itinerary_days,
+                                    )
+                            except Exception as exc:
+                                logger.debug("Failed checking POI changes: %s", exc)
+
+                        if not changes_values:
+                            recommended_disposition = IngestDisposition.EXISTING
+                        else:
+                            recommended_disposition = IngestDisposition.UPDATE_EXISTING
                     elif verdict.status == "NEARBY_PARENT":
                         recommended_disposition = IngestDisposition.SUBLOCATION
                         parent_poi_id = verdict.existing_poi_id
@@ -712,7 +969,7 @@ class StagingService:
                 if cand.matched_existing_poi_id:
                     continue
                 disp = cand.user_disposition or cand.recommended_disposition
-                if disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+                if disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
                     continue
 
                 norm_key = f"{cand.poi_name.strip().lower()}|{(cand.city or '').strip().lower()}"
@@ -786,13 +1043,13 @@ class StagingService:
                 )
 
         # Orphan prevention guard (FR-027)
-        if target_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+        if target_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
             all_cands = await self._candidate_repo.list_by_job(user_id, candidate.job_id)
             for c in all_cands:
                 c_disp = c.user_disposition or c.recommended_disposition
                 if (
                     c.id != candidate.id
-                    and c_disp not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+                    and c_disp not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING)
                     and (c.parent_candidate_id == candidate.id or c.merge_target_id == candidate.id)
                 ):
                     raise HTTPException(
@@ -898,7 +1155,7 @@ class StagingService:
 
         for cand in candidates:
             effective_disp = cand.user_disposition or cand.recommended_disposition
-            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
                 ignored_count += 1
                 continue
 
@@ -1032,7 +1289,7 @@ class StagingService:
                 continue
 
             effective_disp = cand.user_disposition or cand.recommended_disposition
-            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE):
+            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
                 continue
 
             lat = float(cand.latitude) if cand.latitude is not None else 0.0
@@ -1285,7 +1542,7 @@ class StagingService:
             for cand in candidates
             if not cand.is_skipped
             and (cand.user_disposition or cand.recommended_disposition)
-            not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE)
+            not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING)
         ]
         total = len(candidates_to_enrich)
         _global_enrichment_progress[job_id] = {

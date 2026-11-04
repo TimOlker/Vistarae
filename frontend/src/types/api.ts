@@ -2403,7 +2403,8 @@ export interface components {
       | "update_existing"
       | "sublocation"
       | "in_batch_merge"
-      | "exclude";
+      | "exclude"
+      | "existing";
     /**
      * IngestJobProgressResponse
      * @description Progress status, counts, and duplicate items for an ingestion job.
