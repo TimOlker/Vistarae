@@ -33,6 +33,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.domain.entities import IngestJob, User
 from vistarae_core.domain.enums import TagResolutionAction
 from vistarae_core.domain.value_objects import IngestDisposition, IngestJobStatus
@@ -122,6 +124,7 @@ async def upload_csv(  # noqa: C901
     list_repo: IListRepository = Depends(get_list_repo),
     queue_port: IQueuePort = Depends(get_queue_port),
     staging_service: StagingService | None = Depends(get_staging_service),
+    session: AsyncSession = Depends(get_db_session),
 ) -> IngestUploadResponse:
     """Accepts CSV file upload, applies security guardrails, and dispatches to queue.
 
@@ -257,6 +260,19 @@ async def upload_csv(  # noqa: C901
             import logging
 
             logging.getLogger(__name__).exception("StagingService.stage_records failed: %s", exc)
+            if session is not None and hasattr(session, "rollback"):
+                await session.rollback()
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "type": "https://api.vistarae.com/errors/internal-server-error",
+                    "title": "Ingest Staging Failed",
+                    "status": 500,
+                    "detail": f"Failed to stage CSV records: {exc}",
+                    "instance": request.url.path,
+                },
+                headers={"Content-Type": "application/problem+json"},
+            )
 
     if staged_candidates:
         dup_payloads = [
@@ -323,6 +339,9 @@ async def upload_csv(  # noqa: C901
             batch = messages[i : i + 10]
             await queue_port.send_message_batch(queue_name, batch)
 
+    if session is not None and hasattr(session, "commit"):
+        await session.commit()
+
     return IngestUploadResponse(
         job_id=created_job.id,
         job_status=created_job.job_status,
@@ -348,6 +367,7 @@ async def upload_flexible(
     ingest_repo: IIngestJobRepository = Depends(get_ingest_repo),
     list_repo: IListRepository = Depends(get_list_repo),
     staging_service: StagingService = Depends(get_staging_service),
+    session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     """Handles multi-format uploads, column mapping detection, and pre-validation reporting (T-018)."""
     file_bytes = await file.read()
@@ -447,6 +467,8 @@ async def upload_flexible(
     await ingest_repo.create_job(job)
 
     await staging_service.stage_exchange_records(user.id, job_id, records)
+    if session is not None and hasattr(session, "commit"):
+        await session.commit()
 
     return JSONResponse(
         status_code=200,

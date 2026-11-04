@@ -36,7 +36,12 @@ from vistarae_core.adapters.queue.mock import MockQueueAdapter
 from vistarae_core.domain.entities import IngestJob, User
 from vistarae_core.domain.value_objects import IngestJobStatus
 
-from services.ingest.dependencies import get_current_user, get_ingest_repo, get_queue_port
+from services.ingest.dependencies import (
+    get_current_user,
+    get_ingest_repo,
+    get_queue_port,
+    get_staging_service,
+)
 from services.ingest.main import app
 
 
@@ -122,6 +127,7 @@ class TestUploadPipelineIntegration:
         app.dependency_overrides[get_current_user] = lambda: test_user
         app.dependency_overrides[get_ingest_repo] = lambda: mock_repo
         app.dependency_overrides[get_queue_port] = lambda: mock_queue
+        app.dependency_overrides[get_staging_service] = lambda: None
 
         # Generate a 25-row CSV
         lines = ["name,description,address,latitude,longitude"]
