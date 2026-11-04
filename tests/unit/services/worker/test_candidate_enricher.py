@@ -403,3 +403,65 @@ async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(
 
         assert result is not None
         assert result.no_websites is True
+
+
+@pytest.mark.asyncio
+async def test_candidate_enricher_filters_out_map_service_websites(
+    mock_candidate: IngestCandidate,
+):
+    """Verifies that OpenStreetMap, Google Maps, etc. are filtered out from related_websites and official_url."""
+    mock_candidate.official_url = "https://www.google.com/maps/place/Eiffel+Tower"
+    mock_candidate.wiki_url = None
+    mock_candidate.description = "Has description"
+    mock_candidate.reason_to_visit = "Has rationale"
+    mock_candidate.estimated_visit_time_notes = "Has notes"
+    mock_candidate.related_websites = [
+        {"name": "OpenStreetMap", "url": "https://www.openstreetmap.org/relation/12345"},
+        {"name": "Atlas Obscura", "url": "https://www.atlasobscura.com/places/eiffel-tower"},
+    ]
+
+    mock_session = _build_mock_session()
+    mock_session_factory = MagicMock(return_value=mock_session)
+    mock_orchestrator = MagicMock()
+
+    enricher = CandidateEnricher(
+        session_factory=mock_session_factory,
+        orchestrator=mock_orchestrator,
+    )
+
+    with (
+        patch(
+            "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+        ) as MockCandidateRepo,
+        patch("services.worker.candidate_enricher.WikipediaAdapter") as MockWikiAdapter,
+    ):
+        repo_instance = MagicMock()
+        repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
+        repo_instance.update_candidate = AsyncMock(side_effect=lambda u, c: c)
+        MockCandidateRepo.return_value = repo_instance
+
+        wiki_instance = MagicMock()
+        wiki_instance.augment = AsyncMock(
+            return_value={
+                "official_website_url": "https://www.toureiffel.paris/en",
+                "related_websites": [
+                    {"name": "OSM", "url": "https://osm.org/node/123"},
+                    {"name": "Official Website", "url": "https://www.toureiffel.paris/en"},
+                ],
+            }
+        )
+        MockWikiAdapter.return_value = wiki_instance
+
+        result = await enricher.enrich_candidate(
+            user_id=mock_candidate.user_id,
+            candidate_id=mock_candidate.id,
+            job_id=mock_candidate.job_id,
+        )
+
+        assert result is not None
+        assert result.official_url == "https://www.toureiffel.paris/en"
+        urls = [s["url"] for s in result.related_websites]
+        assert "https://www.atlasobscura.com/places/eiffel-tower" in urls
+        assert "https://www.toureiffel.paris/en" in urls
+        assert not any("openstreetmap" in u or "osm.org" in u or "google.com/maps" in u for u in urls)
+

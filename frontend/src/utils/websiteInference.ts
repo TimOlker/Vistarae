@@ -120,3 +120,47 @@ export function inferWebsiteName(url: string): string {
   }
 }
 
+export const MAP_SERVICE_PATTERNS = [
+  "openstreetmap.org",
+  "osm.org",
+  "google.com/maps",
+  "maps.google.",
+  "goo.gl/maps",
+  "maps.app.goo.gl",
+  "bing.com/maps",
+  "maps.apple.com",
+  "mapquest.com",
+  "waze.com",
+  "here.com",
+  "geohack.toolforge.org",
+];
+
+export const MAP_SERVICE_NAMES = new Set([
+  "openstreetmap",
+  "osm",
+  "google maps",
+  "googlemaps",
+  "bing maps",
+  "apple maps",
+  "mapquest",
+  "waze",
+]);
+
+/**
+ * Checks whether a website URL or label belongs to an interactive mapping / GPS service.
+ *
+ * POIs already possess GPS coordinates, so third-party map links (OpenStreetMap,
+ * Google Maps, etc.) are excluded from POI websites during AI enrichment.
+ */
+export function isMapServiceWebsite(
+  url?: string | null,
+  name?: string | null,
+): boolean {
+  if (name && MAP_SERVICE_NAMES.has(name.trim().toLowerCase())) {
+    return true;
+  }
+  if (!url) return false;
+  const u = url.trim().toLowerCase();
+  return MAP_SERVICE_PATTERNS.some((pat) => u.includes(pat));
+}
+

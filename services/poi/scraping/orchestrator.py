@@ -45,6 +45,7 @@ from services.poi.scraping.secondary_sources import (
     TripAdvisorAdapter,
     WikidataAdapter,
     WikipediaAdapter,
+    is_map_service_url,
     scrape_website_hero_image,
 )
 from services.poi.scraping.tag_matcher import TagMatcher
@@ -644,6 +645,8 @@ class ScrapingOrchestrator:
                 }
                 for site in res["related_websites"]:
                     if isinstance(site, dict) and site.get("url"):
+                        if is_map_service_url(site.get("url"), site.get("name")):
+                            continue
                         k = site["url"].rstrip("/").lower()
                         if k not in seen_urls:
                             seen_urls.add(k)
@@ -655,12 +658,15 @@ class ScrapingOrchestrator:
             if isinstance(w, dict) and "url" in w
         }
         if merged["official_website_url"]:
-            off_k = merged["official_website_url"].rstrip("/").lower()
-            if off_k not in existing_urls:
-                existing_urls.add(off_k)
-                merged["related_websites"].insert(
-                    0, {"name": "Official Website", "url": merged["official_website_url"]}
-                )
+            if is_map_service_url(merged["official_website_url"]):
+                merged["official_website_url"] = None
+            else:
+                off_k = merged["official_website_url"].rstrip("/").lower()
+                if off_k not in existing_urls:
+                    existing_urls.add(off_k)
+                    merged["related_websites"].insert(
+                        0, {"name": "Official Website", "url": merged["official_website_url"]}
+                    )
         if merged["wikipedia_url"]:
             wiki_k = merged["wikipedia_url"].rstrip("/").lower()
             if wiki_k not in existing_urls:
@@ -818,6 +824,8 @@ class ScrapingOrchestrator:
             extraction_sources.insert(0, parsed_url.netloc)
 
         official_website_url = primary_official or secondary.get("official_website_url")
+        if official_website_url and is_map_service_url(official_website_url):
+            official_website_url = None
         wikipedia_url = primary_wiki or secondary.get("wikipedia_url")
 
         if "wikipedia.org/wiki/" in source_url:

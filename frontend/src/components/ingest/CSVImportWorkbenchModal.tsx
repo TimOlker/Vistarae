@@ -34,6 +34,7 @@ import {
   type ForwardSearchResult,
 } from "../../services/geocodeService";
 import { useToast } from "../../context/ToastContext";
+import { isMapServiceWebsite } from "../../utils/websiteInference";
 import { WorkbenchMap, type NearbyPointMarker } from "./WorkbenchMap";
 import {
   X,
@@ -477,21 +478,26 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditCountry(rawCountry);
       setEditHeroImageUrl(selectedCandidate.hero_image_url || "");
 
-      // Reconstruct dynamic websites list
+      // Reconstruct dynamic websites list (excluding third-party map providers)
       const sites: Array<{ name: string; url: string }> = [];
       if (Array.isArray(selectedCandidate.related_websites)) {
         for (const rawW of selectedCandidate.related_websites) {
           const w = rawW as Record<string, any>;
           if (w && typeof w === "object" && w.url) {
-            sites.push({
-              name: String(w.name || "Website"),
-              url: String(w.url),
-            });
+            const siteUrl = String(w.url);
+            const siteName = String(w.name || "Website");
+            if (!isMapServiceWebsite(siteUrl, siteName)) {
+              sites.push({
+                name: siteName,
+                url: siteUrl,
+              });
+            }
           }
         }
       }
       if (
         selectedCandidate.official_url &&
+        !isMapServiceWebsite(selectedCandidate.official_url, "Official Website") &&
         !sites.some((s) => s.url === selectedCandidate.official_url)
       ) {
         sites.unshift({

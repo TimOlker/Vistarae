@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from "vitest";
-import { inferWebsiteName } from "../../utils/websiteInference";
+import { inferWebsiteName, isMapServiceWebsite } from "../../utils/websiteInference";
 
 describe("websiteInference", () => {
   it("resolves known domains to human-readable names", () => {
@@ -41,6 +41,39 @@ describe("websiteInference", () => {
   it("falls back to Website for invalid or empty strings", () => {
     expect(inferWebsiteName("")).toBe("Website");
     expect(inferWebsiteName("   ")).toBe("Website");
+  });
+
+  describe("isMapServiceWebsite", () => {
+    it("identifies OpenStreetMap URLs and names", () => {
+      expect(isMapServiceWebsite("https://www.openstreetmap.org/relation/12345")).toBe(true);
+      expect(isMapServiceWebsite("https://osm.org/node/987")).toBe(true);
+      expect(isMapServiceWebsite("https://example.com", "OpenStreetMap")).toBe(true);
+      expect(isMapServiceWebsite("https://example.com", "OSM")).toBe(true);
+    });
+
+    it("identifies Google Maps URLs and names", () => {
+      expect(isMapServiceWebsite("https://www.google.com/maps/place/Eiffel+Tower")).toBe(true);
+      expect(isMapServiceWebsite("https://maps.google.com/?q=Paris")).toBe(true);
+      expect(isMapServiceWebsite("https://maps.app.goo.gl/xyz123")).toBe(true);
+      expect(isMapServiceWebsite("https://example.com", "Google Maps")).toBe(true);
+    });
+
+    it("identifies Bing, Apple, and other navigation services", () => {
+      expect(isMapServiceWebsite("https://www.bing.com/maps?osid=1")).toBe(true);
+      expect(isMapServiceWebsite("https://maps.apple.com/?address=Central+Park")).toBe(true);
+      expect(isMapServiceWebsite("https://www.mapquest.com/us/ny/new-york")).toBe(true);
+      expect(isMapServiceWebsite("https://www.waze.com/live-map/directions")).toBe(true);
+      expect(isMapServiceWebsite("https://geohack.toolforge.org/geohack.php?params=48_51_24_N_2_21_07_E")).toBe(true);
+    });
+
+    it("returns false for non-mapping POI websites", () => {
+      expect(isMapServiceWebsite("https://en.wikipedia.org/wiki/Eiffel_Tower", "Wikipedia")).toBe(false);
+      expect(isMapServiceWebsite("https://www.toureiffel.paris/en", "Official Website")).toBe(false);
+      expect(isMapServiceWebsite("https://www.alltrails.com/trail/france/paris", "AllTrails")).toBe(false);
+      expect(isMapServiceWebsite("https://www.atlasobscura.com/places/eiffel-tower")).toBe(false);
+      expect(isMapServiceWebsite(null, null)).toBe(false);
+      expect(isMapServiceWebsite("", "")).toBe(false);
+    });
   });
 });
 

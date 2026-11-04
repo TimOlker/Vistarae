@@ -45,7 +45,7 @@ DEFAULT_DOMAINS = [
     "wikipedia.org",
     "tripadvisor.com",
     "atlasobscura.com",
-    "google.com/maps",
+    "alltrails.com",
     "roadtrippers.com",
 ]
 

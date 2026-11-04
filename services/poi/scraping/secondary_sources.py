@@ -220,12 +220,52 @@ WIKIDATA_PROPERTY_MAP: dict[str, tuple[str, Any]] = {
             else str(val)
         ),
     ),
-    "P402": ("OpenStreetMap", lambda val: f"https://www.openstreetmap.org/relation/{val}"),
     "P10689": (
         "Google Arts & Culture",
         lambda val: f"https://artsandculture.google.com/entity/{val}",
     ),
 }
+
+MAP_SERVICE_DOMAINS: tuple[str, ...] = (
+    "openstreetmap.org",
+    "osm.org",
+    "google.com/maps",
+    "maps.google.",
+    "goo.gl/maps",
+    "maps.app.goo.gl",
+    "bing.com/maps",
+    "maps.apple.com",
+    "mapquest.com",
+    "waze.com",
+    "here.com",
+    "wego.here.com",
+    "geohack.toolforge.org",
+)
+
+MAP_SERVICE_NAMES: set[str] = {
+    "openstreetmap",
+    "osm",
+    "google maps",
+    "googlemaps",
+    "bing maps",
+    "apple maps",
+    "mapquest",
+    "waze",
+}
+
+
+def is_map_service_url(url: str | None, name: str | None = None) -> bool:
+    """Checks whether a website URL or label belongs to an interactive mapping / GPS service.
+
+    POIs already possess GPS coordinates, so third-party map links (OpenStreetMap,
+    Google Maps, etc.) are excluded from POI websites during AI enrichment.
+    """
+    if name and name.strip().lower() in MAP_SERVICE_NAMES:
+        return True
+    if not url:
+        return False
+    u = url.strip().lower()
+    return any(d in u for d in MAP_SERVICE_DOMAINS)
 
 KNOWN_DOMAIN_NAMES: dict[str, str] = {
     "atlasobscura.com": "Atlas Obscura",
@@ -446,6 +486,8 @@ class WikidataAdapter(SecondarySourceAdapter):
                 return
             clean = url.strip()
             if not clean.startswith("http"):
+                return
+            if is_map_service_url(clean, name):
                 return
             key = clean.rstrip("/").lower()
             if key not in seen_urls:
@@ -933,6 +975,8 @@ class WikipediaAdapter(SecondarySourceAdapter):
     def _add_related_website(parsed_result: dict[str, Any], name: str, url: str) -> None:
         if not url or not url.startswith("http"):
             return
+        if is_map_service_url(url, name):
+            return
         if "related_websites" not in parsed_result:
             parsed_result["related_websites"] = []
         clean = url.strip()
@@ -966,6 +1010,10 @@ class WikipediaAdapter(SecondarySourceAdapter):
             "archive.org",
             "geohack",
             "britannica",
+            "openstreetmap",
+            "osm.org",
+            "bing.com/maps",
+            "maps.apple",
         ]
         try:
             api_url = f"https://en.wikipedia.org/w/api.php?action=query&prop=extlinks&titles={quote(title.replace(' ', '_'))}&ellimit=50&format=json"
@@ -977,7 +1025,7 @@ class WikipediaAdapter(SecondarySourceAdapter):
             for page in pages.values():
                 for link_obj in page.get("extlinks", []):
                     link = link_obj.get("*", "")
-                    if not link or not link.startswith("http"):
+                    if not link or not link.startswith("http") or is_map_service_url(link):
                         continue
 
                     # 1. Official website detection

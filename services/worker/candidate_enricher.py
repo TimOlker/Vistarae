@@ -57,7 +57,11 @@ from services.poi.routes.preferences import DEFAULT_DOMAINS
 from services.poi.scraping.orchestrator import (
     ScrapingOrchestrator,
 )
-from services.poi.scraping.secondary_sources import WikipediaAdapter, scrape_website_hero_image
+from services.poi.scraping.secondary_sources import (
+    WikipediaAdapter,
+    is_map_service_url,
+    scrape_website_hero_image,
+)
 from services.poi.scraping.tag_matcher import TagMatcher
 
 logger = logging.getLogger("vistarae.worker.candidate_enricher")
@@ -77,7 +81,9 @@ class CandidateEnricher:
         """Initializes CandidateEnricher with session factory, orchestrator, and bounded LLM concurrency."""
         self._session_factory = session_factory or get_session_factory()
         self._orchestrator = orchestrator or ScrapingOrchestrator()
-        self.llm_semaphore = llm_semaphore or LLM_SEMAPHORE
+        self.llm_semaphore = (
+            llm_semaphore if llm_semaphore is not None else asyncio.Semaphore(5)
+        )
 
     async def apply_enrichment_to_candidate(  # noqa: C901
         self,
@@ -122,6 +128,16 @@ class CandidateEnricher:
         should_query_links = overrides.recalculate_links or (
             websites_count == 0 and not candidate.no_websites
         )
+        # Clean any preexisting map service URLs (since POIs already have coordinates)
+        if candidate.official_url and is_map_service_url(candidate.official_url):
+            candidate.official_url = None
+        if candidate.related_websites:
+            candidate.related_websites = [
+                w
+                for w in candidate.related_websites
+                if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
+            ]
+
         if should_query_links and any("wikipedia" in d.lower() for d in valid_domains):
             try:
                 wiki_adapter = WikipediaAdapter(valid_domains=valid_domains)
@@ -163,12 +179,24 @@ class CandidateEnricher:
                         }
                         for site in wiki_data["related_websites"]:
                             if isinstance(site, dict) and site.get("url"):
+                                if is_map_service_url(site.get("url"), site.get("name")):
+                                    continue
                                 k = site["url"].rstrip("/").lower()
                                 if k not in existing_urls:
                                     existing_urls.add(k)
                                     candidate.related_websites.append(site)
             except Exception as exc:
                 logger.debug("Wikipedia enrichment failed for '%s': %s", candidate.poi_name, exc)
+
+        # Filter out map services from candidate websites (GPS coordinates already exist)
+        if candidate.official_url and is_map_service_url(candidate.official_url):
+            candidate.official_url = None
+        if candidate.related_websites:
+            candidate.related_websites = [
+                w
+                for w in candidate.related_websites
+                if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
+            ]
 
         if should_query_links:
             new_count = len(candidate.related_websites or [])
@@ -349,6 +377,16 @@ class CandidateEnricher:
             )
             combined_context = f"{cand.poi_name} in {addr_ctx}." if addr_ctx else cand.poi_name
 
+            # Clean any preexisting map service URLs (since POIs already have coordinates)
+            if cand.official_url and is_map_service_url(cand.official_url):
+                cand.official_url = None
+            if cand.related_websites:
+                cand.related_websites = [
+                    w
+                    for w in cand.related_websites
+                    if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
+                ]
+
             # 4. Web scraping via authorized secondary sources
             wiki_data: dict[str, Any] = {}
             if not cand.no_websites and any("wikipedia" in d.lower() for d in valid_domains):
@@ -384,6 +422,8 @@ class CandidateEnricher:
                         }
                         for site in wiki_data["related_websites"]:
                             if isinstance(site, dict) and site.get("url"):
+                                if is_map_service_url(site.get("url"), site.get("name")):
+                                    continue
                                 k = site["url"].rstrip("/").lower()
                                 if k not in existing_urls:
                                     existing_urls.add(k)
@@ -391,7 +431,17 @@ class CandidateEnricher:
                 except Exception as exc:
                     logger.debug("Wikipedia enrichment failed for '%s': %s", cand.poi_name, exc)
 
-            if not cand.official_url and not cand.wiki_url:
+            # Filter out map services from candidate websites (GPS coordinates already exist)
+            if cand.official_url and is_map_service_url(cand.official_url):
+                cand.official_url = None
+            if cand.related_websites:
+                cand.related_websites = [
+                    w
+                    for w in cand.related_websites
+                    if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
+                ]
+
+            if not cand.official_url and not cand.wiki_url and not cand.related_websites:
                 cand.no_websites = True
 
             secondary_extracts = (
