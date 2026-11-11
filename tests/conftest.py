@@ -18,7 +18,11 @@
 
 from __future__ import annotations
 
+import os
 from uuid import UUID, uuid4
+
+os.environ["STAGE"] = "testing"
+os.environ["APP_ENV"] = "testing"
 
 import pytest
 from vistarae_core.adapters.db.session import reset_engine

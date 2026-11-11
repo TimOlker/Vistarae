@@ -38,8 +38,10 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from vistarae_core.adapters.db.session import get_session_factory
 from vistarae_core.adapters.db.tables import UserPreferencesTable
+from vistarae_core.adapters.repositories.enrichment_cache_repo import (
+    SqlAlchemyExternalEnrichmentCacheRepository,
+)
 from vistarae_core.adapters.repositories.ingest_candidate_repo import (
     SqlAlchemyIngestCandidateRepository,
 )
@@ -50,6 +52,7 @@ from vistarae_core.adapters.repositories.user_prompt_repo import (
 from vistarae_core.domain.entities import IngestCandidate, IngestDisposition
 from vistarae_core.domain.enums import SelectiveEnrichmentOverrides
 from vistarae_core.domain.value_objects import PromptType
+from vistarae_core.ports.repositories import IExternalEnrichmentCacheRepository
 from vistarae_core.schemas.ingest_staging import Phase2ProgressResponse
 from vistarae_core.services.prompt_cache import default_prompt_cache
 
@@ -58,15 +61,125 @@ from services.poi.scraping.orchestrator import (
     ScrapingOrchestrator,
 )
 from services.poi.scraping.secondary_sources import (
+    HillmanWondersAdapter,
+    TripAdvisorAdapter,
     WikipediaAdapter,
+    canonicalize_url,
     is_map_service_url,
-    scrape_website_hero_image,
+    is_unwanted_website_url,
+    scrape_website_metadata,
 )
 from services.poi.scraping.tag_matcher import TagMatcher
 
 logger = logging.getLogger("vistarae.worker.candidate_enricher")
 
 LLM_SEMAPHORE = asyncio.Semaphore(5)
+
+
+def build_progressive_location_queries(
+    poi_name: str,
+    city: str | None = None,
+    state_province: str | None = None,
+    country: str | None = None,
+) -> list[str]:
+    """Generates search queries ordered from most targeted to broadest.
+
+    Prioritizes the primary POI name with immediate city context (e.g. 'Zwinger Dresden'),
+    then city and country (e.g. 'Zwinger Dresden Germany'), then POI name alone,
+    followed by broader state/country combinations. This prevents regional container tokens
+    (e.g. Dresden, Saxony) from diluting the search and matching the container city over the POI.
+    """
+    clean_name = poi_name.strip()
+    c = (city or "").strip()
+    s = (state_province or "").strip()
+    co = (country or "").strip()
+
+    queries: list[str] = []
+
+    def _add(*location_tokens: str) -> None:
+        parts = [clean_name]
+        name_lower = clean_name.lower()
+        for tok in location_tokens:
+            if tok and tok.lower() not in name_lower:
+                parts.append(tok)
+        combined = " ".join(parts).strip()
+        if combined and combined not in queries:
+            queries.append(combined)
+
+    # 1. Primary targeted query: Name + City (highest precision for city landmarks)
+    if c:
+        _add(c)
+
+    # 2. Name + City + Country
+    if c and co:
+        _add(c, co)
+
+    # 3. Name alone
+    _add()
+
+    # 4. Name + City + State + Country
+    if c and s and co and s.lower() != c.lower():
+        _add(c, s, co)
+
+    # 5. Name + City + State
+    if c and s and s.lower() != c.lower():
+        _add(c, s)
+
+    # 6. Name + State
+    if s and s.lower() != c.lower():
+        _add(s)
+
+    # 7. Name + Country
+    if co:
+        _add(co)
+
+    return queries
+
+
+def normalize_related_websites(
+    sites: list[dict[str, Any]] | None,
+    tags: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Normalizes related websites: decodes URL encoding, strips whitespace/trailing slashes, removes map and archive URLs, and deduplicates."""
+    from urllib.parse import urlparse  # noqa: PLC0415
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for s in sites or []:
+        if not isinstance(s, dict):
+            continue
+        raw_url = str(s.get("url") or "")
+        url = canonicalize_url(raw_url)
+        name = str(s.get("name") or "Website").strip()
+        if not url:
+            continue
+        if is_unwanted_website_url(url, name):
+            continue
+        if (
+            name.lower() == "hillman wonders"
+            or "hillmanwonders" in url.lower()
+            or "hillmanswonders" in url.lower()
+        ):
+            name = "Hillman Wonders"
+            parsed_u = urlparse(url)
+            p = parsed_u.path.lower()
+            if not p or p in ("", "/", "/index.html", "/index.htm"):
+                url = "https://www.hillmanswonders.com/top-1000-sites.html"
+            elif not url.startswith("https://www.hillmanswonders.com/"):
+                url = f"https://www.hillmanswonders.com{parsed_u.path}"
+            url = canonicalize_url(url)
+
+        k = url.lower()
+        if k not in seen:
+            seen.add(k)
+            normalized.append({"name": name, "url": url})
+
+    has_hillman_tag = any("hillman" in str(t).lower() for t in (tags or []))
+    hillman_url = "https://www.hillmanswonders.com/top-1000-sites.html"
+    if has_hillman_tag and not any("hillman" in u for u in seen):
+        normalized.append({"name": "Hillman Wonders", "url": hillman_url})
+
+    return normalized
 
 
 class CandidateEnricher:
@@ -77,13 +190,15 @@ class CandidateEnricher:
         session_factory: Callable[[], AsyncSession] | None = None,
         orchestrator: ScrapingOrchestrator | None = None,
         llm_semaphore: asyncio.Semaphore | None = None,
+        cache_repo: IExternalEnrichmentCacheRepository | None = None,
     ) -> None:
         """Initializes CandidateEnricher with session factory, orchestrator, and bounded LLM concurrency."""
-        self._session_factory = session_factory or get_session_factory()
+        self._session_factory = session_factory
         self._orchestrator = orchestrator or ScrapingOrchestrator()
         self.llm_semaphore = (
             llm_semaphore if llm_semaphore is not None else asyncio.Semaphore(5)
         )
+        self._cache_repo = cache_repo
 
     async def apply_enrichment_to_candidate(  # noqa: C901
         self,
@@ -92,12 +207,16 @@ class CandidateEnricher:
         valid_domains: Sequence[str] | None = None,
         directives: dict[PromptType, str] | None = None,
         user_tags: Sequence[Any] | None = None,
+        force_refresh: bool = False,
+        cache_repo: IExternalEnrichmentCacheRepository | None = None,
     ) -> IngestCandidate:
         """Applies dynamic per-field presence resolution and selective field re-calculation overrides (REQ-IMP-006, REQ-REC-001, REQ-REC-002)."""
         overrides = overrides or SelectiveEnrichmentOverrides()
         valid_domains = valid_domains or DEFAULT_DOMAINS
         directives = directives or {}
         user_tags = user_tags or []
+        is_force = bool(getattr(overrides, "recalculate_all", False) or force_refresh)
+        effective_cache_repo = cache_repo or self._cache_repo
 
         desc_directive = directives.get(PromptType.DESCRIPTION)
         reason_directive = directives.get(PromptType.REASON_TO_VISIT)
@@ -114,89 +233,197 @@ class CandidateEnricher:
                 ],
             )
         )
-        combined_context = (
-            f"{candidate.poi_name} in {addr_ctx}." if addr_ctx else candidate.poi_name
-        )
+        context_parts = []
+        if addr_ctx:
+            context_parts.append(f"{candidate.poi_name} in {addr_ctx}.")
+        else:
+            context_parts.append(candidate.poi_name)
+
+        if candidate.description and candidate.description.strip():
+            clean_init = ScrapingOrchestrator._clean_source_attribution(
+                candidate.description.strip(), name=candidate.poi_name
+            )
+            if clean_init and clean_init.lower() != candidate.poi_name.lower():
+                context_parts.append(f"Initial notes: {clean_init}")
+
+        combined_context = " ".join(context_parts)
 
         wiki_data: dict[str, Any] = {}
+        official_meta_desc: str | None = None
         websites_count = len(candidate.related_websites or [])
         if candidate.official_url and str(candidate.official_url).strip():
             websites_count += 1
         if candidate.wiki_url and str(candidate.wiki_url).strip():
             websites_count += 1
 
-        should_query_links = overrides.recalculate_links or (
-            websites_count == 0 and not candidate.no_websites
+        should_query_links = (
+            overrides.recalculate_links
+            or overrides.recalculate_description
+            or overrides.recalculate_reason_to_visit
+            or (websites_count == 0 and not candidate.no_websites)
+            or is_force
         )
+        if is_force or overrides.recalculate_links:
+            candidate.related_websites = []
+
         # Clean any preexisting map service URLs (since POIs already have coordinates)
         if candidate.official_url and is_map_service_url(candidate.official_url):
             candidate.official_url = None
         if candidate.related_websites:
-            candidate.related_websites = [
-                w
-                for w in candidate.related_websites
-                if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
-            ]
+            candidate.related_websites = normalize_related_websites(
+                candidate.related_websites, candidate.tags
+            )
 
         if should_query_links and any("wikipedia" in d.lower() for d in valid_domains):
             try:
-                wiki_adapter = WikipediaAdapter(valid_domains=valid_domains)
-                wiki_data = await wiki_adapter.augment(query_title=candidate.poi_name)
-                if not wiki_data and candidate.city:
+                wiki_adapter = WikipediaAdapter(
+                    valid_domains=valid_domains, cache_repo=effective_cache_repo
+                )
+                candidate_queries = build_progressive_location_queries(
+                    poi_name=candidate.poi_name,
+                    city=candidate.city,
+                    state_province=candidate.state_province,
+                    country=candidate.country,
+                )
+
+                for q in candidate_queries:
                     wiki_data = await wiki_adapter.augment(
-                        query_title=f"{candidate.poi_name} {candidate.city}"
+                        query_title=q, force_refresh=is_force, poi_name=candidate.poi_name
                     )
-                if not wiki_data and candidate.country:
-                    wiki_data = await wiki_adapter.augment(
-                        query_title=f"{candidate.poi_name} {candidate.country}"
-                    )
+                    if wiki_data:
+                        break
                 if wiki_data:
-                    if (overrides.recalculate_links or not candidate.wiki_url) and wiki_data.get(
+                    if (is_force or overrides.recalculate_links or not candidate.wiki_url) and wiki_data.get(
                         "wikipedia_url"
                     ):
-                        candidate.wiki_url = wiki_data.get("wikipedia_url")
+                        candidate.wiki_url = canonicalize_url(wiki_data.get("wikipedia_url"))
+
+                    all_cand_imgs: list[str] = []
+                    if wiki_data.get("hero_image_urls"):
+                        for u in wiki_data["hero_image_urls"]:
+                            if u not in all_cand_imgs:
+                                all_cand_imgs.append(u)
+                    elif wiki_data.get("hero_image_url"):
+                        all_cand_imgs.append(wiki_data["hero_image_url"])
+
                     if (
-                        overrides.recalculate_links or not candidate.hero_image_url
-                    ) and wiki_data.get("hero_image_url"):
-                        candidate.hero_image_url = wiki_data.get("hero_image_url")
-                    if (
-                        overrides.recalculate_links or not candidate.official_url
+                        is_force or overrides.recalculate_links or not candidate.official_url
                     ) and wiki_data.get("official_website_url"):
-                        candidate.official_url = wiki_data.get("official_website_url")
-                    if (
-                        (overrides.recalculate_links or not candidate.hero_image_url)
-                        and not candidate.hero_image_url
-                        and candidate.official_url
-                    ):
-                        site_hero = await scrape_website_hero_image(candidate.official_url)
-                        if site_hero:
-                            candidate.hero_image_url = site_hero
+                        candidate.official_url = canonicalize_url(wiki_data.get("official_website_url"))
+
+                    if candidate.official_url:
+                        site_meta = await scrape_website_metadata(
+                            candidate.official_url,
+                            cache_repo=effective_cache_repo,
+                            force_refresh=is_force,
+                        )
+                        for u in site_meta.get("images", []):
+                            if u not in all_cand_imgs:
+                                all_cand_imgs.append(u)
+                        official_meta_desc = site_meta.get("description")
+
+                    if all_cand_imgs:
+                        raw_geo = dict(candidate.raw_geocoding) if isinstance(candidate.raw_geocoding, dict) else {}
+                        raw_geo["hero_image_urls"] = all_cand_imgs
+                        candidate.raw_geocoding = raw_geo
+                        if is_force or overrides.recalculate_links or not candidate.hero_image_url:
+                            candidate.hero_image_url = all_cand_imgs[0]
                     if wiki_data.get("related_websites"):
                         existing_urls = {
-                            w["url"].rstrip("/").lower()
+                            canonicalize_url(w["url"]).lower()
                             for w in (candidate.related_websites or [])
                             if isinstance(w, dict) and "url" in w
                         }
                         for site in wiki_data["related_websites"]:
                             if isinstance(site, dict) and site.get("url"):
-                                if is_map_service_url(site.get("url"), site.get("name")):
+                                if is_unwanted_website_url(site.get("url"), site.get("name")):
                                     continue
-                                k = site["url"].rstrip("/").lower()
+                                clean_u = canonicalize_url(site["url"])
+                                k = clean_u.lower()
                                 if k not in existing_urls:
                                     existing_urls.add(k)
-                                    candidate.related_websites.append(site)
+                                    candidate.related_websites.append({"name": site.get("name") or "Website", "url": clean_u})
             except Exception as exc:
                 logger.debug("Wikipedia enrichment failed for '%s': %s", candidate.poi_name, exc)
 
-        # Filter out map services from candidate websites (GPS coordinates already exist)
+        # Secondary lookup for TripAdvisor
+        if should_query_links and (
+            not valid_domains or any("tripadvisor" in d.lower() for d in valid_domains)
+        ):
+            try:
+                ta_adapter = TripAdvisorAdapter(
+                    valid_domains=valid_domains, cache_repo=effective_cache_repo
+                )
+                ta_data = await ta_adapter.augment(
+                    query_title=candidate.poi_name,
+                    poi_name=candidate.poi_name,
+                    city=candidate.city,
+                    country=candidate.country,
+                    force_refresh=is_force,
+                )
+                if ta_data and ta_data.get("related_websites"):
+                    existing_urls = {
+                        canonicalize_url(w["url"]).lower()
+                        for w in (candidate.related_websites or [])
+                        if isinstance(w, dict) and "url" in w
+                    }
+                    for site in ta_data["related_websites"]:
+                        if isinstance(site, dict) and site.get("url"):
+                            if is_unwanted_website_url(site.get("url"), site.get("name")):
+                                continue
+                            clean_u = canonicalize_url(site["url"])
+                            k = clean_u.lower()
+                            if k not in existing_urls:
+                                existing_urls.add(k)
+                                candidate.related_websites.append(
+                                    {"name": site.get("name") or "Tripadvisor", "url": clean_u}
+                                )
+            except Exception as exc:
+                logger.debug("TripAdvisor enrichment failed for '%s': %s", candidate.poi_name, exc)
+
+        # Secondary lookup for Hillman Wonders
+        is_hillman_allowed = (
+            not valid_domains
+            or any("hillman" in d.lower() for d in valid_domains)
+            or any("hillman" in str(t).lower() for t in (candidate.tags or []))
+            or any(d in valid_domains for d in ["wikipedia.org", "tripadvisor.com", "atlasobscura.com"])
+        )
+        if should_query_links and is_hillman_allowed:
+            try:
+                hillman_adapter = HillmanWondersAdapter(
+                    valid_domains=valid_domains, cache_repo=effective_cache_repo
+                )
+                hillman_data = await hillman_adapter.augment(
+                    query_title=candidate.poi_name, force_refresh=is_force
+                )
+                if hillman_data and hillman_data.get("related_websites"):
+                    existing_urls = {
+                        canonicalize_url(w["url"]).lower()
+                        for w in (candidate.related_websites or [])
+                        if isinstance(w, dict) and "url" in w
+                    }
+                    for site in hillman_data["related_websites"]:
+                        if isinstance(site, dict) and site.get("url"):
+                            if is_unwanted_website_url(site.get("url"), site.get("name")):
+                                continue
+                            clean_u = canonicalize_url(site["url"])
+                            k = clean_u.lower()
+                            if k not in existing_urls:
+                                existing_urls.add(k)
+                                candidate.related_websites.append(
+                                    {"name": site.get("name") or "Hillman Wonders", "url": clean_u}
+                                )
+                    if hillman_data.get("secondary_extracts"):
+                        secondary_extracts.extend(hillman_data["secondary_extracts"])
+            except Exception as exc:
+                logger.debug("Hillman Wonders enrichment failed for '%s': %s", candidate.poi_name, exc)
+
+        # Filter out map services from candidate websites and canonicalize Hillman Wonders
         if candidate.official_url and is_map_service_url(candidate.official_url):
             candidate.official_url = None
-        if candidate.related_websites:
-            candidate.related_websites = [
-                w
-                for w in candidate.related_websites
-                if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
-            ]
+        candidate.related_websites = normalize_related_websites(
+            candidate.related_websites, candidate.tags
+        )
 
         if should_query_links:
             new_count = len(candidate.related_websites or [])
@@ -209,9 +436,11 @@ class CandidateEnricher:
             else:
                 candidate.no_websites = False
 
-        secondary_extracts = (
-            [wiki_data["description"]] if (wiki_data and wiki_data.get("description")) else []
-        )
+        secondary_extracts: list[str] = []
+        if wiki_data and wiki_data.get("description"):
+            secondary_extracts.append(wiki_data["description"])
+        if official_meta_desc:
+            secondary_extracts.append(official_meta_desc)
 
         dur_h, dur_d = ScrapingOrchestrator._resolve_durations(
             primary_dur=float(candidate.recommended_duration_hours)
@@ -248,10 +477,16 @@ class CandidateEnricher:
             async with self.llm_semaphore:
                 candidate.reason_to_visit = await self._orchestrator.synthesize_reason_to_visit(
                     name=candidate.poi_name,
-                    primary_snippet=candidate.description or combined_context,
+                    primary_snippet=combined_context,
                     secondary_extracts=secondary_extracts,
                     directive=reason_directive,
+                    existing_description=candidate.description,
+                    travel_style=reason_directive,
                 )
+        elif candidate.reason_to_visit:
+            candidate.reason_to_visit = ScrapingOrchestrator._clean_reason_to_visit_plain_text(
+                candidate.reason_to_visit
+            )
 
         if not candidate.estimated_visit_time_notes or overrides.recalculate_duration:
             async with self.llm_semaphore:
@@ -299,10 +534,12 @@ class CandidateEnricher:
         user_id: UUID,
         candidate_id: UUID,
         job_id: UUID,
+        force_refresh: bool = False,
     ) -> IngestCandidate | None:
         """Enriches candidate fields within an isolated database transaction."""
         session = self._session_factory()
         async with session, session.begin():
+            cache_repo = SqlAlchemyExternalEnrichmentCacheRepository(session)
             candidate_repo = SqlAlchemyIngestCandidateRepository(session)
             cand = await candidate_repo.get_candidate(candidate_id, user_id)
             if not cand:
@@ -356,11 +593,23 @@ class CandidateEnricher:
             domains_row = result.scalar_one_or_none()
             valid_domains = domains_row if domains_row else DEFAULT_DOMAINS
 
+            travel_style_desc = None
+            try:
+                t_stmt = select(UserPreferencesTable.travel_style_description).where(
+                    UserPreferencesTable.user_id == user_id
+                )
+                t_res = await session.execute(t_stmt)
+                t_val = t_res.scalar_one_or_none()
+                if isinstance(t_val, str):
+                    travel_style_desc = t_val
+            except Exception:
+                pass
+
             # 2. Fetch user's prompt directives / customization data
             prompt_repo = SqlAlchemyUserPromptRepository(session)
             directives = await default_prompt_cache.get_or_load(user_id, prompt_repo)
             desc_directive = directives.get(PromptType.DESCRIPTION)
-            reason_directive = directives.get(PromptType.REASON_TO_VISIT)
+            reason_directive = directives.get(PromptType.REASON_TO_VISIT) or travel_style_desc
             time_directive = directives.get(PromptType.TIME_SPENT)
 
             # 3. Fetch user's approved taxonomy tags
@@ -371,82 +620,194 @@ class CandidateEnricher:
             except Exception as exc:
                 logger.debug("Failed loading user tags for %s: %s", user_id, exc)
 
-            # Build location context
+            # Build location and default context
             addr_ctx = ", ".join(
                 filter(None, [cand.street_address, cand.city, cand.state_province, cand.country])
             )
-            combined_context = f"{cand.poi_name} in {addr_ctx}." if addr_ctx else cand.poi_name
+            context_parts = []
+            if addr_ctx:
+                context_parts.append(f"{cand.poi_name} in {addr_ctx}.")
+            else:
+                context_parts.append(cand.poi_name)
+
+            if cand.description and cand.description.strip():
+                clean_init = ScrapingOrchestrator._clean_source_attribution(
+                    cand.description.strip(), name=cand.poi_name
+                )
+                if clean_init and clean_init.lower() != cand.poi_name.lower():
+                    context_parts.append(f"Initial notes: {clean_init}")
+
+            combined_context = " ".join(context_parts)
+
+            if force_refresh:
+                cand.wiki_url = None
+                cand.official_url = None
+                cand.related_websites = []
 
             # Clean any preexisting map service URLs (since POIs already have coordinates)
             if cand.official_url and is_map_service_url(cand.official_url):
                 cand.official_url = None
             if cand.related_websites:
-                cand.related_websites = [
-                    w
-                    for w in cand.related_websites
-                    if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
-                ]
+                cand.related_websites = normalize_related_websites(
+                    cand.related_websites, cand.tags
+                )
+
+            secondary_extracts: list[str] = []
 
             # 4. Web scraping via authorized secondary sources
             wiki_data: dict[str, Any] = {}
+            official_meta_desc: str | None = None
             if not cand.no_websites and any("wikipedia" in d.lower() for d in valid_domains):
                 try:
-                    wiki_adapter = WikipediaAdapter(valid_domains=valid_domains)
-                    wiki_data = await wiki_adapter.augment(query_title=cand.poi_name)
-                    # If direct title was empty, retry with city context if available
-                    if not wiki_data and cand.city:
+                    wiki_adapter = WikipediaAdapter(valid_domains=valid_domains, cache_repo=cache_repo)
+                    candidate_queries = build_progressive_location_queries(
+                        poi_name=cand.poi_name,
+                        city=cand.city,
+                        state_province=cand.state_province,
+                        country=cand.country,
+                    )
+
+                    for q in candidate_queries:
                         wiki_data = await wiki_adapter.augment(
-                            query_title=f"{cand.poi_name} {cand.city}"
+                            query_title=q, force_refresh=force_refresh, poi_name=cand.poi_name
                         )
-                    if not wiki_data and cand.country:
-                        wiki_data = await wiki_adapter.augment(
-                            query_title=f"{cand.poi_name} {cand.country}"
-                        )
+                        if wiki_data:
+                            break
 
                     if wiki_data:
-                        if not cand.wiki_url and wiki_data.get("wikipedia_url"):
-                            cand.wiki_url = wiki_data.get("wikipedia_url")
-                        if not cand.hero_image_url and wiki_data.get("hero_image_url"):
-                            cand.hero_image_url = wiki_data.get("hero_image_url")
-                        if not cand.official_url and wiki_data.get("official_website_url"):
-                            cand.official_url = wiki_data.get("official_website_url")
-                        if not cand.hero_image_url and cand.official_url:
-                            site_hero = await scrape_website_hero_image(cand.official_url)
-                            if site_hero:
-                                cand.hero_image_url = site_hero
+                        if (force_refresh or not cand.wiki_url) and wiki_data.get("wikipedia_url"):
+                            cand.wiki_url = canonicalize_url(wiki_data.get("wikipedia_url"))
+
+                        single_cand_imgs: list[str] = []
+                        if wiki_data.get("hero_image_urls"):
+                            for u in wiki_data["hero_image_urls"]:
+                                if u not in single_cand_imgs:
+                                    single_cand_imgs.append(u)
+                        elif wiki_data.get("hero_image_url"):
+                            single_cand_imgs.append(wiki_data["hero_image_url"])
+
+                        if (force_refresh or not cand.official_url) and wiki_data.get("official_website_url"):
+                            cand.official_url = canonicalize_url(wiki_data.get("official_website_url"))
+
+                        if cand.official_url:
+                            site_meta = await scrape_website_metadata(
+                                cand.official_url,
+                                cache_repo=cache_repo,
+                                force_refresh=force_refresh,
+                            )
+                            for u in site_meta.get("images", []):
+                                if u not in single_cand_imgs:
+                                    single_cand_imgs.append(u)
+                            official_meta_desc = site_meta.get("description")
+
+                        if single_cand_imgs:
+                            raw_geo = dict(cand.raw_geocoding) if isinstance(cand.raw_geocoding, dict) else {}
+                            raw_geo["hero_image_urls"] = single_cand_imgs
+                            cand.raw_geocoding = raw_geo
+                            if force_refresh or not cand.hero_image_url:
+                                cand.hero_image_url = single_cand_imgs[0]
                     if wiki_data.get("related_websites"):
                         existing_urls = {
-                            w["url"].rstrip("/").lower()
+                            canonicalize_url(w["url"]).lower()
                             for w in (cand.related_websites or [])
                             if isinstance(w, dict) and "url" in w
                         }
                         for site in wiki_data["related_websites"]:
                             if isinstance(site, dict) and site.get("url"):
-                                if is_map_service_url(site.get("url"), site.get("name")):
+                                if is_unwanted_website_url(site.get("url"), site.get("name")):
                                     continue
-                                k = site["url"].rstrip("/").lower()
+                                clean_u = canonicalize_url(site["url"])
+                                k = clean_u.lower()
                                 if k not in existing_urls:
                                     existing_urls.add(k)
-                                    cand.related_websites.append(site)
+                                    cand.related_websites.append({"name": site.get("name") or "Website", "url": clean_u})
                 except Exception as exc:
                     logger.debug("Wikipedia enrichment failed for '%s': %s", cand.poi_name, exc)
 
-            # Filter out map services from candidate websites (GPS coordinates already exist)
+            if wiki_data and wiki_data.get("description"):
+                secondary_extracts.append(wiki_data["description"])
+
+            # Secondary lookup for TripAdvisor
+            if not cand.no_websites and (
+                not valid_domains or any("tripadvisor" in d.lower() for d in valid_domains)
+            ):
+                try:
+                    ta_adapter = TripAdvisorAdapter(
+                        valid_domains=valid_domains, cache_repo=cache_repo
+                    )
+                    ta_data = await ta_adapter.augment(
+                        query_title=cand.poi_name,
+                        poi_name=cand.poi_name,
+                        city=cand.city,
+                        country=cand.country,
+                        force_refresh=force_refresh,
+                    )
+                    if ta_data and ta_data.get("related_websites"):
+                        existing_urls = {
+                            canonicalize_url(w["url"]).lower()
+                            for w in (cand.related_websites or [])
+                            if isinstance(w, dict) and "url" in w
+                        }
+                        for site in ta_data["related_websites"]:
+                            if isinstance(site, dict) and site.get("url"):
+                                if is_unwanted_website_url(site.get("url"), site.get("name")):
+                                    continue
+                                clean_u = canonicalize_url(site["url"])
+                                k = clean_u.lower()
+                                if k not in existing_urls:
+                                    existing_urls.add(k)
+                                    cand.related_websites.append(
+                                        {"name": site.get("name") or "Tripadvisor", "url": clean_u}
+                                    )
+                except Exception as exc:
+                    logger.debug("TripAdvisor enrichment failed for '%s': %s", cand.poi_name, exc)
+
+            # Secondary lookup for Hillman Wonders
+            is_hillman_allowed = (
+                not valid_domains
+                or any("hillman" in d.lower() for d in valid_domains)
+                or any("hillman" in str(t).lower() for t in (cand.tags or []))
+                or any(d in valid_domains for d in ["wikipedia.org", "tripadvisor.com", "atlasobscura.com"])
+            )
+            if not cand.no_websites and is_hillman_allowed:
+                try:
+                    hillman_adapter = HillmanWondersAdapter(
+                        valid_domains=valid_domains, cache_repo=cache_repo
+                    )
+                    hillman_data = await hillman_adapter.augment(
+                        query_title=cand.poi_name, force_refresh=force_refresh
+                    )
+                    if hillman_data and hillman_data.get("related_websites"):
+                        existing_urls = {
+                            canonicalize_url(w["url"]).lower()
+                            for w in (cand.related_websites or [])
+                            if isinstance(w, dict) and "url" in w
+                        }
+                        for site in hillman_data["related_websites"]:
+                            if isinstance(site, dict) and site.get("url"):
+                                if is_unwanted_website_url(site.get("url"), site.get("name")):
+                                    continue
+                                clean_u = canonicalize_url(site["url"])
+                                k = clean_u.lower()
+                                if k not in existing_urls:
+                                    existing_urls.add(k)
+                                    cand.related_websites.append({"name": site.get("name") or "Hillman Wonders", "url": clean_u})
+                        if hillman_data.get("description"):
+                            secondary_extracts.append(hillman_data["description"])
+                except Exception as exc:
+                    logger.debug("Hillman Wonders enrichment failed for '%s': %s", cand.poi_name, exc)
+
+            # Filter out map services from candidate websites and canonicalize Hillman Wonders
             if cand.official_url and is_map_service_url(cand.official_url):
                 cand.official_url = None
-            if cand.related_websites:
-                cand.related_websites = [
-                    w
-                    for w in cand.related_websites
-                    if isinstance(w, dict) and not is_map_service_url(w.get("url"), w.get("name"))
-                ]
+            cand.related_websites = normalize_related_websites(
+                cand.related_websites, cand.tags
+            )
 
             if not cand.official_url and not cand.wiki_url and not cand.related_websites:
                 cand.no_websites = True
-
-            secondary_extracts = (
-                [wiki_data["description"]] if (wiki_data and wiki_data.get("description")) else []
-            )
+            if official_meta_desc:
+                secondary_extracts.append(official_meta_desc)
 
             # 5. Duration hours and days inference with pacing preference
             dur_h, dur_d = ScrapingOrchestrator._resolve_durations(
@@ -462,13 +823,13 @@ class CandidateEnricher:
             dur_h = dur_h or 2.0
             dur_d = max(1, dur_d or 1)
 
-            if cand.recommended_duration_hours is None:
+            if cand.recommended_duration_hours is None or force_refresh:
                 cand.recommended_duration_hours = Decimal(str(dur_h))
-            if cand.recommended_visit_days is None or cand.recommended_visit_days < 1:
+            if cand.recommended_visit_days is None or cand.recommended_visit_days < 1 or force_refresh:
                 cand.recommended_visit_days = dur_d
 
             # 6. AI Description synthesis
-            if not cand.description:
+            if not cand.description or force_refresh:
                 cand.description = await self._orchestrator.synthesize_summary(
                     name=cand.poi_name,
                     primary_snippet=combined_context,
@@ -477,16 +838,22 @@ class CandidateEnricher:
                 )
 
             # 7. AI Reason to Visit synthesis
-            if not cand.reason_to_visit:
+            if not cand.reason_to_visit or force_refresh:
                 cand.reason_to_visit = await self._orchestrator.synthesize_reason_to_visit(
                     name=cand.poi_name,
-                    primary_snippet=cand.description or combined_context,
+                    primary_snippet=combined_context,
                     secondary_extracts=secondary_extracts,
                     directive=reason_directive,
+                    existing_description=cand.description,
+                    travel_style=reason_directive,
+                )
+            elif cand.reason_to_visit:
+                cand.reason_to_visit = ScrapingOrchestrator._clean_reason_to_visit_plain_text(
+                    cand.reason_to_visit
                 )
 
             # 8. AI Visit Duration Reasoning Notes synthesis
-            if not cand.estimated_visit_time_notes:
+            if not cand.estimated_visit_time_notes or force_refresh:
                 cand.estimated_visit_time_notes = (
                     await self._orchestrator.synthesize_visit_duration_notes(
                         name=cand.poi_name,

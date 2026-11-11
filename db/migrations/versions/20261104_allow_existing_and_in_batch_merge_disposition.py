@@ -65,3 +65,4 @@ def downgrade() -> None:
             "ingest_candidates",
             "recommended_disposition IN ('accept', 'ignore', 'update_existing', 'sublocation', 'exclude')",
         )
+

@@ -162,10 +162,15 @@ export async function reverseGeocode(
 export interface ForwardGeocodeResponse {
   latitude: number | null;
   longitude: number | null;
+  resolved_name?: string | null;
   street: string | null;
   city: string | null;
+  locality?: string | null;
   state_province: string | null;
+  admin_level_1?: string | null;
+  admin_level_2?: string | null;
   country: string | null;
+  country_code?: string | null;
   postal_code: string | null;
   cached: boolean;
 }
@@ -175,6 +180,7 @@ export interface ForwardGeocodeResponse {
  */
 export async function forwardGeocode(
   query: string,
+  country?: string,
 ): Promise<ForwardGeocodeResponse> {
   const trimmed = query.trim();
   if (!trimmed) {
@@ -189,7 +195,38 @@ export async function forwardGeocode(
       cached: false,
     };
   }
+  const countryParam = country?.trim()
+    ? `&country=${encodeURIComponent(country.trim())}`
+    : "";
   return await apiFetch<ForwardGeocodeResponse>(
-    `/api/pois/geocode/forward?q=${encodeURIComponent(trimmed)}`,
+    `/api/pois/geocode/forward?q=${encodeURIComponent(trimmed)}${countryParam}`,
+    { timeoutMs: 45000 },
+  );
+}
+
+export interface ExtractUrlCoordinatesResponse {
+  latitude: number | null;
+  longitude: number | null;
+  place_name: string | null;
+  extraction_source: string;
+  street: string | null;
+  city: string | null;
+  locality?: string | null;
+  state_province: string | null;
+  admin_level_1?: string | null;
+  admin_level_2?: string | null;
+  country: string | null;
+  postal_code: string | null;
+  country_code: string | null;
+}
+
+/**
+ * Extracts coordinates and reverse-geocoded address from a webpage URL (Wikipedia, TripAdvisor, etc.).
+ */
+export async function extractCoordinatesFromUrl(
+  url: string,
+): Promise<ExtractUrlCoordinatesResponse> {
+  return await apiFetch<ExtractUrlCoordinatesResponse>(
+    `/api/pois/geocode/extract-url?url=${encodeURIComponent(url.trim())}`,
   );
 }

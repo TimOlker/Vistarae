@@ -15,9 +15,59 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from "vitest";
-import { inferWebsiteName, isMapServiceWebsite } from "../../utils/websiteInference";
+import {
+  inferWebsiteName,
+  isMapServiceWebsite,
+  normalizeUrl,
+  reconstructWebsitesList,
+} from "../../utils/websiteInference";
 
 describe("websiteInference", () => {
+  describe("normalizeUrl", () => {
+    it("resolves percent-encoding and strips trailing slashes", () => {
+      expect(normalizeUrl("https://en.wikipedia.org/wiki/Zwinger_%28Dresden%29/")).toBe(
+        "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+      );
+      expect(normalizeUrl("https://en.wikipedia.org/wiki/Zwinger_(Dresden)")).toBe(
+        "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+      );
+      expect(normalizeUrl("  https://www.dresden.de/  ")).toBe("https://www.dresden.de");
+      expect(normalizeUrl("https://www.skd.museum/en/besuch/zwinger-mit-semperbau/")).toBe(
+        "https://www.skd.museum/en/besuch/zwinger-mit-semperbau",
+      );
+    });
+  });
+
+  describe("reconstructWebsitesList", () => {
+    it("deduplicates encoded vs unencoded URLs and normalizes trailing slashes", () => {
+      const cand = {
+        official_url: "https://www.skd.museum/en/besuch/zwinger-mit-semperbau/",
+        wiki_url: "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+        related_websites: [
+          { name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Zwinger_%28Dresden%29" },
+          { name: "Official Website", url: "https://www.skd.museum/en/besuch/zwinger-mit-semperbau" },
+          { name: "Hillman Wonders", url: "https://hillmanswonders.com/zwinger.html" },
+        ],
+        tags: ["Historic"],
+      };
+
+      const sites = reconstructWebsitesList(cand);
+      expect(sites).toEqual([
+        {
+          name: "Official Website",
+          url: "https://www.skd.museum/en/besuch/zwinger-mit-semperbau",
+        },
+        {
+          name: "Wikipedia",
+          url: "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+        },
+        {
+          name: "Hillman Wonders",
+          url: "https://www.hillmanswonders.com/zwinger.html",
+        },
+      ]);
+    });
+  });
   it("resolves known domains to human-readable names", () => {
     expect(inferWebsiteName("https://en.wikipedia.org/wiki/Roman_baths")).toBe("Wikipedia");
     expect(inferWebsiteName("https://www.wikidata.org/wiki/Q12345")).toBe("Wikidata");

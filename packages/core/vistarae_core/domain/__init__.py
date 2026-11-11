@@ -19,6 +19,7 @@
 from vistarae_core.domain.entities import (
     POI,
     DuplicatePayloadItem,
+    ExternalEnrichmentCacheEntry,
     GeocodingCacheEntry,
     IdempotencyRecord,
     IngestCandidate,
@@ -87,6 +88,7 @@ __all__ = [
     "DuplicateTriageStatus",
     "EnrichmentStatus",
     "ExportFormat",
+    "ExternalEnrichmentCacheEntry",
     "FileTooLargeError",
     "GeocodingCacheEntry",
     "GeocodingTimeoutError",

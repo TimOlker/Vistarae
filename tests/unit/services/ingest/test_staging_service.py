@@ -378,7 +378,7 @@ async def test_stage_candidates_poi_name_only_forward_geocoding(
     assert item.city == "Wadi Musa"
     assert item.country == "Jordan"
     assert item.recommended_disposition == IngestDisposition.ACCEPT
-    mock_geocoding_service.geocode.assert_awaited_with("Petra")
+    mock_geocoding_service.geocode.assert_awaited_with("Petra", country_hint=None)
 
 
 @pytest.mark.asyncio

@@ -42,6 +42,7 @@ from vistarae_core.schemas.scraping import (
 )
 from vistarae_core.services.address_normalizer import AddressNormalizer
 
+from services.poi.services.enhanced_location_resolver import EnhancedLocationResolver
 from services.poi.services.geocode_service import ReverseGeocodeService
 
 logger = logging.getLogger("vistarae.geocoding")
@@ -84,17 +85,23 @@ class GeocodingService:
             http_client=http_client,
             timeout_seconds=timeout_seconds,
         )
+        self._enhanced_resolver = EnhancedLocationResolver(
+            http_client=http_client,
+            timeout_seconds=timeout_seconds,
+        )
 
     async def geocode(
         self,
         query: str,
         transboundary_hints: str | None = None,
+        country_hint: str | None = None,
     ) -> tuple[float | None, float | None, list[AddressRecord], bool]:
         """Geocodes a destination name or address query string.
 
         Args:
             query: Location query string.
             transboundary_hints: Optional text hints indicating multiple traversed divisions.
+            country_hint: Optional country hint to aid disambiguation.
 
         Returns:
             Tuple of (latitude, longitude, list of AddressRecords, is_cached_bool).
@@ -102,20 +109,30 @@ class GeocodingService:
         if not query.strip():
             return None, None, [], False
 
+        # Extract country hint from query if not explicitly passed (e.g. "Barakesh, Yemen")
+        inferred_country = country_hint
+        if not inferred_country and "," in query:
+            parts = [p.strip() for p in query.split(",") if p.strip()]
+            if len(parts) >= 2:
+                inferred_country = parts[-1]
+
         query_hash = compute_query_hash(query)
 
         # 1. Pre-check PostGIS geocoding_cache (REQ-EXT-022, REQ-EXT-027)
         cached_entry = await self._cache_repo.get(query_hash)
-        if cached_entry is not None:
+        if cached_entry is not None and cached_entry.status == "SUCCESS":
             logger.info("MSG ->| Geocache forward hit for hash=%s", query_hash)
-            if cached_entry.status == "NOT_FOUND":
-                return None, None, [], True
             try:
                 data = json.loads(cached_entry.formatted_address)
                 lat = cached_entry.lat
                 lon = cached_entry.lon
                 raw_addrs = data.get("addresses", [])
                 addresses = [AddressRecord(**a) for a in raw_addrs]
+                cached_res_name = data.get("resolved_name")
+                if cached_res_name and addresses:
+                    if addresses[0].raw_geocoding is None:
+                        addresses[0].raw_geocoding = {}
+                    addresses[0].raw_geocoding["resolved_name"] = cached_res_name
                 return lat, lon, addresses, True
             except Exception as exc:
                 logger.warning("Could not deserialize cached geocoding entry: %s", exc)
@@ -143,6 +160,7 @@ class GeocodingService:
         lat: float | None = None
         lon: float | None = None
         base_address: AddressRecord | None = None
+        resolved_canonical_name: str | None = None
 
         try:
             if self._client is not None:
@@ -181,10 +199,104 @@ class GeocodingService:
         except Exception as exc:
             logger.warning("MSG   |<- Nominatim search request failed: %s", exc)
 
+        # 3b. Enhanced location resolution fallback if Nominatim missed (Wikipedia, Wikidata, Gemini)
+        if lat is None or lon is None:
+            logger.info("MSG   |-> Nominatim miss for query='%s'; attempting enhanced location resolution", query)
+            try:
+                candidates = await self._enhanced_resolver.resolve_canonical_poi(
+                    query, country_hint=inferred_country
+                )
+                for cand in candidates:
+                    if cand.latitude is not None and cand.longitude is not None:
+                        lat = cand.latitude
+                        lon = cand.longitude
+                        resolved_canonical_name = cand.canonical_name
+                        try:
+                            rev = await self._reverse_service.reverse_geocode(lat, lon)
+                            rev_cc = rev.country_code
+                            if not rev_cc and rev.country:
+                                mapped = AddressNormalizer.country_to_iso_code(rev.country)
+                                if mapped != "XX":
+                                    rev_cc = mapped
+                            base_address = AddressNormalizer.normalize_address(
+                                AddressRecord(
+                                    street=rev.street,
+                                    city=rev.city,
+                                    state_province=rev.state_province,
+                                    country=rev.country,
+                                    postal_code=rev.postal_code,
+                                    country_code=rev_cc,
+                                    admin_level_1=rev.state_province,
+                                    admin_level_2=rev.city,
+                                    locality=rev.city,
+                                    raw_geocoding={"resolved_name": cand.canonical_name, "source": cand.source},
+                                )
+                            )
+                        except Exception as rev_err:
+                            logger.debug("Reverse geocode for candidate failed: %s", rev_err)
+                        break
+                    elif cand.canonical_name and cand.canonical_name.strip().lower() != query.strip().lower():
+                        await self._rate_limiter.acquire()
+                        sub_q = (
+                            f"{cand.canonical_name}, {cand.country}"
+                            if cand.country
+                            else cand.canonical_name
+                        )
+                        logger.info("MSG   |-> Re-querying Nominatim with canonical name: '%s'", sub_q)
+                        sub_params = {**params, "q": sub_q}
+                        try:
+                            if self._client is not None:
+                                sub_resp = await self._client.get(
+                                    url, params=sub_params, headers=headers, timeout=self._timeout_seconds
+                                )
+                            else:
+                                async with httpx.AsyncClient() as client:
+                                    sub_resp = await client.get(
+                                        url, params=sub_params, headers=headers, timeout=self._timeout_seconds
+                                    )
+                            if sub_resp.status_code == 200:
+                                sub_results = sub_resp.json()
+                                if sub_results and len(sub_results) > 0:
+                                    first = sub_results[0]
+                                    lat = float(first["lat"])
+                                    lon = float(first["lon"])
+                                    parsed = AddressNormalizer.parse_nominatim_iso_address(first)
+                                    first["resolved_name"] = cand.canonical_name
+                                    first["source"] = cand.source
+                                    resolved_canonical_name = cand.canonical_name
+                                    base_address = AddressNormalizer.normalize_address(
+                                        AddressRecord(
+                                            street=parsed["street_address"],
+                                            city=parsed["locality"],
+                                            state_province=parsed["admin_level_1"],
+                                            country=parsed["country"],
+                                            postal_code=parsed["postal_code"],
+                                            country_code=parsed["country_code"],
+                                            admin_level_1=parsed["admin_level_1"],
+                                            admin_level_2=parsed["admin_level_2"],
+                                            locality=parsed["locality"],
+                                            raw_geocoding=first,
+                                        )
+                                    )
+                                    break
+                        except Exception as sub_err:
+                            logger.debug("Nominatim canonical query '%s' failed: %s", sub_q, sub_err)
+            except Exception as res_err:
+                logger.warning("Enhanced location resolution failed for '%s': %s", query, res_err)
+
         # 4. Reverse geocoding fallback for missing street/administrative components (REQ-EXT-024)
         if lat is not None and lon is not None and (not base_address or not base_address.country):
             try:
                 rev = await self._reverse_service.reverse_geocode(lat, lon)
+                raw_geo = base_address.raw_geocoding if base_address else {}
+                if resolved_canonical_name:
+                    raw_geo = raw_geo or {}
+                    raw_geo["resolved_name"] = resolved_canonical_name
+                rev_cc = rev.country_code
+                if not rev_cc and rev.country:
+                    mapped = AddressNormalizer.country_to_iso_code(rev.country)
+                    if mapped != "XX":
+                        rev_cc = mapped
                 base_address = AddressNormalizer.normalize_address(
                     AddressRecord(
                         street=rev.street,
@@ -192,6 +304,11 @@ class GeocodingService:
                         state_province=rev.state_province,
                         country=rev.country,
                         postal_code=rev.postal_code,
+                        country_code=rev_cc,
+                        admin_level_1=rev.state_province,
+                        admin_level_2=rev.city,
+                        locality=rev.city,
+                        raw_geocoding=raw_geo,
                     )
                 )
             except Exception as exc:
@@ -206,12 +323,21 @@ class GeocodingService:
         else:
             addresses = AddressNormalizer.expand_transboundary_addresses(division_source)
 
+        if resolved_canonical_name and addresses:
+            for a in addresses:
+                if not a.raw_geocoding:
+                    a.raw_geocoding = {}
+                a.raw_geocoding["resolved_name"] = resolved_canonical_name
+
         # 6. Cache result (positive or negative) with TTL (REQ-EXT-022, REQ-EXT-027)
         now = datetime.now(UTC)
         if lat is not None and lon is not None and addresses:
-            cache_payload = {
+            cache_payload: dict[str, Any] = {
                 "addresses": [a.model_dump() for a in addresses],
             }
+            if resolved_canonical_name:
+                cache_payload["resolved_name"] = resolved_canonical_name
+
             entry = GeocodingCacheEntry(
                 query_hash=query_hash,
                 lat=round(lat, 5),
@@ -222,6 +348,20 @@ class GeocodingService:
                 expires_at=now + timedelta(days=90),
             )
             await self._cache_repo.set(entry)
+
+            # If resolved canonical name is distinct from query, cache under canonical hash too
+            if resolved_canonical_name and resolved_canonical_name.strip().lower() != query.strip().lower():
+                canonical_hash = compute_query_hash(resolved_canonical_name)
+                canonical_entry = GeocodingCacheEntry(
+                    query_hash=canonical_hash,
+                    lat=round(lat, 5),
+                    lon=round(lon, 5),
+                    formatted_address=json.dumps(cache_payload),
+                    status="SUCCESS",
+                    created_at=now,
+                    expires_at=now + timedelta(days=90),
+                )
+                await self._cache_repo.set(canonical_entry)
         else:
             # Negative caching: cache NOT_FOUND with 30-day TTL to avoid re-querying Nominatim for non-existent POIs
             entry = GeocodingCacheEntry(

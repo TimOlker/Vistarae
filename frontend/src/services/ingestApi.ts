@@ -26,6 +26,7 @@ export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"],
   updated_at?: string;
   update_coordinates?: boolean;
   is_skipped?: boolean;
+  hero_image_urls?: string[];
   [key: string]: any;
 };
 export type CandidateUpdateRequest = components["schemas"]["CandidateUpdateRequest"];
@@ -136,22 +137,28 @@ export const ingestApi = {
   async enrichSingleCandidate(
     jobId: string,
     candidateId: string,
+    forceRefresh?: boolean,
   ): Promise<CandidateItem> {
+    const query = forceRefresh ? "?force_refresh=true" : "";
     return apiFetch<CandidateItem>(
-      `/api/ingest/jobs/${jobId}/candidates/${candidateId}/enrich`,
+      `/api/ingest/jobs/${jobId}/candidates/${candidateId}/enrich${query}`,
       {
         method: "POST",
+        timeoutMs: 60000,
       },
     );
   },
 
   async enrichAllCandidates(
     jobId: string,
+    forceRefresh?: boolean,
   ): Promise<{ job_id: string; message: string; enqueued_count: number }> {
+    const query = forceRefresh ? "?force_refresh=true" : "";
     return apiFetch<{ job_id: string; message: string; enqueued_count: number }>(
-      `/api/ingest/jobs/${jobId}/enrich-all`,
+      `/api/ingest/jobs/${jobId}/enrich-all${query}`,
       {
         method: "POST",
+        timeoutMs: 30000,
       },
     );
   },

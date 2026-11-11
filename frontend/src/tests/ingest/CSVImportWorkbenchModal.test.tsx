@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
 // Copyright (c) 2026 Tim Olker
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +16,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+
+afterEach(() => {
+  cleanup();
+});
 import { CSVImportWorkbenchModal } from "../../components/ingest/CSVImportWorkbenchModal";
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { ToastProvider } from "../../context/ToastContext";
@@ -85,6 +91,19 @@ vi.mock("../../services/geocodeService", () => ({
     admin_level_1: "Shizuoka Prefecture",
     country: "Japan",
     country_code: "JP",
+    cached: false,
+  }),
+  extractCoordinatesFromUrl: vi.fn().mockResolvedValue({
+    latitude: 30.42188,
+    longitude: 108.183895,
+    place_name: "Shibaozhai",
+    extraction_source: "geohack_link",
+    street: "Shibao Town",
+    city: "Zhong County",
+    state_province: "Chongqing",
+    country: "China",
+    postal_code: "404300",
+    country_code: "CN",
   }),
   forwardSearch: vi.fn().mockResolvedValue([
     {
@@ -109,6 +128,16 @@ vi.mock("../../services/geocodeService", () => ({
       isSpecificLandmark: false,
     },
   ]),
+  forwardGeocode: vi.fn().mockResolvedValue({
+    latitude: 14.08253,
+    longitude: 44.40778,
+    resolved_name: "Baraqish",
+    city: "Baraqish",
+    state_province: "Jawf Governorate",
+    country: "Yemen",
+    country_code: "YE",
+    cached: false,
+  }),
 }));
 
 describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
@@ -191,13 +220,16 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     });
   });
 
-  const renderModal = () =>
+  const renderModal = (
+    props?: Partial<React.ComponentProps<typeof CSVImportWorkbenchModal>>,
+  ) =>
     render(
       <ToastProvider>
         <CSVImportWorkbenchModal
           jobId="job-1"
           isOpen={true}
           onClose={vi.fn()}
+          {...props}
         />
       </ToastProvider>,
     );
@@ -321,6 +353,30 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       expect(ingestApi.enrichSingleCandidate).toHaveBeenCalledWith(
         "job-1",
         "cand-1",
+        false,
+      );
+    });
+  });
+
+  it("invokes single-POI recalculation with force refresh when button is clicked", async () => {
+    vi.mocked(ingestApi.enrichSingleCandidate).mockResolvedValue({
+      ...mockCandidates[0],
+      description: "Force refreshed description of Mount Fuji",
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("recalculate-force-refresh-btn")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("recalculate-force-refresh-btn"));
+
+    await waitFor(() => {
+      expect(ingestApi.enrichSingleCandidate).toHaveBeenCalledWith(
+        "job-1",
+        "cand-1",
+        true,
       );
     });
   });
@@ -832,5 +888,538 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     expect(rationaleTextarea).toHaveValue(
       "Disposition: accept\nRationale: Unique coordinate location verified\nMissing: Photo, Street Address, Websites",
     );
+  });
+
+  it("highlights fields in light green (#f0fdf4) when matching existing DB POI or when import data has no value", async () => {
+    const existingDbPoi = {
+      id: "db-poi-1",
+      name: "Existing Petra",
+      latitude: 30.3285,
+      longitude: 35.4444,
+      street_address: "Petra Main Trail",
+      city: "Wadi Musa",
+      country: "Jordan",
+      country_code: "JO",
+      tags: ["Ancient", "Wonder"],
+      hero_image_url: "https://example.com/petra.jpg",
+      description: "Ancient carved city",
+      reason_to_visit: "Incredible rock-cut architecture",
+      photo_directories: ["photos/petra"],
+      dates_visited: ["2023-05-10"],
+      related_websites: [{ name: "Official", url: "https://visitpetra.jo" }],
+    };
+
+    const candidateWithMatches: CandidateItem = {
+      id: "cand-1",
+      job_id: "job-1",
+      row_index: 0,
+      poi_name: "Existing Petra", // Exact match -> #f0fdf4
+      recommended_disposition: "update_existing",
+      user_disposition: null,
+      matched_existing_poi_id: "db-poi-1",
+      parent_poi_id: null,
+      parent_candidate_id: null,
+      merge_target_id: null,
+      latitude: 30.3285, // Exact match -> #f0fdf4
+      longitude: 35.4444, // Exact match -> #f0fdf4
+      street_address: "New Differing Address", // Differing -> normal
+      city: "Wadi Musa", // Exact match -> #f0fdf4
+      locality: "Wadi Musa",
+      admin_level_2: null, // Empty in candidate -> #f0fdf4 (no data = no change)
+      state_province: null, // Empty in candidate -> #f0fdf4
+      admin_level_1: null,
+      postal_code: null, // Empty in candidate -> #f0fdf4
+      country_code: "JO", // Match -> #f0fdf4
+      country: "Jordan", // Match -> #f0fdf4
+      hero_image_url: "https://example.com/petra.jpg", // Match -> #f0fdf4
+      official_url: null,
+      related_websites: [], // Empty in candidate -> #f0fdf4
+      no_websites: false,
+      confidence_score: 95,
+      disposition_justification: "Matches existing POI 'Existing Petra'",
+      tags: ["Ancient"], // Subset of target -> union matches -> #f0fdf4
+      photo_directory: "",
+      photo_directories: [], // Empty -> #f0fdf4
+      dates_visited: [], // Empty -> #f0fdf4
+      description: "Different description", // Differing -> normal
+      reason_to_visit: "Incredible rock-cut architecture", // Match -> #f0fdf4
+      phase_state: "phase_1_triage" as any,
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [candidateWithMatches],
+    });
+
+    renderModal({ existingPOIs: [existingDbPoi as any] });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Existing Petra");
+    });
+
+    // POI Name matches -> light green #f0fdf4
+    const nameInput = screen.getByTestId("editor-poi-name-input");
+    expect(nameInput).toHaveStyle({ backgroundColor: "#f0fdf4" });
+
+    // Latitude matches -> light green
+    const latInput = screen.getByTestId("latitude-input");
+    expect(latInput).toHaveStyle({ backgroundColor: "#f0fdf4" });
+
+    // City matches -> light green
+    const cityInput = screen.getByTestId("city-input");
+    expect(cityInput).toHaveStyle({ backgroundColor: "#f0fdf4" });
+
+    // Street address differs -> light yellow #fefce8
+    const streetInput = screen.getByTestId("street-address-input");
+    expect(streetInput).toHaveStyle({ backgroundColor: "#fefce8" });
+
+    // Postal code is empty in import -> considered no change -> light green #f0fdf4
+    const postalInput = screen.getByTestId("postal-code-input");
+    expect(postalInput).toHaveStyle({ backgroundColor: "#f0fdf4" });
+
+    // Description differs -> light yellow #fefce8
+    const descInput = screen.getByTestId("description-textarea");
+    expect(descInput).toHaveStyle({ backgroundColor: "#fefce8" });
+
+    // Reason to visit matches -> light green
+    const reasonInput = screen.getByTestId("reason-to-visit-textarea");
+    expect(reasonInput).toHaveStyle({ backgroundColor: "#f0fdf4" });
+
+    // Matched existing DB POI card is visible
+    expect(screen.getByTestId("matched-existing-poi-card")).toBeInTheDocument();
+
+    // Verify original value is displayed in parenthesis on differing field labels
+    expect(screen.getByTestId("field-diff-current-value-street_address")).toHaveTextContent(
+      "(Current: Petra Main Trail)",
+    );
+    expect(screen.getByTestId("field-diff-current-value-description")).toHaveTextContent(
+      "(Current: Ancient carved city)",
+    );
+
+    // Verify matching fields do not render (Current: ...)
+    expect(screen.queryByTestId("field-diff-current-value-poi_name")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("field-diff-current-value-city")).not.toBeInTheDocument();
+  });
+
+  it("keeps standard background on candidate not associated with any existing POI", async () => {
+    const unassociatedCandidate: CandidateItem = {
+      id: "cand-new",
+      job_id: "job-1",
+      row_index: 0,
+      poi_name: "Brand New Spot",
+      recommended_disposition: "accept",
+      user_disposition: null,
+      matched_existing_poi_id: null,
+      parent_poi_id: null,
+      parent_candidate_id: null,
+      merge_target_id: null,
+      latitude: 40.7128,
+      longitude: -74.006,
+      street_address: "123 Broadway",
+      city: "New York",
+      locality: "New York",
+      admin_level_2: null,
+      state_province: "NY",
+      admin_level_1: "NY",
+      postal_code: "10001",
+      country_code: "US",
+      country: "United States",
+      hero_image_url: null,
+      official_url: null,
+      related_websites: [],
+      no_websites: false,
+      confidence_score: 90,
+      disposition_justification: "Unique location",
+      tags: ["City"],
+      photo_directory: "",
+      photo_directories: [],
+      dates_visited: [],
+      description: "A brand new location",
+      reason_to_visit: "Great views",
+      phase_state: "phase_1_triage" as any,
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [unassociatedCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Brand New Spot");
+    });
+
+    const nameInput = screen.getByTestId("editor-poi-name-input");
+    expect(nameInput.style.backgroundColor).not.toBe("rgb(240, 253, 244)");
+    expect(nameInput.style.backgroundColor).not.toBe("rgb(254, 252, 232)");
+    expect(screen.queryByTestId("matched-existing-poi-card")).not.toBeInTheDocument();
+  });
+
+  it("detects Google Maps URL in search input and populates coordinates and address on Find", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      street: "Ksar El Atteuf",
+      city: "Ghardaïa",
+      locality: "Ghardaïa",
+      state_province: "Ghardaïa",
+      admin_level_1: "Ghardaïa Province",
+      admin_level_2: null,
+      postal_code: "47000",
+      country_code: "DZ",
+      country: "Algeria",
+      cached: false,
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search-input")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId("location-search-input");
+    const gmapsUrl =
+      "https://www.google.com/maps/place/M'Zab/@32.4756753,3.7051475,5338m/data=!3m1!1e3!4m6!3m5!1s0x12642629edfa882d:0x21a37c0afb90d5fb!8m2!3d32.4727002!4d3.7082024!16s%2Fg%2F11ckr9rrns?entry=ttu&g_ep=EgoyMDI2MTEwMS4wIKXMDSoASAFQAw%3D%3D";
+
+    fireEvent.change(searchInput, { target: { value: gmapsUrl } });
+    fireEvent.click(screen.getByTestId("find-location-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latitude-input")).toHaveValue("32.472700");
+      expect(screen.getByTestId("longitude-input")).toHaveValue("3.708202");
+      expect(screen.getByTestId("street-address-input")).toHaveValue("Ksar El Atteuf");
+      expect(screen.getByTestId("city-input")).toHaveValue("Ghardaïa");
+      expect(screen.getByTestId("country-input")).toHaveValue("Algeria");
+    });
+  });
+
+  it("detects GeoHack URL in search input and populates coordinates and address on Find", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      street: "Shibao Town",
+      city: "Zhong County",
+      locality: "Zhong County",
+      state_province: "Chongqing",
+      admin_level_1: "Chongqing Municipality",
+      admin_level_2: null,
+      postal_code: "404300",
+      country_code: "CN",
+      country: "China",
+      cached: false,
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search-input")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId("location-search-input");
+    const geohackUrl =
+      "https://geohack.toolforge.org/geohack.php?pagename=Shibaozhai&params=30.42187999245106_N_108.18389453817412_E_region:CN-CQ_type:landmark_source:GoogleMaps";
+
+    fireEvent.change(searchInput, { target: { value: geohackUrl } });
+    fireEvent.click(screen.getByTestId("find-location-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latitude-input")).toHaveValue("30.421880");
+      expect(screen.getByTestId("longitude-input")).toHaveValue("108.183895");
+      expect(screen.getByTestId("street-address-input")).toHaveValue("Shibao Town");
+      expect(screen.getByTestId("city-input")).toHaveValue("Zhong County");
+      expect(screen.getByTestId("country-input")).toHaveValue("China");
+    });
+  });
+
+  it("detects Webpage URL (Wikipedia) and extracts coordinates and address on Find", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search-input")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId("location-search-input");
+    const wikiUrl =
+      "https://en.wikipedia.org/wiki/Shibaozhai#:~:text=At%20the%20top%20of%20Shibaozhai,called%20the%20Purple%20Rain%20Pavilion.";
+
+    fireEvent.change(searchInput, { target: { value: wikiUrl } });
+    fireEvent.click(screen.getByTestId("find-location-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("latitude-input")).toHaveValue("30.421880");
+      expect(screen.getByTestId("longitude-input")).toHaveValue("108.183895");
+      expect(screen.getByTestId("city-input")).toHaveValue("Zhong County");
+      expect(screen.getByTestId("country-input")).toHaveValue("China");
+    });
+  });
+
+  it("prompts the user for POI name change when Find returns a different name and updates POI name on Yes", async () => {
+    const { forwardSearch } = await import("../../services/geocodeService");
+    // Simulate Nominatim returning 0 results so it cascades to forwardGeocode
+    vi.mocked(forwardSearch).mockResolvedValueOnce([]);
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search-input")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId("location-search-input");
+    fireEvent.change(searchInput, { target: { value: "Barakesh" } });
+    fireEvent.click(screen.getByTestId("find-location-btn"));
+
+    // Name change prompt modal should appear
+    await waitFor(() => {
+      expect(screen.getByTestId("name-change-prompt-modal")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("recommended-name-display")).toHaveTextContent("Baraqish");
+
+    // Click "Yes, Update Name"
+    fireEvent.click(screen.getByTestId("name-change-yes-btn"));
+
+    // Prompt closes and POI Name input is updated
+    await waitFor(() => {
+      expect(screen.queryByTestId("name-change-prompt-modal")).not.toBeInTheDocument();
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Baraqish");
+    });
+  });
+
+  it("allows user to dismiss name change prompt without modifying POI name on No", async () => {
+    const { forwardSearch } = await import("../../services/geocodeService");
+    vi.mocked(forwardSearch).mockResolvedValueOnce([]);
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search-input")).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId("location-search-input");
+    fireEvent.change(searchInput, { target: { value: "Barakesh" } });
+    fireEvent.click(screen.getByTestId("find-location-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("name-change-prompt-modal")).toBeInTheDocument();
+    });
+
+    // Click "No, Keep Current Name"
+    fireEvent.click(screen.getByTestId("name-change-no-btn"));
+
+    // Modal closes and original POI name remains
+    await waitFor(() => {
+      expect(screen.queryByTestId("name-change-prompt-modal")).not.toBeInTheDocument();
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Mount Fuji");
+    });
+  });
+
+  it("does not close when clicking the backdrop or pressing Escape, only closes when close button is clicked", async () => {
+    const handleClose = vi.fn();
+    renderModal({ onClose: handleClose });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("import-staging-workbench-modal"),
+      ).toBeInTheDocument();
+    });
+
+    const backdrop = document.querySelector(".modal-backdrop") as HTMLElement;
+    expect(backdrop).toBeInTheDocument();
+
+    // Click outside / on the backdrop
+    fireEvent.click(backdrop);
+    expect(handleClose).not.toHaveBeenCalled();
+
+    // Press Escape
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(handleClose).not.toHaveBeenCalled();
+
+    // Click the X close button
+    const closeBtn = screen.getByTestId("modal-close-btn");
+    fireEvent.click(closeBtn);
+    expect(handleClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults to first hero image and allows rotating through candidate images", async () => {
+    const candidateWithMultipleImages: CandidateItem = {
+      id: "cand-img-1",
+      job_id: "job-1",
+      row_index: 1,
+      poi_name: "Baraqish",
+      recommended_disposition: "accept",
+      user_disposition: null,
+      matched_existing_poi_id: null,
+      parent_poi_id: null,
+      latitude: 16.0,
+      longitude: 44.8,
+      street_address: "Ancient Ruins",
+      city: "Baraqish",
+      state_province: "Marib",
+      country: "Yemen",
+      country_code: "YE",
+      hero_image_url: "https://example.com/photo1.jpg",
+      hero_image_urls: [
+        "https://example.com/photo1.jpg",
+        "https://example.com/photo2.jpg",
+        "https://example.com/photo3.jpg",
+      ],
+      official_url: null,
+      related_websites: [],
+      no_websites: false,
+      confidence_score: 95,
+      disposition_justification: "Verified",
+      photo_directory: "Yemen/Baraqish",
+      photo_directories: ["Yemen/Baraqish"],
+      dates_visited: [],
+      tags: ["Ruins"],
+      phase_state: "phase_1_triage" as any,
+      created_at: "2026-11-02T00:00:00Z",
+      updated_at: "2026-11-02T00:00:00Z",
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [candidateWithMultipleImages],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 1 of 3");
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo1.jpg");
+    });
+
+    // Click next image button
+    const nextBtn = screen.getByTestId("hero-image-next-btn");
+    fireEvent.click(nextBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 2 of 3");
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo2.jpg");
+    });
+
+    // Click rotate image button
+    const rotateBtn = screen.getByTestId("hero-image-rotate-btn");
+    fireEvent.click(rotateBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 3 of 3");
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo3.jpg");
+    });
+
+    // Click next button wraps back to 1
+    fireEvent.click(nextBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 1 of 3");
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo1.jpg");
+    });
+  });
+
+  it("resolves non-US country name like Yemen to ISO country code YE instead of defaulting to US", async () => {
+    const yemenCandidate: CandidateItem = {
+      id: "cand-yemen-1",
+      job_id: "job-1",
+      row_index: 1,
+      poi_name: "Barakesh",
+      recommended_disposition: "ignore",
+      user_disposition: null,
+      matched_existing_poi_id: null,
+      parent_poi_id: null,
+      latitude: null,
+      longitude: null,
+      street_address: null,
+      city: null,
+      state_province: null,
+      country: "Yemen",
+      country_code: "US", // Staged with erroneous/default US
+      hero_image_url: null,
+      official_url: null,
+      related_websites: [],
+      no_websites: false,
+      confidence_score: 0,
+      disposition_justification: "Missing coordinates",
+      photo_directory: "Yemen/Barakesh",
+      photo_directories: ["Yemen/Barakesh"],
+      dates_visited: [],
+      tags: [],
+      phase_state: "phase_1_triage" as any,
+      created_at: "2026-11-02T00:00:00Z",
+      updated_at: "2026-11-02T00:00:00Z",
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [yemenCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("country-input")).toHaveValue("Yemen");
+      // Erroneous default US is mapped to YE because country is Yemen
+      expect(screen.getByTestId("country-code-input")).toHaveValue("YE");
+    });
+  });
+
+  it("renders editor fields in the correct sequential order with Visit Details section", async () => {
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 2,
+      candidates: mockCandidates,
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toBeInTheDocument();
+    });
+
+    const scrollContainer = screen.getByTestId("candidate-editor-scroll-container");
+    const poiNameInput = screen.getByTestId("editor-poi-name-input");
+    const dispositionRationale = screen.getByTestId("disposition-rationale-container");
+    const heroImageInput = screen.getByTestId("hero-image-url-input");
+    const latInput = screen.getByTestId("latitude-input");
+    const proximityContainer = screen.getByTestId("proximity-search-container");
+    const descriptionTextarea = screen.getByTestId("description-textarea");
+    const reasonTextarea = screen.getByTestId("reason-to-visit-textarea");
+    const visitDetailsSection = screen.getByTestId("visit-details-section");
+    const tagsContainer = screen.getByTestId("tags-library-container");
+    const visitDateInput = screen.getByTestId("new-visit-date-input");
+    const directoryInput = screen.getByTestId("new-directory-input");
+    const websiteInput = screen.getByTestId("new-website-url-input");
+
+    expect(scrollContainer).toBeInTheDocument();
+    expect(visitDetailsSection).toBeInTheDocument();
+
+    // Verify DOM sequence via compareDocumentPosition (DOCUMENT_POSITION_FOLLOWING = 4)
+    expect(poiNameInput.compareDocumentPosition(dispositionRationale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(dispositionRationale.compareDocumentPosition(heroImageInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(heroImageInput.compareDocumentPosition(latInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(latInput.compareDocumentPosition(proximityContainer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(proximityContainer.compareDocumentPosition(descriptionTextarea) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(descriptionTextarea.compareDocumentPosition(reasonTextarea) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(reasonTextarea.compareDocumentPosition(visitDetailsSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(visitDetailsSection.compareDocumentPosition(tagsContainer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tagsContainer.compareDocumentPosition(visitDateInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(visitDateInput.compareDocumentPosition(directoryInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(directoryInput.compareDocumentPosition(websiteInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Verify Visit Details inputs
+    const durationHours = screen.getByTestId("duration-hours-input");
+    const durationDays = screen.getByTestId("duration-days-input");
+    const durationNotes = screen.getByTestId("duration-notes-input");
+
+    expect(durationHours).toBeInTheDocument();
+    expect(durationDays).toBeInTheDocument();
+    expect(durationNotes).toBeInTheDocument();
+    expect(durationNotes.tagName.toLowerCase()).toBe("textarea");
+
+    // Verify Description & Reason to Visit are enlarged textareas
+    expect(descriptionTextarea).toHaveAttribute("rows", "5");
+    expect(reasonTextarea).toHaveAttribute("rows", "5");
   });
 });

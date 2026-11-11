@@ -441,7 +441,9 @@ async def test_upload_staging_failure_rolls_back_and_returns_500(
     mock_staging_service.get_active_session = AsyncMock(
         return_value=ActiveSessionResponse(has_active_session=False)
     )
-    mock_staging_service.wipe_active_session = AsyncMock()
+    mock_staging_service.wipe_active_session = AsyncMock(
+        side_effect=RuntimeError("Database constraint error: ck_ingest_candidates_recommended_disp")
+    )
     mock_staging_service.stage_records = AsyncMock(
         side_effect=RuntimeError("Database constraint error: ck_ingest_candidates_recommended_disp")
     )

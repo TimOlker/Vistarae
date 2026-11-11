@@ -32,6 +32,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Clock,
+  X,
 } from "lucide-react";
 
 interface CSVUploadModalProps {
@@ -319,6 +320,7 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
         onClose={onClose}
         title="Import Travel Points (CSV)"
         maxWidth="500px"
+        closeOnBackdropClick={false}
       >
         {isUploading ? (
           <div
@@ -755,25 +757,53 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({
               >
                 Assign to List (Optional):
               </label>
-              <input
-                id="target-list-input"
-                data-testid="target-list-input"
-                type="text"
-                list="existing-lists-datalist"
-                value={targetListName}
-                onChange={(e) => setTargetListName(e.target.value)}
-                placeholder="Select or enter a list name (e.g. London 2025)..."
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "13px",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "6px",
-                  outline: "none",
-                  backgroundColor: "#ffffff",
-                  color: "#0f172a",
-                }}
-              />
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <input
+                  id="target-list-input"
+                  data-testid="target-list-input"
+                  type="text"
+                  list="existing-lists-datalist"
+                  value={targetListName}
+                  onChange={(e) => setTargetListName(e.target.value)}
+                  placeholder="Select or enter a list name (e.g. London 2025)..."
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    fontSize: "13px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    outline: "none",
+                    backgroundColor: "#ffffff",
+                    color: "#0f172a",
+                  }}
+                />
+                <button
+                  type="button"
+                  data-testid="clear-target-list-button"
+                  aria-label="Clear assigned list"
+                  onClick={() => setTargetListName("")}
+                  disabled={!targetListName}
+                  style={{
+                    padding: "8px 14px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: targetListName ? "#f8fafc" : "#f1f5f9",
+                    color: targetListName ? "#475569" : "#94a3b8",
+                    cursor: targetListName ? "pointer" : "not-allowed",
+                    whiteSpace: "nowrap",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Clear assigned list"
+                >
+                  <X size={14} />
+                  <span>Clear</span>
+                </button>
+              </div>
               <datalist id="existing-lists-datalist">
                 {existingLists.map((l) => (
                   <option key={l.id} value={l.title} />

@@ -22,6 +22,7 @@ from vistarae_core.ports.identity import IIdentityProvider
 from vistarae_core.ports.itinerary_repo import IItineraryRepository
 from vistarae_core.ports.queue import IMessageQueue, IQueuePort
 from vistarae_core.ports.repositories import (
+    IExternalEnrichmentCacheRepository,
     IGeocodingCacheRepository,
     IIdempotencyRepository,
     IIngestJobRepository,
@@ -35,6 +36,7 @@ from vistarae_core.ports.repositories import (
 __all__ = [
     "GeocodingResult",
     "IEmbeddingPort",
+    "IExternalEnrichmentCacheRepository",
     "IGeocodingCacheRepository",
     "IGeocodingPort",
     "IIdentityProvider",

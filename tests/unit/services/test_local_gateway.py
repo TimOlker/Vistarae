@@ -96,3 +96,16 @@ class TestLocalGatewayPipeline:
             json={"path": "Z:\nonexistent_volume_vistarae\test_folder"},
         )
         assert resp_bad.status_code == 404
+
+    def test_scraping_preferences_gateway_route(self, client: TestClient) -> None:
+        """Verifies GET and PUT /api/user/preferences/scraping-sources routes reach scraping preferences."""
+        resp = client.get("/api/user/preferences/scraping-sources")
+        assert resp.status_code == 200
+        assert "valid_scraping_domains" in resp.json()
+
+        put_resp = client.put(
+            "/api/user/preferences/scraping-sources",
+            json={"valid_scraping_domains": ["https://www.hillmanwonders.com/", "wikipedia.org"]},
+        )
+        assert put_resp.status_code == 200
+        assert put_resp.json()["valid_scraping_domains"] == ["hillmanwonders.com", "wikipedia.org"]

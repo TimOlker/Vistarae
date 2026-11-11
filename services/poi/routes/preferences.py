@@ -23,10 +23,11 @@ Implements:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.adapters.db.tables import UserPreferencesTable
@@ -47,6 +48,7 @@ DEFAULT_DOMAINS = [
     "atlasobscura.com",
     "alltrails.com",
     "roadtrippers.com",
+    "hillmanwonders.com",
 ]
 
 
@@ -73,13 +75,22 @@ class SqlAlchemyScrapingPreferencesRepository(IScrapingPreferencesRepository):
         user_id: UUID,
         domains: list[str],
     ) -> list[str]:
-        """Updates authorized secondary scraping domains for the user."""
-        stmt = (
-            update(UserPreferencesTable)
-            .where(UserPreferencesTable.user_id == user_id)
-            .values(valid_scraping_domains=domains)
+        """Updates authorized secondary scraping domains for the user with upsert."""
+        now = datetime.now(UTC)
+        pref_row = await self._session.scalar(
+            select(UserPreferencesTable).where(UserPreferencesTable.user_id == user_id)
         )
-        await self._session.execute(stmt)
+        if pref_row is not None:
+            pref_row.valid_scraping_domains = domains
+            pref_row.updated_at = now
+        else:
+            new_prefs = UserPreferencesTable(
+                user_id=user_id,
+                valid_scraping_domains=domains,
+                created_at=now,
+                updated_at=now,
+            )
+            self._session.add(new_prefs)
         await self._session.flush()
         return domains
 

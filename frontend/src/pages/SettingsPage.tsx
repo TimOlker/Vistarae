@@ -27,6 +27,22 @@ import { ExclusionZoneManager } from "../components/profile/ExclusionZoneManager
 
 export type SettingsTab = "account" | "poi" | "planner" | "tags" | "scraping" | "exclusion";
 
+export function normalizeScrapingDomain(raw: string): string {
+  if (!raw) return "";
+  let clean = raw.trim();
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    // Keep raw if invalid percent sequence
+  }
+  clean = clean.replace(/^['"“”‘’]+|['"“”‘’]+$/g, "");
+  clean = clean.replace(/^https?:\/\//i, "").replace(/^\/\//, "");
+  clean = clean.replace(/^www\./i, "");
+  clean = clean.replace(/\/+$/, "");
+  clean = clean.replace(/^['"“”‘’]+|['"“”‘’]+$/g, "");
+  return clean.trim().toLowerCase();
+}
+
 export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   initialTab = "account",
 }) => {
@@ -50,24 +66,33 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   const [poiForm, setPoiForm] = useState(poi);
   const [plannerForm, setPlannerForm] = useState(planner);
   const [scrapingDomains, setScrapingDomains] = useState<string[]>(
-    validScrapingDomains || [],
+    (validScrapingDomains || []).map(normalizeScrapingDomain).filter(Boolean),
   );
   const [newDomainInput, setNewDomainInput] = useState("");
 
   useEffect(() => {
     if (validScrapingDomains) {
-      setScrapingDomains(validScrapingDomains);
+      setScrapingDomains(
+        Array.from(new Set(validScrapingDomains.map(normalizeScrapingDomain).filter(Boolean)))
+      );
     }
   }, [validScrapingDomains]);
 
   const handleAddDomain = () => {
-    const trimmed = newDomainInput.trim().toLowerCase();
-    if (!trimmed) return;
-    if (scrapingDomains.includes(trimmed)) {
+    if (!newDomainInput.trim()) {
+      showToast("Please enter a domain before adding", "warning");
+      return;
+    }
+    const normalized = normalizeScrapingDomain(newDomainInput);
+    if (!normalized) {
+      showToast("Please enter a valid domain", "warning");
+      return;
+    }
+    if (scrapingDomains.includes(normalized)) {
       showToast("Domain already authorized", "info");
       return;
     }
-    setScrapingDomains((prev) => [...prev, trimmed]);
+    setScrapingDomains((prev) => [...prev, normalized]);
     setNewDomainInput("");
   };
 
@@ -85,10 +110,18 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
   const handleSaveScraping = async () => {
     setSaving(true);
     try {
-      await updateScrapingDomains(scrapingDomains);
+      const normalizedList = Array.from(
+        new Set(scrapingDomains.map(normalizeScrapingDomain).filter(Boolean))
+      );
+      await updateScrapingDomains(normalizedList);
       showToast("Scraping sources preferences saved!", "success");
-    } catch {
-      showToast("Failed to save scraping sources", "error");
+    } catch (err: unknown) {
+      console.error("Failed to save scraping sources:", err);
+      const msg =
+        (err as { detail?: string; message?: string })?.detail ||
+        (err as Error)?.message ||
+        "Failed to save scraping sources";
+      showToast(msg, "error");
     } finally {
       setSaving(false);
     }
@@ -111,8 +144,13 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
     try {
       await updateUI(uiForm);
       showToast("Account & UI preferences saved!", "success");
-    } catch {
-      showToast("Failed to save UI preferences", "error");
+    } catch (err: unknown) {
+      console.error("Failed to save UI preferences:", err);
+      const msg =
+        (err as { detail?: string; message?: string })?.detail ||
+        (err as Error)?.message ||
+        "Failed to save UI preferences";
+      showToast(msg, "error");
     } finally {
       setSaving(false);
     }
@@ -123,8 +161,13 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
     try {
       await updatePOI(poiForm);
       showToast("POI Mode preferences saved!", "success");
-    } catch {
-      showToast("Failed to save POI preferences", "error");
+    } catch (err: unknown) {
+      console.error("Failed to save POI preferences:", err);
+      const msg =
+        (err as { detail?: string; message?: string })?.detail ||
+        (err as Error)?.message ||
+        "Failed to save POI preferences";
+      showToast(msg, "error");
     } finally {
       setSaving(false);
     }
@@ -135,8 +178,13 @@ export const SettingsPage: React.FC<{ initialTab?: SettingsTab }> = ({
     try {
       await updatePlanner(plannerForm);
       showToast("Planner Mode preferences saved!", "success");
-    } catch {
-      showToast("Failed to save Planner preferences", "error");
+    } catch (err: unknown) {
+      console.error("Failed to save Planner preferences:", err);
+      const msg =
+        (err as { detail?: string; message?: string })?.detail ||
+        (err as Error)?.message ||
+        "Failed to save Planner preferences";
+      showToast(msg, "error");
     } finally {
       setSaving(false);
     }

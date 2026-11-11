@@ -518,7 +518,12 @@ class HillmanWondersExtractor(BaseExtractor):
         # Only populate website if it is a unique subpage URL, not the source list
         websites: list[WebsiteRecord] = []
         if subpage_url and subpage_url != HILLMAN_BASE_URL:
-            websites.append(WebsiteRecord(name="Hillman Wonders", url=subpage_url))
+            websites.append(
+                WebsiteRecord(
+                    name="Hillman Wonders",
+                    url="https://www.hillmanswonders.com/top-1000-sites.html",
+                )
+            )
 
         hero_url = None
         lat, lon = None, None

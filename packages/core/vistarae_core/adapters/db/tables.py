@@ -713,6 +713,26 @@ class GeocodingCacheTable(Base):
     __table_args__ = (Index("idx_geocoding_cache_expires_at", "expires_at"),)
 
 
+class ExternalEnrichmentCacheTable(Base):
+    """Cached external enrichment results (Wikipedia, Wikidata, LLM resolver, website meta)."""
+
+    __tablename__ = "external_enrichment_cache"
+
+    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    response_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("idx_external_enrichment_cache_source", "source"),
+        Index("idx_external_enrichment_cache_expires_at", "expires_at"),
+    )
+
+
 class IngestJobTable(Base):
     """Tracks asynchronous bulk CSV ingestion jobs and duplicate triage."""
 

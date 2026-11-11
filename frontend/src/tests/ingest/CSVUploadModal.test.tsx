@@ -347,5 +347,61 @@ describe("CSVUploadModal", () => {
       expect(screen.getByTestId("column-mapping-modal")).toBeInTheDocument();
     });
   });
+
+  it("clears target_list_name when Clear button is clicked", async () => {
+    render(
+      <ToastProvider>
+        <CSVUploadModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onJobCreated={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Import Travel Points (CSV)")).toBeInTheDocument();
+    });
+
+    const listInput = screen.getByTestId("target-list-input") as HTMLInputElement;
+    const clearBtn = screen.getByTestId("clear-target-list-button");
+
+    // Initially empty, button is disabled
+    expect(listInput.value).toBe("");
+    expect(clearBtn).toBeDisabled();
+
+    // Type a list name
+    fireEvent.change(listInput, { target: { value: "My Trip List" } });
+    expect(listInput.value).toBe("My Trip List");
+    expect(clearBtn).not.toBeDisabled();
+
+    // Click Clear
+    fireEvent.click(clearBtn);
+    expect(listInput.value).toBe("");
+    expect(clearBtn).toBeDisabled();
+  });
+
+  it("does not close when clicking the backdrop outside of the window", async () => {
+    const onClose = vi.fn();
+    render(
+      <ToastProvider>
+        <CSVUploadModal
+          isOpen={true}
+          onClose={onClose}
+          onJobCreated={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Import Travel Points (CSV)")).toBeInTheDocument();
+    });
+
+    const backdrop = document.querySelector(".modal-backdrop") as HTMLElement;
+    expect(backdrop).toBeInTheDocument();
+
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 

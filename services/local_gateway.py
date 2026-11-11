@@ -164,13 +164,13 @@ async def health_ready(
         )
 
 
-# 3. Mount microservices
-gateway.mount("/api/user", user_app)
-gateway.mount("/api/users", user_app)
-gateway.mount("/api/admin", admin_app)
+# 3. Mount microservices and routers
+# Explicit router endpoints are included first to take routing precedence
 gateway.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 gateway.include_router(exclusion_zones_router, prefix="/api/user", tags=["exclusion-zones"])
 gateway.include_router(poi_preferences_router, prefix="/api", tags=["preferences"])
+gateway.include_router(poi_preferences_router, prefix="/api/user", tags=["preferences"])
+gateway.include_router(poi_preferences_router, prefix="/api/users", tags=["preferences"])
 gateway.include_router(dedup_router, prefix="/api", tags=["dedup"])
 gateway.include_router(bulk_router, prefix="/api", tags=["bulk"])
 gateway.include_router(lists_router, prefix="/api", tags=["lists"])
@@ -184,6 +184,10 @@ gateway.include_router(ingest_upload_router, prefix="/api/ingest", tags=["ingest
 gateway.include_router(ingest_jobs_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_triage_router, prefix="/api/ingest", tags=["ingest"])
 gateway.include_router(ingest_staging_router, prefix="/api/ingest", tags=["ingest-staging"])
+
+gateway.mount("/api/user", user_app)
+gateway.mount("/api/users", user_app)
+gateway.mount("/api/admin", admin_app)
 gateway.mount("/api/poi-service", poi_app)
 gateway.mount("/api/ingest-service", ingest_app)
 

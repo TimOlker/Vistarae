@@ -68,7 +68,7 @@ def test_hillman_wonders_harvest_shallow() -> None:
     assert "Wonder" not in rec_0.tags
     assert len(rec_0.websites) == 1
     assert rec_0.websites[0].name == "Hillman Wonders"
-    assert "giza_pyramids.htm" in rec_0.websites[0].url
+    assert rec_0.websites[0].url == "https://www.hillmanswonders.com/top-1000-sites.html"
     assert rec_0.description is None
     assert rec_0.reason_to_visit is None
 

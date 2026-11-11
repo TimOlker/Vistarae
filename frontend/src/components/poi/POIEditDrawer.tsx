@@ -46,7 +46,7 @@ import {
 } from "../../services/geocodeService";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import type { components } from "../../types/api";
-import { inferWebsiteName } from "../../utils/websiteInference";
+import { inferWebsiteName, normalizeUrl, reconstructWebsitesList } from "../../utils/websiteInference";
 
 type POIUpdateRequest = components["schemas"]["POIUpdateRequest"];
 
@@ -179,23 +179,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     setInitialLon(baselineLon);
     setRating(poi.rating || 0);
     setParentPoiId(poi.parent_poi_id || null);
-    const rawRelated = (poi as any).related_websites || [];
-    const initialSites: { name: string; url: string }[] = [...rawRelated];
-    const existingUrls = new Set(initialSites.map((s) => s.url.trim().toLowerCase().replace(/\/$/, "")));
-    if (poi.official_url && poi.official_url.trim()) {
-      const norm = poi.official_url.trim().toLowerCase().replace(/\/$/, "");
-      if (!existingUrls.has(norm)) {
-        existingUrls.add(norm);
-        initialSites.unshift({ name: "Official Website", url: poi.official_url.trim() });
-      }
-    }
-    if (poi.wiki_url && poi.wiki_url.trim()) {
-      const norm = poi.wiki_url.trim().toLowerCase().replace(/\/$/, "");
-      if (!existingUrls.has(norm)) {
-        existingUrls.add(norm);
-        initialSites.push({ name: "Wikipedia", url: poi.wiki_url.trim() });
-      }
-    }
+    const initialSites = reconstructWebsitesList(poi as any);
     setRelatedWebsites(initialSites);
     setNewWebsiteName("");
     setNewWebsiteUrl("");
@@ -674,19 +658,19 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
           boxShadow: "var(--shadow-lg)",
           display: "flex",
           flexDirection: "column",
-          overflowY: "auto",
-          padding: "24px",
+          overflow: "hidden",
+          padding: 0,
         }}
       >
         {/* Header */}
         <div
           style={{
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingBottom: "16px",
+            padding: "20px 24px 16px 24px",
             borderBottom: "1px solid var(--border-color, #e2e8f0)",
-            marginBottom: "16px",
           }}
         >
           <div>
@@ -719,8 +703,9 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
         {errorMessage && (
           <div
             style={{
+              flexShrink: 0,
+              margin: "16px 24px 0 24px",
               padding: "10px 14px",
-              marginBottom: "16px",
               borderRadius: "var(--radius-md, 8px)",
               background: "#fef2f2",
               border: "1px solid #fecaca",
@@ -746,6 +731,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               flexDirection: "column",
               gap: "10px",
               color: "var(--text-muted)",
+              padding: "24px",
             }}
           >
             <Loader2 size={28} className="animate-spin" />
@@ -757,11 +743,24 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "18px",
               flex: 1,
+              minHeight: 0,
+              overflow: "hidden",
             }}
           >
-            {/* Section 1: Basic Identity */}
+            {/* Scrollable Form Body */}
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                padding: "20px 24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "18px",
+              }}
+            >
+              {/* Section 1: Basic Identity */}
             <div>
               <label
                 style={{
@@ -893,7 +892,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                 id="poi-reason-to-visit"
                 rows={4}
                 maxLength={10000}
-                placeholder="Why a tourist would be interested in visiting (e.g., scenic sunset vistas, historic architecture, specialty dishes)..."
+                placeholder="- Why a tourist would be interested in visiting (e.g., scenic viewpoints, historic architecture, specialty dishes)..."
                 value={reasonToVisit}
                 onChange={(e) => setReasonToVisit(e.target.value)}
                 style={{
@@ -1545,10 +1544,13 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      const trimmedUrl = newWebsiteUrl.trim();
+                      const trimmedUrl = normalizeUrl(newWebsiteUrl);
                       if (trimmedUrl) {
                         const name = newWebsiteName.trim() || inferWebsiteName(trimmedUrl);
-                        setRelatedWebsites([...relatedWebsites, { name, url: trimmedUrl }]);
+                        const key = trimmedUrl.toLowerCase();
+                        if (!relatedWebsites.some((w) => normalizeUrl(w.url).toLowerCase() === key)) {
+                          setRelatedWebsites([...relatedWebsites, { name, url: trimmedUrl }]);
+                        }
                         setNewWebsiteName("");
                         setNewWebsiteUrl("");
                       }
@@ -1860,19 +1862,23 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
               selectedTags={selectedTags}
               onChange={setSelectedTags}
             />
+          </div>
 
-            {/* Action Buttons */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingTop: "16px",
-                borderTop: "1px solid var(--border-color, #e2e8f0)",
-                marginTop: "12px",
-              }}
-            >
-              {onDelete ? (
+          {/* Pinned Bottom Actions: Delete POI / Cancel / Save Changes (outside the scrollable container) */}
+          <div
+            style={{
+              flexShrink: 0,
+              padding: "16px 24px",
+              borderTop: "1px solid var(--border-color, #e2e8f0)",
+              background: "var(--bg-surface, #ffffff)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.05)",
+              zIndex: 10,
+            }}
+          >
+            {onDelete ? (
                 isConfirmingDelete ? (
                   <div
                     style={{
@@ -2021,6 +2027,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
           isOpen={isLocationFinderOpen}
           initialLat={lat}
           initialLng={lon}
+          initialCountry={addresses.find((a) => a.country?.trim())?.country || poi.country || undefined}
+          initialQuery={name}
           onClose={() => setIsLocationFinderOpen(false)}
           onApply={(coords, revAddr) => {
             handleApplyLocation(coords, revAddr);

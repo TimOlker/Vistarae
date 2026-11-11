@@ -46,6 +46,7 @@ from vistarae_core.schemas.ingest_staging import (
     Phase2ProgressResponse,
     PhaseTransitionResponse,
 )
+from vistarae_core.services.address_normalizer import AddressNormalizer
 
 from services.ingest.dependencies import (
     get_current_user,
@@ -53,6 +54,7 @@ from services.ingest.dependencies import (
     get_staging_service,
 )
 from services.ingest.services.staging_service import StagingService
+from services.poi.scraping.orchestrator import ScrapingOrchestrator
 
 router = APIRouter(tags=["ingest-staging"])
 
@@ -79,6 +81,12 @@ def _to_candidate_response(
         if candidate.merge_target_id:
             merge_cand_name = cand_name_map.get(candidate.merge_target_id)
 
+    recommended_name = None
+    if candidate.raw_geocoding and isinstance(candidate.raw_geocoding, dict):
+        res_n = candidate.raw_geocoding.get('resolved_name')
+        if res_n and res_n.strip() and res_n.strip().lower() != candidate.poi_name.strip().lower():
+            recommended_name = res_n.strip()
+
     disp = candidate.user_disposition or candidate.recommended_disposition
     is_dup = bool(
         candidate.merge_target_id
@@ -91,6 +99,7 @@ def _to_candidate_response(
         job_id=candidate.job_id,
         row_index=candidate.row_index,
         poi_name=candidate.poi_name,
+        recommended_poi_name=recommended_name,
         recommended_disposition=candidate.recommended_disposition,
         user_disposition=candidate.user_disposition,
         matched_existing_poi_id=candidate.matched_existing_poi_id,
@@ -108,7 +117,11 @@ def _to_candidate_response(
         state_province=candidate.state_province,
         postal_code=candidate.postal_code,
         country=candidate.country,
-        country_code=candidate.country_code or "US",
+        country_code=(
+            candidate.country_code
+            if candidate.country_code and candidate.country_code != "XX" and not (candidate.country_code == "US" and candidate.country and candidate.country.strip().lower() not in ("united states", "usa", "us"))
+            else (AddressNormalizer.country_to_iso_code(candidate.country) if candidate.country and AddressNormalizer.country_to_iso_code(candidate.country) != "XX" else "US")
+        ),
         admin_level_1=candidate.admin_level_1,
         admin_level_2=candidate.admin_level_2,
         locality=candidate.locality,
@@ -120,11 +133,23 @@ def _to_candidate_response(
         confidence_score=candidate.confidence_score,
         tags=candidate.tags,
         description=candidate.description,
-        reason_to_visit=candidate.reason_to_visit,
+        reason_to_visit=(
+            ScrapingOrchestrator._clean_reason_to_visit_plain_text(candidate.reason_to_visit)
+            if (
+                candidate.reason_to_visit
+                and ("•" in candidate.reason_to_visit or "**" in candidate.reason_to_visit or "__" in candidate.reason_to_visit)
+            )
+            else candidate.reason_to_visit
+        ),
         official_url=candidate.official_url,
         wiki_url=candidate.wiki_url,
         related_websites=candidate.related_websites or [],
         hero_image_url=candidate.hero_image_url,
+        hero_image_urls=(
+            candidate.raw_geocoding.get("hero_image_urls")
+            if isinstance(candidate.raw_geocoding, dict) and candidate.raw_geocoding.get("hero_image_urls")
+            else ([candidate.hero_image_url] if candidate.hero_image_url else [])
+        ),
         recommended_duration_hours=float(candidate.recommended_duration_hours)
         if candidate.recommended_duration_hours is not None
         else None,
@@ -563,12 +588,17 @@ async def back_to_phase1(
 async def enrich_single_candidate(
     job_id: UUID,
     candidate_id: UUID,
+    force_refresh: bool = Query(
+        default=False, description="Bypass search cache and force recalculate/refresh"
+    ),
     user: User = Depends(get_current_user),
     staging_service: StagingService = Depends(get_staging_service),
     poi_repo: IPOIRepository = Depends(get_poi_repo),
 ) -> CandidateItemResponse:
     """Enriches a single candidate on demand."""
-    enriched = await staging_service.enrich_single_candidate(user.id, job_id, candidate_id)
+    enriched = await staging_service.enrich_single_candidate(
+        user.id, job_id, candidate_id, force_refresh=force_refresh
+    )
     name_map = await _resolve_poi_names([enriched], user.id, poi_repo)
     return _to_candidate_response(enriched, name_map)
 
@@ -585,6 +615,9 @@ async def enrich_single_candidate(
 )
 async def enrich_all_candidates(
     job_id: UUID,
+    force_refresh: bool = Query(
+        default=False, description="Bypass search cache and force recalculate/refresh"
+    ),
     user: User = Depends(get_current_user),
     staging_service: StagingService = Depends(get_staging_service),
 ) -> dict[str, Any]:
@@ -599,7 +632,11 @@ async def enrich_all_candidates(
         and (c.user_disposition or c.recommended_disposition)
         not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING)
     ]
-    asyncio.create_task(staging_service.enrich_candidates_phase2(user.id, job_id))
+    asyncio.create_task(
+        staging_service.enrich_candidates_phase2(
+            user.id, job_id, force_refresh=force_refresh
+        )
+    )
     return {
         "job_id": str(job_id),
         "status": "enriching",

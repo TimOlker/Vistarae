@@ -114,7 +114,7 @@ class TestPersonalizedScraping:
             mock_resp_desc = MagicMock()
             mock_resp_desc.text = "Historic public market showcasing local artisan bakeries, fresh seafood stalls, and northwest food culture."
             mock_resp_reason = MagicMock()
-            mock_resp_reason.text = "Food-loving travelers should visit to wander the bustling market alleys, sample artisan ciders, and taste local cheeses."
+            mock_resp_reason.text = "- Local Flavors: Sample artisan ciders and regional cheeses.\n- Market Atmosphere: Wander bustling artisan stalls.\n"
             mock_resp_duration = MagicMock()
             mock_resp_duration.text = "Estimated 3 hours allows leisurely exploration of artisan stalls, a 45-minute food tasting tour, and unhurried sampling."
 
@@ -135,6 +135,9 @@ class TestPersonalizedScraping:
             assert "artisan bakeries" in candidate.description
             assert candidate.reason_to_visit is not None
             assert "artisan ciders" in candidate.reason_to_visit
+            assert candidate.reason_to_visit.startswith("- ")
+            assert "**" not in candidate.reason_to_visit
+            assert "•" not in candidate.reason_to_visit
             assert candidate.estimated_visit_time_notes is not None
             assert "tasting tour" in candidate.estimated_visit_time_notes
 
@@ -156,7 +159,9 @@ class TestPersonalizedScraping:
             assert "Highlight local food traditions" in desc_call_prompt
             assert "Focus on authentic dining" in reason_call_prompt
             assert "Do NOT invent, hallucinate, or force irrelevant themes" in desc_call_prompt
-            assert "Do not invent or force irrelevant themes" in reason_call_prompt
+            assert "Plain text ONLY. Do NOT use markdown" in reason_call_prompt
+            assert "Each item MUST start with a dash '-' character" in reason_call_prompt
+            assert "Conciseness is paramount" in reason_call_prompt
             assert (
                 "CRITICAL REQUIREMENT: Do NOT include or mention the capture source"
                 in desc_call_prompt
@@ -244,3 +249,33 @@ class TestPersonalizedScraping:
         assert "tour" in notes.lower()
         assert "demonstrations" in notes.lower() or "viewpoints" in notes.lower()
         assert "leisurely" in notes.lower()
+
+    async def test_clean_reason_to_visit_plain_text_strips_markdown_and_formats_dashes(self) -> None:
+        """Verifies that markdown bolding, bullet symbols, and extra formatting are stripped and converted to dash items with newlines."""
+        raw_markdown = (
+            "• **Scenic Overlook**: Breathtaking 360-degree mountain panorama.\n"
+            "* **Historic Courtyard**: 12th-century stone archways and cloisters.\n"
+            "- **Specialty Bakery**: Fresh local pastries and artisan espresso.\n"
+        )
+        cleaned = ScrapingOrchestrator._clean_reason_to_visit_plain_text(raw_markdown)
+
+        expected = (
+            "- Scenic Overlook: Breathtaking 360-degree mountain panorama.\n"
+            "- Historic Courtyard: 12th-century stone archways and cloisters.\n"
+            "- Specialty Bakery: Fresh local pastries and artisan espresso.\n"
+        )
+        assert cleaned == expected
+        assert "**" not in cleaned
+        assert "•" not in cleaned
+        for line in cleaned.strip().splitlines():
+            assert line.startswith("- ")
+
+    async def test_reason_to_visit_deterministic_fallback_uses_dashes(self) -> None:
+        """Verifies deterministic fallback without API key generates plain text dash items."""
+        orchestrator = ScrapingOrchestrator(gemini_api_key=None, secondary_adapters=[])
+        reason = await orchestrator.synthesize_reason_to_visit(name="Matterhorn")
+
+        assert "**" not in reason
+        assert "•" not in reason
+        for line in reason.strip().splitlines():
+            assert line.startswith("- ")
