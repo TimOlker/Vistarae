@@ -67,12 +67,15 @@ class ReverseGeocodeService:
         self._client = http_client
         self._timeout_seconds = timeout_seconds
 
-    async def reverse_geocode(self, lat: float, lng: float) -> ReverseGeocodeResponse:
+    async def reverse_geocode(
+        self, lat: float, lng: float, force_refresh: bool = False
+    ) -> ReverseGeocodeResponse:
         """Reverse geocodes a coordinate pair using geocache lookup and rate-limited Nominatim.
 
         Args:
             lat: Latitude (-90.0 to 90.0).
             lng: Longitude (-180.0 to 180.0).
+            force_refresh: If True, bypasses cache and queries Nominatim.
 
         Returns:
             ReverseGeocodeResponse with normalized address fields and cache indicator.
@@ -82,44 +85,64 @@ class ReverseGeocodeService:
         coord_hash = hash_coordinate_pair(norm_lat, norm_lng)
 
         # 1. Check internal PostGIS geocache first
-        cached_entry = await self._cache_repo.get(coord_hash)
-        if cached_entry is not None:
-            logger.info("MSG ->| Geocache hit for hash=%s", coord_hash)
-            if cached_entry.status == "NOT_FOUND":
-                return ReverseGeocodeResponse(
-                    street=None,
-                    city=None,
-                    state_province=None,
-                    country="Unknown",
-                    postal_code=None,
-                    cached=True,
-                )
-            try:
-                data = json.loads(cached_entry.formatted_address)
-                return ReverseGeocodeResponse(
-                    street=data.get("street"),
-                    city=data.get("city"),
-                    state_province=data.get("state_province"),
-                    country=data.get("country", "Unknown"),
-                    postal_code=data.get("postal_code"),
-                    country_code=data.get("country_code", "US"),
-                    admin_level_1=data.get("admin_level_1"),
-                    admin_level_2=data.get("admin_level_2"),
-                    locality=data.get("locality"),
-                    raw_geocoding=data.get("raw_geocoding"),
-                    cached=True,
-                )
-            except (json.JSONDecodeError, TypeError):
-                # Fallback if legacy text address string was stored
-                norm_country = AddressNormalizer.normalize_country(cached_entry.formatted_address)
-                return ReverseGeocodeResponse(
-                    street=None,
-                    city=None,
-                    state_province=None,
-                    country=norm_country or "Unknown",
-                    postal_code=None,
-                    cached=True,
-                )
+        if not force_refresh:
+            cached_entry = await self._cache_repo.get(coord_hash)
+            if cached_entry is not None:
+                logger.info("MSG ->| Geocache hit for hash=%s", coord_hash)
+                if cached_entry.status == "NOT_FOUND":
+                    return ReverseGeocodeResponse(
+                        street=None,
+                        city=None,
+                        state_province=None,
+                        country="Unknown",
+                        postal_code=None,
+                        cached=True,
+                    )
+                try:
+                    data = json.loads(cached_entry.formatted_address)
+                    city_str = str(data.get("city") or "").lower()
+                    is_district_city = (
+                        "district" in city_str
+                        or "subdistrict" in city_str
+                        or city_str in ("pudong", "pudong new area")
+                        or any(c in (data.get("city") or "") for c in ("区", "街道"))
+                    )
+                    # Re-parse if city or admin_level_1 is missing/outdated or city is a district but raw_geocoding is present
+                    if (
+                        not data.get("city")
+                        or not data.get("admin_level_1")
+                        or data.get("city") == data.get("admin_level_2")
+                        or is_district_city
+                    ) and data.get("raw_geocoding"):
+                        re_parsed = AddressNormalizer.parse_nominatim_iso_address(data["raw_geocoding"])
+                        for k in ("street", "city", "locality", "admin_level_1", "admin_level_2", "state_province", "country", "country_code"):
+                            if re_parsed.get(k):
+                                if not data.get(k) or (k in ("city", "locality", "admin_level_1", "admin_level_2") and data.get(k) != re_parsed.get(k)):
+                                    data[k] = re_parsed[k]
+                    return ReverseGeocodeResponse(
+                        street=data.get("street"),
+                        city=data.get("city"),
+                        state_province=data.get("state_province"),
+                        country=data.get("country", "Unknown"),
+                        postal_code=data.get("postal_code"),
+                        country_code=data.get("country_code", "US"),
+                        admin_level_1=data.get("admin_level_1"),
+                        admin_level_2=data.get("admin_level_2"),
+                        locality=data.get("locality"),
+                        raw_geocoding=data.get("raw_geocoding"),
+                        cached=True,
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    # Fallback if legacy text address string was stored
+                    norm_country = AddressNormalizer.normalize_country(cached_entry.formatted_address)
+                    return ReverseGeocodeResponse(
+                        street=None,
+                        city=None,
+                        state_province=None,
+                        country=norm_country or "Unknown",
+                        postal_code=None,
+                        cached=True,
+                    )
 
         # 2. Acquire token for 1 req/sec Nominatim compliance
         await self._rate_limiter.acquire()

@@ -17,7 +17,7 @@ import "@testing-library/jest-dom/vitest";
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 
 afterEach(() => {
   cleanup();
@@ -211,13 +211,48 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     },
   ];
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
       job_id: "job-1",
       total_candidates: 2,
       candidates: mockCandidates,
     });
+    const { forwardSearch, reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValue({
+      street: "123 New Road",
+      city: "Fujinomiya",
+      locality: "Fujinomiya",
+      state_province: "Shizuoka",
+      admin_level_1: "Shizuoka Prefecture",
+      admin_level_2: "Fujinomiya City",
+      postal_code: "418-0000",
+      country_code: "JP",
+      country: "Japan",
+      cached: false,
+    });
+    vi.mocked(forwardSearch).mockResolvedValue([
+      {
+        lat: 35.3606,
+        lng: 138.7274,
+        display_name: "Mount Fuji, Kitayama, Fujinomiya, Shizuoka Prefecture, Japan",
+        name: "Mount Fuji",
+        type: "volcano",
+        class: "natural",
+        suggestedZoom: 17,
+        isSpecificLandmark: true,
+      },
+      {
+        lat: 35.4000,
+        lng: 138.8000,
+        display_name: "Fuji-Hakone-Izu National Park, Japan",
+        name: "Fuji-Hakone-Izu National Park",
+        type: "national_park",
+        class: "leisure",
+        suggestedZoom: 12,
+        isSpecificLandmark: false,
+      },
+    ]);
   });
 
   const renderModal = (
@@ -1157,7 +1192,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
   it("prompts the user for POI name change when Find returns a different name and updates POI name on Yes", async () => {
     const { forwardSearch } = await import("../../services/geocodeService");
     // Simulate Nominatim returning 0 results so it cascades to forwardGeocode
-    vi.mocked(forwardSearch).mockResolvedValueOnce([]);
+    vi.mocked(forwardSearch).mockResolvedValue([]);
 
     renderModal();
 
@@ -1187,8 +1222,20 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
   });
 
   it("allows user to dismiss name change prompt without modifying POI name on No", async () => {
-    const { forwardSearch } = await import("../../services/geocodeService");
-    vi.mocked(forwardSearch).mockResolvedValueOnce([]);
+    const { forwardSearch, reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValue({
+      street: "123 New Road",
+      city: "Fujinomiya",
+      locality: "Fujinomiya",
+      state_province: "Shizuoka",
+      admin_level_1: "Shizuoka Prefecture",
+      admin_level_2: "Fujinomiya City",
+      postal_code: "418-0000",
+      country_code: "JP",
+      country: "Japan",
+      cached: false,
+    });
+    vi.mocked(forwardSearch).mockResolvedValue([]);
 
     renderModal();
 
@@ -1421,5 +1468,584 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     // Verify Description & Reason to Visit are enlarged textareas
     expect(descriptionTextarea).toHaveAttribute("rows", "5");
     expect(reasonTextarea).toHaveAttribute("rows", "5");
+  });
+
+  it("restores perspective from sessionStorage and saves when toggled", async () => {
+    sessionStorage.setItem("vistarae_workbench_perspective", "Location");
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("perspective-select")).toBeInTheDocument();
+    });
+
+    const perspectiveSelect = screen.getByTestId("perspective-select") as HTMLSelectElement;
+    expect(perspectiveSelect.value).toBe("Location");
+
+    // Toggle to POI
+    fireEvent.change(perspectiveSelect, { target: { value: "POI" } });
+    expect(perspectiveSelect.value).toBe("POI");
+    expect(sessionStorage.getItem("vistarae_workbench_perspective")).toBe("POI");
+  });
+
+  it("initializes multi-select dispositions with all selected by default and saves to sessionStorage", async () => {
+    sessionStorage.removeItem("vistarae_workbench_dispositions");
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("disposition-filter-button")).toBeInTheDocument();
+    });
+
+    const filterBtn = screen.getByTestId("disposition-filter-button");
+    expect(filterBtn).toHaveTextContent("All Dispositions");
+
+    const savedDisps = JSON.parse(
+      sessionStorage.getItem("vistarae_workbench_dispositions") || "[]",
+    );
+    expect(savedDisps).toEqual([
+      "accept",
+      "sublocation",
+      "in_batch_merge",
+      "update_existing",
+      "existing",
+      "exclude",
+      "ignore",
+    ]);
+  });
+
+  it("restores selected dispositions from sessionStorage", async () => {
+    sessionStorage.setItem(
+      "vistarae_workbench_dispositions",
+      JSON.stringify(["accept"]),
+    );
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("disposition-filter-button")).toBeInTheDocument();
+    });
+
+    const filterBtn = screen.getByTestId("disposition-filter-button");
+    expect(filterBtn).toHaveTextContent("Accept (New POI)");
+  });
+
+  it("filters candidate table when a disposition is deselected and toggles All/Clear", async () => {
+    sessionStorage.removeItem("vistarae_workbench_dispositions");
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("disposition-filter-button")).toBeInTheDocument();
+    });
+
+    const tableContainer = screen.getByTestId("candidate-table-scroll-container");
+
+    // Both candidates visible initially (cand-1: accept, cand-2: sublocation)
+    expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
+    expect(within(tableContainer).getByText("Lake Kawaguchi")).toBeInTheDocument();
+
+    // Open disposition dropdown
+    fireEvent.click(screen.getByTestId("disposition-filter-button"));
+    expect(screen.getByTestId("disposition-filter-dropdown")).toBeInTheDocument();
+
+    // Deselect sublocation
+    const subCheckbox = screen.getByTestId("disposition-checkbox-sublocation");
+    fireEvent.click(subCheckbox);
+
+    // Lake Kawaguchi (sublocation) should be filtered out
+    await waitFor(() => {
+      expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
+      expect(within(tableContainer).queryByText("Lake Kawaguchi")).not.toBeInTheDocument();
+    });
+
+    // Click "Clear" to deselect all dispositions
+    const clearBtn = screen.getByTestId("deselect-all-dispositions-btn");
+    fireEvent.click(clearBtn);
+
+    // Both should be filtered out
+    await waitFor(() => {
+      expect(within(tableContainer).queryByText("Mount Fuji")).not.toBeInTheDocument();
+      expect(within(tableContainer).queryByText("Lake Kawaguchi")).not.toBeInTheDocument();
+    });
+
+    // Click "All" to reselect all dispositions
+    const allBtn = screen.getByTestId("select-all-dispositions-btn");
+    fireEvent.click(allBtn);
+
+    await waitFor(() => {
+      expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
+      expect(within(tableContainer).getByText("Lake Kawaguchi")).toBeInTheDocument();
+    });
+  });
+
+  it("renders 'Completed Only' in completeness dropdown and filters table", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("completeness-filter")).toBeInTheDocument();
+    });
+
+    const completenessSelect = screen.getByTestId("completeness-filter") as HTMLSelectElement;
+    const completedOption = screen.getByRole("option", { name: "Completed Only" }) as HTMLOptionElement;
+    expect(completedOption).toBeInTheDocument();
+    expect(completedOption.value).toBe("complete");
+
+    const tableContainer = screen.getByTestId("candidate-table-scroll-container");
+
+    // Select "Completed Only": cand-1 is complete, cand-2 lacks hero_image_url and official_url
+    fireEvent.change(completenessSelect, { target: { value: "complete" } });
+
+    await waitFor(() => {
+      expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
+      expect(within(tableContainer).queryByText("Lake Kawaguchi")).not.toBeInTheDocument();
+    });
+  });
+
+  it("populates Beijing municipality and normalizes road for Summer Palace on address re-sync", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      latitude: 39.9901,
+      longitude: 116.26474,
+      street: "19 Road",
+      city: "Haidian District",
+      locality: "Haidian District",
+      postal_code: "100091",
+      country: "China",
+      country_code: "CN",
+      admin_level_1: null,
+      admin_level_2: "Haidian District",
+      raw_geocoding: {
+        address: {
+          road: "新建宫门路",
+          house_number: "19",
+          postcode: "100091",
+          city: "Haidian District",
+          country: "China",
+          country_code: "cn",
+          "ISO3166-2-lvl4": "CN-BJ",
+        },
+        display_name:
+          "Summer Palace, 19, 新建宫门路, Qinglongqiao, Haidian District, Beijing, 100091, China",
+      },
+    } as any);
+
+    const summerPalaceCandidate: any = {
+      ...mockCandidates[0],
+      id: "cand-summer-palace",
+      poi_name: "Summer Palace",
+      latitude: 39.9901,
+      longitude: 116.26474,
+      street_address: "19 Road",
+      city: "",
+      locality: "",
+      state_province: "",
+      admin_level_1: "",
+      admin_level_2: "Haidian District",
+      postal_code: "100091",
+      country: "China",
+      country_code: "CN",
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [summerPalaceCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Summer Palace",
+      );
+    });
+
+    const resyncBtn = screen.getByTestId("resync-address-from-pin-btn");
+    fireEvent.click(resyncBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("city-input")).toHaveValue("Beijing");
+      expect(screen.getByTestId("state-province-input")).toHaveValue("Beijing");
+      expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+        "Haidian District",
+      );
+      expect(screen.getByTestId("street-address-input")).toHaveValue(
+        "19 Xinjiangongmen Road",
+      );
+      expect(screen.getByTestId("postal-code-input")).toHaveValue("100091");
+      expect(screen.getByTestId("country-input")).toHaveValue("China");
+      expect(screen.getByTestId("country-code-input")).toHaveValue("CN");
+    });
+  });
+
+  it("clears unused address fields when newly reverse geocoded address omits them", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      latitude: 64.1466,
+      longitude: -21.9426,
+      street: null,
+      city: null,
+      locality: null,
+      postal_code: null,
+      admin_level_1: null,
+      admin_level_2: null,
+      state_province: null,
+      country: "Iceland",
+      country_code: "IS",
+      raw_geocoding: {
+        address: {
+          country: "Iceland",
+          country_code: "is",
+        },
+        display_name: "Iceland",
+      },
+    } as any);
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Mount Fuji",
+      );
+    });
+
+    // Populate fields with old data first
+    fireEvent.change(screen.getByTestId("street-address-input"), {
+      target: { value: "Old Street 123" },
+    });
+    fireEvent.change(screen.getByTestId("postal-code-input"), {
+      target: { value: "99999" },
+    });
+    fireEvent.change(screen.getByTestId("admin-level-2-input"), {
+      target: { value: "Old County" },
+    });
+
+    // Re-sync address from pin
+    const resyncBtn = screen.getByTestId("resync-address-from-pin-btn");
+    fireEvent.click(resyncBtn);
+
+    await waitFor(() => {
+      // Unused fields must be cleared, not preserved
+      expect(screen.getByTestId("street-address-input")).toHaveValue("");
+      expect(screen.getByTestId("postal-code-input")).toHaveValue("");
+      expect(screen.getByTestId("admin-level-2-input")).toHaveValue("");
+      expect(screen.getByTestId("country-input")).toHaveValue("Iceland");
+      expect(screen.getByTestId("country-code-input")).toHaveValue("IS");
+    });
+  });
+
+  it("places district into admin_level_2 and sets locality to city name for Chinese cities (e.g. Wild Goose Pagodas in Xi'an)", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      latitude: 34.218243,
+      longitude: 108.964152,
+      street: "Furong East Road",
+      city: "Yanta District",
+      locality: "Yanta District",
+      postal_code: "710054",
+      country: "China",
+      country_code: "CN",
+      admin_level_1: "Shaanxi",
+      admin_level_2: null,
+      raw_geocoding: {
+        address: {
+          road: "Furong East Road",
+          city: "Yanta District",
+          state: "Shaanxi",
+          postcode: "710054",
+          country: "China",
+          country_code: "cn",
+          "ISO3166-2-lvl4": "CN-SN",
+        },
+        display_name:
+          "西安唐华华邑酒店, Furong East Road, Dayanta, Yanta District, Xi'an, Shaanxi, 710054, China",
+      },
+    } as any);
+
+    const wildGooseCandidate: any = {
+      ...mockCandidates[0],
+      id: "cand-wild-goose",
+      poi_name: "Wild Goose Pagodas",
+      latitude: 34.218243,
+      longitude: 108.964152,
+      street_address: "Furong East Road",
+      city: "Yanta District",
+      locality: "Yanta District",
+      state_province: "Shaanxi",
+      admin_level_1: "Shaanxi",
+      admin_level_2: null,
+      postal_code: "710054",
+      country: "China",
+      country_code: "CN",
+      raw_geocoding: {
+        address: {
+          road: "Furong East Road",
+          city: "Yanta District",
+          state: "Shaanxi",
+          postcode: "710054",
+          country: "China",
+          country_code: "cn",
+          "ISO3166-2-lvl4": "CN-SN",
+        },
+        display_name:
+          "西安唐华华邑酒店, Furong East Road, Dayanta, Yanta District, Xi'an, Shaanxi, 710054, China",
+      },
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [wildGooseCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Wild Goose Pagodas",
+      );
+    });
+
+    // In the editor, City should be Xi'an (not Yanta District), and District should be Yanta District
+    expect(screen.getByTestId("city-input")).toHaveValue("Xi'an");
+    expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+      "Yanta District",
+    );
+    expect(screen.getByTestId("state-province-input")).toHaveValue("Shaanxi");
+
+    // In the table on the left, City / Town should display Xi'an
+    const tableContainer = screen.getByTestId("candidate-table-scroll-container");
+    expect(within(tableContainer).getByText("Xi'an")).toBeInTheDocument();
+    expect(within(tableContainer).queryByText("Yanta District")).not.toBeInTheDocument();
+
+    // Re-syncing address from pin also preserves/populates Xi'an as city and Yanta District as admin_level_2
+    const resyncBtn = screen.getByTestId("resync-address-from-pin-btn");
+    fireEvent.click(resyncBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("city-input")).toHaveValue("Xi'an");
+      expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+        "Yanta District",
+      );
+      expect(screen.getByTestId("state-province-input")).toHaveValue("Shaanxi");
+    });
+  });
+
+  it("resolves Bund River Front in Shanghai to Huangpu District (not Pudong and not blank)", async () => {
+    const bundCandidate: any = {
+      ...mockCandidates[0],
+      id: "cand-bund",
+      poi_name: "Bund River Front",
+      latitude: 31.240082,
+      longitude: 121.486173,
+      street_address: "The Bund",
+      city: "Shanghai",
+      locality: "Shanghai",
+      state_province: "Shanghai",
+      admin_level_1: "Shanghai",
+      admin_level_2: null,
+      postal_code: "200002",
+      country: "China",
+      country_code: "CN",
+      raw_geocoding: {
+        address: {
+          road: "The Bund",
+          quarter: "Xinbeimen",
+          suburb: "Waitan Subdistrict",
+          city: "Shanghai",
+          state: "Shanghai",
+          postcode: "200002",
+          country: "China",
+          country_code: "cn",
+          "ISO3166-2-lvl4": "CN-SH",
+        },
+        display_name:
+          "The Bund, Xinbeimen, Waitan Subdistrict, Shanghai, Huangpu District, Shanghai, 200002, China",
+      },
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [bundCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Bund River Front",
+      );
+    });
+
+    expect(screen.getByTestId("city-input")).toHaveValue("Shanghai");
+    expect(screen.getByTestId("state-province-input")).toHaveValue("Shanghai");
+    expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+      "Huangpu District",
+    );
+  });
+
+  it("normalizes Hong Kong candidate from Fife Street Mong Kok / Kowloon to Hong Kong / Yau Tsim Mong District", async () => {
+    const { getDisplayCandidateCity } = await import(
+      "../../components/ingest/CSVImportWorkbenchModal"
+    );
+    const { reverseGeocode } = await import("../../services/geocodeService");
+
+    const hkCandidate: any = {
+      ...mockCandidates[0],
+      id: "cand-hk-160",
+      poi_name: "Hong Kong Restaurants & Shops",
+      latitude: 22.319945,
+      longitude: 114.169705,
+      street_address: "Kowloon City Flyover",
+      city: "Fife Street Mong Kok",
+      locality: "Fife Street Mong Kok",
+      state_province: "Kowloon",
+      admin_level_1: "Kowloon",
+      admin_level_2: null,
+      postal_code: "",
+      country: "China",
+      country_code: "CN",
+      raw_geocoding: {
+        address: {
+          amenity: "Cold Noodles",
+          house_number: "688",
+          road: "Sai Yeung Choi Street South",
+          suburb: "Mong Kok",
+          region: "Kowloon",
+          city: "Hong Kong",
+          "ISO3166-2-lvl3": "CN-HK",
+          country: "China",
+          country_code: "cn",
+        },
+        display_name:
+          "Cold Noodles, 688, Sai Yeung Choi Street South, Mong Kok, Yau Tsim Mong District, Kowloon, Hong Kong, China",
+      },
+    };
+
+    // Table display helper should show Hong Kong
+    expect(getDisplayCandidateCity(hkCandidate)).toBe("Hong Kong");
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [hkCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Hong Kong Restaurants & Shops",
+      );
+    });
+
+    // Form fields in editor should be normalized to Hong Kong
+    expect(screen.getByTestId("city-input")).toHaveValue("Hong Kong");
+    expect(screen.getByTestId("state-province-input")).toHaveValue("Hong Kong");
+    expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+      "Yau Tsim Mong District",
+    );
+
+    // Re-sync from pin
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      latitude: 22.319945,
+      longitude: 114.169705,
+      street: "688 Sai Yeung Choi Street South",
+      city: "Hong Kong",
+      locality: "Hong Kong",
+      postal_code: "",
+      country: "China",
+      country_code: "CN",
+      admin_level_1: "Hong Kong",
+      admin_level_2: "Yau Tsim Mong District",
+      raw_geocoding: hkCandidate.raw_geocoding,
+    } as any);
+
+    const resyncBtn = screen.getByRole("button", {
+      name: /re-sync address from pin/i,
+    });
+    fireEvent.click(resyncBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("street-address-input")).toHaveValue(
+        "688 Sai Yeung Choi Street South",
+      );
+      expect(screen.getByTestId("city-input")).toHaveValue("Hong Kong");
+      expect(screen.getByTestId("state-province-input")).toHaveValue("Hong Kong");
+      expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
+        "Yau Tsim Mong District",
+      );
+    });
+  });
+
+  it("re-syncs address from pin for Namibia without incorrectly setting China/CN", async () => {
+    const { reverseGeocode } = await import("../../services/geocodeService");
+
+    const namibiaCandidate: any = {
+      ...mockCandidates[0],
+      id: "cand-namibia-673",
+      poi_name: "Etosha National Park",
+      latitude: -18.99133,
+      longitude: 15.74606,
+      street_address: "",
+      city: "",
+      locality: "",
+      state_province: "",
+      admin_level_1: "",
+      admin_level_2: null,
+      postal_code: "",
+      country: "Namibia",
+      country_code: "",
+      raw_geocoding: {
+        address: {
+          state: "Oshana",
+          "ISO3166-2-lvl4": "NA-ON",
+          country: "Namibia",
+          country_code: "na",
+        },
+        display_name: "Oshana, Namibia",
+      },
+    };
+
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 1,
+      candidates: [namibiaCandidate],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Etosha National Park",
+      );
+    });
+
+    vi.mocked(reverseGeocode).mockResolvedValueOnce({
+      latitude: -18.99133,
+      longitude: 15.74606,
+      street: "",
+      city: "",
+      locality: "",
+      postal_code: "",
+      country: "Namibia",
+      country_code: "NA",
+      admin_level_1: "Oshana",
+      admin_level_2: "",
+      raw_geocoding: namibiaCandidate.raw_geocoding,
+    } as any);
+
+    const resyncBtn = screen.getByRole("button", {
+      name: /re-sync address from pin/i,
+    });
+    fireEvent.click(resyncBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("country-input")).toHaveValue("Namibia");
+      expect(screen.getByTestId("country-code-input")).toHaveValue("NA");
+      expect(screen.getByTestId("state-province-input")).toHaveValue("Oshana");
+    });
   });
 });

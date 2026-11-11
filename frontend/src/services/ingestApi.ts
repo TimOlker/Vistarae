@@ -32,7 +32,7 @@ export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"],
 export type CandidateUpdateRequest = components["schemas"]["CandidateUpdateRequest"];
 
 export interface CandidateListFilterParams {
-  completeness?: "all" | "incomplete" | "missing_photo" | "missing_location" | "missing_websites";
+  completeness?: "all" | "complete" | "incomplete" | "missing_photo" | "missing_location" | "missing_websites";
   disposition?: string;
   search?: string;
   phase?: "phase_1_triage" | "phase_2_enriched";

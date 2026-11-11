@@ -534,3 +534,117 @@ async def test_upload_commits_session_on_success(
 
     assert resp.status_code in (200, 202)
     mock_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_job_candidates_multi_disposition_filter(
+    mock_user: User,
+    mock_staging_service: MagicMock,
+    mock_poi_repo: MagicMock,
+) -> None:
+    job_id = uuid.uuid4()
+    c1 = IngestCandidate(
+        id=uuid.uuid4(),
+        user_id=mock_user.id,
+        job_id=job_id,
+        row_index=0,
+        poi_name="Candidate Accept",
+        recommended_disposition=IngestDisposition.ACCEPT,
+        user_disposition=None,
+    )
+    c2 = IngestCandidate(
+        id=uuid.uuid4(),
+        user_id=mock_user.id,
+        job_id=job_id,
+        row_index=1,
+        poi_name="Candidate Update",
+        recommended_disposition=IngestDisposition.UPDATE_EXISTING,
+        user_disposition=None,
+    )
+    c3 = IngestCandidate(
+        id=uuid.uuid4(),
+        user_id=mock_user.id,
+        job_id=job_id,
+        row_index=2,
+        poi_name="Candidate Ignore",
+        recommended_disposition=IngestDisposition.IGNORE,
+        user_disposition=None,
+    )
+    mock_staging_service.list_candidates.return_value = [c1, c2, c3]
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+    app.dependency_overrides[get_poi_repo] = lambda: mock_poi_repo
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Multi-select: accept and update_existing
+        resp = await client.get(f"/api/ingest/jobs/{job_id}/candidates?disposition=accept,update_existing")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["candidates"]) == 2
+        names = {c["poi_name"] for c in data["candidates"]}
+        assert names == {"Candidate Accept", "Candidate Update"}
+
+        # None selected: disposition=none
+        resp_none = await client.get(f"/api/ingest/jobs/{job_id}/candidates?disposition=none")
+        assert resp_none.status_code == 200
+        assert len(resp_none.json()["candidates"]) == 0
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_get_job_candidates_completeness_filter(
+    mock_user: User,
+    mock_staging_service: MagicMock,
+    mock_poi_repo: MagicMock,
+) -> None:
+    job_id = uuid.uuid4()
+    c_complete = IngestCandidate(
+        id=uuid.uuid4(),
+        user_id=mock_user.id,
+        job_id=job_id,
+        row_index=0,
+        poi_name="Complete POI",
+        recommended_disposition=IngestDisposition.ACCEPT,
+        hero_image_url="https://example.com/photo.jpg",
+        latitude=Decimal("48.8584"),
+        longitude=Decimal("2.2945"),
+        street_address="Champ de Mars, 5 Av. Anatole France",
+        official_url="https://toureiffel.paris",
+    )
+    c_incomplete = IngestCandidate(
+        id=uuid.uuid4(),
+        user_id=mock_user.id,
+        job_id=job_id,
+        row_index=1,
+        poi_name="Incomplete POI",
+        recommended_disposition=IngestDisposition.ACCEPT,
+        hero_image_url=None,
+        latitude=Decimal("48.8584"),
+        longitude=Decimal("2.2945"),
+        street_address="Somewhere",
+    )
+    mock_staging_service.list_candidates.return_value = [c_complete, c_incomplete]
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+    app.dependency_overrides[get_poi_repo] = lambda: mock_poi_repo
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Completed Only
+        resp = await client.get(f"/api/ingest/jobs/{job_id}/candidates?completeness=complete")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["candidates"]) == 1
+        assert data["candidates"][0]["poi_name"] == "Complete POI"
+
+        # Incomplete Only
+        resp_inc = await client.get(f"/api/ingest/jobs/{job_id}/candidates?completeness=incomplete")
+        assert resp_inc.status_code == 200
+        data_inc = resp_inc.json()
+        assert len(data_inc["candidates"]) == 1
+        assert data_inc["candidates"][0]["poi_name"] == "Incomplete POI"
+
+    app.dependency_overrides.clear()
+

@@ -48,13 +48,14 @@ async def reverse_geocode_endpoint(
     lng: float = Query(
         ..., ge=-180.0, le=180.0, description="Longitude in degrees (-180.0 to 180.0)"
     ),
+    force_refresh: bool = Query(default=False, description="Bypass internal geocache"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> ReverseGeocodeResponse:
     """Reverse geocodes coordinates via internal PostGIS cache and rate-limited OSM Nominatim."""
     cache_repo = SqlAlchemyGeocodingCacheRepository(session)
     service = ReverseGeocodeService(cache_repo=cache_repo)
-    return await service.reverse_geocode(lat=lat, lng=lng)
+    return await service.reverse_geocode(lat=lat, lng=lng, force_refresh=force_refresh)
 
 
 @router.get("/pois/geocode/forward", response_model=ForwardGeocodeResponse)
