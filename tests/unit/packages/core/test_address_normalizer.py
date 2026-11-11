@@ -130,6 +130,14 @@ def test_country_to_iso_code():
     assert AddressNormalizer.country_to_iso_code("France") == "FR"
     assert AddressNormalizer.country_to_iso_code("China") == "CN"
     assert AddressNormalizer.country_to_iso_code("中国") == "CN"
+    assert AddressNormalizer.country_to_iso_code("Hong Kong") == "HK"
+    assert AddressNormalizer.country_to_iso_code("Macau") == "MO"
+    assert AddressNormalizer.country_to_iso_code("Namibia") == "NA"
+    assert AddressNormalizer.country_to_iso_code("Monaco") == "MC"
+    assert AddressNormalizer.country_to_iso_code("Mongolia") == "MN"
+    assert AddressNormalizer.country_to_iso_code("Montenegro") == "ME"
+    assert AddressNormalizer.country_to_iso_code("Mozambique") == "MZ"
+    assert AddressNormalizer.country_to_iso_code("Myanmar") == "MM"
     assert AddressNormalizer.country_to_iso_code("Unknown") == "XX"
     assert AddressNormalizer.country_to_iso_code(None) == "XX"
 
@@ -155,3 +163,23 @@ def test_chinese_address_transliteration_and_parsing():
     assert parsed["admin_level_1"] == "Beijing"
     assert parsed["country"] == "China"
     assert parsed["country_code"] == "CN"
+
+
+def test_namibia_address_parsing():
+    """Verifies that reverse geocoding in Namibia resolves to Namibia / NA and not China / CN."""
+    raw_payload = {
+        "name": "Oshana",
+        "display_name": "Oshana, Namibia",
+        "address": {
+            "state": "Oshana",
+            "ISO3166-2-lvl4": "NA-ON",
+            "country": "Namibia",
+            "country_code": "na",
+        },
+    }
+    parsed = AddressNormalizer.parse_nominatim_iso_address(raw_payload)
+    assert parsed["country"] == "Namibia"
+    assert parsed["country_code"] == "NA"
+    assert parsed["admin_level_1"] == "Oshana"
+    assert parsed["locality"] is None
+

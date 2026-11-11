@@ -270,26 +270,56 @@ async def get_job_candidates(
             or (c.description and q in c.description.lower())
         ]
 
-    # Apply disposition filter
+    # Apply disposition filter (supports comma-separated list or single value)
     if disposition and disposition.strip():
-        d_val = disposition.strip().lower()
-        candidates = [
-            c
-            for c in candidates
-            if (c.user_disposition and c.user_disposition.value == d_val)
-            or (not c.user_disposition and c.recommended_disposition.value == d_val)
-        ]
+        if disposition.strip().lower() == "none":
+            candidates = []
+        else:
+            target_disps = {d.strip().lower() for d in disposition.split(",") if d.strip()}
+            candidates = [
+                c
+                for c in candidates
+                if (
+                    c.user_disposition
+                    and c.user_disposition.value.lower() in target_disps
+                )
+                or (
+                    not c.user_disposition
+                    and c.recommended_disposition
+                    and c.recommended_disposition.value.lower() in target_disps
+                )
+            ]
 
     # Apply completeness filter (FR-002)
     if completeness and completeness.strip():
         comp = completeness.strip().lower()
-        if comp == "incomplete":
+        if comp in ("complete", "completed"):
             candidates = [
                 c
                 for c in candidates
-                if not c.hero_image_url
-                or (c.latitude is None or c.longitude is None or not c.street_address)
-                or (not c.official_url and not c.no_websites)
+                if bool(c.hero_image_url and str(c.hero_image_url).strip())
+                and c.latitude is not None
+                and c.longitude is not None
+                and bool(c.street_address and str(c.street_address).strip())
+                and (
+                    bool(c.official_url and str(c.official_url).strip())
+                    or bool(c.related_websites)
+                    or bool(c.no_websites)
+                )
+            ]
+        elif comp == "incomplete":
+            candidates = [
+                c
+                for c in candidates
+                if not (c.hero_image_url and str(c.hero_image_url).strip())
+                or c.latitude is None
+                or c.longitude is None
+                or not (c.street_address and str(c.street_address).strip())
+                or (
+                    not (c.official_url and str(c.official_url).strip())
+                    and not bool(c.related_websites)
+                    and not bool(c.no_websites)
+                )
             ]
         elif comp == "missing_photo":
             candidates = [c for c in candidates if not c.hero_image_url]
@@ -300,7 +330,13 @@ async def get_job_candidates(
                 if c.latitude is None or c.longitude is None or not c.street_address
             ]
         elif comp == "missing_websites":
-            candidates = [c for c in candidates if not c.official_url and not c.no_websites]
+            candidates = [
+                c
+                for c in candidates
+                if not (c.official_url and str(c.official_url).strip())
+                and not bool(c.related_websites)
+                and not bool(c.no_websites)
+            ]
 
     cand_name_map = {c.id: c.poi_name for c in candidates}
     name_map = await _resolve_poi_names(candidates, user.id, poi_repo)

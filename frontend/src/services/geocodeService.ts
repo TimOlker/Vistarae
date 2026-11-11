@@ -151,11 +151,13 @@ export async function forwardSearch(
 export async function reverseGeocode(
   lat: number,
   lng: number,
+  forceRefresh: boolean = false,
 ): Promise<ReverseGeocodeResponse> {
   const roundedLat = Math.round(lat * 100000) / 100000;
   const roundedLng = Math.round(lng * 100000) / 100000;
+  const refreshParam = forceRefresh ? "&force_refresh=true" : "";
   return await apiFetch<ReverseGeocodeResponse>(
-    `/api/pois/geocode/reverse?lat=${roundedLat}&lng=${roundedLng}`,
+    `/api/pois/geocode/reverse?lat=${roundedLat}&lng=${roundedLng}${refreshParam}`,
   );
 }
 

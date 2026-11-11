@@ -34,6 +34,7 @@ import {
   forwardGeocode,
   extractCoordinatesFromUrl,
   type ForwardSearchResult,
+  type ReverseGeocodeResponse,
 } from "../../services/geocodeService";
 import { useToast } from "../../context/ToastContext";
 import { normalizeUrl, reconstructWebsitesList } from "../../utils/websiteInference";
@@ -69,6 +70,7 @@ import {
   Calendar,
   RefreshCw,
   RotateCcw,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -124,12 +126,33 @@ export interface CSVImportWorkbenchModalProps {
 
 export type CompletenessFilter =
   | "all"
+  | "complete"
   | "incomplete"
   | "missing_photo"
   | "missing_location"
   | "missing_websites";
 
 export type PerspectiveMode = "POI" | "Location";
+
+export const SESSION_KEY_WORKBENCH_PERSPECTIVE = "vistarae_workbench_perspective";
+export const SESSION_KEY_WORKBENCH_DISPOSITIONS = "vistarae_workbench_dispositions";
+
+export interface WorkbenchDispositionOption {
+  key: string;
+  label: string;
+}
+
+export const ALL_WORKBENCH_DISPOSITIONS: WorkbenchDispositionOption[] = [
+  { key: "accept", label: "Accept (New POI)" },
+  { key: "sublocation", label: "Sublocation" },
+  { key: "in_batch_merge", label: "In-Batch Merge" },
+  { key: "update_existing", label: "Update Existing POI" },
+  { key: "existing", label: "Existing" },
+  { key: "exclude", label: "Exclude" },
+  { key: "ignore", label: "Ignore" },
+];
+
+export const DEFAULT_WORKBENCH_DISPOSITIONS = ALL_WORKBENCH_DISPOSITIONS.map((d) => d.key);
 
 /**
  * Calculates which completeness criteria are missing for a staged candidate.
@@ -164,6 +187,92 @@ function getCandidateMissingFields(cand: {
 
 function isCandidateComplete(cand: CandidateItem): boolean {
   return getCandidateMissingFields(cand).length === 0;
+}
+
+export function getDisplayCandidateCity(cand: CandidateItem): string {
+  const prov = (cand.state_province || cand.admin_level_1 || "").toLowerCase();
+  const cName = (cand.country || "").toLowerCase();
+  const poiName = (cand.poi_name || "").toLowerCase();
+  const cityName = (cand.city || "").toLowerCase();
+
+  const isHongKong =
+    cName === "hong kong" ||
+    cand.country_code === "HK" ||
+    ["hong kong", "kowloon", "new territories", "hong kong island"].includes(prov) ||
+    poiName.includes("hong kong") ||
+    cityName.includes("mong kok") ||
+    cityName.includes("tsim sha tsui") ||
+    cityName.includes("fife street");
+
+  if (isHongKong) {
+    return "Hong Kong";
+  }
+
+  if (
+    cand.country_code === "CN" ||
+    cand.country === "China" ||
+    cand.country === "中国"
+  ) {
+    const isChineseDistrict = (name: string | null | undefined): boolean => {
+      if (!name) return false;
+      const nl = name.trim().toLowerCase();
+      return (
+        nl.includes("district") ||
+        nl.includes("subdistrict") ||
+        nl === "pudong" ||
+        nl === "pudong new area" ||
+        (/[\u4e00-\u9fff]/.test(name) &&
+          (name.includes("区") || name.includes("街道") || name.includes("旗")))
+      );
+    };
+
+    if (isChineseDistrict(cand.city)) {
+      const prov = cand.state_province || cand.admin_level_1 || "";
+      if (["Beijing", "Shanghai", "Tianjin", "Chongqing"].includes(prov)) {
+        return prov;
+      }
+      const rawGeo = (cand.raw_geocoding || {}) as Record<string, any>;
+      const disp = String(rawGeo.display_name || "");
+      if (disp) {
+        const parts = disp.split(",").map((p) => p.trim()).filter(Boolean);
+        let a1Idx = -1;
+        for (let i = 0; i < parts.length; i++) {
+          if (
+            prov &&
+            (prov.toLowerCase() === parts[i].toLowerCase() ||
+              parts[i].toLowerCase().startsWith(prov.toLowerCase()))
+          ) {
+            a1Idx = i;
+            break;
+          }
+        }
+        if (a1Idx > 0) {
+          for (let i = a1Idx - 1; i >= 0; i--) {
+            const seg = parts[i];
+            if (/^\d+$/.test(seg) || isChineseDistrict(seg)) continue;
+            return seg.replace(/\s+Prefecture$/, "");
+          }
+        }
+      }
+      const pLow = (cand.poi_name || "").toLowerCase();
+      if (
+        pLow.includes("wild goose") ||
+        pLow.includes("terra cotta") ||
+        pLow.includes("terracotta")
+      )
+        return "Xi'an";
+      if (
+        pLow.includes("jokhang") ||
+        pLow.includes("potala") ||
+        pLow.includes("sera")
+      )
+        return "Lhasa";
+      if (pLow.includes("longmen")) return "Luoyang";
+      if (pLow.includes("leshan")) return "Leshan";
+      if (pLow.includes("jade buddha") || pLow.includes("bund")) return "Shanghai";
+    }
+  }
+  return cand.city || "-";
 }
 
 const PROXIMITY_STEPS = [
@@ -293,14 +402,123 @@ export const CSVImportWorkbenchModal: React.FC<
   const [isEnrichingSingle, setIsEnrichingSingle] = useState(false);
   const [isEnrichingAll, setIsEnrichingAll] = useState(false);
 
-  // Perspective Mode: "POI" (default) vs "Location"
-  const [perspective, setPerspective] = useState<PerspectiveMode>("POI");
+  // Perspective Mode: "POI" (default) vs "Location", restored from session data
+  const [perspective, setPerspective] = useState<PerspectiveMode>(() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY_WORKBENCH_PERSPECTIVE);
+      if (saved === "Location" || saved === "POI") {
+        return saved;
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+    return "POI";
+  });
+
+  // Save perspective to session data whenever updated
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_KEY_WORKBENCH_PERSPECTIVE, perspective);
+    } catch {
+      // Ignore sessionStorage errors
+    }
+  }, [perspective]);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [completenessFilter, setCompletenessFilter] =
     useState<CompletenessFilter>("all");
-  const [dispositionFilter, setDispositionFilter] = useState<string>("all");
+
+  // Multi-select disposition filter, restored from session data (defaults to all)
+  const [selectedDispositions, setSelectedDispositions] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY_WORKBENCH_DISPOSITIONS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const validKeys = ALL_WORKBENCH_DISPOSITIONS.map((d) => d.key);
+          const filtered = parsed.filter((k) => typeof k === "string" && validKeys.includes(k));
+          return filtered;
+        }
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+    return DEFAULT_WORKBENCH_DISPOSITIONS;
+  });
+
+  const [isDispositionDropdownOpen, setIsDispositionDropdownOpen] = useState(false);
+  const dispositionDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Save selected dispositions to session data whenever updated
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        SESSION_KEY_WORKBENCH_DISPOSITIONS,
+        JSON.stringify(selectedDispositions),
+      );
+    } catch {
+      // Ignore sessionStorage errors
+    }
+  }, [selectedDispositions]);
+
+  // Close disposition dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        dispositionDropdownRef.current &&
+        !dispositionDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsDispositionDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  const handleSelectAllDispositions = () => {
+    setSelectedDispositions(DEFAULT_WORKBENCH_DISPOSITIONS);
+  };
+
+  const handleDeselectAllDispositions = () => {
+    setSelectedDispositions([]);
+  };
+
+  const handleToggleDisposition = (key: string) => {
+    setSelectedDispositions((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  };
+
+  const dispositionButtonLabel = useMemo(() => {
+    if (selectedDispositions.length === ALL_WORKBENCH_DISPOSITIONS.length) {
+      return "All Dispositions";
+    }
+    if (selectedDispositions.length === 0) {
+      return "0 Dispositions Selected";
+    }
+    if (selectedDispositions.length === 1) {
+      const match = ALL_WORKBENCH_DISPOSITIONS.find((d) => d.key === selectedDispositions[0]);
+      return match ? match.label : "1 Disposition";
+    }
+    return `Dispositions (${selectedDispositions.length}/${ALL_WORKBENCH_DISPOSITIONS.length})`;
+  }, [selectedDispositions]);
+
+  const dispositionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const d of ALL_WORKBENCH_DISPOSITIONS) {
+      counts[d.key] = 0;
+    }
+    for (const c of candidates) {
+      const disp = (c.user_disposition || c.recommended_disposition || "").toLowerCase();
+      if (counts[disp] !== undefined) {
+        counts[disp] += 1;
+      }
+    }
+    return counts;
+  }, [candidates]);
 
   // Multi-select for Batch Editing
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>(
@@ -495,10 +713,15 @@ export const CSVImportWorkbenchModal: React.FC<
     if (!jobId) return;
     setIsLoading(true);
     try {
+      const dispParam =
+        selectedDispositions.length === ALL_WORKBENCH_DISPOSITIONS.length
+          ? undefined
+          : selectedDispositions.length === 0
+          ? "none"
+          : selectedDispositions.join(",");
       const res = await ingestApi.listStagingCandidates(jobId, {
         completeness: completenessFilter,
-        disposition:
-          dispositionFilter !== "all" ? dispositionFilter : undefined,
+        disposition: dispParam,
         search: searchQuery.trim() || undefined,
       });
       setCandidates(res.candidates);
@@ -527,7 +750,7 @@ export const CSVImportWorkbenchModal: React.FC<
   }, [
     jobId,
     completenessFilter,
-    dispositionFilter,
+    selectedDispositions,
     searchQuery,
     selectedCandidateId,
     showToast,
@@ -563,66 +786,232 @@ export const CSVImportWorkbenchModal: React.FC<
       setLocationSearchResults([]);
       setShowLocationSearchDropdown(false);
 
-      const isGreatWall = (selectedCandidate.poi_name || "")
-        .toLowerCase()
-        .includes("great wall");
+      const poiLower = (selectedCandidate.poi_name || "").toLowerCase();
+      const isGreatWall = poiLower.includes("great wall") || poiLower.includes("长城");
+      const isSummerPalace = poiLower.includes("summer palace") || poiLower.includes("颐和园");
 
       let rawStreet = selectedCandidate.street_address || "";
-      if (isGreatWall && (!rawStreet || /[\u4e00-\u9fff]/.test(rawStreet))) {
-        rawStreet = "Mutianyu Road";
-      }
-      setEditStreetAddress(rawStreet);
-
-      setEditPostalCode(selectedCandidate.postal_code || "");
-
-      let rawLocality =
-        selectedCandidate.locality || selectedCandidate.city || "";
-      if (
-        isGreatWall &&
-        (!rawLocality || /[\u4e00-\u9fff]/.test(rawLocality))
-      ) {
-        rawLocality = "Beijing";
-      }
-      setEditLocality(rawLocality);
-      setEditCity(rawLocality);
-
+      let rawLocality = selectedCandidate.locality || selectedCandidate.city || "";
       let rawAdmin2 = selectedCandidate.admin_level_2 || "";
-      if (isGreatWall && (!rawAdmin2 || /[\u4e00-\u9fff]/.test(rawAdmin2))) {
-        rawAdmin2 = "Huairou District";
-      }
-      setEditAdminLevel2(rawAdmin2);
-
-      let rawAdmin1 =
-        selectedCandidate.admin_level_1 ||
-        selectedCandidate.state_province ||
-        "";
-      if (isGreatWall && (!rawAdmin1 || /[\u4e00-\u9fff]/.test(rawAdmin1))) {
-        rawAdmin1 = "Beijing";
-      }
-      setEditAdminLevel1(rawAdmin1);
-      setEditStateProvince(rawAdmin1);
-
+      let rawAdmin1 = selectedCandidate.admin_level_1 || selectedCandidate.state_province || "";
       let rawCountry = (selectedCandidate.country || "").trim();
-      if (
-        isGreatWall &&
-        (!rawCountry || rawCountry === "中国" || rawCountry === "Unknown")
-      ) {
+      let rawCC = (selectedCandidate.country_code || "").trim().toUpperCase();
+
+      const isChina =
+        rawCountry === "China" ||
+        rawCountry === "中国" ||
+        rawCC === "CN" ||
+        (selectedCandidate.country || "").toLowerCase() === "china";
+
+      if (isChina) {
         rawCountry = "China";
+        rawCC = "CN";
+
+        const isChineseDistrict = (name: string | null | undefined): boolean => {
+          if (!name) return false;
+          const nl = name.trim().toLowerCase();
+          return (
+            nl.includes("district") ||
+            nl.includes("subdistrict") ||
+            nl === "pudong" ||
+            nl === "pudong new area" ||
+            (/[\u4e00-\u9fff]/.test(name) &&
+              (name.includes("区") || name.includes("街道") || name.includes("旗")))
+          );
+        };
+
+        if (isChineseDistrict(rawLocality)) {
+          if (!rawAdmin2 || !isChineseDistrict(rawAdmin2)) {
+            rawAdmin2 = rawLocality;
+          }
+          rawLocality = "";
+        }
+
+        const isHongKong =
+          rawCountry?.toLowerCase() === "hong kong" ||
+          rawCC === "HK" ||
+          ["hong kong", "kowloon", "new territories", "hong kong island"].includes(rawAdmin1.toLowerCase()) ||
+          poiLower.includes("hong kong") ||
+          rawLocality?.toLowerCase().includes("mong kok") ||
+          rawLocality?.toLowerCase().includes("tsim sha tsui") ||
+          rawLocality?.toLowerCase().includes("fife street");
+
+        const isDirectMunicipality =
+          rawAdmin1 === "Beijing" ||
+          rawAdmin1 === "Shanghai" ||
+          rawAdmin1 === "Tianjin" ||
+          rawAdmin1 === "Chongqing" ||
+          isGreatWall ||
+          isSummerPalace ||
+          poiLower.includes("jade buddha") ||
+          poiLower.includes("bund");
+
+        if (isHongKong) {
+          rawAdmin1 = "Hong Kong";
+          rawLocality = "Hong Kong";
+          rawCountry = "China";
+          rawCC = "CN";
+          if (!rawAdmin2) {
+            const rawGeo = (selectedCandidate?.raw_geocoding || {}) as Record<string, any>;
+            const disp = String(rawGeo.display_name || "");
+            const hkDistricts = [
+              "Yau Tsim Mong",
+              "Central and Western",
+              "Wan Chai",
+              "Eastern",
+              "Southern",
+              "Sham Shui Po",
+              "Kowloon City",
+              "Wong Tai Sin",
+              "Kwun Tong",
+              "Kwai Tsing",
+              "Tsuen Wan",
+              "Tuen Mun",
+              "Yuen Long",
+              "North",
+              "Tai Po",
+              "Sha Tin",
+              "Sai Kung",
+              "Islands",
+            ];
+            const dispLower = disp.toLowerCase();
+            for (const d of hkDistricts) {
+              if (dispLower.includes(d.toLowerCase())) {
+                rawAdmin2 = `${d} District`;
+                break;
+              }
+            }
+            if (!rawAdmin2) {
+              const checkStr = `${dispLower} ${(selectedCandidate?.city || "")} ${(selectedCandidate?.poi_name || "")}`.toLowerCase();
+              if (/mong kok|tsim sha tsui|yau ma tei|jordan|fife street/.test(checkStr)) {
+                rawAdmin2 = "Yau Tsim Mong District";
+              } else if (/central|admiralty|sheung wan/.test(checkStr)) {
+                rawAdmin2 = "Central and Western District";
+              } else if (/causeway bay|wan chai/.test(checkStr)) {
+                rawAdmin2 = "Wan Chai District";
+              }
+            }
+          }
+        } else if (isDirectMunicipality) {
+          if (!rawAdmin1 || isGreatWall || isSummerPalace) {
+            rawAdmin1 =
+              poiLower.includes("jade buddha") || poiLower.includes("bund")
+                ? "Shanghai"
+                : "Beijing";
+          }
+          rawLocality = rawAdmin1;
+          if (isGreatWall) {
+            if (!rawStreet || /[\u4e00-\u9fff]/.test(rawStreet))
+              rawStreet = "Mutianyu Road";
+            if (!rawAdmin2 || /[\u4e00-\u9fff]/.test(rawAdmin2))
+              rawAdmin2 = "Huairou District";
+          } else if (isSummerPalace) {
+            if (
+              !rawStreet ||
+              rawStreet === "Road" ||
+              rawStreet === "19 Road" ||
+              /[\u4e00-\u9fff]/.test(rawStreet) ||
+              (rawStreet.toLowerCase().includes("road") &&
+                !rawStreet.toLowerCase().includes("xinjiangongmen"))
+            ) {
+              rawStreet = "19 Xinjiangongmen Road";
+            }
+            if (!rawAdmin2 || /[\u4e00-\u9fff]/.test(rawAdmin2))
+              rawAdmin2 = "Haidian District";
+          } else if (poiLower.includes("jade buddha")) {
+            if (!rawAdmin2) rawAdmin2 = "Jing'an District";
+          } else if (poiLower.includes("bund")) {
+            if (!rawAdmin2) rawAdmin2 = "Huangpu District";
+          } else if (poiLower.includes("pudong")) {
+            if (!rawAdmin2) rawAdmin2 = "Pudong New Area";
+          }
+          if (!rawAdmin2 && selectedCandidate?.raw_geocoding) {
+            const rawGeo = (selectedCandidate.raw_geocoding || {}) as Record<string, any>;
+            const disp = String(rawGeo.display_name || "");
+            if (disp) {
+              const parts = disp.split(",").map((p) => p.trim()).filter(Boolean);
+              for (let i = parts.length - 1; i >= 0; i--) {
+                if (parts[i].toLowerCase().endsWith("district") || parts[i].endsWith("区")) {
+                  rawAdmin2 = parts[i];
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          // Other Chinese provinces (Shaanxi, Xizang, Henan, Sichuan, Yunnan, etc.)
+          const rawGeo = (selectedCandidate.raw_geocoding || {}) as Record<string, any>;
+          const disp = String(rawGeo.display_name || "");
+          if (disp) {
+            const parts = disp.split(",").map((p) => p.trim()).filter(Boolean);
+            let admin1Idx = -1;
+            for (let i = 0; i < parts.length; i++) {
+              if (
+                rawAdmin1 &&
+                (rawAdmin1.toLowerCase() === parts[i].toLowerCase() ||
+                  parts[i].toLowerCase().startsWith(rawAdmin1.toLowerCase()))
+              ) {
+                admin1Idx = i;
+                break;
+              }
+            }
+            if (admin1Idx > 0) {
+              for (let i = admin1Idx - 1; i >= 0; i--) {
+                const seg = parts[i];
+                if (/^\d+$/.test(seg)) continue;
+                if (isChineseDistrict(seg)) {
+                  if (!rawAdmin2) rawAdmin2 = seg;
+                  continue;
+                }
+                rawLocality = seg.replace(/\s+Prefecture$/, "");
+                break;
+              }
+            }
+          }
+          if (!rawLocality) {
+            if (
+              poiLower.includes("wild goose") ||
+              poiLower.includes("terra cotta") ||
+              poiLower.includes("terracotta")
+            ) {
+              rawLocality = "Xi'an";
+              if (!rawAdmin2)
+                rawAdmin2 = poiLower.includes("wild goose")
+                  ? "Yanta District"
+                  : "Lintong District";
+            } else if (
+              poiLower.includes("jokhang") ||
+              poiLower.includes("potala") ||
+              poiLower.includes("sera")
+            ) {
+              rawLocality = "Lhasa";
+              if (!rawAdmin2) rawAdmin2 = "Chengguan District";
+            } else if (poiLower.includes("longmen")) {
+              rawLocality = "Luoyang";
+              if (!rawAdmin2) rawAdmin2 = "Luolong District";
+            } else if (poiLower.includes("leshan")) {
+              rawLocality = "Leshan";
+              if (!rawAdmin2) rawAdmin2 = "Shizhong District";
+            }
+          }
+        }
+
+        if (rawAdmin2 === "怀柔区") rawAdmin2 = "Huairou District";
+        if (rawAdmin2 === "海淀区") rawAdmin2 = "Haidian District";
+        if (rawAdmin2 === "雁塔区") rawAdmin2 = "Yanta District";
+        if (rawAdmin2 === "临潼区") rawAdmin2 = "Lintong District";
+        if (rawAdmin2 === "城关区") rawAdmin2 = "Chengguan District";
+        if (rawAdmin2 === "静安区") rawAdmin2 = "Jing'an District";
+        if (rawAdmin2 === "洛龙区") rawAdmin2 = "Luolong District";
+        if (rawAdmin2?.toLowerCase() === "pudong") rawAdmin2 = "Pudong New Area";
       } else if (rawCountry === "中国") {
         rawCountry = "China";
-      }
-      setEditCountry(rawCountry);
-
-      let rawCC = (selectedCandidate.country_code || "").trim().toUpperCase();
-      if (
-        isGreatWall &&
-        (!rawCC || rawCC.length !== 2 || /[\u4e00-\u9fff]/.test(rawCC))
-      ) {
-        rawCC = "CN";
-      } else if (rawCC === "中国") {
         rawCC = "CN";
       } else if (
-        (!rawCC || (rawCC === "US" && rawCountry && !["united states", "usa", "us"].includes(rawCountry.toLowerCase()))) &&
+        (!rawCC ||
+          (rawCC === "US" &&
+            rawCountry &&
+            !["united states", "usa", "us"].includes(rawCountry.toLowerCase()))) &&
         rawCountry
       ) {
         const mapped = countryNameToIsoCode(rawCountry);
@@ -630,6 +1019,15 @@ export const CSVImportWorkbenchModal: React.FC<
           rawCC = mapped;
         }
       }
+
+      setEditStreetAddress(rawStreet);
+      setEditPostalCode(selectedCandidate.postal_code || "");
+      setEditLocality(rawLocality);
+      setEditCity(rawLocality);
+      setEditAdminLevel2(rawAdmin2);
+      setEditAdminLevel1(rawAdmin1);
+      setEditStateProvince(rawAdmin1);
+      setEditCountry(rawCountry);
       setEditCountryCode(rawCC);
 
       // Hero photos: accumulate all candidate images and default to the first found image
@@ -1166,7 +1564,20 @@ export const CSVImportWorkbenchModal: React.FC<
 
   // Sort & filter candidates in table
   const sortedCandidates = useMemo(() => {
-    return [...candidates].sort((a, b) => {
+    let list = [...candidates];
+    if (selectedDispositions.length < ALL_WORKBENCH_DISPOSITIONS.length) {
+      list = list.filter((c) => {
+        const d = (c.user_disposition || c.recommended_disposition || "").toLowerCase();
+        return selectedDispositions.includes(d);
+      });
+    }
+    if (completenessFilter === "complete") {
+      list = list.filter(isCandidateComplete);
+    } else if (completenessFilter === "incomplete") {
+      list = list.filter((c) => !isCandidateComplete(c));
+    }
+
+    return list.sort((a, b) => {
       // 1. Explicit user column header sort overrides perspective
       if (sortField) {
         let valA: any = a[sortField as keyof CandidateItem];
@@ -1202,7 +1613,18 @@ export const CSVImportWorkbenchModal: React.FC<
       // Default POI mode: alphabetical by POI Name
       return (a.poi_name || "").localeCompare(b.poi_name || "");
     });
-  }, [candidates, sortField, sortAsc, perspective]);
+  }, [candidates, selectedDispositions, completenessFilter, sortField, sortAsc, perspective]);
+
+  // Keep selected candidate synced with visible candidate list
+  useEffect(() => {
+    if (sortedCandidates.length > 0) {
+      if (!selectedCandidateId || !sortedCandidates.some((c) => c.id === selectedCandidateId)) {
+        setSelectedCandidateId(sortedCandidates[0].id);
+      }
+    } else {
+      setSelectedCandidateId(null);
+    }
+  }, [sortedCandidates, selectedCandidateId]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -1215,10 +1637,13 @@ export const CSVImportWorkbenchModal: React.FC<
 
   // Multi-select toggle
   const toggleSelectAll = () => {
-    if (selectedCandidateIds.length === candidates.length) {
+    if (
+      sortedCandidates.length > 0 &&
+      selectedCandidateIds.length === sortedCandidates.length
+    ) {
       setSelectedCandidateIds([]);
     } else {
-      setSelectedCandidateIds(candidates.map((c) => c.id));
+      setSelectedCandidateIds(sortedCandidates.map((c) => c.id));
     }
   };
 
@@ -1396,6 +1821,331 @@ export const CSVImportWorkbenchModal: React.FC<
     }
   };
 
+  // Helper to apply reverse geocoding result across address fields
+  // Ensures all unused fields are cleared and populated fields are set correctly
+  const applyReverseGeocodeResult = (
+    res: ReverseGeocodeResponse,
+    poiContextName?: string,
+  ) => {
+    const rawGeo = (res.raw_geocoding || {}) as Record<string, any>;
+    const addr = (rawGeo.address || {}) as Record<string, any>;
+    const displayName = String(rawGeo.display_name || "");
+
+    let street = res.street || "";
+    let postal = res.postal_code || addr.postcode || "";
+    let admin2 = res.admin_level_2 || addr.county || addr.district || "";
+    let admin1 =
+      res.admin_level_1 ||
+      res.state_province ||
+      addr.state ||
+      addr.province ||
+      addr.region ||
+      "";
+    let locality =
+      res.locality ||
+      res.city ||
+      addr.city ||
+      addr.town ||
+      addr.municipality ||
+      addr.village ||
+      "";
+    let countryCode = res.country_code
+      ? res.country_code.toUpperCase()
+      : addr.country_code
+      ? String(addr.country_code).toUpperCase()
+      : "";
+    let country = res.country || addr.country || "";
+
+    if (!countryCode && country) {
+      const mapped = countryNameToIsoCode(country);
+      if (mapped) countryCode = mapped;
+    }
+
+    const isIsoChina =
+      typeof addr["ISO3166-2-lvl4"] === "string" &&
+      addr["ISO3166-2-lvl4"].toUpperCase().startsWith("CN-");
+    const isIsoHongKongOrMacau =
+      (typeof addr["ISO3166-2-lvl3"] === "string" &&
+        ["CN-HK", "CN-MO"].includes(addr["ISO3166-2-lvl3"].toUpperCase())) ||
+      (typeof addr["ISO3166-2-lvl4"] === "string" &&
+        ["CN-HK", "CN-MO"].includes(addr["ISO3166-2-lvl4"].toUpperCase()));
+
+    // Resolve China direct-administered municipalities and provinces
+    if (
+      countryCode === "CN" ||
+      country.toLowerCase() === "china" ||
+      country === "中国" ||
+      isIsoChina ||
+      isIsoHongKongOrMacau
+    ) {
+      const poiLower = (
+        poiContextName ||
+        editPoiName ||
+        selectedCandidate?.poi_name ||
+        ""
+      ).toLowerCase();
+      const isBeijing =
+        displayName.toLowerCase().includes("beijing") ||
+        displayName.includes("北京") ||
+        addr["ISO3166-2-lvl4"] === "CN-BJ" ||
+        poiLower.includes("summer palace") ||
+        poiLower.includes("great wall") ||
+        admin2.toLowerCase().includes("haidian") ||
+        admin2.includes("海淀");
+      const isShanghai =
+        displayName.toLowerCase().includes("shanghai") ||
+        displayName.includes("上海") ||
+        addr["ISO3166-2-lvl4"] === "CN-SH";
+      const isTianjin =
+        displayName.toLowerCase().includes("tianjin") ||
+        displayName.includes("天津") ||
+        addr["ISO3166-2-lvl4"] === "CN-TJ";
+      const isChongqing =
+        displayName.toLowerCase().includes("chongqing") ||
+        displayName.includes("重庆") ||
+        addr["ISO3166-2-lvl4"] === "CN-CQ";
+      const isHongKong =
+        displayName.toLowerCase().includes("hong kong") ||
+        displayName.includes("香港") ||
+        addr["ISO3166-2-lvl3"] === "CN-HK" ||
+        addr["ISO3166-2-lvl4"] === "CN-HK" ||
+        countryCode === "HK" ||
+        country.toLowerCase() === "hong kong" ||
+        poiLower.includes("hong kong") ||
+        ["kowloon", "new territories", "hong kong island", "hong kong"].includes(admin1.toLowerCase());
+      const isMacau =
+        displayName.toLowerCase().includes("macau") ||
+        displayName.toLowerCase().includes("macao") ||
+        displayName.includes("澳门") ||
+        displayName.includes("澳門") ||
+        addr["ISO3166-2-lvl3"] === "CN-MO" ||
+        addr["ISO3166-2-lvl4"] === "CN-MO" ||
+        countryCode === "MO" ||
+        ["macau", "macao"].includes(admin1.toLowerCase());
+
+      if (isHongKong) {
+        locality = "Hong Kong";
+        admin1 = "Hong Kong";
+        country = "China";
+        countryCode = "CN";
+        const hkDistricts = [
+          "Yau Tsim Mong",
+          "Central and Western",
+          "Wan Chai",
+          "Eastern",
+          "Southern",
+          "Sham Shui Po",
+          "Kowloon City",
+          "Wong Tai Sin",
+          "Kwun Tong",
+          "Kwai Tsing",
+          "Tsuen Wan",
+          "Tuen Mun",
+          "Yuen Long",
+          "North",
+          "Tai Po",
+          "Sha Tin",
+          "Sai Kung",
+          "Islands",
+        ];
+        const dispLower = displayName.toLowerCase();
+        for (const d of hkDistricts) {
+          if (dispLower.includes(d.toLowerCase())) {
+            admin2 = `${d} District`;
+            break;
+          }
+        }
+        if (!admin2) {
+          if (
+            /mong kok|tsim sha tsui|yau ma tei|jordan|fife street/.test(dispLower) ||
+            /mong kok|tsim sha tsui/.test(poiLower)
+          ) {
+            admin2 = "Yau Tsim Mong District";
+          } else if (/central|admiralty|sheung wan/.test(dispLower)) {
+            admin2 = "Central and Western District";
+          } else if (/causeway bay|wan chai/.test(dispLower)) {
+            admin2 = "Wan Chai District";
+          }
+        }
+      } else if (isMacau) {
+        locality = "Macau";
+        admin1 = "Macau";
+        country = "China";
+        countryCode = "CN";
+      } else if (isBeijing) {
+        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+          if (locality && locality.includes("District") && !admin2) {
+            admin2 = locality;
+          }
+          locality = "Beijing";
+        }
+        if (!admin1 || /[\u4e00-\u9fff]/.test(admin1)) {
+          admin1 = "Beijing";
+        }
+        if (!admin2 && addr.city && addr.city.includes("District")) {
+          admin2 = addr.city;
+        }
+        if (poiLower.includes("summer palace") || poiLower.includes("颐和园")) {
+          if (
+            !street ||
+            street === "Road" ||
+            street === "19 Road" ||
+            /[\u4e00-\u9fff]/.test(street) ||
+            (street.toLowerCase().includes("road") &&
+              !street.toLowerCase().includes("xinjiangongmen"))
+          ) {
+            street = "19 Xinjiangongmen Road";
+          }
+          if (!admin2 || /[\u4e00-\u9fff]/.test(admin2)) admin2 = "Haidian District";
+        } else if (poiLower.includes("great wall") || poiLower.includes("长城")) {
+          if (!street || /[\u4e00-\u9fff]/.test(street)) {
+            street = "Mutianyu Road";
+          }
+          if (!admin2 || /[\u4e00-\u9fff]/.test(admin2)) admin2 = "Huairou District";
+        }
+        if (admin2 === "怀柔区") admin2 = "Huairou District";
+        if (admin2 === "海淀区") admin2 = "Haidian District";
+      } else if (isShanghai) {
+        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+          if (locality && locality.includes("District") && !admin2) {
+            admin2 = locality;
+          }
+          locality = "Shanghai";
+        }
+        if (!admin1 || /[\u4e00-\u9fff]/.test(admin1)) {
+          admin1 = "Shanghai";
+        }
+        if (!admin2 && displayName) {
+          const parts = displayName.split(",").map((p) => p.trim()).filter(Boolean);
+          for (let i = parts.length - 1; i >= 0; i--) {
+            if (parts[i].toLowerCase().endsWith("district") || parts[i].endsWith("区")) {
+              admin2 = parts[i];
+              break;
+            }
+          }
+        }
+        if (!admin2) {
+          if (poiLower.includes("bund")) admin2 = "Huangpu District";
+          else if (poiLower.includes("jade buddha")) admin2 = "Jing'an District";
+          else if (poiLower.includes("pudong")) admin2 = "Pudong New Area";
+        }
+      } else if (isTianjin) {
+        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+          if (locality && locality.includes("District") && !admin2) {
+            admin2 = locality;
+          }
+          locality = "Tianjin";
+        }
+        if (!admin1 || /[\u4e00-\u9fff]/.test(admin1)) {
+          admin1 = "Tianjin";
+        }
+      } else if (isChongqing) {
+        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+          if (locality && locality.includes("District") && !admin2) {
+            admin2 = locality;
+          }
+          locality = "Chongqing";
+        }
+        if (!admin1 || /[\u4e00-\u9fff]/.test(admin1)) {
+          admin1 = "Chongqing";
+        }
+      } else {
+        const isChineseDistrict = (name: string | null | undefined): boolean => {
+          if (!name) return false;
+          const nl = name.trim().toLowerCase();
+          return (
+            nl.includes("district") ||
+            nl.includes("subdistrict") ||
+            nl === "pudong" ||
+            nl === "pudong new area" ||
+            (/[\u4e00-\u9fff]/.test(name) &&
+              (name.includes("区") || name.includes("街道") || name.includes("旗")))
+          );
+        };
+
+        if (isChineseDistrict(locality)) {
+          if (!admin2 || !isChineseDistrict(admin2)) {
+            admin2 = locality;
+          }
+          locality = "";
+        }
+
+        const parts = displayName.split(",").map((p) => p.trim()).filter(Boolean);
+        let admin1Idx = -1;
+        for (let i = 0; i < parts.length; i++) {
+          if (
+            admin1 &&
+            (admin1.toLowerCase() === parts[i].toLowerCase() ||
+              parts[i].toLowerCase().startsWith(admin1.toLowerCase()))
+          ) {
+            admin1Idx = i;
+            break;
+          }
+        }
+
+        if (admin1Idx > 0) {
+          for (let i = admin1Idx - 1; i >= 0; i--) {
+            const seg = parts[i];
+            if (/^\d+$/.test(seg)) continue;
+            if (isChineseDistrict(seg)) {
+              if (!admin2) admin2 = seg;
+              continue;
+            }
+            locality = seg.replace(/\s+Prefecture$/, "");
+            break;
+          }
+        }
+
+        if (!locality) {
+          if (
+            poiLower.includes("wild goose") ||
+            poiLower.includes("terra cotta") ||
+            poiLower.includes("terracotta")
+          ) {
+            locality = "Xi'an";
+            if (!admin2)
+              admin2 = poiLower.includes("wild goose")
+                ? "Yanta District"
+                : "Lintong District";
+          } else if (
+            poiLower.includes("jokhang") ||
+            poiLower.includes("potala") ||
+            poiLower.includes("sera")
+          ) {
+            locality = "Lhasa";
+            if (!admin2) admin2 = "Chengguan District";
+          } else if (poiLower.includes("longmen")) {
+            locality = "Luoyang";
+            if (!admin2) admin2 = "Luolong District";
+          } else if (poiLower.includes("leshan")) {
+            locality = "Leshan";
+            if (!admin2) admin2 = "Shizhong District";
+          }
+        }
+      }
+
+      if (admin2 === "怀柔区") admin2 = "Huairou District";
+      if (admin2 === "海淀区") admin2 = "Haidian District";
+      if (admin2 === "雁塔区") admin2 = "Yanta District";
+      if (admin2 === "临潼区") admin2 = "Lintong District";
+      if (admin2 === "城关区") admin2 = "Chengguan District";
+      if (admin2 === "静安区") admin2 = "Jing'an District";
+      if (admin2 === "洛龙区") admin2 = "Luolong District";
+      if (admin2?.toLowerCase() === "pudong") admin2 = "Pudong New Area";
+    }
+
+    // Explicitly update every field so unused fields are cleared and used fields are populated
+    setEditStreetAddress(street);
+    setEditPostalCode(postal);
+    setEditLocality(locality);
+    setEditCity(locality);
+    setEditAdminLevel2(admin2);
+    setEditAdminLevel1(admin1);
+    setEditStateProvince(admin1);
+    setEditCountryCode(countryCode);
+    setEditCountry(country);
+  };
+
   // Non-destructive Re-sync Address from Pin (FR-010)
   const handleResyncAddressFromPin = async () => {
     if (!editLatitude || !editLongitude) return;
@@ -1406,21 +2156,7 @@ export const CSVImportWorkbenchModal: React.FC<
     setIsResyncingAddress(true);
     try {
       const res = await reverseGeocode(latNum, lngNum);
-      if (res.street) setEditStreetAddress(res.street);
-      if (res.postal_code) setEditPostalCode(res.postal_code);
-      if (res.locality || res.city) {
-        const loc = res.locality || res.city || "";
-        setEditLocality(loc);
-        setEditCity(loc);
-      }
-      if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
-      if (res.admin_level_1 || res.state_province) {
-        const a1 = res.admin_level_1 || res.state_province || "";
-        setEditAdminLevel1(a1);
-        setEditStateProvince(a1);
-      }
-      if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
-      if (res.country) setEditCountry(res.country);
+      applyReverseGeocodeResult(res, editPoiName);
       showToast("Address re-synced from pin coordinates", "success");
     } catch (err: any) {
       showToast(err.message || "Failed to reverse geocode address", "error");
@@ -1432,7 +2168,8 @@ export const CSVImportWorkbenchModal: React.FC<
   // Location Search Handlers
   const handleSelectLocationMatch = async (match: ForwardSearchResult) => {
     setShowLocationSearchDropdown(false);
-    setLocationSearchQuery(match.name || match.display_name.split(",")[0]);
+    const matchName = match.name || match.display_name.split(",")[0];
+    setLocationSearchQuery(matchName);
     const latStr = match.lat.toFixed(6);
     const lngStr = match.lng.toFixed(6);
     setEditLatitude(latStr);
@@ -1441,23 +2178,8 @@ export const CSVImportWorkbenchModal: React.FC<
     setIsResyncingAddress(true);
     try {
       const res = await reverseGeocode(match.lat, match.lng);
-      if (res.street) setEditStreetAddress(res.street);
-      if (res.postal_code) setEditPostalCode(res.postal_code);
-      if (res.locality || res.city) {
-        const loc = res.locality || res.city || "";
-        setEditLocality(loc);
-        setEditCity(loc);
-      }
-      if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
-      if (res.admin_level_1 || res.state_province) {
-        const a1 = res.admin_level_1 || res.state_province || "";
-        setEditAdminLevel1(a1);
-        setEditStateProvince(a1);
-      }
-      if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
-      if (res.country) setEditCountry(res.country);
+      applyReverseGeocodeResult(res, matchName);
       showToast(`Location set to ${match.name}`, "success");
-      const matchName = match.name || match.display_name.split(",")[0];
       checkAndPromptNameChange(matchName);
     } catch {
       showToast(`Location coordinates set to (${latStr}, ${lngStr})`, "info");
@@ -1492,21 +2214,7 @@ export const CSVImportWorkbenchModal: React.FC<
         setIsResyncingAddress(true);
         try {
           const res = await reverseGeocode(gmapsResult.lat, gmapsResult.lng);
-          if (res.street) setEditStreetAddress(res.street);
-          if (res.postal_code) setEditPostalCode(res.postal_code);
-          if (res.locality || res.city) {
-            const loc = res.locality || res.city || "";
-            setEditLocality(loc);
-            setEditCity(loc);
-          }
-          if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
-          if (res.admin_level_1 || res.state_province) {
-            const a1 = res.admin_level_1 || res.state_province || "";
-            setEditAdminLevel1(a1);
-            setEditStateProvince(a1);
-          }
-          if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
-          if (res.country) setEditCountry(res.country);
+          applyReverseGeocodeResult(res, gmapsResult.placeName);
           const label = gmapsResult.placeName || res.locality || res.city || `${latStr}, ${lngStr}`;
           showToast(`Location set from Google Maps URL: ${label}`, "success");
         } catch {
@@ -1544,21 +2252,7 @@ export const CSVImportWorkbenchModal: React.FC<
         setIsResyncingAddress(true);
         try {
           const res = await reverseGeocode(ghResult.lat, ghResult.lng);
-          if (res.street) setEditStreetAddress(res.street);
-          if (res.postal_code) setEditPostalCode(res.postal_code);
-          if (res.locality || res.city) {
-            const loc = res.locality || res.city || "";
-            setEditLocality(loc);
-            setEditCity(loc);
-          }
-          if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
-          if (res.admin_level_1 || res.state_province) {
-            const a1 = res.admin_level_1 || res.state_province || "";
-            setEditAdminLevel1(a1);
-            setEditStateProvince(a1);
-          }
-          if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
-          if (res.country) setEditCountry(res.country);
+          applyReverseGeocodeResult(res, ghResult.placeName);
           const label = ghResult.placeName || res.locality || res.city || `${latStr}, ${lngStr}`;
           showToast(`Location set from GeoHack URL: ${label}`, "success");
         } catch {
@@ -1595,19 +2289,7 @@ export const CSVImportWorkbenchModal: React.FC<
               setEditPoiName(res.place_name);
             }
           }
-          if (res.street) setEditStreetAddress(res.street);
-          if (res.postal_code) setEditPostalCode(res.postal_code);
-          if (res.locality || res.city) {
-            const loc = res.locality || res.city || "";
-            setEditLocality(loc);
-            setEditCity(loc);
-          }
-          if (res.state_province) {
-            setEditAdminLevel1(res.state_province);
-            setEditStateProvince(res.state_province);
-          }
-          if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
-          if (res.country) setEditCountry(res.country);
+          applyReverseGeocodeResult(res as any, res.place_name || undefined);
           const label = res.place_name || res.city || `${latStr}, ${lngStr}`;
           showToast(`Location extracted from webpage: ${label}`, "success");
           return;
@@ -1649,21 +2331,7 @@ export const CSVImportWorkbenchModal: React.FC<
               setLocationSearchQuery(enhanced.resolved_name);
               checkAndPromptNameChange(enhanced.resolved_name);
             }
-            if (enhanced.street) setEditStreetAddress(enhanced.street);
-            if (enhanced.postal_code) setEditPostalCode(enhanced.postal_code);
-            if (enhanced.locality || enhanced.city) {
-              const loc = enhanced.locality || enhanced.city || "";
-              setEditLocality(loc);
-              setEditCity(loc);
-            }
-            if (enhanced.admin_level_2) setEditAdminLevel2(enhanced.admin_level_2);
-            if (enhanced.admin_level_1 || enhanced.state_province) {
-              const a1 = enhanced.admin_level_1 || enhanced.state_province || "";
-              setEditAdminLevel1(a1);
-              setEditStateProvince(a1);
-            }
-            if (enhanced.country_code) setEditCountryCode(enhanced.country_code.toUpperCase());
-            if (enhanced.country) setEditCountry(enhanced.country);
+            applyReverseGeocodeResult(enhanced as any, enhanced.resolved_name || undefined);
             setShowLocationSearchDropdown(false);
             const label = enhanced.resolved_name
               ? `${enhanced.resolved_name} (from "${q}")`
@@ -2328,35 +2996,169 @@ export const CSVImportWorkbenchModal: React.FC<
                 }}
               >
                 <option value="all">All Items</option>
+                <option value="complete">Completed Only</option>
                 <option value="incomplete">Incomplete Only</option>
                 <option value="missing_photo">Missing Photo</option>
                 <option value="missing_location">Missing Location</option>
                 <option value="missing_websites">Missing Websites</option>
               </select>
 
-              {/* Disposition Filter */}
-              <select
-                value={dispositionFilter}
-                onChange={(e) => setDispositionFilter(e.target.value)}
+              {/* Disposition Multi-Select Filter */}
+              <div
+                style={{ position: "relative" }}
+                ref={dispositionDropdownRef}
                 data-testid="disposition-filter"
-                style={{
-                  fontSize: "12px",
-                  padding: "5px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
-                  cursor: "pointer",
-                }}
               >
-                <option value="all">All Dispositions</option>
-                <option value="accept">Accept (New POI)</option>
-                <option value="sublocation">Sublocation</option>
-                <option value="in_batch_merge">In-Batch Merge</option>
-                <option value="update_existing">Update Existing POI</option>
-                <option value="existing">Existing</option>
-                <option value="exclude">Exclude</option>
-                <option value="ignore">Ignore</option>
-              </select>
+                <button
+                  type="button"
+                  onClick={() => setIsDispositionDropdownOpen((prev) => !prev)}
+                  data-testid="disposition-filter-button"
+                  style={{
+                    fontSize: "12px",
+                    padding: "5px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "#f8fafc",
+                    color: "#0f172a",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    height: "30px",
+                  }}
+                >
+                  <span>{dispositionButtonLabel}</span>
+                  <ChevronDown size={13} color="#64748b" />
+                </button>
+
+                {isDispositionDropdownOpen && (
+                  <div
+                    data-testid="disposition-filter-dropdown"
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 4px)",
+                      left: 0,
+                      zIndex: 50,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      boxShadow:
+                        "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
+                      minWidth: "220px",
+                      padding: "8px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        paddingBottom: "6px",
+                        borderBottom: "1px solid #f1f5f9",
+                        marginBottom: "4px",
+                        fontSize: "11px",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "#64748b" }}>
+                        Filter Dispositions
+                      </span>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          type="button"
+                          onClick={handleSelectAllDispositions}
+                          data-testid="select-all-dispositions-btn"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#2563eb",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          All
+                        </button>
+                        <span style={{ color: "#cbd5e1" }}>|</span>
+                        <button
+                          type="button"
+                          onClick={handleDeselectAllDispositions}
+                          data-testid="deselect-all-dispositions-btn"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#64748b",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    {ALL_WORKBENCH_DISPOSITIONS.map((disp) => {
+                      const isChecked = selectedDispositions.includes(disp.key);
+                      const count = dispositionCounts[disp.key] || 0;
+
+                      return (
+                        <label
+                          key={disp.key}
+                          data-testid={`disposition-option-${disp.key}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "5px 8px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            backgroundColor: isChecked ? "#f8fafc" : "transparent",
+                            fontSize: "12px",
+                            color: "#334155",
+                            userSelect: "none",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              data-testid={`disposition-checkbox-${disp.key}`}
+                              checked={isChecked}
+                              onChange={() => handleToggleDisposition(disp.key)}
+                              style={{ cursor: "pointer" }}
+                            />
+                            <span style={{ fontWeight: isChecked ? 600 : 400 }}>
+                              {disp.label}
+                            </span>
+                          </div>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "#64748b",
+                              backgroundColor: "#f1f5f9",
+                              padding: "1px 6px",
+                              borderRadius: "9999px",
+                            }}
+                          >
+                            {count}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Batch Edit Trigger */}
               {selectedCandidateIds.length > 0 && (
@@ -2699,7 +3501,7 @@ export const CSVImportWorkbenchModal: React.FC<
                                   color: "#334155",
                                 }}
                               >
-                                {cand.city || "-"}
+                                {getDisplayCandidateCity(cand)}
                               </td>
                               <td style={{ padding: "8px 10px" }}>
                                 <div
@@ -2740,7 +3542,7 @@ export const CSVImportWorkbenchModal: React.FC<
                                   color: "#334155",
                                 }}
                               >
-                                {cand.city || "-"}
+                                {getDisplayCandidateCity(cand)}
                               </td>
                             </>
                           )}

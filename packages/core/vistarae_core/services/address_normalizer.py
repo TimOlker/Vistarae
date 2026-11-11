@@ -274,6 +274,103 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "ma": "Morocco",
     "mar": "Morocco",
     "morocco": "Morocco",
+    # Hong Kong
+    "hk": "Hong Kong",
+    "hkg": "Hong Kong",
+    "hong kong": "Hong Kong",
+    "hong kong sar": "Hong Kong",
+    "hongkong": "Hong Kong",
+    "香港": "Hong Kong",
+    # Macau
+    "mo": "Macau",
+    "mac": "Macau",
+    "macau": "Macau",
+    "macao": "Macau",
+    "macau sar": "Macau",
+    "澳門": "Macau",
+    "澳门": "Macau",
+    # Namibia
+    "na": "Namibia",
+    "nam": "Namibia",
+    "namibia": "Namibia",
+    # Monaco
+    "mc": "Monaco",
+    "mco": "Monaco",
+    "monaco": "Monaco",
+    # Mongolia
+    "mn": "Mongolia",
+    "mng": "Mongolia",
+    "mongolia": "Mongolia",
+    # Montenegro
+    "me": "Montenegro",
+    "mne": "Montenegro",
+    "montenegro": "Montenegro",
+    "monte negro": "Montenegro",
+    # Mozambique
+    "mz": "Mozambique",
+    "moz": "Mozambique",
+    "mozambique": "Mozambique",
+    # Myanmar
+    "mm": "Myanmar",
+    "mmr": "Myanmar",
+    "myanmar": "Myanmar",
+    "burma": "Myanmar",
+    # Botswana
+    "bw": "Botswana",
+    "bwa": "Botswana",
+    "botswana": "Botswana",
+    # Zimbabwe
+    "zw": "Zimbabwe",
+    "zwe": "Zimbabwe",
+    "zimbabwe": "Zimbabwe",
+    # Zambia
+    "zm": "Zambia",
+    "zmb": "Zambia",
+    "zambia": "Zambia",
+    # Madagascar
+    "mg": "Madagascar",
+    "mdg": "Madagascar",
+    "madagascar": "Madagascar",
+    # Kenya
+    "ke": "Kenya",
+    "ken": "Kenya",
+    "kenya": "Kenya",
+    # Tanzania
+    "tz": "Tanzania",
+    "tza": "Tanzania",
+    "tanzania": "Tanzania",
+    # Uganda
+    "ug": "Uganda",
+    "uga": "Uganda",
+    "uganda": "Uganda",
+    # Rwanda
+    "rw": "Rwanda",
+    "rwa": "Rwanda",
+    "rwanda": "Rwanda",
+    # Ethiopia
+    "et": "Ethiopia",
+    "eth": "Ethiopia",
+    "ethiopia": "Ethiopia",
+    # Algeria
+    "dz": "Algeria",
+    "dza": "Algeria",
+    "algeria": "Algeria",
+    # Tunisia
+    "tn": "Tunisia",
+    "tun": "Tunisia",
+    "tunisia": "Tunisia",
+    # Ghana
+    "gh": "Ghana",
+    "gha": "Ghana",
+    "ghana": "Ghana",
+    # Senegal
+    "sn": "Senegal",
+    "sen": "Senegal",
+    "senegal": "Senegal",
+    # Nigeria
+    "ng": "Nigeria",
+    "nga": "Nigeria",
+    "nigeria": "Nigeria",
 }
 
 # ── Inverted Mapping: Standard English Name -> ISO 3166-1 alpha-2 Code ────────
@@ -285,6 +382,14 @@ COUNTRY_TO_ISO: Final[dict[str, str]] = {
 # Canonical overrides for official ISO 3166-1 alpha-2
 COUNTRY_TO_ISO["United Kingdom"] = "GB"
 COUNTRY_TO_ISO["China"] = "CN"
+COUNTRY_TO_ISO["Hong Kong"] = "HK"
+COUNTRY_TO_ISO["Macau"] = "MO"
+COUNTRY_TO_ISO["Namibia"] = "NA"
+COUNTRY_TO_ISO["Monaco"] = "MC"
+COUNTRY_TO_ISO["Mongolia"] = "MN"
+COUNTRY_TO_ISO["Montenegro"] = "ME"
+COUNTRY_TO_ISO["Mozambique"] = "MZ"
+COUNTRY_TO_ISO["Myanmar"] = "MM"
 
 # ── Chinese Geographic and Address Translations to Standard English ──────────
 CHINESE_LANDMARK_ROADS: Final[dict[str, str]] = {
@@ -308,6 +413,9 @@ CHINESE_LANDMARK_ROADS: Final[dict[str, str]] = {
     "故宫": "Forbidden City",
     "故宫博物院": "Palace Museum",
     "颐和园": "Summer Palace",
+    "颐和园路": "Yiheyuan Road",
+    "新建宫门路": "Xinjiangongmen Road",
+    "新建宫门": "Xinjiangongmen Road",
     "天坛": "Temple of Heaven",
 }
 
@@ -397,6 +505,64 @@ CHINESE_DIVISIONS_TO_ENGLISH: Final[dict[str, str]] = {
     "东城": "Dongcheng District",
     "西城区": "Xicheng District",
     "西城": "Xicheng District",
+    # Shaanxi / Xi'an Districts
+    "雁塔区": "Yanta District",
+    "雁塔": "Yanta District",
+    "临潼区": "Lintong District",
+    "临潼": "Lintong District",
+    "碑林区": "Beilin District",
+    "碑林": "Beilin District",
+    "莲湖区": "Lianhu District",
+    "莲湖": "Lianhu District",
+    "新城区": "Xincheng District",
+    "未央区": "Weiyang District",
+    "未央": "Weiyang District",
+    "长安区": "Chang'an District",
+    # Tibet / Xizang Districts
+    "城关区": "Chengguan District",
+    "城关": "Chengguan District",
+    "堆龙德庆区": "Doilungdêqên District",
+    "达孜区": "Dagzê District",
+    # Shanghai Districts
+    "静安区": "Jing'an District",
+    "静安": "Jing'an District",
+    "黄浦区": "Huangpu District",
+    "黄浦": "Huangpu District",
+    "徐汇区": "Xuhui District",
+    "徐汇": "Xuhui District",
+    "长宁区": "Changning District",
+    "长宁": "Changning District",
+    "普陀区": "Putuo District",
+    "普陀": "Putuo District",
+    "虹口区": "Hongkou District",
+    "虹口": "Hongkou District",
+    "杨浦区": "Yangpu District",
+    "杨浦": "Yangpu District",
+    "闵行区": "Minhang District",
+    "闵行": "Minhang District",
+    "宝山区": "Baoshan District",
+    "宝山": "Baoshan District",
+    "嘉定区": "Jiading District",
+    "嘉定": "Jiading District",
+    "浦东新区": "Pudong New Area",
+    "浦东": "Pudong New Area",
+    "松江区": "Songjiang District",
+    "青浦区": "Qingpu District",
+    "奉贤区": "Fengxian District",
+    "金山区": "Jinshan District",
+    # Henan / Luoyang Districts
+    "洛龙区": "Luolong District",
+    "洛龙": "Luolong District",
+    "西工区": "Xigong District",
+    "老城区": "Laocheng District",
+    # Sichuan / Chengdu / Leshan Districts
+    "市中区": "Shizhong District",
+    "市中": "Shizhong District",
+    "锦江区": "Jinjiang District",
+    "青羊区": "Qingyang District",
+    "金牛区": "Jinniu District",
+    "武侯区": "Wuhou District",
+    "成华区": "Chenghua District",
 }
 
 # Set of standard country names in lowercase for quick membership checking
@@ -812,6 +978,192 @@ class AddressNormalizer:
         norm_country = cls.normalize_country(country_name)
         if country_code == "XX" and norm_country:
             country_code = cls.country_to_iso_code(norm_country)
+
+        # Direct municipality and province recovery for China (REQ-ING-003, REQ-ING-004)
+        if country_code == "CN" or norm_country == "China":
+            country_code = "CN"
+            norm_country = "China"
+            iso_lvl4 = str(addr.get("ISO3166-2-lvl4") or "").upper().strip()
+            display_str = str(raw.get("display_name") or "")
+
+            cn_provinces: dict[str, str] = {
+                "CN-BJ": "Beijing",
+                "CN-SH": "Shanghai",
+                "CN-TJ": "Tianjin",
+                "CN-CQ": "Chongqing",
+                "CN-HE": "Hebei",
+                "CN-SX": "Shanxi",
+                "CN-NM": "Inner Mongolia",
+                "CN-LN": "Liaoning",
+                "CN-JL": "Jilin",
+                "CN-HL": "Heilongjiang",
+                "CN-JS": "Jiangsu",
+                "CN-ZJ": "Zhejiang",
+                "CN-AH": "Anhui",
+                "CN-FJ": "Fujian",
+                "CN-JX": "Jiangxi",
+                "CN-SD": "Shandong",
+                "CN-HA": "Henan",
+                "CN-HB": "Hubei",
+                "CN-HN": "Hunan",
+                "CN-GD": "Guangdong",
+                "CN-GX": "Guangxi",
+                "CN-HI": "Hainan",
+                "CN-SC": "Sichuan",
+                "CN-GZ": "Guizhou",
+                "CN-YN": "Yunnan",
+                "CN-SN": "Shaanxi",
+                "CN-GS": "Gansu",
+                "CN-QH": "Qinghai",
+                "CN-NX": "Ningxia",
+                "CN-XJ": "Xinjiang",
+                "CN-XZ": "Xizang",
+                "CN-TB": "Xizang",
+                "CN-HK": "Hong Kong",
+                "CN-MO": "Macau",
+                "CN-TW": "Taiwan",
+            }
+
+            if not admin_level_1 and iso_lvl4 in cn_provinces:
+                admin_level_1 = cn_provinces[iso_lvl4]
+            elif not admin_level_1:
+                disp_lower = display_str.lower()
+                for code, prov_name in cn_provinces.items():
+                    if prov_name.lower() in disp_lower:
+                        admin_level_1 = prov_name
+                        break
+
+            def is_chinese_district(name: str | None) -> bool:
+                if not name:
+                    return False
+                n_clean = name.strip()
+                n_lower = n_clean.lower()
+                return (
+                    "district" in n_lower
+                    or "subdistrict" in n_lower
+                    or n_lower in ("pudong", "pudong new area")
+                    or any(c in n_clean for c in ("区", "街道", "旗"))
+                )
+
+            # Check Hong Kong and Macau Special Administrative Regions
+            iso_lvl3 = str(addr.get("ISO3166-2-lvl3") or "").upper().strip()
+            is_hong_kong = (
+                iso_lvl3 == "CN-HK"
+                or iso_lvl4 == "CN-HK"
+                or addr.get("city") == "Hong Kong"
+                or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                or "hong kong" in display_str.lower()
+                or "香港" in display_str
+            )
+            is_macau = (
+                iso_lvl3 == "CN-MO"
+                or iso_lvl4 == "CN-MO"
+                or addr.get("city") in ("Macau", "Macao")
+                or admin_level_1 in ("Macau", "Macao")
+                or "macau" in display_str.lower()
+                or "macao" in display_str.lower()
+                or "澳门" in display_str
+                or "澳門" in display_str
+            )
+
+            # If locality was captured as a district (e.g. Yanta District, Lintong District), move to admin_level_2
+            if is_chinese_district(locality):
+                if not admin_level_2 or not is_chinese_district(admin_level_2):
+                    admin_level_2 = locality
+                locality = None
+
+            if is_hong_kong:
+                admin_level_1 = "Hong Kong"
+                locality = "Hong Kong"
+                hk_districts = (
+                    "Yau Tsim Mong",
+                    "Central and Western",
+                    "Wan Chai",
+                    "Eastern",
+                    "Southern",
+                    "Sham Shui Po",
+                    "Kowloon City",
+                    "Wong Tai Sin",
+                    "Kwun Tong",
+                    "Kwai Tsing",
+                    "Tsuen Wan",
+                    "Tuen Mun",
+                    "Yuen Long",
+                    "North",
+                    "Tai Po",
+                    "Sha Tin",
+                    "Sai Kung",
+                    "Islands",
+                )
+                disp_lower = display_str.lower()
+                for d in hk_districts:
+                    if d.lower() in disp_lower:
+                        admin_level_2 = f"{d} District"
+                        break
+                if not admin_level_2:
+                    if any(k in disp_lower for k in ("mong kok", "tsim sha tsui", "yau ma tei", "jordan", "fife street")):
+                        admin_level_2 = "Yau Tsim Mong District"
+                    elif any(k in disp_lower for k in ("central", "admiralty", "sheung wan")):
+                        admin_level_2 = "Central and Western District"
+                    elif any(k in disp_lower for k in ("causeway bay", "wan chai")):
+                        admin_level_2 = "Wan Chai District"
+            elif is_macau:
+                admin_level_1 = "Macau"
+                locality = "Macau"
+            # 1. Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
+            elif admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                locality = admin_level_1
+                if not admin_level_2 and addr.get("city") and is_chinese_district(addr.get("city")):
+                    admin_level_2 = addr.get("city")
+                if not admin_level_2 and display_str:
+                    parts = [p.strip() for p in display_str.split(",") if p.strip()]
+                    for p in reversed(parts):
+                        if p.lower().endswith("district") or p.endswith("区"):
+                            admin_level_2 = p
+                            break
+                    if not admin_level_2:
+                        for p in reversed(parts):
+                            if is_chinese_district(p):
+                                admin_level_2 = p
+                                break
+            else:
+                # 2. Other provinces in China: extract the city from display_name
+                parts = [p.strip() for p in display_str.split(",") if p.strip()]
+                admin1_idx = -1
+                for i, p in enumerate(parts):
+                    if admin_level_1 and (
+                        admin_level_1.lower() == p.lower()
+                        or p.lower().startswith(admin_level_1.lower())
+                    ):
+                        admin1_idx = i
+                        break
+
+                if admin1_idx > 0:
+                    for candidate in reversed(parts[:admin1_idx]):
+                        cand_clean = candidate.strip()
+                        if cand_clean.isdigit():
+                            continue
+                        if is_chinese_district(cand_clean):
+                            if not admin_level_2:
+                                admin_level_2 = cand_clean
+                            continue
+                        # First non-district, non-numeric segment before admin1 is the city!
+                        city_cand = cand_clean
+                        if city_cand.endswith(" Prefecture"):
+                            city_cand = city_cand[:-11].strip()
+                        locality = city_cand
+                        break
+
+                if not locality and admin_level_2 and not is_chinese_district(admin_level_2):
+                    locality = admin_level_2
+                    admin_level_2 = None
+
+            if admin_level_2:
+                admin_level_2 = cls.transliterate_chinese_address(admin_level_2) or admin_level_2
+                if admin_level_2.lower() == "pudong":
+                    admin_level_2 = "Pudong New Area"
+            if locality:
+                locality = cls.transliterate_chinese_address(locality) or locality
 
         return {
             "street_address": street_address,

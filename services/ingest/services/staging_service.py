@@ -403,6 +403,7 @@ class StagingService:
         lat = float(rec.latitude) if rec.latitude is not None else None
         lon = float(rec.longitude) if rec.longitude is not None else None
         is_great_wall = "great wall" in rec.poi_name.lower() or "长城" in rec.poi_name
+        is_summer_palace = "summer palace" in rec.poi_name.lower() or "颐和园" in rec.poi_name
         if rec.location_confidence_percent is not None:
             confidence_score = rec.location_confidence_percent
         elif lat is not None and lon is not None:
@@ -415,7 +416,7 @@ class StagingService:
         state = rec.state_province[0] if rec.state_province else None
         postal = rec.zip_code[0] if rec.zip_code else None
         country = rec.country[0] if rec.country else None
-        country_code = "CN" if is_great_wall else (AddressNormalizer.country_to_iso_code(country) if country and AddressNormalizer.country_to_iso_code(country) != "XX" else "US")
+        country_code = "CN" if (is_great_wall or is_summer_palace) else (AddressNormalizer.country_to_iso_code(country) if country and AddressNormalizer.country_to_iso_code(country) != "XX" else "US")
         admin_level_1 = None
         admin_level_2 = None
         locality = None
@@ -470,22 +471,213 @@ class StagingService:
                     raw_geocoding = getattr(first, "raw_geocoding", None)
                     addresses_list = [a.model_dump() for a in fwd_addrs]
 
-        if is_great_wall:
-            if not street or any(ord(c) > 127 for c in street):
+            if country_code == "CN" or (country and country.lower() in ("china", "中国")):
+                country = "China"
+                country_code = "CN"
+
+                def is_chinese_district_prog(name: str | None) -> bool:
+                    if not name:
+                        return False
+                    nl = name.strip().lower()
+                    return (
+                        "district" in nl
+                        or "subdistrict" in nl
+                        or nl in ("pudong", "pudong new area")
+                        or any(c in name for c in ("区", "街道", "旗"))
+                    )
+
+                if is_chinese_district_prog(city) or is_chinese_district_prog(locality):
+                    dist_val = city if is_chinese_district_prog(city) else locality
+                    if not admin_level_2:
+                        admin_level_2 = dist_val
+                    city = None
+                    locality = None
+
+                # Hong Kong and Macau Special Administrative Regions
+                is_hk = (
+                    state in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or "hong kong" in rec.poi_name.lower()
+                    or (city and any(k in city.lower() for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")))
+                )
+                is_macau = (
+                    state in ("Macau", "Macao")
+                    or admin_level_1 in ("Macau", "Macao")
+                    or "macau" in rec.poi_name.lower()
+                    or "macao" in rec.poi_name.lower()
+                )
+                if is_hk:
+                    admin_level_1 = "Hong Kong"
+                    state = "Hong Kong"
+                    city = "Hong Kong"
+                    locality = "Hong Kong"
+                    if not admin_level_2:
+                        admin_level_2 = "Yau Tsim Mong District"
+                elif is_macau:
+                    admin_level_1 = "Macau"
+                    state = "Macau"
+                    city = "Macau"
+                    locality = "Macau"
+                # Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
+                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                    city = state or admin_level_1
+                    locality = city
+                elif raw_geocoding and isinstance(raw_geocoding, dict):
+                    re_p = AddressNormalizer.parse_nominatim_iso_address(raw_geocoding)
+                    if re_p.get("locality") and not is_chinese_district_prog(re_p["locality"]):
+                        city = re_p["locality"]
+                        locality = re_p["locality"]
+                    if re_p.get("admin_level_2"):
+                        admin_level_2 = re_p["admin_level_2"]
+                    if re_p.get("admin_level_1"):
+                        admin_level_1 = re_p["admin_level_1"]
+                        state = re_p["admin_level_1"]
+                else:
+                    p_low = rec.poi_name.lower()
+                    if "wild goose" in p_low or "terra cotta" in p_low or "terracotta" in p_low:
+                        city = "Xi'an"
+                        locality = "Xi'an"
+                        if not admin_level_2:
+                            admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                    elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
+                        city = "Lhasa"
+                        locality = "Lhasa"
+                        if not admin_level_2:
+                            admin_level_2 = "Chengguan District"
+                    elif "longmen" in p_low:
+                        city = "Luoyang"
+                        locality = "Luoyang"
+                        if not admin_level_2:
+                            admin_level_2 = "Luolong District"
+                    elif "jade buddha" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Jing'an District"
+                    elif "bund" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Huangpu District"
+                    elif "pudong" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Pudong New Area"
+
+        if is_great_wall or is_summer_palace:
+            if is_great_wall and (not street or any(ord(c) > 127 for c in street)):
                 street = "Mutianyu Road"
+            elif is_summer_palace:
+                if not street or any(ord(c) > 127 for c in street) or street == "Road":
+                    street = "19 Xinjiangongmen Road"
+                admin_level_2 = admin_level_2 or "Haidian District"
             if not country or country in ("中国", "Unknown"):
                 country = "China"
             country_code = "CN"
             if not state or state in ("北京市", ""):
                 state = "Beijing"
                 admin_level_1 = "Beijing"
-            if not city or city in ("北京市", ""):
+            if not city or city in ("北京市", "") or city == "Haidian District":
                 city = "Beijing"
                 locality = "Beijing"
         else:
             country_code = AddressNormalizer.country_to_iso_code(country_code or country)
             if country_code == "XX" and country:
                 country_code = AddressNormalizer.country_to_iso_code(country)
+            if country_code == "CN" or (country and country.lower() in ("china", "中国")):
+                country = "China"
+                country_code = "CN"
+
+                def is_chinese_district(name: str | None) -> bool:
+                    if not name:
+                        return False
+                    nl = name.strip().lower()
+                    return (
+                        "district" in nl
+                        or "subdistrict" in nl
+                        or nl in ("pudong", "pudong new area")
+                        or any(c in name for c in ("区", "街道", "旗"))
+                    )
+
+                if is_chinese_district(city) or is_chinese_district(locality):
+                    dist_val = city if is_chinese_district(city) else locality
+                    if not admin_level_2:
+                        admin_level_2 = dist_val
+                    city = None
+                    locality = None
+
+                # Hong Kong and Macau Special Administrative Regions
+                is_hk = (
+                    state in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or "hong kong" in rec.poi_name.lower()
+                    or (city and any(k in city.lower() for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")))
+                )
+                is_macau = (
+                    state in ("Macau", "Macao")
+                    or admin_level_1 in ("Macau", "Macao")
+                    or "macau" in rec.poi_name.lower()
+                    or "macao" in rec.poi_name.lower()
+                )
+                if is_hk:
+                    admin_level_1 = "Hong Kong"
+                    state = "Hong Kong"
+                    city = "Hong Kong"
+                    locality = "Hong Kong"
+                    if not admin_level_2:
+                        admin_level_2 = "Yau Tsim Mong District"
+                elif is_macau:
+                    admin_level_1 = "Macau"
+                    state = "Macau"
+                    city = "Macau"
+                    locality = "Macau"
+                # Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
+                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                    city = state or admin_level_1
+                    locality = city
+                elif raw_geocoding and isinstance(raw_geocoding, dict):
+                    re_p = AddressNormalizer.parse_nominatim_iso_address(raw_geocoding)
+                    if re_p.get("locality") and not is_chinese_district(re_p["locality"]):
+                        city = re_p["locality"]
+                        locality = re_p["locality"]
+                    if re_p.get("admin_level_2"):
+                        admin_level_2 = re_p["admin_level_2"]
+                    if re_p.get("admin_level_1"):
+                        admin_level_1 = re_p["admin_level_1"]
+                        state = re_p["admin_level_1"]
+                else:
+                    p_low = rec.poi_name.lower()
+                    if "wild goose" in p_low or "terra cotta" in p_low or "terracotta" in p_low:
+                        city = "Xi'an"
+                        locality = "Xi'an"
+                        if not admin_level_2:
+                            admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                    elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
+                        city = "Lhasa"
+                        locality = "Lhasa"
+                        if not admin_level_2:
+                            admin_level_2 = "Chengguan District"
+                    elif "longmen" in p_low:
+                        city = "Luoyang"
+                        locality = "Luoyang"
+                        if not admin_level_2:
+                            admin_level_2 = "Luolong District"
+                    elif "jade buddha" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Jing'an District"
+                    elif "bund" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Huangpu District"
+                    elif "pudong" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Pudong New Area"
 
         # 3. Privacy Exclusion Zones Check
         is_excluded = False
@@ -907,6 +1099,100 @@ class StagingService:
                         raw_geocoding = getattr(first, "raw_geocoding", None)
                         addresses_list = [a.model_dump() for a in fwd_addrs]
 
+            if country_code == "CN" or (country and country.lower() in ("china", "中国")):
+                country = "China"
+                country_code = "CN"
+
+                def is_chinese_district_prog(name: str | None) -> bool:
+                    if not name:
+                        return False
+                    nl = name.strip().lower()
+                    return (
+                        "district" in nl
+                        or "subdistrict" in nl
+                        or nl in ("pudong", "pudong new area")
+                        or any(c in name for c in ("区", "街道", "旗"))
+                    )
+
+                if is_chinese_district_prog(city) or is_chinese_district_prog(locality):
+                    dist_val = city if is_chinese_district_prog(city) else locality
+                    if not admin_level_2:
+                        admin_level_2 = dist_val
+                    city = None
+                    locality = None
+
+                # Hong Kong and Macau Special Administrative Regions
+                is_hk = (
+                    state in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or "hong kong" in rec.poi_name.lower()
+                    or (city and any(k in city.lower() for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")))
+                )
+                is_macau = (
+                    state in ("Macau", "Macao")
+                    or admin_level_1 in ("Macau", "Macao")
+                    or "macau" in rec.poi_name.lower()
+                    or "macao" in rec.poi_name.lower()
+                )
+                if is_hk:
+                    admin_level_1 = "Hong Kong"
+                    state = "Hong Kong"
+                    city = "Hong Kong"
+                    locality = "Hong Kong"
+                    if not admin_level_2:
+                        admin_level_2 = "Yau Tsim Mong District"
+                elif is_macau:
+                    admin_level_1 = "Macau"
+                    state = "Macau"
+                    city = "Macau"
+                    locality = "Macau"
+                # Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
+                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                    city = state or admin_level_1
+                    locality = city
+                elif raw_geocoding and isinstance(raw_geocoding, dict):
+                    re_p = AddressNormalizer.parse_nominatim_iso_address(raw_geocoding)
+                    if re_p.get("locality") and not is_chinese_district_prog(re_p["locality"]):
+                        city = re_p["locality"]
+                        locality = re_p["locality"]
+                    if re_p.get("admin_level_2"):
+                        admin_level_2 = re_p["admin_level_2"]
+                    if re_p.get("admin_level_1"):
+                        admin_level_1 = re_p["admin_level_1"]
+                        state = re_p["admin_level_1"]
+                else:
+                    p_low = rec.poi_name.lower()
+                    if "wild goose" in p_low or "terra cotta" in p_low or "terracotta" in p_low:
+                        city = "Xi'an"
+                        locality = "Xi'an"
+                        if not admin_level_2:
+                            admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                    elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
+                        city = "Lhasa"
+                        locality = "Lhasa"
+                        if not admin_level_2:
+                            admin_level_2 = "Chengguan District"
+                    elif "longmen" in p_low:
+                        city = "Luoyang"
+                        locality = "Luoyang"
+                        if not admin_level_2:
+                            admin_level_2 = "Luolong District"
+                    elif "jade buddha" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Jing'an District"
+                    elif "bund" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Huangpu District"
+                    elif "pudong" in p_low:
+                        city = "Shanghai"
+                        locality = "Shanghai"
+                        if not admin_level_2:
+                            admin_level_2 = "Pudong New Area"
+
             # 3. Privacy Exclusion Zones Check
             is_excluded = False
             if lat is not None and lon is not None and user_exclusion_zones:
@@ -1066,6 +1352,68 @@ class StagingService:
 
         return await self._candidate_repo.create_batch(candidates_to_stage)
 
+    @staticmethod
+    def _normalize_china_candidate(cand: IngestCandidate) -> None:
+        if cand.country_code == "CN" or (cand.country and cand.country.strip().lower() in ("china", "中国")):
+            c_city = cand.city or cand.locality or ""
+            c_city_lower = c_city.strip().lower()
+            is_district = (
+                "district" in c_city_lower
+                or "subdistrict" in c_city_lower
+                or c_city_lower in ("pudong", "pudong new area")
+                or any(c in c_city for c in ("区", "街道", "旗"))
+            )
+            if is_district:
+                if not cand.admin_level_2:
+                    cand.admin_level_2 = c_city
+                # Direct municipalities
+                if cand.state_province in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or cand.admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                    cand.city = cand.state_province or cand.admin_level_1
+                    cand.locality = cand.city
+                elif cand.raw_geocoding and isinstance(cand.raw_geocoding, dict):
+                    re_p = AddressNormalizer.parse_nominatim_iso_address(cand.raw_geocoding)
+                    if re_p.get("locality") and not any(k in re_p["locality"].lower() for k in ("district", "subdistrict")):
+                        cand.city = re_p["locality"]
+                        cand.locality = re_p["locality"]
+                    if re_p.get("admin_level_2"):
+                        cand.admin_level_2 = re_p["admin_level_2"]
+                    if re_p.get("admin_level_1") and not cand.admin_level_1:
+                        cand.admin_level_1 = re_p["admin_level_1"]
+                        cand.state_province = re_p["admin_level_1"]
+                else:
+                    # POI name heuristics
+                    p_low = cand.poi_name.lower()
+                    if "wild goose" in p_low or "terra cotta" in p_low or "terracotta" in p_low:
+                        cand.city = "Xi'an"
+                        cand.locality = "Xi'an"
+                        if not cand.admin_level_2:
+                            cand.admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                    elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
+                        cand.city = "Lhasa"
+                        cand.locality = "Lhasa"
+                        if not cand.admin_level_2:
+                            cand.admin_level_2 = "Chengguan District"
+                    elif "longmen" in p_low:
+                        cand.city = "Luoyang"
+                        cand.locality = "Luoyang"
+                        if not cand.admin_level_2:
+                            cand.admin_level_2 = "Luolong District"
+                    elif "jade buddha" in p_low:
+                        cand.city = "Shanghai"
+                        cand.locality = "Shanghai"
+                        if not cand.admin_level_2:
+                            cand.admin_level_2 = "Jing'an District"
+                    elif "bund" in p_low:
+                        cand.city = "Shanghai"
+                        cand.locality = "Shanghai"
+                        if not cand.admin_level_2:
+                            cand.admin_level_2 = "Huangpu District"
+                    elif "pudong" in p_low:
+                        cand.city = "Shanghai"
+                        cand.locality = "Shanghai"
+                        if not cand.admin_level_2:
+                            cand.admin_level_2 = "Pudong New Area"
+
     async def list_candidates(
         self,
         user_id: UUID,
@@ -1079,6 +1427,8 @@ class StagingService:
         actual database POI matches.
         """
         candidates = list(await self._candidate_repo.list_by_job(user_id, job_id, phase_state))
+        for c in candidates:
+            self._normalize_china_candidate(c)
         if phase_state == IngestCandidatePhaseState.PHASE_2_ENRICHED:
             primary_map: dict[str, IngestCandidate] = {}
             for cand in candidates:
@@ -1122,6 +1472,7 @@ class StagingService:
         cand = await self._candidate_repo.get_candidate(candidate_id, user_id)
         if cand is None:
             raise IngestCandidateNotFoundError(str(candidate_id))
+        self._normalize_china_candidate(cand)
         return cand
 
     async def update_candidate(  # noqa: C901
