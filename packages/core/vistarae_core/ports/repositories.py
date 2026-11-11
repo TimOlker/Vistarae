@@ -29,6 +29,7 @@ from uuid import UUID
 
 from vistarae_core.domain.entities import (
     POI,
+    ExternalEnrichmentCacheEntry,
     FilterRuleEntity,
     GeocodingCacheEntry,
     IdempotencyRecord,
@@ -764,6 +765,59 @@ class IGeocodingCacheRepository(Protocol):
         ...
 
 
+class IExternalEnrichmentCacheRepository(Protocol):
+    """Persistence contract for external enrichment and search cache entries."""
+
+    async def get(self, source: str, query: str) -> dict[str, Any] | None:
+        """Retrieves cached payload by source and normalized query string if not expired.
+
+        Args:
+            source: Source identifier (e.g. 'wikipedia', 'wikidata', 'enhanced_resolver', 'website_meta').
+            query: Raw query or title string.
+
+        Returns:
+            Structured JSON response data, or None if missing or expired.
+        """
+        ...
+
+    async def set(
+        self,
+        source: str,
+        query: str,
+        response_data: dict[str, Any],
+        ttl_days: int | None = None,
+    ) -> None:
+        """Persists or refreshes an external enrichment cache entry.
+
+        Args:
+            source: Source identifier.
+            query: Raw query or title string.
+            response_data: Structured JSON payload to cache.
+            ttl_days: Optional TTL in days override (falls back to ENRICHMENT_CACHE_TTL_DAYS env var).
+        """
+        ...
+
+    async def delete(self, source: str, query: str) -> bool:
+        """Deletes a cached entry (used during force refresh/recalculation).
+
+        Args:
+            source: Source identifier.
+            query: Raw query or title string.
+
+        Returns:
+            True if a record was removed, False otherwise.
+        """
+        ...
+
+    async def cleanup_expired(self) -> int:
+        """Evicts expired cache rows (expires_at <= NOW()).
+
+        Returns:
+            Number of evicted rows.
+        """
+        ...
+
+
 class IIngestJobRepository(Protocol):
     """Persistence contract for asynchronous bulk ingestion jobs."""
 
@@ -1217,8 +1271,10 @@ class IIngestCandidateRepository(Protocol):
         state_province: str | None = None,
         city: str | None = None,
         date_visited: str | None = None,
+        add_tag: str | None = None,
+        remove_tag: str | None = None,
     ) -> int:
-        """Batch updates location and date visited fields across selected candidates.
+        """Batch updates location, date visited, and tag fields across selected candidates.
 
         Args:
             user_id: Tenant user UUID.
@@ -1227,6 +1283,8 @@ class IIngestCandidateRepository(Protocol):
             state_province: Optional state/province string to set.
             city: Optional city string to set.
             date_visited: Optional date string to add/set.
+            add_tag: Optional tag string to append if not already present.
+            remove_tag: Optional tag string to remove if present.
 
         Returns:
             Count of rows updated.

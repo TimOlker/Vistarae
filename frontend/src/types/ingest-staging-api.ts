@@ -182,7 +182,7 @@ export interface components {
             description?: string | null;
             reason_to_visit?: string | null;
             /** @enum {string} */
-            disposition: "accept" | "sublocation" | "in_batch_merge" | "update_existing" | "exclude" | "ignore";
+            disposition: "accept" | "sublocation" | "in_batch_merge" | "update_existing" | "existing" | "exclude" | "ignore";
             disposition_justification?: string | null;
             is_user_overridden?: boolean;
             /** Format: uuid */
@@ -215,7 +215,7 @@ export interface components {
             description?: string | null;
             reason_to_visit?: string | null;
             /** @enum {string} */
-            disposition?: "accept" | "sublocation" | "in_batch_merge" | "update_existing" | "exclude" | "ignore";
+            disposition?: "accept" | "sublocation" | "in_batch_merge" | "update_existing" | "existing" | "exclude" | "ignore";
             /** Format: uuid */
             parent_poi_id?: string | null;
             /** Format: uuid */
@@ -230,6 +230,8 @@ export interface components {
             city?: string | null;
             /** Format: date */
             date_visited?: string | null;
+            add_tag?: string | null;
+            remove_tag?: string | null;
         };
         ProblemDetails: {
             /** Format: uri */

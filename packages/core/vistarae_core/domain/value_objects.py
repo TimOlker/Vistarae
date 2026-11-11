@@ -354,6 +354,7 @@ class IngestDisposition(StrEnum):
     SUBLOCATION = "sublocation"
     IN_BATCH_MERGE = "in_batch_merge"
     EXCLUDE = "exclude"
+    EXISTING = "existing"
 
 
 class IngestCandidatePhaseState(StrEnum):

@@ -257,4 +257,40 @@ describe("POIEditDrawer (T-028 / REQ-CTX-035, SC-005)", () => {
       );
     });
   });
+
+  it("renders Delete POI, Cancel, and Save Changes buttons in a pinned footer outside the scrollable body", async () => {
+    const onDeleteMock = vi.fn();
+    const onCloseMock = vi.fn();
+
+    render(
+      <POIEditDrawer
+        poi={samplePoi}
+        isOpen={true}
+        onClose={onCloseMock}
+        onSave={vi.fn()}
+        onDelete={onDeleteMock}
+      />
+    );
+
+    const deleteBtn = await screen.findByRole("button", { name: /delete poi/i });
+    const cancelBtn = screen.getByRole("button", { name: /^cancel$/i });
+    const saveBtn = screen.getByRole("button", { name: /save changes/i });
+
+    expect(deleteBtn).toBeInTheDocument();
+    expect(cancelBtn).toBeInTheDocument();
+    expect(saveBtn).toBeInTheDocument();
+
+    // The outer drawer content has overflow: hidden
+    const drawerContent = deleteBtn.closest(".poi-drawer-content") as HTMLElement;
+    expect(drawerContent).toBeInTheDocument();
+    expect(drawerContent.style.overflow).toBe("hidden");
+
+    // The buttons live inside a footer container outside the scrollable form body
+    const footerBar = deleteBtn.parentElement as HTMLElement;
+    expect(footerBar.style.overflowY).not.toBe("auto");
+
+    // Verify clicking Cancel fires onClose
+    fireEvent.click(cancelBtn);
+    expect(onCloseMock).toHaveBeenCalled();
+  });
 });

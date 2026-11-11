@@ -69,6 +69,7 @@ add_problem_details_handlers(app)
 
 # â”€â”€ Route registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Routes are imported lazily to prevent import-time DB connections.
+from services.poi.routes import preferences as poi_preferences_routes  # noqa: E402
 from services.user.routes import auth as auth_routes  # noqa: E402
 from services.user.routes import exclusion_zones as exclusion_zones_routes  # noqa: E402
 from services.user.routes import me as me_routes  # noqa: E402
@@ -78,6 +79,10 @@ from services.user.routes import profile as profile_routes  # noqa: E402
 app.include_router(exclusion_zones_routes.router, prefix="/api/user", tags=["exclusion-zones"])
 app.include_router(exclusion_zones_routes.router, prefix="/api/users", tags=["exclusion-zones"])
 app.include_router(exclusion_zones_routes.router, tags=["exclusion-zones"])
+
+app.include_router(poi_preferences_routes.router, prefix="/api/user", tags=["scraping-preferences"])
+app.include_router(poi_preferences_routes.router, prefix="/api/users", tags=["scraping-preferences"])
+app.include_router(poi_preferences_routes.router, tags=["scraping-preferences"])
 
 app.include_router(me_routes.router, prefix="/api/users", tags=["user-profile"])
 app.include_router(preferences_routes.router, prefix="/api/users", tags=["user-preferences"])

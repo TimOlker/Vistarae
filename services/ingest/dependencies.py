@@ -25,6 +25,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.adapters.queue.mock import MockQueueAdapter
 from vistarae_core.adapters.queue.sqs import SQSQueueAdapter
+from vistarae_core.adapters.repositories.enrichment_cache_repo import (
+    SqlAlchemyExternalEnrichmentCacheRepository,
+)
 from vistarae_core.adapters.repositories.exclusion_zone_repo import (
     SqlAlchemyUserExclusionZoneRepository,
 )
@@ -44,6 +47,7 @@ from vistarae_core.adapters.repositories.tag_repo import (
 )
 from vistarae_core.ports.queue import IQueuePort
 from vistarae_core.ports.repositories import (
+    IExternalEnrichmentCacheRepository,
     IGeocodingCacheRepository,
     IIngestCandidateRepository,
     IIngestJobRepository,
@@ -62,10 +66,12 @@ from services.user.dependencies import get_current_user
 __all__ = [
     "get_candidate_repo",
     "get_current_user",
+    "get_enrichment_cache_repo",
     "get_ingest_repo",
     "get_poi_repo",
     "get_queue_port",
     "get_staging_service",
+    "create_staging_service",
     "get_geocache_repo",
     "get_geocoding_service",
     "get_duplicate_service",
@@ -119,6 +125,13 @@ def get_geocache_repo(
 ) -> IGeocodingCacheRepository:
     """Provides an active Geocoding cache repository instance."""
     return SqlAlchemyGeocodingCacheRepository(session)
+
+
+def get_enrichment_cache_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> IExternalEnrichmentCacheRepository:
+    """Provides an active External Enrichment cache repository instance."""
+    return SqlAlchemyExternalEnrichmentCacheRepository(session)
 
 
 def get_geocoding_service(
@@ -176,4 +189,28 @@ def get_staging_service(
         ingest_repo=ingest_repo,
         exclusion_zone_repo=exclusion_zone_repo,
         tag_repo=tag_repo,
+    )
+
+
+def create_staging_service(session: AsyncSession) -> StagingService:
+    """Constructs a StagingService instance bound to a specific AsyncSession (for background tasks)."""
+    candidate_repo = SqlAlchemyIngestCandidateRepository(session)
+    poi_repo = SqlAlchemyPOIRepository(session)
+    geocache_repo = SqlAlchemyGeocodingCacheRepository(session)
+    geocoding_service = GeocodingService(cache_repo=geocache_repo)
+    duplicate_service = DuplicateTriageService(session=session)
+    ingest_repo = IngestJobRepository(session)
+    exclusion_zone_repo = SqlAlchemyUserExclusionZoneRepository(session)
+    tag_repo = SqlAlchemyTagRepository(session)
+    orchestrator = ScrapingOrchestrator(geocoding_service=geocoding_service)
+    return StagingService(
+        candidate_repo=candidate_repo,
+        poi_repo=poi_repo,
+        geocoding_service=geocoding_service,
+        duplicate_service=duplicate_service,
+        orchestrator=orchestrator,
+        ingest_repo=ingest_repo,
+        exclusion_zone_repo=exclusion_zone_repo,
+        tag_repo=tag_repo,
+    
     )

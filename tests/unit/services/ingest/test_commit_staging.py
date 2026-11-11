@@ -99,14 +99,14 @@ async def test_batch_edit_candidates_updates_location_and_date() -> None:
 
     assert count == 2
     mock_repo.batch_edit.assert_awaited_once_with(
-        user_id,
-        [cand1, cand2],
-        {
-            "country": "Japan",
-            "state_province": "Kyoto Prefecture",
-            "city": "Kyoto",
-            "dates_visited": ["2024-04-12"],
-        },
+        user_id=user_id,
+        candidate_ids=[cand1, cand2],
+        country="Japan",
+        state_province="Kyoto Prefecture",
+        city="Kyoto",
+        date_visited="2024-04-12",
+        add_tag=None,
+        remove_tag=None,
     )
 
 

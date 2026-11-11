@@ -412,12 +412,12 @@ const AppContent: React.FC = () => {
           setPhase2JobId(null);
           handlePhase2CommitComplete();
         }}
-        existingPOIs={pois.map((p) => ({
-          id: p.id,
-          name: p.name,
-          latitude: p.render_lat,
-          longitude: p.render_lng,
-        }))}
+        existingPOIs={pois}
+
+
+
+
+
       />
     </div>
   );

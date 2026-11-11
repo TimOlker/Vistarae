@@ -27,6 +27,7 @@ export interface ModalProps {
   children: React.ReactNode;
   maxWidth?: string;
   closeOnBackdropClick?: boolean;
+  closeOnEscape?: boolean;
   contentStyle?: React.CSSProperties;
   bodyStyle?: React.CSSProperties;
 }
@@ -38,16 +39,17 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = "500px",
   closeOnBackdropClick = true,
+  closeOnEscape = true,
   contentStyle,
   bodyStyle,
 }) => {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (closeOnEscape && e.key === "Escape") {
         onClose();
       }
     },
-    [onClose],
+    [closeOnEscape, onClose],
   );
 
   useEffect(() => {

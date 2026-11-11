@@ -463,5 +463,43 @@ describe("MapView Component", () => {
     expect(visible).toHaveLength(1);
     expect(visible[0].id).toBe("poi-1");
   });
+
+  it("displays POI name tooltip when hovering mouse over a map pin", () => {
+    render(<MapView pois={samplePOIs} totalPoiCount={1} />);
+
+    act(() => {
+      mockMapEvents["load"]?.forEach((cb) => cb());
+    });
+
+    mockMapInstance.getLayer.mockImplementation((id: string) =>
+      id === "unclustered-point" ? {} : undefined,
+    );
+    mockMapInstance.queryRenderedFeatures.mockReturnValue([
+      {
+        properties: { id: "poi-1", name: "Tiananmen Square" },
+        geometry: { type: "Point", coordinates: [116.397458, 39.909187] },
+      },
+    ]);
+
+    // Hover over the pin
+    act(() => {
+      mockMapEvents["mousemove"]?.forEach((cb) =>
+        cb({ point: { x: 50, y: 50 }, lngLat: { lng: 116.397458, lat: 39.909187 } }),
+      );
+    });
+
+    expect(screen.getByTestId("poi-hover-tooltip")).toBeInTheDocument();
+    expect(screen.getByTestId("poi-hover-tooltip")).toHaveTextContent("Tiananmen Square");
+
+    // Move mouse away
+    mockMapInstance.queryRenderedFeatures.mockReturnValue([]);
+    act(() => {
+      mockMapEvents["mousemove"]?.forEach((cb) =>
+        cb({ point: { x: 10, y: 10 }, lngLat: { lng: 116.0, lat: 39.0 } }),
+      );
+    });
+
+    expect(screen.queryByTestId("poi-hover-tooltip")).not.toBeInTheDocument();
+  });
 });
 

@@ -20,7 +20,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { exportPhase2Candidates, type ExportFormat } from "../../services/exportApi";
-import { inferWebsiteName } from "../../utils/websiteInference";
+import { inferWebsiteName, isMapServiceWebsite } from "../../utils/websiteInference";
 import { Modal } from "../common/Modal";
 import { ingestApi, type CandidateItem } from "../../services/ingestApi";
 import { apiFetch } from "../../services/api";
@@ -75,13 +75,15 @@ export interface CandidateDataStatus {
 export function getCandidateDataStatus(cand: CandidateItem): CandidateDataStatus {
   const missing: string[] = [];
   if (!cand.hero_image_url || !cand.hero_image_url.trim()) missing.push("Hero Photo");
-  const related = (cand as any).related_websites || [];
+  const related = ((cand as any).related_websites || []).filter(
+    (s: any) => !isMapServiceWebsite(s?.url, s?.name)
+  );
   const hasOfficial = Boolean(
-    (cand.official_url && cand.official_url.trim()) ||
+    (cand.official_url && cand.official_url.trim() && !isMapServiceWebsite(cand.official_url, "Official Website")) ||
       related.some((s: any) => s.name?.toLowerCase().includes("official"))
   );
   const hasWiki = Boolean(
-    (cand.wiki_url && cand.wiki_url.trim()) ||
+    (cand.wiki_url && cand.wiki_url.trim() && !isMapServiceWebsite(cand.wiki_url, "Wikipedia")) ||
       related.some((s: any) => s.name?.toLowerCase().includes("wikipedia") || s.url?.toLowerCase().includes("wikipedia.org"))
   );
   if (!hasOfficial) missing.push("Official Website");
@@ -274,16 +276,26 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
       setEditStreetAddress(selectedCandidate.street_address || "");
       setEditCity(selectedCandidate.city || "");
       const rawRelated = (selectedCandidate as any).related_websites || [];
-      const initialSites: { name: string; url: string }[] = [...rawRelated];
+      const initialSites: { name: string; url: string }[] = rawRelated.filter(
+        (s: any) => !isMapServiceWebsite(s?.url, s?.name)
+      );
       const existingUrls = new Set(initialSites.map((s) => s.url.trim().toLowerCase().replace(/\/$/, "")));
-      if (selectedCandidate.official_url && selectedCandidate.official_url.trim()) {
+      if (
+        selectedCandidate.official_url &&
+        selectedCandidate.official_url.trim() &&
+        !isMapServiceWebsite(selectedCandidate.official_url, "Official Website")
+      ) {
         const norm = selectedCandidate.official_url.trim().toLowerCase().replace(/\/$/, "");
         if (!existingUrls.has(norm)) {
           existingUrls.add(norm);
           initialSites.unshift({ name: "Official Website", url: selectedCandidate.official_url.trim() });
         }
       }
-      if (selectedCandidate.wiki_url && selectedCandidate.wiki_url.trim()) {
+      if (
+        selectedCandidate.wiki_url &&
+        selectedCandidate.wiki_url.trim() &&
+        !isMapServiceWebsite(selectedCandidate.wiki_url, "Wikipedia")
+      ) {
         const norm = selectedCandidate.wiki_url.trim().toLowerCase().replace(/\/$/, "");
         if (!existingUrls.has(norm)) {
           existingUrls.add(norm);
@@ -358,7 +370,7 @@ export const CSVPhase2ReviewModal: React.FC<CSVPhase2ReviewModalProps> = ({
       const res = await ingestApi.getJobCandidates(jobId, "phase_2_enriched");
       const active = (res.candidates || []).filter((c) => {
         const disp = c.user_disposition || c.recommended_disposition;
-        return disp !== "ignore" && disp !== "exclude";
+        return disp !== "ignore" && disp !== "exclude" && disp !== "existing";
       });
       const normalized = active.map((c) => ({
         ...c,

@@ -424,7 +424,7 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
             rows={3}
             value={reasonToVisit}
             onChange={(e) => setReasonToVisit(e.target.value)}
-            placeholder="Why a tourist would be interested in visiting (e.g. scenic sunset, historic architecture)..."
+            placeholder="- Scenic viewpoints&#10;- Historic architecture&#10;- Specialty cuisine"
             style={{
               width: "100%",
               padding: "8px 12px",

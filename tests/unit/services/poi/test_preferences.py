@@ -101,3 +101,53 @@ class TestScrapingPreferencesEndpoints:
             json={"valid_scraping_domains": []},
         )
         assert resp.status_code == 422
+
+    def test_update_scraping_sources_normalizes_entries(
+        self, client: TestClient, mock_user: User, mock_scraping_repo: AsyncMock
+    ) -> None:
+        """Asserts http(s)://, www., trailing slashes, and percent encoding are normalized and deduplicated."""
+        raw_domains = [
+            "https://www.hillmanwonders.com/",
+            "http://en.wikipedia.org///",
+            "https://example.com/top%20attractions/",
+            "https://www.hillmanwonders.com/",
+            "www.tripadvisor.com",
+        ]
+        expected_normalized = [
+            "hillmanwonders.com",
+            "en.wikipedia.org",
+            "example.com/top attractions",
+            "tripadvisor.com",
+        ]
+        mock_scraping_repo.update_scraping_domains.return_value = expected_normalized
+
+        resp = client.put(
+            "/api/user/preferences/scraping-sources",
+            json={"valid_scraping_domains": raw_domains},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["valid_scraping_domains"] == expected_normalized
+        mock_scraping_repo.update_scraping_domains.assert_called_once_with(
+            mock_user.id,
+            expected_normalized,
+        )
+
+
+def test_normalize_scraping_domain() -> None:
+    """Unit test for normalize_scraping_domain schema utility."""
+    from vistarae_core.schemas.scraping import normalize_scraping_domain
+
+    assert normalize_scraping_domain("https://www.hillmanwonders.com/") == "hillmanwonders.com"
+    assert normalize_scraping_domain("www.hillmanwonders.com") == "hillmanwonders.com"
+    assert normalize_scraping_domain("http://en.wikipedia.org///") == "en.wikipedia.org"
+    assert normalize_scraping_domain("//atlasobscura.com/places/") == "atlasobscura.com/places"
+    assert (
+        normalize_scraping_domain("https://example.com/foo%20bar")
+        == "example.com/foo bar"
+    )
+    assert normalize_scraping_domain("") == ""
+    assert normalize_scraping_domain("   HTTPS://WWW.TRAVEL.COM/   ") == "travel.com"
+    assert normalize_scraping_domain("'hillmanwonders.com'") == "hillmanwonders.com"
+    assert normalize_scraping_domain('"hillmanwonders.com"') == "hillmanwonders.com"
+

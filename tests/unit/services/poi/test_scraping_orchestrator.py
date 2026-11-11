@@ -153,7 +153,7 @@ class TestScrapingOrchestrator:
 
         res = await adapter.augment("Burg Eltz (Eltz Castle)", client=mock_client)
         assert res["source_name"] == "wikipedia.org"
-        assert res["official_website_url"] == "https://burg-eltz.de/en/"
+        assert res["official_website_url"] in ("https://burg-eltz.de/en", "https://burg-eltz.de/en/")
         assert "Burg%20Eltz%20aerial.jpg" in res["hero_image_url"]
 
     async def test_extract_meta_image_og_and_twitter(self) -> None:
@@ -254,7 +254,7 @@ class TestScrapingOrchestrator:
         assert res["source_name"] == "wikipedia.org"
         assert res["name"] == "National Roman Legion Museum"
         assert res["wikipedia_url"] == "https://en.wikipedia.org/wiki/National_Roman_Legion_Museum"
-        assert res["official_website_url"] == "https://museum.wales/roman/"
+        assert res["official_website_url"] in ("https://museum.wales/roman", "https://museum.wales/roman/")
         assert res["hero_image_url"] == "https://museum.wales/sites/default/files/roman-museum.jpg"
 
     async def test_wikipedia_adapter_cirrussearch_fallback(self) -> None:

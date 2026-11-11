@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   forwardSearch,
+  forwardGeocode,
   reverseGeocode,
   ForwardSearchResult,
   ReverseGeocodeResponse,
@@ -40,6 +41,8 @@ export interface LocationFinderModalProps {
   isOpen: boolean;
   initialLat?: number;
   initialLng?: number;
+  initialCountry?: string;
+  initialQuery?: string;
   onClose: () => void;
   onApply: (
     coords: { lat: number; lng: number },
@@ -77,6 +80,8 @@ export const LocationFinderModal: React.FC<LocationFinderModalProps> = ({
   isOpen,
   initialLat = 37.8651,
   initialLng = -119.5383,
+  initialCountry,
+  initialQuery,
   onClose,
   onApply,
 }) => {
@@ -89,7 +94,7 @@ export const LocationFinderModal: React.FC<LocationFinderModalProps> = ({
   const [selectedLng, setSelectedLng] = useState<number>(initialLng);
 
   // Search state
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [searchResults, setSearchResults] = useState<ForwardSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResultsDropdown, setShowResultsDropdown] = useState(false);
@@ -119,10 +124,10 @@ export const LocationFinderModal: React.FC<LocationFinderModalProps> = ({
       setSelectedLat(validLat);
       setSelectedLng(validLng);
       setSpecificityWarning(null);
-      setSearchQuery("");
+      setSearchQuery(initialQuery || "");
       setSearchResults([]);
     }
-  }, [isOpen, initialLat, initialLng]);
+  }, [isOpen, initialLat, initialLng, initialQuery]);
 
   // Initialize MapLibre
   useEffect(() => {
@@ -226,9 +231,38 @@ export const LocationFinderModal: React.FC<LocationFinderModalProps> = ({
     setIsSearching(true);
     debounceTimerRef.current = setTimeout(async () => {
       try {
-        const results = await forwardSearch(val, 5);
+        let results = await forwardSearch(val, 5);
+        if (results.length === 0) {
+          try {
+            const enhanced = await forwardGeocode(val, initialCountry);
+            if (enhanced.latitude != null && enhanced.longitude != null) {
+              const displayName = [
+                enhanced.resolved_name || val,
+                enhanced.city || enhanced.locality,
+                enhanced.state_province,
+                enhanced.country,
+              ]
+                .filter(Boolean)
+                .join(", ");
+              results = [
+                {
+                  lat: enhanced.latitude,
+                  lng: enhanced.longitude,
+                  display_name: displayName,
+                  name: enhanced.resolved_name || val,
+                  type: "landmark",
+                  class: "enhanced_search",
+                  suggestedZoom: 16,
+                  isSpecificLandmark: true,
+                },
+              ];
+            }
+          } catch {
+            // ignore
+          }
+        }
         setSearchResults(results);
-        setShowResultsDropdown(true);
+        setShowResultsDropdown(results.length > 0);
       } finally {
         setIsSearching(false);
       }

@@ -28,11 +28,16 @@ from vistarae_core.adapters.repositories.geocache_repo import (
     SqlAlchemyGeocodingCacheRepository,
 )
 from vistarae_core.domain.entities import User
-from vistarae_core.schemas.poi import ForwardGeocodeResponse, ReverseGeocodeResponse
+from vistarae_core.schemas.poi import (
+    ExtractUrlCoordinatesResponse,
+    ForwardGeocodeResponse,
+    ReverseGeocodeResponse,
+)
 
 from services.poi.dependencies import get_current_user
 from services.poi.services.geocode_service import ReverseGeocodeService
 from services.poi.services.geocoding_service import GeocodingService
+from services.poi.services.url_extractor import UrlCoordinateExtractor
 
 router = APIRouter(tags=["geocoding"])
 
@@ -55,25 +60,70 @@ async def reverse_geocode_endpoint(
 @router.get("/pois/geocode/forward", response_model=ForwardGeocodeResponse)
 async def forward_geocode_endpoint(
     q: str = Query(..., min_length=1, max_length=500, description="Address or destination query"),
+    country: str | None = Query(default=None, description="Optional country hint"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> ForwardGeocodeResponse:
     """Forward geocodes an address or query via internal PostGIS cache and rate-limited OSM Nominatim."""
     cache_repo = SqlAlchemyGeocodingCacheRepository(session)
     service = GeocodingService(cache_repo=cache_repo)
-    lat, lon, addrs, cached = await service.geocode(q)
+    lat, lon, addrs, cached = await service.geocode(q, country_hint=country)
     street = addrs[0].street if addrs else None
     city = addrs[0].city if addrs else None
     state_prov = addrs[0].state_province if addrs else None
-    country = addrs[0].country if addrs else None
+    resolved_country = addrs[0].country if (addrs and addrs[0].country) else country
     postal = addrs[0].postal_code if addrs else None
+    derived_cc = (
+        addrs[0].country_code
+        if addrs and addrs[0].country_code and addrs[0].country_code != "XX"
+        else None
+    )
+    if not derived_cc and resolved_country:
+        from vistarae_core.services.address_normalizer import AddressNormalizer
+
+        mapped = AddressNormalizer.country_to_iso_code(resolved_country)
+        if mapped != "XX":
+            derived_cc = mapped
+    country_code = derived_cc or ("US" if not resolved_country or resolved_country.strip().lower() in ("united states", "usa", "us") else None)
+    admin_1 = addrs[0].admin_level_1 if addrs else None
+    admin_2 = addrs[0].admin_level_2 if addrs else None
+    locality = addrs[0].locality if addrs else None
+    resolved_name = (
+        addrs[0].raw_geocoding.get("resolved_name")
+        if addrs and addrs[0].raw_geocoding and isinstance(addrs[0].raw_geocoding, dict)
+        else None
+    )
     return ForwardGeocodeResponse(
         latitude=lat,
         longitude=lon,
+        resolved_name=resolved_name,
         street=street,
         city=city,
+        locality=locality,
         state_province=state_prov,
-        country=country,
+        admin_level_1=admin_1,
+        admin_level_2=admin_2,
+        country=resolved_country,
+        country_code=country_code,
         postal_code=postal,
         cached=cached,
     )
+
+
+@router.get("/pois/geocode/extract-url", response_model=ExtractUrlCoordinatesResponse)
+@router.post("/pois/geocode/extract-url", response_model=ExtractUrlCoordinatesResponse)
+async def extract_url_coordinates_endpoint(
+    url: str = Query(..., min_length=4, max_length=2000, description="Webpage or map URL to inspect"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> ExtractUrlCoordinatesResponse:
+    """Extracts coordinates and enriched address from a webpage or map/geohack URL."""
+    cache_repo = SqlAlchemyGeocodingCacheRepository(session)
+    reverse_service = ReverseGeocodeService(cache_repo=cache_repo)
+    geocoding_service = GeocodingService(cache_repo=cache_repo)
+    extractor = UrlCoordinateExtractor(
+        reverse_geocode_service=reverse_service,
+        geocoding_service=geocoding_service,
+    )
+    return await extractor.extract_coordinates_from_url(url)
+

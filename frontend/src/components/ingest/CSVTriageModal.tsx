@@ -617,6 +617,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
       { key: "accept", label: "Accept" },
       { key: "sublocation", label: "Sublocation" },
       { key: "update_existing", label: "Update Existing" },
+      { key: "existing", label: "Existing" },
       { key: "ignore", label: "Ignore" },
       { key: "exclude", label: "Exclude" },
     ],
@@ -626,6 +627,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
     "accept",
     "sublocation",
     "update_existing",
+    "existing",
     "ignore",
     "exclude",
   ]);
@@ -793,7 +795,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
 
   const handleDispositionChange = async (
     candidateId: string,
-    newDisp: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude",
+    newDisp: "accept" | "ignore" | "update_existing" | "sublocation" | "exclude" | "existing",
   ) => {
     setCandidates((prev) =>
       prev.map((c) =>
@@ -1300,6 +1302,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
     let update = 0;
     let ignore = 0;
     let exclude = 0;
+    let existing = 0;
     candidates.forEach((c) => {
       const d = c.user_disposition || c.recommended_disposition;
       if (d === "accept") accept++;
@@ -1307,8 +1310,9 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
       else if (d === "update_existing") update++;
       else if (d === "ignore") ignore++;
       else if (d === "exclude") exclude++;
+      else if (d === "existing") existing++;
     });
-    return { accept, sub, update, ignore, exclude };
+    return { accept, sub, update, ignore, exclude, existing };
   }, [candidates]);
 
   const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId);
@@ -2280,6 +2284,7 @@ export const CSVTriageModal: React.FC<CSVTriageModalProps> = ({
                                     ? "In-Batch Merge"
                                     : "Update Existing POI"}
                                 </option>
+                                <option value="existing">Existing</option>
                                 <option value="ignore">Ignore</option>
                                 <option value="exclude">Exclude</option>
                               </select>

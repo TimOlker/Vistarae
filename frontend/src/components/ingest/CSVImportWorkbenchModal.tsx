@@ -28,9 +28,29 @@ import {
   type CandidateUpdateRequest,
 } from "../../services/ingestApi";
 import { apiFetch } from "../../services/api";
-import { reverseGeocode } from "../../services/geocodeService";
+import {
+  reverseGeocode,
+  forwardSearch,
+  forwardGeocode,
+  extractCoordinatesFromUrl,
+  type ForwardSearchResult,
+} from "../../services/geocodeService";
 import { useToast } from "../../context/ToastContext";
+import { normalizeUrl, reconstructWebsitesList } from "../../utils/websiteInference";
+import {
+  parseGoogleMapsUrl,
+  isGoogleMapsUrl,
+  isGeohackUrl,
+  parseGeohackUrl,
+  isWebpageUrl,
+  countryNameToIsoCode,
+} from "../../utils/coordinates";
 import { WorkbenchMap, type NearbyPointMarker } from "./WorkbenchMap";
+import {
+  POINameRecommendationsModal,
+  extractNameRecommendations,
+} from "./POINameRecommendationsModal";
+
 import {
   X,
   MapPin,
@@ -49,13 +69,49 @@ import {
   Calendar,
   RefreshCw,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
 } from "lucide-react";
 
 export interface ExistingPOIMarker {
   id: string;
   name: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
+  canonical_lat?: number;
+  canonical_lng?: number;
+  render_lat?: number;
+  render_lng?: number;
+  tags?: string[];
+  address?: string;
+  street_address?: string;
+  city?: string;
+  locality?: string;
+  state?: string;
+  admin_level_1?: string;
+  admin_level_2?: string;
+  state_province?: string;
+  postal_code?: string;
+  country?: string;
+  country_code?: string;
+  addresses?: any[];
+  image_urls?: string[];
+  hero_image_url?: string;
+  visited_dates?: string[];
+  dates_visited?: string[];
+  photo_directory?: string;
+  photo_directories?: string[];
+  directory_paths?: string[];
+  description?: string;
+  reason_to_visit?: string;
+  official_url?: string;
+  wiki_url?: string;
+  related_websites?: Array<{ name: string; url: string }>;
+  recommended_duration_hours?: number | null;
+  recommended_visit_days?: number | null;
+  estimated_visit_time_notes?: string | null;
+  [key: string]: any;
 }
 
 export interface CSVImportWorkbenchModalProps {
@@ -75,7 +131,42 @@ export type CompletenessFilter =
 
 export type PerspectiveMode = "POI" | "Location";
 
-export const PROXIMITY_STEPS = [
+/**
+ * Calculates which completeness criteria are missing for a staged candidate.
+ */
+function getCandidateMissingFields(cand: {
+  hero_image_url?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  street_address?: string | null;
+  official_url?: string | null;
+  related_websites?: any[] | null;
+  no_websites?: boolean | null;
+}): string[] {
+  const missing: string[] = [];
+  const hasPhoto = Boolean(cand.hero_image_url && cand.hero_image_url.trim());
+  if (!hasPhoto) missing.push("Photo");
+
+  const hasCoords = cand.latitude != null && cand.longitude != null;
+  if (!hasCoords) missing.push("Coordinates");
+
+  const hasStreet = Boolean(cand.street_address && cand.street_address.trim());
+  if (!hasStreet) missing.push("Street Address");
+
+  const hasWebsites =
+    Boolean(cand.official_url && cand.official_url.trim()) ||
+    Boolean(cand.related_websites && cand.related_websites.length > 0) ||
+    Boolean(cand.no_websites);
+  if (!hasWebsites) missing.push("Websites");
+
+  return missing;
+}
+
+function isCandidateComplete(cand: CandidateItem): boolean {
+  return getCandidateMissingFields(cand).length === 0;
+}
+
+const PROXIMITY_STEPS = [
   { label: "100 ft", miles: 100 / 5280 },
   { label: "500 ft", miles: 500 / 5280 },
   { label: "0.25 mi", miles: 0.25 },
@@ -100,8 +191,8 @@ function haversineMiles(
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -143,6 +234,21 @@ const AIIconBadge: React.FC = () => (
   </span>
 );
 
+const cleanReasonToVisit = (raw?: string | null): string => {
+  if (!raw) return "";
+  let cleaned = raw.replace(/\*\*([^*]+)\*\*/g, "$1");
+  cleaned = cleaned.replace(/__([^_]+)__/g, "$1");
+  cleaned = cleaned.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, "$1");
+  const lines = cleaned
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^[\s•*+\-–—·]+\s*/, ""))
+    .filter(Boolean)
+    .map((l) => `- ${l}`);
+  return lines.length > 0 ? lines.join("\n") + "\n" : "";
+};
+
 export const CSVImportWorkbenchModal: React.FC<
   CSVImportWorkbenchModalProps
 > = ({ jobId, isOpen, onClose, onCommitComplete, existingPOIs = [] }) => {
@@ -152,6 +258,35 @@ export const CSVImportWorkbenchModal: React.FC<
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
+  // POI Name Change Recommendations & Prompt States
+  const [nameChangePrompt, setNameChangePrompt] = useState<{
+    currentName: string;
+    recommendedName: string;
+  } | null>(null);
+  const [showNameRecommendationsModal, setShowNameRecommendationsModal] =
+    useState(false);
+  const [hasAutoShownRecommendations, setHasAutoShownRecommendations] =
+    useState(false);
+
+  const nameRecommendationsCount = useMemo(
+    () => extractNameRecommendations(candidates).length,
+    [candidates],
+  );
+
+  const checkAndPromptNameChange = (
+    recommendedName: string | null | undefined,
+  ) => {
+    if (!recommendedName) return;
+    const rec = recommendedName.trim();
+    const current = (editPoiName || selectedCandidate?.poi_name || "").trim();
+    if (rec && current && rec.toLowerCase() !== current.toLowerCase()) {
+      setNameChangePrompt({
+        currentName: current,
+        recommendedName: rec,
+      });
+    }
+  };
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingCandidate, setIsSavingCandidate] = useState(false);
@@ -176,6 +311,8 @@ export const CSVImportWorkbenchModal: React.FC<
   const [batchState, setBatchState] = useState("");
   const [batchCity, setBatchCity] = useState("");
   const [batchDateVisited, setBatchDateVisited] = useState("");
+  const [batchAddTag, setBatchAddTag] = useState("");
+  const [batchRemoveTag, setBatchRemoveTag] = useState("");
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
 
   // Sorting
@@ -204,6 +341,8 @@ export const CSVImportWorkbenchModal: React.FC<
   const [editCountryCode, setEditCountryCode] = useState("");
   const [editCountry, setEditCountry] = useState("");
   const [editHeroImageUrl, setEditHeroImageUrl] = useState("");
+  const [availableHeroImageUrls, setAvailableHeroImageUrls] = useState<string[]>([]);
+  const [currentHeroImageIndex, setCurrentHeroImageIndex] = useState(0);
   const [editRelatedWebsites, setEditRelatedWebsites] = useState<
     Array<{ name: string; url: string }>
   >([]);
@@ -226,10 +365,39 @@ export const CSVImportWorkbenchModal: React.FC<
   const [editParentCandidateId, setEditParentCandidateId] =
     useState<string>("");
   const [editMergeTargetId, setEditMergeTargetId] = useState<string>("");
+  const [editMatchedExistingPoiId, setEditMatchedExistingPoiId] =
+    useState<string>("");
   const [editDispositionJustification, setEditDispositionJustification] =
     useState<string>("");
   const [editIsUserOverridden, setEditIsUserOverridden] = useState(false);
   const [isResyncingAddress, setIsResyncingAddress] = useState(false);
+
+  // Location text search states (within Location Coordinates & Address)
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [locationSearchResults, setLocationSearchResults] = useState<
+    ForwardSearchResult[]
+  >([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [showLocationSearchDropdown, setShowLocationSearchDropdown] =
+    useState(false);
+  const locationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationSearchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        locationSearchContainerRef.current &&
+        !locationSearchContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowLocationSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
 
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -273,13 +441,16 @@ export const CSVImportWorkbenchModal: React.FC<
     const list: NearbyPointMarker[] = [];
 
     for (const p of existingPOIs) {
-      const d = haversineMiles(lat, lon, p.latitude, p.longitude);
+      const pLat = p.latitude ?? p.canonical_lat ?? p.render_lat;
+      const pLon = p.longitude ?? p.canonical_lng ?? p.render_lng;
+      if (pLat == null || pLon == null) continue;
+      const d = haversineMiles(lat, lon, pLat, pLon);
       if (d <= radius) {
         list.push({
           name: p.name,
           type: "DB POI",
-          latitude: p.latitude,
-          longitude: p.longitude,
+          latitude: pLat,
+          longitude: pLon,
           distanceMiles: d,
         });
       }
@@ -292,7 +463,8 @@ export const CSVImportWorkbenchModal: React.FC<
         c.latitude == null ||
         c.longitude == null ||
         cDisp === "ignore" ||
-        cDisp === "exclude"
+        cDisp === "exclude" ||
+        cDisp === "existing"
       ) {
         continue;
       }
@@ -331,6 +503,13 @@ export const CSVImportWorkbenchModal: React.FC<
       });
       setCandidates(res.candidates);
       if (res.candidates.length > 0) {
+        const recs = extractNameRecommendations(res.candidates);
+        if (recs.length > 0 && !hasAutoShownRecommendations) {
+          setShowNameRecommendationsModal(true);
+          setHasAutoShownRecommendations(true);
+        }
+      }
+      if (res.candidates.length > 0) {
         if (
           !selectedCandidateId ||
           !res.candidates.some((c) => c.id === selectedCandidateId)
@@ -366,8 +545,8 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditPoiName(selectedCandidate.poi_name || "");
       setEditDisposition(
         selectedCandidate.user_disposition ||
-          selectedCandidate.recommended_disposition ||
-          "accept",
+        selectedCandidate.recommended_disposition ||
+        "accept",
       );
       const initLat =
         selectedCandidate.latitude != null
@@ -380,6 +559,9 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditLatitude(initLat);
       setEditLongitude(initLng);
       setSavedCoords({ lat: initLat, lng: initLng });
+      setLocationSearchQuery("");
+      setLocationSearchResults([]);
+      setShowLocationSearchDropdown(false);
 
       const isGreatWall = (selectedCandidate.poi_name || "")
         .toLowerCase()
@@ -420,17 +602,6 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditAdminLevel1(rawAdmin1);
       setEditStateProvince(rawAdmin1);
 
-      let rawCC = (selectedCandidate.country_code || "").trim().toUpperCase();
-      if (
-        isGreatWall &&
-        (!rawCC || rawCC.length !== 2 || /[\u4e00-\u9fff]/.test(rawCC))
-      ) {
-        rawCC = "CN";
-      } else if (rawCC === "中国") {
-        rawCC = "CN";
-      }
-      setEditCountryCode(rawCC);
-
       let rawCountry = (selectedCandidate.country || "").trim();
       if (
         isGreatWall &&
@@ -441,36 +612,62 @@ export const CSVImportWorkbenchModal: React.FC<
         rawCountry = "China";
       }
       setEditCountry(rawCountry);
-      setEditHeroImageUrl(selectedCandidate.hero_image_url || "");
 
-      // Reconstruct dynamic websites list
-      const sites: Array<{ name: string; url: string }> = [];
-      if (Array.isArray(selectedCandidate.related_websites)) {
-        for (const rawW of selectedCandidate.related_websites) {
-          const w = rawW as Record<string, any>;
-          if (w && typeof w === "object" && w.url) {
-            sites.push({
-              name: String(w.name || "Website"),
-              url: String(w.url),
-            });
-          }
+      let rawCC = (selectedCandidate.country_code || "").trim().toUpperCase();
+      if (
+        isGreatWall &&
+        (!rawCC || rawCC.length !== 2 || /[\u4e00-\u9fff]/.test(rawCC))
+      ) {
+        rawCC = "CN";
+      } else if (rawCC === "中国") {
+        rawCC = "CN";
+      } else if (
+        (!rawCC || (rawCC === "US" && rawCountry && !["united states", "usa", "us"].includes(rawCountry.toLowerCase()))) &&
+        rawCountry
+      ) {
+        const mapped = countryNameToIsoCode(rawCountry);
+        if (mapped) {
+          rawCC = mapped;
         }
       }
-      if (
-        selectedCandidate.official_url &&
-        !sites.some((s) => s.url === selectedCandidate.official_url)
-      ) {
-        sites.unshift({
-          name: "Official Website",
-          url: selectedCandidate.official_url,
-        });
+      setEditCountryCode(rawCC);
+
+      // Hero photos: accumulate all candidate images and default to the first found image
+      const seenHeroKeys = new Set<string>();
+      const allHeroImgs: string[] = [];
+      const addHeroImg = (raw: string | null | undefined) => {
+        if (!raw || typeof raw !== "string") return;
+        const u = raw.trim();
+        if (!u) return;
+        let key = u.split("?")[0].toLowerCase();
+        if (key.includes("/thumb/")) {
+          const parts = key.split("/");
+          if (parts.length >= 2) key = parts[parts.length - 2];
+        } else {
+          const parts = key.split("/");
+          key = parts[parts.length - 1] || key;
+        }
+        if (!seenHeroKeys.has(key)) {
+          seenHeroKeys.add(key);
+          allHeroImgs.push(u);
+        }
+      };
+
+      if (selectedCandidate.hero_image_url) {
+        addHeroImg(selectedCandidate.hero_image_url);
       }
-      if (
-        selectedCandidate.wiki_url &&
-        !sites.some((s) => s.url === selectedCandidate.wiki_url)
-      ) {
-        sites.push({ name: "Wikipedia", url: selectedCandidate.wiki_url });
+      if (Array.isArray(selectedCandidate.hero_image_urls)) {
+        for (const u of selectedCandidate.hero_image_urls) {
+          addHeroImg(u);
+        }
       }
+      setAvailableHeroImageUrls(allHeroImgs);
+      const initialHero = allHeroImgs.length > 0 ? allHeroImgs[0] : (selectedCandidate.hero_image_url || "");
+      setEditHeroImageUrl(initialHero);
+      setCurrentHeroImageIndex(0);
+
+      // Reconstruct dynamic websites list (excluding third-party map providers)
+      const sites = reconstructWebsitesList(selectedCandidate);
       setEditRelatedWebsites(sites);
       setEditNoWebsites(Boolean(selectedCandidate.no_websites));
 
@@ -504,10 +701,13 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditDatesVisited([...(selectedCandidate.dates_visited || [])]);
 
       setEditDescription(selectedCandidate.description || "");
-      setEditReasonToVisit(selectedCandidate.reason_to_visit || "");
+      setEditReasonToVisit(cleanReasonToVisit(selectedCandidate.reason_to_visit));
       setEditParentPoiId(selectedCandidate.parent_poi_id || "");
       setEditParentCandidateId(selectedCandidate.parent_candidate_id || "");
       setEditMergeTargetId(selectedCandidate.merge_target_id || "");
+      setEditMatchedExistingPoiId(
+        selectedCandidate.matched_existing_poi_id || "",
+      );
       setEditDispositionJustification(
         selectedCandidate.disposition_justification || "",
       );
@@ -515,18 +715,453 @@ export const CSVImportWorkbenchModal: React.FC<
     }
   }, [selectedCandidate]);
 
-  // Completeness calculator helper
-  const isCandidateComplete = (cand: CandidateItem): boolean => {
-    const hasPhoto = Boolean(cand.hero_image_url && cand.hero_image_url.trim());
-    const hasLocation =
-      cand.latitude != null &&
-      cand.longitude != null &&
-      Boolean(cand.street_address && cand.street_address.trim());
-    const hasWebsites =
-      Boolean(cand.official_url && cand.official_url.trim()) ||
-      Boolean(cand.related_websites && cand.related_websites.length > 0) ||
-      Boolean(cand.no_websites);
-    return hasPhoto && hasLocation && hasWebsites;
+  // Active missing fields for currently selected candidate in detail editor
+  const editorCandidateMissingFields = useMemo(() => {
+    if (!selectedCandidate) return [];
+    const lat = editLatitude && editLatitude.trim() ? parseFloat(editLatitude) : selectedCandidate.latitude;
+    const lng = editLongitude && editLongitude.trim() ? parseFloat(editLongitude) : selectedCandidate.longitude;
+    return getCandidateMissingFields({
+      hero_image_url: editHeroImageUrl,
+      latitude: lat,
+      longitude: lng,
+      street_address: editStreetAddress,
+      official_url: selectedCandidate.official_url,
+      related_websites: editRelatedWebsites,
+      no_websites: editNoWebsites,
+    });
+  }, [
+    selectedCandidate,
+    editHeroImageUrl,
+    editLatitude,
+    editLongitude,
+    editStreetAddress,
+    editRelatedWebsites,
+    editNoWebsites,
+  ]);
+
+  // Map of existing DB POIs by ID
+  const dbPOIsMap = useMemo(() => {
+    const map = new Map<string, ExistingPOIMarker>();
+    for (const p of existingPOIs) {
+      if (p.id) map.set(p.id, p);
+    }
+    return map;
+  }, [existingPOIs]);
+
+  // Associated target POI: either existing DB POI or another candidate in current batch
+  const associatedTarget = useMemo(() => {
+    if (!selectedCandidate) return null;
+    const disp = (editDisposition || selectedCandidate.recommended_disposition || "").toLowerCase();
+    const isAssociatedWithDb =
+      editMatchedExistingPoiId ||
+      selectedCandidate.matched_existing_poi_id ||
+      ((disp === "update_existing" || disp === "existing") &&
+        (editParentPoiId || selectedCandidate.parent_poi_id));
+
+    if (isAssociatedWithDb) {
+      const dbId =
+        editMatchedExistingPoiId ||
+        selectedCandidate.matched_existing_poi_id ||
+        editParentPoiId ||
+        selectedCandidate.parent_poi_id;
+      if (dbId && dbPOIsMap.has(dbId)) {
+        return { type: "db", data: dbPOIsMap.get(dbId)! };
+      }
+    }
+
+    if (
+      disp === "in_batch_merge" ||
+      selectedCandidate.recommended_disposition === "in_batch_merge"
+    ) {
+      const targetId = editMergeTargetId || selectedCandidate.merge_target_id;
+      if (targetId) {
+        const targetCand = candidates.find((c) => c.id === targetId);
+        if (targetCand) {
+          return { type: "candidate", data: targetCand };
+        }
+      }
+    }
+
+    return null;
+  }, [
+    selectedCandidate,
+    editDisposition,
+    editMatchedExistingPoiId,
+    editParentPoiId,
+    editMergeTargetId,
+    dbPOIsMap,
+    candidates,
+  ]);
+
+  // Helper determining if an edited field will result in no change against associated target
+  const isFieldNoChange = useCallback(
+    (fieldName: string): boolean => {
+      if (!associatedTarget) return false;
+      const target = associatedTarget.data;
+      if (!target) return false;
+
+      const isBlank = (s: unknown) =>
+        s == null || (typeof s === "string" && s.trim().length === 0);
+
+      switch (fieldName) {
+        case "poi_name": {
+          if (isBlank(editPoiName)) return true;
+          const targetName = target.name || target.poi_name || "";
+          return (
+            editPoiName.trim().toLowerCase() === targetName.trim().toLowerCase()
+          );
+        }
+        case "hero_image_url": {
+          if (isBlank(editHeroImageUrl)) return true;
+          const targetHero =
+            target.hero_image_url ||
+            (target.image_urls && target.image_urls[0]) ||
+            "";
+          return editHeroImageUrl.trim() === targetHero.trim();
+        }
+        case "latitude": {
+          if (isBlank(editLatitude)) return true;
+          const candLat = parseFloat(editLatitude);
+          if (isNaN(candLat)) return true;
+          const targetLat =
+            target.latitude ?? target.canonical_lat ?? target.render_lat;
+          if (targetLat == null) return false;
+          return Math.abs(candLat - Number(targetLat)) < 0.0001;
+        }
+        case "longitude": {
+          if (isBlank(editLongitude)) return true;
+          const candLon = parseFloat(editLongitude);
+          if (isNaN(candLon)) return true;
+          const targetLon =
+            target.longitude ?? target.canonical_lng ?? target.render_lng;
+          if (targetLon == null) return false;
+          return Math.abs(candLon - Number(targetLon)) < 0.0001;
+        }
+        case "street_address": {
+          if (isBlank(editStreetAddress)) return true;
+          const targetStreet = target.street_address || target.address || "";
+          return (
+            editStreetAddress.trim().toLowerCase() ===
+            targetStreet.trim().toLowerCase()
+          );
+        }
+        case "postal_code": {
+          if (isBlank(editPostalCode)) return true;
+          const targetZip = target.postal_code || target.zip_code || "";
+          return (
+            editPostalCode.trim().toLowerCase() ===
+            targetZip.trim().toLowerCase()
+          );
+        }
+        case "city": {
+          if (isBlank(editCity)) return true;
+          const targetCity = target.city || target.locality || "";
+          return (
+            editCity.trim().toLowerCase() === targetCity.trim().toLowerCase()
+          );
+        }
+        case "admin_level_2": {
+          if (isBlank(editAdminLevel2)) return true;
+          const targetAdmin2 = target.admin_level_2 || "";
+          return (
+            editAdminLevel2.trim().toLowerCase() ===
+            targetAdmin2.trim().toLowerCase()
+          );
+        }
+        case "state_province": {
+          if (isBlank(editStateProvince)) return true;
+          const targetState =
+            target.state_province || target.state || target.admin_level_1 || "";
+          return (
+            editStateProvince.trim().toLowerCase() ===
+            targetState.trim().toLowerCase()
+          );
+        }
+        case "country_code": {
+          if (isBlank(editCountryCode)) return true;
+          const targetCountryCode = target.country_code || "";
+          return (
+            editCountryCode.trim().toUpperCase() ===
+            targetCountryCode.trim().toUpperCase()
+          );
+        }
+        case "country": {
+          if (isBlank(editCountry)) return true;
+          const targetCountry = target.country || "";
+          return (
+            editCountry.trim().toLowerCase() === targetCountry.trim().toLowerCase()
+          );
+        }
+        case "duration_hours": {
+          if (isBlank(editDurationHours)) return true;
+          const candHours = parseFloat(editDurationHours);
+          if (isNaN(candHours)) return true;
+          const targetHours = target.recommended_duration_hours;
+          if (targetHours == null) return false;
+          return Math.abs(candHours - Number(targetHours)) < 0.01;
+        }
+        case "duration_days": {
+          if (isBlank(editDurationDays)) return true;
+          const candDays = parseInt(editDurationDays, 10);
+          if (isNaN(candDays)) return true;
+          const targetDays = target.recommended_visit_days;
+          if (targetDays == null) return false;
+          return candDays === Number(targetDays);
+        }
+        case "duration_notes": {
+          if (isBlank(editDurationNotes)) return true;
+          const targetNotes = target.estimated_visit_time_notes || "";
+          return (
+            editDurationNotes.trim().toLowerCase() ===
+            targetNotes.trim().toLowerCase()
+          );
+        }
+        case "reason_to_visit": {
+          if (isBlank(editReasonToVisit)) return true;
+          const targetReason = target.reason_to_visit || "";
+          return (
+            cleanReasonToVisit(editReasonToVisit).trim().toLowerCase() ===
+            cleanReasonToVisit(targetReason).trim().toLowerCase()
+          );
+        }
+        case "description": {
+          if (isBlank(editDescription)) return true;
+          const targetDesc = target.description || "";
+          return (
+            editDescription.trim().toLowerCase() ===
+            targetDesc.trim().toLowerCase()
+          );
+        }
+        case "tags": {
+          if (!editTags || editTags.length === 0) return true;
+          const targetTags = new Set(
+            (target.tags || []).map((t: string) => t.trim().toLowerCase()),
+          );
+          return editTags.every((t) => targetTags.has(t.trim().toLowerCase()));
+        }
+        case "dates_visited": {
+          if (!editDatesVisited || editDatesVisited.length === 0) return true;
+          const targetDates = new Set(
+            (
+              target.dates_visited ||
+              target.visited_dates ||
+              []
+            ).map((d: string) => d.trim()),
+          );
+          return editDatesVisited.every((d) => targetDates.has(d.trim()));
+        }
+        case "photo_directories": {
+          if (!editPhotoDirectories || editPhotoDirectories.length === 0)
+            return true;
+          const targetDirs = new Set(
+            (
+              target.photo_directories ||
+              (target.photo_directory ? [target.photo_directory] : [])
+            ).map((p: string) => p.trim()),
+          );
+          return editPhotoDirectories.every((p) => targetDirs.has(p.trim()));
+        }
+        case "related_websites": {
+          if (!editRelatedWebsites || editRelatedWebsites.length === 0)
+            return true;
+          const targetWebsites = new Set(
+            (target.related_websites || []).map((w: any) =>
+              (typeof w === "string" ? w : w.url || "").trim().toLowerCase(),
+            ),
+          );
+          return editRelatedWebsites.every((w) =>
+            targetWebsites.has((w.url || "").trim().toLowerCase()),
+          );
+        }
+        default:
+          return false;
+      }
+    },
+    [
+      associatedTarget,
+      editPoiName,
+      editHeroImageUrl,
+      editLatitude,
+      editLongitude,
+      editStreetAddress,
+      editPostalCode,
+      editCity,
+      editAdminLevel2,
+      editStateProvince,
+      editCountryCode,
+      editCountry,
+      editDurationHours,
+      editDurationDays,
+      editDurationNotes,
+      editReasonToVisit,
+      editDescription,
+      editTags,
+      editDatesVisited,
+      editPhotoDirectories,
+      editRelatedWebsites,
+    ],
+  );
+
+  const NO_CHANGE_BG = "#f0fdf4";
+  const NO_CHANGE_BORDER = "#86efac";
+  const CHANGE_DIFF_BG = "#fefce8";
+  const CHANGE_DIFF_BORDER = "#fde047";
+
+  const getFieldInputStyle = (
+    fieldName: string,
+    baseStyle: React.CSSProperties = {},
+  ): React.CSSProperties => {
+    if (!associatedTarget) {
+      return baseStyle;
+    }
+    if (isFieldNoChange(fieldName)) {
+      return {
+        ...baseStyle,
+        backgroundColor: NO_CHANGE_BG,
+        border: `1px solid ${NO_CHANGE_BORDER}`,
+      };
+    }
+    return {
+      ...baseStyle,
+      backgroundColor: CHANGE_DIFF_BG,
+      border: `1px solid ${CHANGE_DIFF_BORDER}`,
+    };
+  };
+
+  const getFieldCurrentValue = useCallback(
+    (fieldName: string): string | null => {
+      if (!associatedTarget) return null;
+      const target = associatedTarget.data;
+      if (!target) return null;
+
+      switch (fieldName) {
+        case "poi_name": {
+          const v = target.name || target.poi_name;
+          return v ? String(v).trim() : "None";
+        }
+        case "hero_image_url": {
+          const v =
+            target.hero_image_url ||
+            (target.image_urls && target.image_urls[0]);
+          return v ? String(v).trim() : "None";
+        }
+        case "latitude": {
+          const v =
+            target.latitude ?? target.canonical_lat ?? target.render_lat;
+          return v != null ? String(v) : "None";
+        }
+        case "longitude": {
+          const v =
+            target.longitude ?? target.canonical_lng ?? target.render_lng;
+          return v != null ? String(v) : "None";
+        }
+        case "street_address": {
+          const v = target.street_address || target.address;
+          return v ? String(v).trim() : "None";
+        }
+        case "postal_code": {
+          const v = target.postal_code || target.zip_code;
+          return v ? String(v).trim() : "None";
+        }
+        case "city": {
+          const v = target.city || target.locality;
+          return v ? String(v).trim() : "None";
+        }
+        case "admin_level_2": {
+          const v = target.admin_level_2;
+          return v ? String(v).trim() : "None";
+        }
+        case "state_province": {
+          const v =
+            target.state_province || target.state || target.admin_level_1;
+          return v ? String(v).trim() : "None";
+        }
+        case "country_code": {
+          const v = target.country_code;
+          return v ? String(v).trim().toUpperCase() : "None";
+        }
+        case "country": {
+          const v = target.country;
+          return v ? String(v).trim() : "None";
+        }
+        case "duration_hours": {
+          const v = target.recommended_duration_hours;
+          return v != null ? `${v}h` : "None";
+        }
+        case "duration_days": {
+          const v = target.recommended_visit_days;
+          return v != null ? `${v}d` : "None";
+        }
+        case "duration_notes": {
+          const v = target.estimated_visit_time_notes;
+          return v ? String(v).trim() : "None";
+        }
+        case "reason_to_visit": {
+          const v = target.reason_to_visit;
+          return v ? String(v).trim() : "None";
+        }
+        case "description": {
+          const v = target.description;
+          return v ? String(v).trim() : "None";
+        }
+        case "tags": {
+          const list = target.tags || [];
+          return list.length > 0 ? list.join(", ") : "None";
+        }
+        case "photo_directories": {
+          const list =
+            target.photo_directories ||
+            (target.photo_directory ? [target.photo_directory] : []);
+          return list.length > 0 ? list.join(", ") : "None";
+        }
+        case "dates_visited": {
+          const list = target.dates_visited || target.visited_dates || [];
+          return list.length > 0 ? list.join(", ") : "None";
+        }
+        case "related_websites": {
+          const list = target.related_websites || [];
+          return list.length > 0
+            ? list
+              .map((w: any) =>
+                typeof w === "string" ? w : w.url || w.name || "",
+              )
+              .filter(Boolean)
+              .join(", ")
+            : "None";
+        }
+        default:
+          return null;
+      }
+    },
+    [associatedTarget],
+  );
+
+  const renderFieldLabelText = (
+    baseLabel: string,
+    fieldName: string,
+  ): React.ReactNode => {
+    if (associatedTarget && !isFieldNoChange(fieldName)) {
+      const orig = getFieldCurrentValue(fieldName);
+      if (orig) {
+        const displayOrig = orig.length > 40 ? `${orig.slice(0, 37)}...` : orig;
+        return (
+          <span>
+            {baseLabel}{" "}
+            <span
+              data-testid={`field-diff-current-value-${fieldName}`}
+              style={{
+                fontWeight: 600,
+                fontSize: "10px",
+                color: "#b45309",
+              }}
+            >
+              (Current: {displayOrig})
+            </span>
+          </span>
+        );
+      }
+    }
+    return baseLabel;
   };
 
   // Sort & filter candidates in table
@@ -594,42 +1229,91 @@ export const CSVImportWorkbenchModal: React.FC<
     );
   };
 
-  // Single-candidate enrichment: "AI Enrich POI"
-  const handleEnrichSingle = async () => {
+  // Single-candidate enrichment: "AI Enrich POI" (cached) or "Recalculate / Force Refresh" (bypasses cache)
+  const handleEnrichSingle = async (forceRefresh: boolean = false) => {
     if (!jobId || !selectedCandidateId) return;
     setIsEnrichingSingle(true);
     try {
+      // If user cleared reason_to_visit or description in the UI, persist that clearing before enrichment
+      if (selectedCandidate) {
+        const patch: Record<string, any> = {};
+        if (!editReasonToVisit.trim() && selectedCandidate.reason_to_visit) {
+          patch.reason_to_visit = null;
+        }
+        if (!editDescription.trim() && selectedCandidate.description) {
+          patch.description = null;
+        }
+        if (Object.keys(patch).length > 0) {
+          await ingestApi.updateStagingCandidate(jobId, selectedCandidateId, patch);
+        }
+      }
+
       const enriched = await ingestApi.enrichSingleCandidate(
         jobId,
         selectedCandidateId,
+        forceRefresh,
       );
       setCandidates((prev) =>
         prev.map((c) => (c.id === selectedCandidateId ? enriched : c)),
       );
-      showToast(`Enriched ${enriched.poi_name}!`, "success");
-    } catch {
-      showToast("Failed to enrich POI details", "error");
+      setEditReasonToVisit(cleanReasonToVisit(enriched.reason_to_visit));
+      setEditDescription(enriched.description || "");
+      if (enriched.recommended_duration_hours != null) {
+        setEditDurationHours(String(enriched.recommended_duration_hours));
+      }
+      if (enriched.recommended_visit_days != null) {
+        setEditDurationDays(String(enriched.recommended_visit_days));
+      }
+      if (enriched.estimated_visit_time_notes) {
+        setEditDurationNotes(enriched.estimated_visit_time_notes);
+      }
+      const refreshedSites = reconstructWebsitesList(enriched);
+      setEditRelatedWebsites(refreshedSites);
+      setEditNoWebsites(Boolean(enriched.no_websites));
+      if (enriched.hero_image_url) {
+        setEditHeroImageUrl(enriched.hero_image_url);
+      }
+      showToast(
+        forceRefresh
+          ? `Recalculated & refreshed ${enriched.poi_name}!`
+          : `Enriched ${enriched.poi_name}!`,
+        "success",
+      );
+    } catch (err: any) {
+      console.error("Enrichment failed:", err);
+      const detail =
+        err?.problem?.detail ||
+        err?.message ||
+        (forceRefresh
+          ? "Failed to refresh POI details"
+          : "Failed to enrich POI details");
+      showToast(detail, "error");
     } finally {
       setIsEnrichingSingle(false);
     }
   };
 
   // Asynchronous Bulk Enrichment: "AI Enrich All"
-  const handleEnrichAll = async () => {
+  const handleEnrichAll = async (forceRefresh: boolean = false) => {
     if (!jobId) return;
     setIsEnrichingAll(true);
     try {
-      const res = await ingestApi.enrichAllCandidates(jobId);
+      const res = await ingestApi.enrichAllCandidates(jobId, forceRefresh);
       showToast(
-        res.message || "Bulk AI enrichment queued in background",
+        res.message ||
+        (forceRefresh
+          ? "Bulk recalculation queued in background"
+          : "Bulk AI enrichment queued in background"),
         "info",
       );
       setTimeout(() => {
         loadCandidates();
         setIsEnrichingAll(false);
       }, 3000);
-    } catch {
-      showToast("Failed to launch batch enrichment", "error");
+    } catch (err: any) {
+      console.error("Batch enrichment failed:", err);
+      const detail = err?.problem?.detail || err?.message || "Failed to launch batch enrichment";
+      showToast(detail, "error");
       setIsEnrichingAll(false);
     }
   };
@@ -646,8 +1330,9 @@ export const CSVImportWorkbenchModal: React.FC<
   const handleAddWebsite = () => {
     if (!newWebsiteUrl.trim()) return;
     const name = newWebsiteName.trim() || "Website";
-    const url = newWebsiteUrl.trim();
-    if (!editRelatedWebsites.some((w) => w.url === url)) {
+    const url = normalizeUrl(newWebsiteUrl);
+    const key = url.toLowerCase();
+    if (!editRelatedWebsites.some((w) => normalizeUrl(w.url).toLowerCase() === key)) {
       setEditRelatedWebsites([...editRelatedWebsites, { name, url }]);
     }
     setNewWebsiteName("");
@@ -744,6 +1429,310 @@ export const CSVImportWorkbenchModal: React.FC<
     }
   };
 
+  // Location Search Handlers
+  const handleSelectLocationMatch = async (match: ForwardSearchResult) => {
+    setShowLocationSearchDropdown(false);
+    setLocationSearchQuery(match.name || match.display_name.split(",")[0]);
+    const latStr = match.lat.toFixed(6);
+    const lngStr = match.lng.toFixed(6);
+    setEditLatitude(latStr);
+    setEditLongitude(lngStr);
+
+    setIsResyncingAddress(true);
+    try {
+      const res = await reverseGeocode(match.lat, match.lng);
+      if (res.street) setEditStreetAddress(res.street);
+      if (res.postal_code) setEditPostalCode(res.postal_code);
+      if (res.locality || res.city) {
+        const loc = res.locality || res.city || "";
+        setEditLocality(loc);
+        setEditCity(loc);
+      }
+      if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
+      if (res.admin_level_1 || res.state_province) {
+        const a1 = res.admin_level_1 || res.state_province || "";
+        setEditAdminLevel1(a1);
+        setEditStateProvince(a1);
+      }
+      if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
+      if (res.country) setEditCountry(res.country);
+      showToast(`Location set to ${match.name}`, "success");
+      const matchName = match.name || match.display_name.split(",")[0];
+      checkAndPromptNameChange(matchName);
+    } catch {
+      showToast(`Location coordinates set to (${latStr}, ${lngStr})`, "info");
+    } finally {
+      setIsResyncingAddress(false);
+    }
+  };
+
+  const executeLocationSearch = async (queryText: string) => {
+    let q = queryText.trim();
+    if (!q || q.length < 2) return;
+
+    if (locationDebounceRef.current) {
+      clearTimeout(locationDebounceRef.current);
+    }
+
+    // Detect if text contains a Google Maps URL
+    if (isGoogleMapsUrl(q)) {
+      const gmapsResult = parseGoogleMapsUrl(q);
+      if (gmapsResult && !isNaN(gmapsResult.lat) && !isNaN(gmapsResult.lng)) {
+        setIsSearchingLocation(true);
+        setShowLocationSearchDropdown(false);
+        if (gmapsResult.placeName) {
+          setLocationSearchQuery(gmapsResult.placeName);
+          checkAndPromptNameChange(gmapsResult.placeName);
+        }
+        const latStr = gmapsResult.lat.toFixed(6);
+        const lngStr = gmapsResult.lng.toFixed(6);
+        setEditLatitude(latStr);
+        setEditLongitude(lngStr);
+
+        setIsResyncingAddress(true);
+        try {
+          const res = await reverseGeocode(gmapsResult.lat, gmapsResult.lng);
+          if (res.street) setEditStreetAddress(res.street);
+          if (res.postal_code) setEditPostalCode(res.postal_code);
+          if (res.locality || res.city) {
+            const loc = res.locality || res.city || "";
+            setEditLocality(loc);
+            setEditCity(loc);
+          }
+          if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
+          if (res.admin_level_1 || res.state_province) {
+            const a1 = res.admin_level_1 || res.state_province || "";
+            setEditAdminLevel1(a1);
+            setEditStateProvince(a1);
+          }
+          if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
+          if (res.country) setEditCountry(res.country);
+          const label = gmapsResult.placeName || res.locality || res.city || `${latStr}, ${lngStr}`;
+          showToast(`Location set from Google Maps URL: ${label}`, "success");
+        } catch {
+          showToast(`Coordinates set to (${latStr}, ${lngStr}) from Google Maps URL`, "info");
+        } finally {
+          setIsResyncingAddress(false);
+          setIsSearchingLocation(false);
+        }
+        return;
+      } else if (gmapsResult?.placeName) {
+        // Fallback: Use extracted place name for text search
+        q = gmapsResult.placeName;
+        setLocationSearchQuery(q);
+      } else {
+        showToast("Google Maps URL detected but coordinates could not be parsed", "error");
+        return;
+      }
+    }
+
+    // Detect if text contains a GeoHack URL (e.g. Wikipedia coordinate links)
+    if (isGeohackUrl(q)) {
+      const ghResult = parseGeohackUrl(q);
+      if (ghResult && !isNaN(ghResult.lat) && !isNaN(ghResult.lng)) {
+        setIsSearchingLocation(true);
+        setShowLocationSearchDropdown(false);
+        if (ghResult.placeName) {
+          setLocationSearchQuery(ghResult.placeName);
+          checkAndPromptNameChange(ghResult.placeName);
+        }
+        const latStr = ghResult.lat.toFixed(6);
+        const lngStr = ghResult.lng.toFixed(6);
+        setEditLatitude(latStr);
+        setEditLongitude(lngStr);
+
+        setIsResyncingAddress(true);
+        try {
+          const res = await reverseGeocode(ghResult.lat, ghResult.lng);
+          if (res.street) setEditStreetAddress(res.street);
+          if (res.postal_code) setEditPostalCode(res.postal_code);
+          if (res.locality || res.city) {
+            const loc = res.locality || res.city || "";
+            setEditLocality(loc);
+            setEditCity(loc);
+          }
+          if (res.admin_level_2) setEditAdminLevel2(res.admin_level_2);
+          if (res.admin_level_1 || res.state_province) {
+            const a1 = res.admin_level_1 || res.state_province || "";
+            setEditAdminLevel1(a1);
+            setEditStateProvince(a1);
+          }
+          if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
+          if (res.country) setEditCountry(res.country);
+          const label = ghResult.placeName || res.locality || res.city || `${latStr}, ${lngStr}`;
+          showToast(`Location set from GeoHack URL: ${label}`, "success");
+        } catch {
+          showToast(`Coordinates set to (${latStr}, ${lngStr}) from GeoHack URL`, "info");
+        } finally {
+          setIsResyncingAddress(false);
+          setIsSearchingLocation(false);
+        }
+        return;
+      } else if (ghResult?.placeName) {
+        q = ghResult.placeName;
+        setLocationSearchQuery(q);
+      } else {
+        showToast("GeoHack URL detected but coordinates could not be parsed", "error");
+        return;
+      }
+    }
+
+    // Detect if text contains a webpage URL (e.g. Wikipedia, TripAdvisor, etc.)
+    if (isWebpageUrl(q)) {
+      setIsSearchingLocation(true);
+      setShowLocationSearchDropdown(false);
+      try {
+        const res = await extractCoordinatesFromUrl(q);
+        if (res.latitude != null && res.longitude != null) {
+          const latStr = res.latitude.toFixed(6);
+          const lngStr = res.longitude.toFixed(6);
+          setEditLatitude(latStr);
+          setEditLongitude(lngStr);
+          if (res.place_name) {
+            setLocationSearchQuery(res.place_name);
+            checkAndPromptNameChange(res.place_name);
+            if (!editPoiName) {
+              setEditPoiName(res.place_name);
+            }
+          }
+          if (res.street) setEditStreetAddress(res.street);
+          if (res.postal_code) setEditPostalCode(res.postal_code);
+          if (res.locality || res.city) {
+            const loc = res.locality || res.city || "";
+            setEditLocality(loc);
+            setEditCity(loc);
+          }
+          if (res.state_province) {
+            setEditAdminLevel1(res.state_province);
+            setEditStateProvince(res.state_province);
+          }
+          if (res.country_code) setEditCountryCode(res.country_code.toUpperCase());
+          if (res.country) setEditCountry(res.country);
+          const label = res.place_name || res.city || `${latStr}, ${lngStr}`;
+          showToast(`Location extracted from webpage: ${label}`, "success");
+          return;
+        } else if (res.place_name) {
+          // Fallback to text search on extracted place name
+          q = res.place_name;
+          setLocationSearchQuery(q);
+        } else {
+          showToast("Webpage detected but no coordinates could be found in page body", "error");
+          return;
+        }
+      } catch (err: any) {
+        showToast(err.message || "Failed to extract coordinates from webpage", "error");
+        return;
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }
+
+    setIsSearchingLocation(true);
+    try {
+      const results = await forwardSearch(q, 5);
+      setLocationSearchResults(results);
+      if (results.length === 1) {
+        await handleSelectLocationMatch(results[0]);
+      } else if (results.length > 1) {
+        setShowLocationSearchDropdown(true);
+      } else {
+        // Fallback to backend enhanced forward geocode (Wikipedia / Wikidata / Gemini cascade)
+        try {
+          const countryHint = editCountry?.trim() || undefined;
+          const enhanced = await forwardGeocode(q, countryHint);
+          if (enhanced.latitude != null && enhanced.longitude != null) {
+            const latStr = enhanced.latitude.toFixed(6);
+            const lngStr = enhanced.longitude.toFixed(6);
+            setEditLatitude(latStr);
+            setEditLongitude(lngStr);
+            if (enhanced.resolved_name) {
+              setLocationSearchQuery(enhanced.resolved_name);
+              checkAndPromptNameChange(enhanced.resolved_name);
+            }
+            if (enhanced.street) setEditStreetAddress(enhanced.street);
+            if (enhanced.postal_code) setEditPostalCode(enhanced.postal_code);
+            if (enhanced.locality || enhanced.city) {
+              const loc = enhanced.locality || enhanced.city || "";
+              setEditLocality(loc);
+              setEditCity(loc);
+            }
+            if (enhanced.admin_level_2) setEditAdminLevel2(enhanced.admin_level_2);
+            if (enhanced.admin_level_1 || enhanced.state_province) {
+              const a1 = enhanced.admin_level_1 || enhanced.state_province || "";
+              setEditAdminLevel1(a1);
+              setEditStateProvince(a1);
+            }
+            if (enhanced.country_code) setEditCountryCode(enhanced.country_code.toUpperCase());
+            if (enhanced.country) setEditCountry(enhanced.country);
+            setShowLocationSearchDropdown(false);
+            const label = enhanced.resolved_name
+              ? `${enhanced.resolved_name} (from "${q}")`
+              : (enhanced.city || `${latStr}, ${lngStr}`);
+            showToast(`Location resolved via enhanced search: ${label}`, "success");
+            return;
+          }
+        } catch (fwdErr) {
+          console.warn("Enhanced location resolution failed:", fwdErr);
+        }
+        setShowLocationSearchDropdown(false);
+        showToast(`No locations found for "${q}"`, "info");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to search location", "error");
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  const handleLocationSearchInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const val = e.target.value;
+    setLocationSearchQuery(val);
+
+    if (locationDebounceRef.current) {
+      clearTimeout(locationDebounceRef.current);
+    }
+
+    if (val.trim().length < 2) {
+      setLocationSearchResults([]);
+      setShowLocationSearchDropdown(false);
+      return;
+    }
+
+    // Do not trigger live forward geocode if user is pasting/typing a URL (Google Maps, GeoHack, or webpage);
+    // user will press "Find" to parse or extract coordinates
+    if (isGoogleMapsUrl(val) || isGeohackUrl(val) || isWebpageUrl(val)) {
+      setLocationSearchResults([]);
+      setShowLocationSearchDropdown(false);
+      return;
+    }
+
+    locationDebounceRef.current = setTimeout(async () => {
+      setIsSearchingLocation(true);
+      try {
+        const results = await forwardSearch(val, 5);
+        setLocationSearchResults(results);
+        setShowLocationSearchDropdown(results.length > 0);
+      } catch {
+        // Silent catch on debounce typing
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }, 400);
+  };
+
+  const handleLocationSearchKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      executeLocationSearch(locationSearchQuery);
+    } else if (e.key === "Escape") {
+      setShowLocationSearchDropdown(false);
+    }
+  };
+
   // Save changes to current candidate
   const handleSaveCandidateChanges = async () => {
     if (!jobId || !selectedCandidateId) return;
@@ -808,6 +1797,7 @@ export const CSVImportWorkbenchModal: React.FC<
           ? (editParentCandidateId as any)
           : null,
         merge_target_id: editMergeTargetId ? (editMergeTargetId as any) : null,
+        matched_existing_poi_id: editMatchedExistingPoiId || selectedCandidate?.matched_existing_poi_id || null,
         disposition_justification: editDispositionJustification.trim() || null,
         is_user_overridden: editIsUserOverridden,
       };
@@ -850,15 +1840,58 @@ export const CSVImportWorkbenchModal: React.FC<
         state_province: batchState.trim() || undefined,
         city: batchCity.trim() || undefined,
         date_visited: batchDateVisited.trim() || undefined,
+        add_tag: batchAddTag.trim() || undefined,
+        remove_tag: batchRemoveTag.trim() || undefined,
       });
       showToast(`Updated ${res.updated_count} candidates!`, "success");
       setIsBatchEditOpen(false);
       setSelectedCandidateIds([]);
+      setBatchAddTag("");
+      setBatchRemoveTag("");
       loadCandidates();
     } catch {
       showToast("Batch update failed", "error");
     } finally {
       setIsBatchUpdating(false);
+    }
+  };
+
+  // Handler for applying accepted POI name recommendations
+  const handleAcceptNameChanges = async (
+    acceptedUpdates: Array<{ candidateId: string; newName: string }>,
+  ) => {
+    if (acceptedUpdates.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      for (const update of acceptedUpdates) {
+        if (jobId) {
+          await ingestApi.updateStagingCandidate(jobId, update.candidateId, {
+            poi_name: update.newName,
+          });
+        }
+      }
+      setCandidates((prev) =>
+        prev.map((c) => {
+          const matching = acceptedUpdates.find((u) => u.candidateId === c.id);
+          return matching ? { ...c, poi_name: matching.newName } : c;
+        }),
+      );
+      if (selectedCandidateId) {
+        const matching = acceptedUpdates.find(
+          (u) => u.candidateId === selectedCandidateId,
+        );
+        if (matching) {
+          setEditPoiName(matching.newName);
+        }
+      }
+      showToast(
+        `Successfully updated ${acceptedUpdates.length} POI name(s) to recommended values!`,
+        "success",
+      );
+    } catch (err: any) {
+      showToast(err?.message || "Failed to update some POI names", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -965,6 +1998,8 @@ export const CSVImportWorkbenchModal: React.FC<
       onClose={onClose}
       title=""
       maxWidth="min(1700px, 96vw)"
+      closeOnBackdropClick={false}
+      closeOnEscape={false}
       contentStyle={{
         height: "92vh",
         maxHeight: "92vh",
@@ -1036,7 +2071,7 @@ export const CSVImportWorkbenchModal: React.FC<
             {/* AI Enrich All Button */}
             <button
               type="button"
-              onClick={handleEnrichAll}
+              onClick={() => handleEnrichAll(false)}
               disabled={isEnrichingAll || candidates.length === 0}
               data-testid="ai-enrich-all-btn"
               style={{
@@ -1062,6 +2097,32 @@ export const CSVImportWorkbenchModal: React.FC<
                 {isEnrichingAll ? "Enriching All..." : "AI Enrich All"}
               </span>
             </button>
+
+            {/* POI Name Recommendations Button */}
+            {nameRecommendationsCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowNameRecommendationsModal(true)}
+                data-testid="open-name-recommendations-btn"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  backgroundColor: "#f0f9ff",
+                  border: "1px solid #bae6fd",
+                  color: "#0369a1",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                title="Review POI Name Recommendations"
+              >
+                <Sparkles size={14} color="#0284c7" />
+                <span>Name Recommendations ({nameRecommendationsCount})</span>
+              </button>
+            )}
 
             {/* CSV Export Button */}
             <button
@@ -1292,6 +2353,7 @@ export const CSVImportWorkbenchModal: React.FC<
                 <option value="sublocation">Sublocation</option>
                 <option value="in_batch_merge">In-Batch Merge</option>
                 <option value="update_existing">Update Existing POI</option>
+                <option value="existing">Existing</option>
                 <option value="exclude">Exclude</option>
                 <option value="ignore">Ignore</option>
               </select>
@@ -1300,7 +2362,15 @@ export const CSVImportWorkbenchModal: React.FC<
               {selectedCandidateIds.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setIsBatchEditOpen(true)}
+                  onClick={() => {
+                    setBatchCountry("");
+                    setBatchState("");
+                    setBatchCity("");
+                    setBatchDateVisited("");
+                    setBatchAddTag("");
+                    setBatchRemoveTag("");
+                    setIsBatchEditOpen(true);
+                  }}
                   data-testid="batch-edit-btn"
                   style={{
                     fontSize: "11px",
@@ -1551,7 +2621,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             <input
                               type="checkbox"
                               checked={isChecked}
-                              onChange={() => {}}
+                              onChange={() => { }}
                               data-testid={`row-checkbox-${cand.id}`}
                               style={{ cursor: "pointer" }}
                             />
@@ -1680,6 +2750,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             {complete ? (
                               <span
                                 data-testid="completeness-badge-complete"
+                                title="All completeness criteria satisfied (Photo, Location & Address, Websites)"
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -1697,6 +2768,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             ) : (
                               <span
                                 data-testid="completeness-badge-incomplete"
+                                title={`Missing: ${getCandidateMissingFields(cand).join(", ")}`}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -1733,9 +2805,11 @@ export const CSVImportWorkbenchModal: React.FC<
                                         ? "#dbeafe"
                                         : disp === "update_existing"
                                           ? "#fef9c3"
-                                          : disp === "exclude"
-                                            ? "#fee2e2"
-                                            : "#f1f5f9",
+                                          : disp === "existing"
+                                            ? "#e2e8f0"
+                                            : disp === "exclude"
+                                              ? "#fee2e2"
+                                              : "#f1f5f9",
                                 color:
                                   disp === "accept"
                                     ? "#166534"
@@ -1745,9 +2819,11 @@ export const CSVImportWorkbenchModal: React.FC<
                                         ? "#1e40af"
                                         : disp === "update_existing"
                                           ? "#854d0e"
-                                          : disp === "exclude"
-                                            ? "#991b1b"
-                                            : "#475569",
+                                          : disp === "existing"
+                                            ? "#475569"
+                                            : disp === "exclude"
+                                              ? "#991b1b"
+                                              : "#475569",
                               }}
                             >
                               {disp.replace(/_/g, " ")}
@@ -1822,34 +2898,64 @@ export const CSVImportWorkbenchModal: React.FC<
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleEnrichSingle}
-                    disabled={isEnrichingSingle}
-                    data-testid="ai-enrich-poi-btn"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      padding: "6px 12px",
-                      borderRadius: "6px",
-                      backgroundColor: "#2563eb",
-                      color: "#ffffff",
-                      border: "none",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      cursor: isEnrichingSingle ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {isEnrichingSingle ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={13} />
-                    )}
-                    <span>
-                      {isEnrichingSingle ? "Enriching..." : "AI Enrich POI"}
-                    </span>
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleEnrichSingle(false)}
+                      disabled={isEnrichingSingle}
+                      data-testid="ai-enrich-poi-btn"
+                      title="Enrich POI details using cached search results where available"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#2563eb",
+                        color: "#ffffff",
+                        border: "none",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: isEnrichingSingle ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {isEnrichingSingle ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={13} />
+                      )}
+                      <span>
+                        {isEnrichingSingle ? "Enriching..." : "AI Enrich POI"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleEnrichSingle(true)}
+                      disabled={isEnrichingSingle}
+                      data-testid="recalculate-force-refresh-btn"
+                      title="Bypass search cache and recalculate all fields with fresh web and AI data"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        backgroundColor: "#ffffff",
+                        color: "#475569",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: isEnrichingSingle ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <RefreshCw
+                        size={12}
+                        className={isEnrichingSingle ? "animate-spin" : ""}
+                      />
+                      <span>Recalculate / Force Refresh</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* SCROLLABLE FORM FIELDS */}
@@ -1878,20 +2984,20 @@ export const CSVImportWorkbenchModal: React.FC<
                           marginBottom: "4px",
                         }}
                       >
-                        POI Name:
+                        {renderFieldLabelText("POI Name:", "poi_name")}
                       </label>
                       <input
                         type="text"
                         value={editPoiName}
                         onChange={(e) => setEditPoiName(e.target.value)}
                         data-testid="editor-poi-name-input"
-                        style={{
+                        style={getFieldInputStyle("poi_name", {
                           width: "100%",
                           padding: "7px 10px",
                           borderRadius: "6px",
                           border: "1px solid #cbd5e1",
                           fontSize: "13px",
-                        }}
+                        })}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -1933,6 +3039,7 @@ export const CSVImportWorkbenchModal: React.FC<
                         <option value="update_existing">
                           Update Existing POI
                         </option>
+                        <option value="existing">Existing</option>
                         <option value="exclude">Exclude</option>
                         <option value="ignore">Ignore</option>
                       </select>
@@ -1983,17 +3090,19 @@ export const CSVImportWorkbenchModal: React.FC<
                     </div>
                     <textarea
                       readOnly
-                      rows={2}
+                      rows={editorCandidateMissingFields.length > 0 ? 3 : 2}
                       value={`Disposition: ${editDisposition.replace(
                         /_/g,
                         " ",
-                      )}\nRationale: ${
-                        editDispositionJustification ||
+                      )}\nRationale: ${editDispositionJustification ||
                         selectedCandidate.disposition_justification ||
                         (isSelectedGreatWall
                           ? "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
                           : "Unique location verified")
-                      }`}
+                        }${editorCandidateMissingFields.length > 0
+                          ? `\nMissing: ${editorCandidateMissingFields.join(", ")}`
+                          : ""
+                        }`}
                       data-testid="disposition-rationale-readonly"
                       style={{
                         width: "100%",
@@ -2225,6 +3334,84 @@ export const CSVImportWorkbenchModal: React.FC<
                     </div>
                   )}
 
+                  {/* Matched Database POI Info Card */}
+                  {associatedTarget?.type === "db" && (
+                    <div
+                      data-testid="matched-existing-poi-card"
+                      style={{
+                        padding: "10px 12px",
+                        backgroundColor: "#f0fdf4",
+                        border: "1px solid #86efac",
+                        borderRadius: "6px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: "#166534",
+                          }}
+                        >
+                          Matched Database POI (
+                          {editDisposition === "existing"
+                            ? "Identical / No Changes"
+                            : "Update Target"}
+                          ):
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            color: "#15803d",
+                            backgroundColor: "#dcfce7",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          Green = no change / no data • Yellow = difference
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          padding: "6px 8px",
+                          borderRadius: "4px",
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #bbf7d0",
+                          fontSize: "12px",
+                          color: "#14532d",
+                        }}
+                      >
+                        <strong>
+                          {associatedTarget.data.name ||
+                            associatedTarget.data.poi_name}
+                        </strong>
+                        <div style={{ fontSize: "11px", color: "#4b5563" }}>
+                          {[
+                            associatedTarget.data.street_address ||
+                            associatedTarget.data.address,
+                            associatedTarget.data.city ||
+                            associatedTarget.data.locality,
+                            associatedTarget.data.state_province ||
+                            associatedTarget.data.state,
+                            associatedTarget.data.country,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "No address in DB"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Hero Photo & Uncropped Live Preview */}
                   <div
                     style={{
@@ -2233,32 +3420,126 @@ export const CSVImportWorkbenchModal: React.FC<
                       padding: "12px",
                     }}
                   >
-                    <label
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        color: "#475569",
+                        justifyContent: "space-between",
                         marginBottom: "4px",
                       }}
                     >
-                      Hero Photo URL:
-                      <AIIconBadge />
-                    </label>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: "#475569",
+                        }}
+                      >
+                        {renderFieldLabelText("Hero Photo URL:", "hero_image_url")}
+                        <AIIconBadge />
+                      </label>
+                      {availableHeroImageUrls.length > 1 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <span
+                            data-testid="hero-image-count-badge"
+                            style={{
+                              fontSize: "10px",
+                              color: "#64748b",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Photo {currentHeroImageIndex + 1} of{" "}
+                            {availableHeroImageUrls.length}
+                          </span>
+                          <button
+                            type="button"
+                            title="Previous image"
+                            data-testid="hero-image-prev-btn"
+                            onClick={() => {
+                              if (availableHeroImageUrls.length <= 1) return;
+                              const prevIdx =
+                                (currentHeroImageIndex -
+                                  1 +
+                                  availableHeroImageUrls.length) %
+                                availableHeroImageUrls.length;
+                              setCurrentHeroImageIndex(prevIdx);
+                              setEditHeroImageUrl(availableHeroImageUrls[prevIdx]);
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "22px",
+                              height: "22px",
+                              borderRadius: "4px",
+                              border: "1px solid #cbd5e1",
+                              backgroundColor: "#f8fafc",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            <ChevronLeft size={13} color="#475569" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Next image"
+                            data-testid="hero-image-next-btn"
+                            onClick={() => {
+                              if (availableHeroImageUrls.length <= 1) return;
+                              const nextIdx =
+                                (currentHeroImageIndex + 1) %
+                                availableHeroImageUrls.length;
+                              setCurrentHeroImageIndex(nextIdx);
+                              setEditHeroImageUrl(availableHeroImageUrls[nextIdx]);
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "22px",
+                              height: "22px",
+                              borderRadius: "4px",
+                              border: "1px solid #cbd5e1",
+                              backgroundColor: "#f8fafc",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            <ChevronRight size={13} color="#475569" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <input
                       type="url"
                       value={editHeroImageUrl}
-                      onChange={(e) => setEditHeroImageUrl(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditHeroImageUrl(val);
+                        const foundIdx = availableHeroImageUrls.findIndex(
+                          (u) => u.trim() === val.trim(),
+                        );
+                        if (foundIdx >= 0) {
+                          setCurrentHeroImageIndex(foundIdx);
+                        }
+                      }}
                       placeholder="https://example.com/photo.jpg"
                       data-testid="hero-image-url-input"
-                      style={{
+                      style={getFieldInputStyle("hero_image_url", {
                         width: "100%",
                         padding: "6px 10px",
                         borderRadius: "6px",
                         border: "1px solid #cbd5e1",
                         fontSize: "12px",
-                      }}
+                      })}
                     />
 
                     {/* Live Uncropped Preview */}
@@ -2270,9 +3551,11 @@ export const CSVImportWorkbenchModal: React.FC<
                           backgroundColor: "#0f172a",
                           padding: "8px",
                           textAlign: "center",
+                          position: "relative",
                         }}
                       >
                         <img
+                          key={editHeroImageUrl}
                           src={editHeroImageUrl}
                           alt="Hero Preview"
                           data-testid="hero-image-uncropped-preview"
@@ -2286,6 +3569,48 @@ export const CSVImportWorkbenchModal: React.FC<
                             (e.target as HTMLElement).style.display = "none";
                           }}
                         />
+                        {availableHeroImageUrls.length > 1 && (
+                          <div
+                            style={{
+                              marginTop: "6px",
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              data-testid="hero-image-rotate-btn"
+                              onClick={() => {
+                                if (availableHeroImageUrls.length <= 1) return;
+                                const nextIdx =
+                                  (currentHeroImageIndex + 1) %
+                                  availableHeroImageUrls.length;
+                                setCurrentHeroImageIndex(nextIdx);
+                                setEditHeroImageUrl(
+                                  availableHeroImageUrls[nextIdx],
+                                );
+                              }}
+                              style={{
+                                background: "rgba(255, 255, 255, 0.15)",
+                                border: "1px solid rgba(255, 255, 255, 0.25)",
+                                borderRadius: "4px",
+                                color: "#ffffff",
+                                fontSize: "11px",
+                                padding: "3px 8px",
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                              }}
+                              title="Rotate to next candidate image"
+                            >
+                              <RefreshCw size={11} /> Rotate Image (
+                              {availableHeroImageUrls.length} available)
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2340,8 +3665,8 @@ export const CSVImportWorkbenchModal: React.FC<
                           cursor: "pointer",
                           opacity:
                             isResyncingAddress ||
-                            !editLatitude ||
-                            !editLongitude
+                              !editLatitude ||
+                              !editLongitude
                               ? 0.6
                               : 1,
                         }}
@@ -2356,6 +3681,240 @@ export const CSVImportWorkbenchModal: React.FC<
                             : "Re-sync Address from Pin"}
                         </span>
                       </button>
+                    </div>
+
+                    {/* Location / POI Text Search Field */}
+                    <div
+                      ref={locationSearchContainerRef}
+                      style={{
+                        position: "relative",
+                        marginBottom: "10px",
+                        padding: "8px 10px",
+                        backgroundColor: "#f8fafc",
+                        borderRadius: "6px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <label
+                          htmlFor="location-search-input"
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            color: "#334155",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          <Search size={12} color="#0284c7" /> Search Location / POI:
+                        </label>
+                        {selectedCandidate?.poi_name && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const q = selectedCandidate.poi_name || "";
+                              setLocationSearchQuery(q);
+                              executeLocationSearch(q);
+                            }}
+                            data-testid="use-candidate-name-btn"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#0284c7",
+                              fontSize: "10px",
+                              cursor: "pointer",
+                              padding: "0 2px",
+                              textDecoration: "underline",
+                            }}
+                            title="Lookup candidate POI name"
+                          >
+                            Lookup &quot;{selectedCandidate.poi_name.length > 25 ? selectedCandidate.poi_name.slice(0, 22) + "..." : selectedCandidate.poi_name}&quot;
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", gap: "6px", position: "relative" }}>
+                        <div style={{ flex: 1, position: "relative" }}>
+                          <input
+                            id="location-search-input"
+                            type="text"
+                            value={locationSearchQuery}
+                            onChange={handleLocationSearchInput}
+                            onKeyDown={handleLocationSearchKeyDown}
+                            onFocus={() => {
+                              if (locationSearchResults.length > 0) {
+                                setShowLocationSearchDropdown(true);
+                              }
+                            }}
+                            placeholder="Type a location or paste a Google Maps, GeoHack, or webpage URL..."
+                            data-testid="location-search-input"
+                            style={{
+                              width: "100%",
+                              padding: "5px 24px 5px 8px",
+                              borderRadius: "4px",
+                              border: "1px solid #cbd5e1",
+                              fontSize: "12px",
+                              backgroundColor: "#ffffff",
+                              color: "#0f172a",
+                            }}
+                          />
+                          {locationSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLocationSearchQuery("");
+                                setLocationSearchResults([]);
+                                setShowLocationSearchDropdown(false);
+                              }}
+                              data-testid="clear-location-search-btn"
+                              style={{
+                                position: "absolute",
+                                right: "6px",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                background: "none",
+                                border: "none",
+                                padding: "2px",
+                                cursor: "pointer",
+                                color: "#94a3b8",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                              title="Clear search"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => executeLocationSearch(locationSearchQuery)}
+                          disabled={isSearchingLocation || !locationSearchQuery.trim()}
+                          data-testid="find-location-btn"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "4px 10px",
+                            borderRadius: "4px",
+                            backgroundColor: "#0284c7",
+                            color: "#ffffff",
+                            border: "none",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor:
+                              isSearchingLocation || !locationSearchQuery.trim()
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity:
+                              isSearchingLocation || !locationSearchQuery.trim()
+                                ? 0.6
+                                : 1,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {isSearchingLocation ? (
+                            <>
+                              <Loader2 size={12} className="animate-spin" />
+                              <span>Searching...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Search size={12} />
+                              <span>Find</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Dropdown with search results */}
+                      {showLocationSearchDropdown && locationSearchResults.length > 0 && (
+                        <div
+                          data-testid="location-search-dropdown"
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            left: 0,
+                            right: 0,
+                            maxHeight: "220px",
+                            overflowY: "auto",
+                            backgroundColor: "#ffffff",
+                            borderRadius: "6px",
+                            boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                            border: "1px solid #cbd5e1",
+                            zIndex: 1000,
+                          }}
+                        >
+                          {locationSearchResults.map((match, idx) => (
+                            <div
+                              key={idx}
+                              data-testid={`location-search-result-${idx}`}
+                              onClick={() => handleSelectLocationMatch(match)}
+                              style={{
+                                padding: "7px 10px",
+                                cursor: "pointer",
+                                borderBottom:
+                                  idx < locationSearchResults.length - 1
+                                    ? "1px solid #f1f5f9"
+                                    : "none",
+                                fontSize: "11px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "2px",
+                                transition: "background-color 0.15s ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.backgroundColor =
+                                  "#f0f9ff";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.backgroundColor =
+                                  "transparent";
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <span style={{ fontWeight: 600, color: "#0f172a" }}>
+                                  {match.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: "9px",
+                                    color: "#64748b",
+                                    backgroundColor: "#f1f5f9",
+                                    padding: "1px 5px",
+                                    borderRadius: "3px",
+                                  }}
+                                >
+                                  {match.type || match.class}
+                                </span>
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  color: "#64748b",
+                                  lineHeight: 1.3,
+                                }}
+                              >
+                                {match.display_name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div
@@ -2375,7 +3934,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Latitude:
+                          {renderFieldLabelText("Latitude:", "latitude")}
                         </label>
                         <input
                           type="text"
@@ -2383,13 +3942,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           onChange={(e) => setEditLatitude(e.target.value)}
                           placeholder="e.g. 41.8781"
                           data-testid="latitude-input"
-                          style={{
+                          style={getFieldInputStyle("latitude", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -2401,7 +3960,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Longitude:
+                          {renderFieldLabelText("Longitude:", "longitude")}
                         </label>
                         <input
                           type="text"
@@ -2409,13 +3968,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           onChange={(e) => setEditLongitude(e.target.value)}
                           placeholder="e.g. -87.6298"
                           data-testid="longitude-input"
-                          style={{
+                          style={getFieldInputStyle("longitude", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                       <div>
@@ -2483,7 +4042,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Street Address:
+                          {renderFieldLabelText("Street Address:", "street_address")}
                         </label>
                         <input
                           type="text"
@@ -2491,13 +4050,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           onChange={(e) => setEditStreetAddress(e.target.value)}
                           placeholder="Street address..."
                           data-testid="street-address-input"
-                          style={{
+                          style={getFieldInputStyle("street_address", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -2509,7 +4068,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Postal Code / Zip:
+                          {renderFieldLabelText("Postal Code / Zip:", "postal_code")}
                         </label>
                         <input
                           type="text"
@@ -2517,13 +4076,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           onChange={(e) => setEditPostalCode(e.target.value)}
                           placeholder="Postal code..."
                           data-testid="postal-code-input"
-                          style={{
+                          style={getFieldInputStyle("postal_code", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                     </div>
@@ -2544,7 +4103,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Locality (City / Town):
+                          {renderFieldLabelText("Locality (City / Town):", "city")}
                         </label>
                         <input
                           type="text"
@@ -2555,13 +4114,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           }}
                           placeholder="Locality / City..."
                           data-testid="city-input"
-                          style={{
+                          style={getFieldInputStyle("city", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -2573,7 +4132,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Admin Level 2 (County / District):
+                          {renderFieldLabelText("Admin Level 2 (County / District):", "admin_level_2")}
                         </label>
                         <input
                           type="text"
@@ -2581,13 +4140,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           onChange={(e) => setEditAdminLevel2(e.target.value)}
                           placeholder="County / District..."
                           data-testid="admin-level-2-input"
-                          style={{
+                          style={getFieldInputStyle("admin_level_2", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                     </div>
@@ -2608,7 +4167,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Admin Level 1 (State / Province / Region):
+                          {renderFieldLabelText("Admin Level 1 (State / Province / Region):", "state_province")}
                         </label>
                         <input
                           type="text"
@@ -2619,13 +4178,13 @@ export const CSVImportWorkbenchModal: React.FC<
                           }}
                           placeholder="State / Province..."
                           data-testid="state-province-input"
-                          style={{
+                          style={getFieldInputStyle("state_province", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
-                          }}
+                          })}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -2637,7 +4196,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Country Code:
+                          {renderFieldLabelText("Country Code:", "country_code")}
                         </label>
                         <input
                           type="text"
@@ -2648,14 +4207,14 @@ export const CSVImportWorkbenchModal: React.FC<
                           placeholder="e.g. US"
                           maxLength={2}
                           data-testid="country-code-input"
-                          style={{
+                          style={getFieldInputStyle("country_code", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
                             textTransform: "uppercase",
-                          }}
+                          })}
                         />
                       </div>
                       <div style={{ flex: 2 }}>
@@ -2667,106 +4226,642 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          Country:
+                          {renderFieldLabelText("Country:", "country")}
                         </label>
                         <input
                           type="text"
                           value={editCountry}
-                          onChange={(e) => setEditCountry(e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditCountry(val);
+                            const mapped = countryNameToIsoCode(val);
+                            if (mapped && (editCountryCode === "US" || !editCountryCode)) {
+                              setEditCountryCode(mapped);
+                            }
+                          }}
                           placeholder="Country..."
                           data-testid="country-input"
-                          style={{
+                          style={getFieldInputStyle("country", {
                             width: "100%",
                             padding: "5px 8px",
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Nearby Search Radius and POIs */}
+                  <div
+                    data-testid="proximity-search-container"
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          color: "#334155",
+                        }}
+                      >
+                        Nearby Search Radius:{" "}
+                        <strong>
+                          {PROXIMITY_STEPS[proximityRadiusIndex].label}
+                        </strong>
+                      </span>
+                      <span
+                        data-testid="nearby-poi-count-badge"
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          backgroundColor:
+                            nearbyPoints.length > 0 ? "#e0f2fe" : "#f1f5f9",
+                          color:
+                            nearbyPoints.length > 0 ? "#0369a1" : "#64748b",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {nearbyPoints.length} Nearby Point
+                        {nearbyPoints.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={PROXIMITY_STEPS.length - 1}
+                      value={proximityRadiusIndex}
+                      onChange={(e) =>
+                        setProximityRadiusIndex(parseInt(e.target.value, 10))
+                      }
+                      data-testid="proximity-radius-slider"
+                      style={{ width: "100%", cursor: "pointer" }}
+                    />
+                    {nearbyPoints.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          maxHeight: "80px",
+                          overflowY: "auto",
+                          fontSize: "11px",
+                        }}
+                      >
+                        {nearbyPoints.slice(0, 5).map((np, idx) => (
+                          <div
+                            key={idx}
+                            style={{ color: "#475569", padding: "1px 0" }}
+                          >
+                            • {np.name} ({np.type}, ~
+                            {np.distanceMiles < 0.1
+                              ? `${Math.round(np.distanceMiles * 5280)} ft`
+                              : `${np.distanceMiles.toFixed(1)} mi`}
+                            )
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#475569",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      {renderFieldLabelText("Description:", "description")}
+                      <AIIconBadge />
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Detailed overview and background of the location..."
+                      data-testid="description-textarea"
+                      style={getFieldInputStyle("description", {
+                        width: "100%",
+                        padding: "8px 10px",
+                        borderRadius: "4px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "12px",
+                        resize: "vertical",
+                        minHeight: "100px",
+                        lineHeight: 1.45,
+                      })}
+                    />
+                  </div>
+
+                  {/* Reason to Visit (Multiline Textarea) */}
+                  <div>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#475569",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      {renderFieldLabelText("Reason to Visit:", "reason_to_visit")}
+                      <AIIconBadge />
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={editReasonToVisit}
+                      onChange={(e) => setEditReasonToVisit(e.target.value)}
+                      placeholder="- Key Highlight: Direct experiential reason why a traveler should visit..."
+                      data-testid="reason-to-visit-textarea"
+                      style={getFieldInputStyle("reason_to_visit", {
+                        width: "100%",
+                        padding: "8px 10px",
+                        borderRadius: "4px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "12px",
+                        resize: "vertical",
+                        minHeight: "100px",
+                        lineHeight: 1.45,
+                      })}
+                    />
+                  </div>
+
+                  {/* Visit Details Section */}
+                  <div
+                    data-testid="visit-details-section"
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        color: "#1e293b",
+                      }}
+                    >
+                      <Clock size={14} color="#2563eb" />
+                      <span>Visit Details</span>
+                    </div>
+
+                    {/* Row 1: Estimated hours & Estimated Days */}
+                    <div style={{ display: "flex", gap: "12px" }}>
+                      <div style={{ flex: 1 }}>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            color: "#64748b",
+                            marginBottom: "4px",
                           }}
+                        >
+                          {renderFieldLabelText("Estimated Hours:", "duration_hours")}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={editDurationHours}
+                          onChange={(e) => setEditDurationHours(e.target.value)}
+                          placeholder="2.5"
+                          data-testid="duration-hours-input"
+                          style={getFieldInputStyle("duration_hours", {
+                            width: "100%",
+                            padding: "6px 8px",
+                            borderRadius: "4px",
+                            border: "1px solid #cbd5e1",
+                            fontSize: "12px",
+                          })}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            color: "#64748b",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {renderFieldLabelText("Estimated Days:", "duration_days")}
+                        </label>
+                        <input
+                          type="number"
+                          value={editDurationDays}
+                          onChange={(e) => setEditDurationDays(e.target.value)}
+                          placeholder="1"
+                          data-testid="duration-days-input"
+                          style={getFieldInputStyle("duration_days", {
+                            width: "100%",
+                            padding: "6px 8px",
+                            borderRadius: "4px",
+                            border: "1px solid #cbd5e1",
+                            fontSize: "12px",
+                          })}
                         />
                       </div>
                     </div>
 
-                    {/* Proximity Radius Slider & Nearby Count Badge */}
-                    <div
-                      style={{
-                        padding: "10px",
-                        backgroundColor: "#f8fafc",
-                        borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
-                      }}
-                      data-testid="proximity-search-container"
-                    >
-                      <div
+                    {/* Row 2: Visit Timing Notes (multiline textbox) */}
+                    <div>
+                      <label
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          marginBottom: "6px",
+                          display: "block",
+                          fontSize: "10px",
+                          fontWeight: 600,
+                          color: "#64748b",
+                          marginBottom: "4px",
                         }}
                       >
+                        {renderFieldLabelText("Visit Timing Notes:", "duration_notes")}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={editDurationNotes}
+                        onChange={(e) => setEditDurationNotes(e.target.value)}
+                        placeholder="Best early morning or sunset..."
+                        data-testid="duration-notes-input"
+                        style={getFieldInputStyle("duration_notes", {
+                          width: "100%",
+                          padding: "6px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                          resize: "vertical",
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Account Tags Library Interactive Chips */}
+                  <div
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#475569",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {renderFieldLabelText("Tags Library:", "tags")}
+                      <AIIconBadge />
+                    </label>
+
+                    {/* All tags from library (selected vs unselected) */}
+                    <div
+                      style={getFieldInputStyle("tags", {
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        marginBottom: "8px",
+                        maxHeight: "120px",
+                        overflowY: "auto",
+                        padding: "6px",
+                        borderRadius: "6px",
+                        border: "1px solid transparent",
+                      })}
+                      data-testid="tags-library-container"
+                    >
+                      {Array.from(new Set([...libraryTags, ...editTags])).map(
+                        (tag) => {
+                          const isSelected = editTags.includes(tag);
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => handleToggleTag(tag)}
+                              data-testid={`tag-chip-${tag}`}
+                              style={{
+                                padding: "3px 8px",
+                                borderRadius: "12px",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                border: isSelected
+                                  ? "1px solid #2563eb"
+                                  : "1px solid #cbd5e1",
+                                backgroundColor: isSelected
+                                  ? "#2563eb"
+                                  : "#f1f5f9",
+                                color: isSelected ? "#ffffff" : "#334155",
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              {isSelected ? `✓ ${tag}` : tag}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Dates Visited Manager */}
+                  <div
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#475569",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <Calendar
+                        size={13}
+                        style={{
+                          display: "inline",
+                          verticalAlign: "middle",
+                          marginRight: "4px",
+                        }}
+                      />
+                      {renderFieldLabelText("Dates Visited:", "dates_visited")}
+                    </label>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {editDatesVisited.map((dateStr, idx) => (
                         <span
+                          key={idx}
                           style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "2px 8px",
+                            borderRadius: "12px",
+                            backgroundColor: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
                             fontSize: "11px",
-                            fontWeight: 600,
+                            color: "#166534",
+                          }}
+                        >
+                          {dateStr}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditDatesVisited(
+                                editDatesVisited.filter((_, i) => i !== idx),
+                              )
+                            }
+                            style={{
+                              border: "none",
+                              background: "none",
+                              color: "#86efac",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <input
+                        type="date"
+                        value={newVisitDateInput}
+                        onChange={(e) => setNewVisitDateInput(e.target.value)}
+                        data-testid="new-visit-date-input"
+                        style={getFieldInputStyle("dates_visited", {
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                        })}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddVisitDate}
+                        data-testid="add-visit-date-btn"
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "4px",
+                          backgroundColor: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Add Date
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Associated Photo Directories Manager */}
+                  <div
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      padding: "12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: "#475569",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                        }}
+                      >
+                        <Folder size={13} color="#2563eb" />{" "}
+                        {renderFieldLabelText(
+                          "Associated Photo Directories:",
+                          "photo_directories",
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handlePickDirectoryNative}
+                        data-testid="browse-directory-btn"
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          backgroundColor: "#f1f5f9",
+                          color: "#1e293b",
+                          border: "1px solid #cbd5e1",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Browse Folder...
+                      </button>
+                    </div>
+
+                    {/* Hidden folder input fallback */}
+                    <input
+                      type="file"
+                      ref={folderInputRef}
+                      style={{ display: "none" }}
+                      {...({ webkitdirectory: "", directory: "" } as any)}
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          const relativePath =
+                            files[0].webkitRelativePath || "";
+                          const folderName =
+                            relativePath.split("/")[0] || files[0].name;
+                          if (
+                            folderName &&
+                            !editPhotoDirectories.includes(folderName)
+                          ) {
+                            setEditPhotoDirectories([
+                              ...editPhotoDirectories,
+                              folderName,
+                            ]);
+                          }
+                        }
+                      }}
+                    />
+
+                    {/* Directories List */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {editPhotoDirectories.map((dir, idx) => (
+                        <div
+                          key={idx}
+                          data-testid={`directory-item-${idx}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            backgroundColor: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            fontSize: "11px",
                             color: "#334155",
                           }}
                         >
-                          Nearby Search Radius:{" "}
-                          <strong>
-                            {PROXIMITY_STEPS[proximityRadiusIndex].label}
-                          </strong>
-                        </span>
-                        <span
-                          data-testid="nearby-poi-count-badge"
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: "12px",
-                            backgroundColor:
-                              nearbyPoints.length > 0 ? "#e0f2fe" : "#f1f5f9",
-                            color:
-                              nearbyPoints.length > 0 ? "#0369a1" : "#64748b",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {nearbyPoints.length} Nearby Point
-                          {nearbyPoints.length === 1 ? "" : "s"}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={PROXIMITY_STEPS.length - 1}
-                        value={proximityRadiusIndex}
-                        onChange={(e) =>
-                          setProximityRadiusIndex(parseInt(e.target.value, 10))
-                        }
-                        data-testid="proximity-radius-slider"
-                        style={{ width: "100%", cursor: "pointer" }}
-                      />
-                      {nearbyPoints.length > 0 && (
-                        <div
-                          style={{
-                            marginTop: "6px",
-                            maxHeight: "80px",
-                            overflowY: "auto",
-                            fontSize: "11px",
-                          }}
-                        >
-                          {nearbyPoints.slice(0, 5).map((np, idx) => (
-                            <div
-                              key={idx}
-                              style={{ color: "#475569", padding: "1px 0" }}
-                            >
-                              • {np.name} ({np.type}, ~
-                              {np.distanceMiles < 0.1
-                                ? `${Math.round(np.distanceMiles * 5280)} ft`
-                                : `${np.distanceMiles.toFixed(1)} mi`}
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            📁 {dir}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditPhotoDirectories(
+                                editPhotoDirectories.filter(
+                                  (_, i) => i !== idx,
+                                ),
                               )
-                            </div>
-                          ))}
+                            }
+                            style={{
+                              border: "none",
+                              background: "none",
+                              color: "#ef4444",
+                              cursor: "pointer",
+                              padding: "1px 4px",
+                            }}
+                          >
+                            ×
+                          </button>
                         </div>
-                      )}
+                      ))}
+                    </div>
+
+                    {/* Add Directory Manual Input */}
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <input
+                        type="text"
+                        placeholder="Path / folder name..."
+                        value={newDirectoryInput}
+                        onChange={(e) => setNewDirectoryInput(e.target.value)}
+                        data-testid="new-directory-input"
+                        style={getFieldInputStyle("photo_directories", {
+                          flex: 1,
+                          padding: "5px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                        })}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddDirectory}
+                        data-testid="add-directory-btn"
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: "4px",
+                          backgroundColor: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Add
+                      </button>
                     </div>
                   </div>
 
@@ -2796,7 +4891,8 @@ export const CSVImportWorkbenchModal: React.FC<
                           gap: "6px",
                         }}
                       >
-                        <Globe size={14} color="#2563eb" /> Related Websites
+                        <Globe size={14} color="#2563eb" />{" "}
+                        {renderFieldLabelText("Related Websites", "related_websites")}
                         <AIIconBadge />
                       </span>
 
@@ -2934,13 +5030,13 @@ export const CSVImportWorkbenchModal: React.FC<
                             value={newWebsiteUrl}
                             onChange={(e) => setNewWebsiteUrl(e.target.value)}
                             data-testid="new-website-url-input"
-                            style={{
+                            style={getFieldInputStyle("related_websites", {
                               flex: 2,
                               padding: "5px 8px",
                               borderRadius: "4px",
                               border: "1px solid #cbd5e1",
                               fontSize: "12px",
-                            }}
+                            })}
                           />
                           <button
                             type="button"
@@ -2978,491 +5074,7 @@ export const CSVImportWorkbenchModal: React.FC<
                     )}
                   </div>
 
-                  {/* Visit Duration & Notes */}
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <div style={{ flex: 1 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: "10px",
-                          fontWeight: 600,
-                          color: "#64748b",
-                        }}
-                      >
-                        Est. Hours:
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={editDurationHours}
-                        onChange={(e) => setEditDurationHours(e.target.value)}
-                        placeholder="2.5"
-                        data-testid="duration-hours-input"
-                        style={{
-                          width: "100%",
-                          padding: "5px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: "10px",
-                          fontWeight: 600,
-                          color: "#64748b",
-                        }}
-                      >
-                        Est. Days:
-                      </label>
-                      <input
-                        type="number"
-                        value={editDurationDays}
-                        onChange={(e) => setEditDurationDays(e.target.value)}
-                        placeholder="1"
-                        data-testid="duration-days-input"
-                        style={{
-                          width: "100%",
-                          padding: "5px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 2 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: "10px",
-                          fontWeight: 600,
-                          color: "#64748b",
-                        }}
-                      >
-                        Visit Timing Notes:
-                      </label>
-                      <input
-                        type="text"
-                        value={editDurationNotes}
-                        onChange={(e) => setEditDurationNotes(e.target.value)}
-                        placeholder="Best early morning..."
-                        data-testid="duration-notes-input"
-                        style={{
-                          width: "100%",
-                          padding: "5px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                        }}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Account Tags Library Interactive Chips */}
-                  <div
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px",
-                    }}
-                  >
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        color: "#475569",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      Tags Library:
-                      <AIIconBadge />
-                    </label>
-
-                    {/* All tags from library (selected vs unselected) */}
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "6px",
-                        marginBottom: "8px",
-                        maxHeight: "120px",
-                        overflowY: "auto",
-                      }}
-                      data-testid="tags-library-container"
-                    >
-                      {Array.from(new Set([...libraryTags, ...editTags])).map(
-                        (tag) => {
-                          const isSelected = editTags.includes(tag);
-                          return (
-                            <button
-                              key={tag}
-                              type="button"
-                              onClick={() => handleToggleTag(tag)}
-                              data-testid={`tag-chip-${tag}`}
-                              style={{
-                                padding: "3px 8px",
-                                borderRadius: "12px",
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                border: isSelected
-                                  ? "1px solid #2563eb"
-                                  : "1px solid #cbd5e1",
-                                backgroundColor: isSelected
-                                  ? "#2563eb"
-                                  : "#f1f5f9",
-                                color: isSelected ? "#ffffff" : "#334155",
-                                transition: "all 0.15s ease",
-                              }}
-                            >
-                              {isSelected ? `✓ ${tag}` : tag}
-                            </button>
-                          );
-                        },
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Associated Photo Directories Manager */}
-                  <div
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          color: "#475569",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "5px",
-                        }}
-                      >
-                        <Folder size={13} color="#2563eb" /> Associated Photo
-                        Directories:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handlePickDirectoryNative}
-                        data-testid="browse-directory-btn"
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          padding: "2px 8px",
-                          borderRadius: "4px",
-                          backgroundColor: "#f1f5f9",
-                          color: "#1e293b",
-                          border: "1px solid #cbd5e1",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Browse Folder...
-                      </button>
-                    </div>
-
-                    {/* Hidden folder input fallback */}
-                    <input
-                      type="file"
-                      ref={folderInputRef}
-                      style={{ display: "none" }}
-                      {...({ webkitdirectory: "", directory: "" } as any)}
-                      onChange={(e) => {
-                        const files = e.target.files;
-                        if (files && files.length > 0) {
-                          const relativePath =
-                            files[0].webkitRelativePath || "";
-                          const folderName =
-                            relativePath.split("/")[0] || files[0].name;
-                          if (
-                            folderName &&
-                            !editPhotoDirectories.includes(folderName)
-                          ) {
-                            setEditPhotoDirectories([
-                              ...editPhotoDirectories,
-                              folderName,
-                            ]);
-                          }
-                        }
-                      }}
-                    />
-
-                    {/* Directories List */}
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "4px",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      {editPhotoDirectories.map((dir, idx) => (
-                        <div
-                          key={idx}
-                          data-testid={`directory-item-${idx}`}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            backgroundColor: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                            fontSize: "11px",
-                            color: "#334155",
-                          }}
-                        >
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            📁 {dir}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditPhotoDirectories(
-                                editPhotoDirectories.filter(
-                                  (_, i) => i !== idx,
-                                ),
-                              )
-                            }
-                            style={{
-                              border: "none",
-                              background: "none",
-                              color: "#ef4444",
-                              cursor: "pointer",
-                              padding: "1px 4px",
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Add Directory Manual Input */}
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <input
-                        type="text"
-                        placeholder="Path / folder name..."
-                        value={newDirectoryInput}
-                        onChange={(e) => setNewDirectoryInput(e.target.value)}
-                        data-testid="new-directory-input"
-                        style={{
-                          flex: 1,
-                          padding: "5px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddDirectory}
-                        data-testid="add-directory-btn"
-                        style={{
-                          padding: "5px 10px",
-                          borderRadius: "4px",
-                          backgroundColor: "#f1f5f9",
-                          color: "#334155",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dates Visited Manager */}
-                  <div
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px",
-                    }}
-                  >
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        color: "#475569",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      <Calendar
-                        size={13}
-                        style={{
-                          display: "inline",
-                          verticalAlign: "middle",
-                          marginRight: "4px",
-                        }}
-                      />
-                      Dates Visited:
-                    </label>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "6px",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      {editDatesVisited.map((dateStr, idx) => (
-                        <span
-                          key={idx}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            padding: "2px 8px",
-                            borderRadius: "12px",
-                            backgroundColor: "#f0fdf4",
-                            border: "1px solid #bbf7d0",
-                            fontSize: "11px",
-                            color: "#166534",
-                          }}
-                        >
-                          {dateStr}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditDatesVisited(
-                                editDatesVisited.filter((_, i) => i !== idx),
-                              )
-                            }
-                            style={{
-                              border: "none",
-                              background: "none",
-                              color: "#86efac",
-                              cursor: "pointer",
-                              padding: 0,
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <input
-                        type="date"
-                        value={newVisitDateInput}
-                        onChange={(e) => setNewVisitDateInput(e.target.value)}
-                        data-testid="new-visit-date-input"
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddVisitDate}
-                        data-testid="add-visit-date-btn"
-                        style={{
-                          padding: "4px 10px",
-                          borderRadius: "4px",
-                          backgroundColor: "#f1f5f9",
-                          color: "#334155",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Add Date
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Reason to Visit (Multiline Textarea) */}
-                  <div>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        color: "#475569",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Reason to Visit:
-                      <AIIconBadge />
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={editReasonToVisit}
-                      onChange={(e) => setEditReasonToVisit(e.target.value)}
-                      placeholder="Experiential rationale explaining why a traveler should visit..."
-                      data-testid="reason-to-visit-textarea"
-                      style={{
-                        width: "100%",
-                        padding: "6px 8px",
-                        borderRadius: "4px",
-                        border: "1px solid #cbd5e1",
-                        fontSize: "12px",
-                        resize: "vertical",
-                      }}
-                    />
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        color: "#475569",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Description:
-                      <AIIconBadge />
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      data-testid="description-textarea"
-                      style={{
-                        width: "100%",
-                        padding: "6px 8px",
-                        borderRadius: "4px",
-                        border: "1px solid #cbd5e1",
-                        fontSize: "12px",
-                        resize: "vertical",
-                      }}
-                    />
-                  </div>
                 </div>
 
                 {/* PINNED FOOTER CONTAINER */}
@@ -3503,26 +5115,26 @@ export const CSVImportWorkbenchModal: React.FC<
                         setEditPostalCode(selectedCandidate.postal_code || "");
                         setEditLocality(
                           selectedCandidate.locality ||
-                            selectedCandidate.city ||
-                            "",
+                          selectedCandidate.city ||
+                          "",
                         );
                         setEditCity(
                           selectedCandidate.city ||
-                            selectedCandidate.locality ||
-                            "",
+                          selectedCandidate.locality ||
+                          "",
                         );
                         setEditAdminLevel2(
                           selectedCandidate.admin_level_2 || "",
                         );
                         setEditAdminLevel1(
                           selectedCandidate.admin_level_1 ||
-                            selectedCandidate.state_province ||
-                            "",
+                          selectedCandidate.state_province ||
+                          "",
                         );
                         setEditStateProvince(
                           selectedCandidate.state_province ||
-                            selectedCandidate.admin_level_1 ||
-                            "",
+                          selectedCandidate.admin_level_1 ||
+                          "",
                         );
                         setEditCountryCode(
                           selectedCandidate.country_code || "",
@@ -3530,12 +5142,12 @@ export const CSVImportWorkbenchModal: React.FC<
                         setEditCountry(selectedCandidate.country || "");
                         setEditDescription(selectedCandidate.description || "");
                         setEditReasonToVisit(
-                          selectedCandidate.reason_to_visit || "",
+                          cleanReasonToVisit(selectedCandidate.reason_to_visit),
                         );
                         setEditDisposition(
                           selectedCandidate.user_disposition ||
-                            selectedCandidate.recommended_disposition ||
-                            "accept",
+                          selectedCandidate.recommended_disposition ||
+                          "accept",
                         );
                       }
                     }}
@@ -3776,6 +5388,79 @@ export const CSVImportWorkbenchModal: React.FC<
                   />
                 </div>
 
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#475569",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    Add Tag (to all selected):
+                  </label>
+                  <input
+                    type="text"
+                    list="batch-add-tag-datalist"
+                    value={batchAddTag}
+                    onChange={(e) => setBatchAddTag(e.target.value)}
+                    placeholder="e.g. World Wonder"
+                    data-testid="batch-add-tag-input"
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px",
+                      borderRadius: "4px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <datalist id="batch-add-tag-datalist">
+                    {libraryTags.map((tag) => (
+                      <option key={`add-${tag}`} value={tag} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#475569",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    Remove Tag (from all selected):
+                  </label>
+                  <input
+                    type="text"
+                    list="batch-remove-tag-datalist"
+                    value={batchRemoveTag}
+                    onChange={(e) => setBatchRemoveTag(e.target.value)}
+                    placeholder="e.g. ObsoleteTag"
+                    data-testid="batch-remove-tag-input"
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px",
+                      borderRadius: "4px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <datalist id="batch-remove-tag-datalist">
+                    {Array.from(
+                      new Set([
+                        ...libraryTags,
+                        ...candidates.flatMap((c) => c.tags || []),
+                      ]),
+                    ).map((tag) => (
+                      <option key={`rem-${tag}`} value={tag} />
+                    ))}
+                  </datalist>
+                </div>
+
                 <div
                   style={{
                     display: "flex",
@@ -3820,6 +5505,201 @@ export const CSVImportWorkbenchModal: React.FC<
             </div>
           </div>
         )}
+        {/* Name Change Confirmation Prompt Modal (when Find detects a different name) */}
+        {nameChangePrompt && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(15, 23, 42, 0.6)",
+              zIndex: 10000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
+            }}
+            data-testid="name-change-prompt-modal"
+          >
+            <div
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: "10px",
+                padding: "24px",
+                maxWidth: "480px",
+                width: "100%",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginBottom: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    backgroundColor: "#e0f2fe",
+                    color: "#0284c7",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Sparkles size={20} />
+                </div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                  }}
+                >
+                  Update POI Name?
+                </h3>
+              </div>
+
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "#475569",
+                  lineHeight: "1.5",
+                  margin: "0 0 16px 0",
+                }}
+              >
+                A more appropriate name was found for this location:
+              </p>
+
+              <div
+                style={{
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  padding: "12px 16px",
+                  marginBottom: "20px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#64748b",
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                  }}
+                >
+                  Recommended Name
+                </div>
+                <div
+                  style={{
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    color: "#0284c7",
+                    marginTop: "2px",
+                  }}
+                  data-testid="recommended-name-display"
+                >
+                  {nameChangePrompt.recommendedName}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#94a3b8",
+                    marginTop: "4px",
+                  }}
+                >
+                  Current: <span style={{ color: "#64748b" }}>{nameChangePrompt.currentName}</span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setNameChangePrompt(null)}
+                  data-testid="name-change-no-btn"
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "#ffffff",
+                    color: "#334155",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  No, Keep Current Name
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const newName = nameChangePrompt.recommendedName;
+                    setEditPoiName(newName);
+                    if (selectedCandidate) {
+                      setCandidates((prev) =>
+                        prev.map((c) =>
+                          c.id === selectedCandidate.id
+                            ? { ...c, poi_name: newName }
+                            : c,
+                        ),
+                      );
+                      if (jobId) {
+                        try {
+                          await ingestApi.updateStagingCandidate(
+                            jobId,
+                            selectedCandidate.id,
+                            {
+                              poi_name: newName,
+                            },
+                          );
+                        } catch (err) {
+                          console.error(
+                            "Failed to update candidate name on backend:",
+                            err,
+                          );
+                        }
+                      }
+                    }
+                    showToast(`POI name updated to "${newName}"`, "success");
+                    setNameChangePrompt(null);
+                  }}
+                  data-testid="name-change-yes-btn"
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: "#0284c7",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Yes, Update Name
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* POI Name Recommendations Review Modal */}
+        <POINameRecommendationsModal
+          isOpen={showNameRecommendationsModal}
+          onClose={() => setShowNameRecommendationsModal(false)}
+          candidates={candidates}
+          onAcceptChanges={handleAcceptNameChanges}
+        />
+
       </div>
     </Modal>
   );

@@ -120,3 +120,156 @@ export function inferWebsiteName(url: string): string {
   }
 }
 
+export const MAP_SERVICE_PATTERNS = [
+  "openstreetmap.org",
+  "osm.org",
+  "google.com/maps",
+  "maps.google.",
+  "goo.gl/maps",
+  "maps.app.goo.gl",
+  "bing.com/maps",
+  "maps.apple.com",
+  "mapquest.com",
+  "waze.com",
+  "here.com",
+  "geohack.toolforge.org",
+];
+
+export const MAP_SERVICE_NAMES = new Set([
+  "openstreetmap",
+  "osm",
+  "google maps",
+  "googlemaps",
+  "bing maps",
+  "apple maps",
+  "mapquest",
+  "waze",
+]);
+
+/**
+ * Checks whether a website URL or label belongs to an interactive mapping / GPS service.
+ *
+ * POIs already possess GPS coordinates, so third-party map links (OpenStreetMap,
+ * Google Maps, etc.) are excluded from POI websites during AI enrichment.
+ */
+export function isMapServiceWebsite(
+  url?: string | null,
+  name?: string | null,
+): boolean {
+  if (name && MAP_SERVICE_NAMES.has(name.trim().toLowerCase())) {
+    return true;
+  }
+  if (!url) return false;
+  const u = url.trim().toLowerCase();
+  return MAP_SERVICE_PATTERNS.some((pat) => u.includes(pat));
+}
+
+/**
+ * Normalizes a URL: resolves percent-encoding, trims whitespace, removes trailing slashes.
+ */
+export function normalizeUrl(url?: string | null): string {
+  if (!url || typeof url !== "string") return "";
+  let clean = url.trim();
+  if (!clean) return "";
+
+  try {
+    clean = decodeURI(clean).trim();
+  } catch {
+    try {
+      clean = decodeURIComponent(clean).trim();
+    } catch {
+      // Keep as-is if malformed percent sequence
+    }
+  }
+
+  clean = clean.replace(/\/+$/, "");
+  return clean;
+}
+
+/**
+ * Validates and canonicalizes a single website pair.
+ */
+export function canonicalizeWebsite(
+  name: string,
+  url: string,
+): { name: string; url: string } | null {
+  let cleanUrl = normalizeUrl(url);
+  if (!cleanUrl || !cleanUrl.startsWith("http")) return null;
+  let siteName = (name || "").trim() || "Website";
+
+  if (
+    siteName.toLowerCase().includes("hillman") ||
+    cleanUrl.toLowerCase().includes("hillmanwonders") ||
+    cleanUrl.toLowerCase().includes("hillmanswonders")
+  ) {
+    siteName = "Hillman Wonders";
+    try {
+      const u = new URL(cleanUrl);
+      const p = u.pathname.toLowerCase();
+      if (!p || p === "/" || p === "/index.html" || p === "/index.htm") {
+        cleanUrl = "https://www.hillmanswonders.com/top-1000-sites.html";
+      } else {
+        cleanUrl = `https://www.hillmanswonders.com${u.pathname}`;
+      }
+    } catch {
+      cleanUrl = "https://www.hillmanswonders.com/top-1000-sites.html";
+    }
+    cleanUrl = normalizeUrl(cleanUrl);
+  }
+
+  if (isMapServiceWebsite(cleanUrl, siteName)) return null;
+
+  return { name: siteName, url: cleanUrl };
+}
+
+/**
+ * Reconstructs a deduplicated, normalized related websites list from candidate fields.
+ */
+export function reconstructWebsitesList(cand: {
+  related_websites?: any[] | null;
+  official_url?: string | null;
+  wiki_url?: string | null;
+  tags?: any[] | null;
+}): Array<{ name: string; url: string }> {
+  const sites: Array<{ name: string; url: string }> = [];
+  const seenKeys = new Set<string>();
+
+  const addSite = (name: string, rawUrl?: string | null) => {
+    if (!rawUrl) return;
+    const canonical = canonicalizeWebsite(name, rawUrl);
+    if (!canonical) return;
+    const key = canonical.url.toLowerCase();
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      sites.push(canonical);
+    }
+  };
+
+  if (cand.official_url) {
+    addSite("Official Website", cand.official_url);
+  }
+
+  if (Array.isArray(cand.related_websites)) {
+    for (const rawW of cand.related_websites) {
+      if (rawW && typeof rawW === "object" && rawW.url) {
+        addSite(rawW.name || "Website", rawW.url);
+      }
+    }
+  }
+
+  if (cand.wiki_url) {
+    addSite("Wikipedia", cand.wiki_url);
+  }
+
+  const tagList = cand.tags || [];
+  const hasHillmanTag = tagList.some((t: any) =>
+    (typeof t === "string" ? t : t?.name || "").toLowerCase().includes("hillman"),
+  );
+  if (hasHillmanTag && !Array.from(seenKeys).some((k) => k.includes("hillman"))) {
+    addSite("Hillman Wonders", "https://www.hillmanswonders.com/top-1000-sites.html");
+  }
+
+  return sites;
+}
+
+

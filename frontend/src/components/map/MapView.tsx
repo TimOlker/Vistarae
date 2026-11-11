@@ -145,8 +145,16 @@ export const MapView: React.FC<MapViewProps> = ({
     y: number;
   } | null>(null);
 
+  // Hover state for displaying POI name when hovering over an unclustered pin
+  const [hoveredPoi, setHoveredPoi] = useState<{
+    id: string;
+    name: string;
+    pixel: { x: number; y: number };
+  } | null>(null);
+
   const activePopupCoordsRef = useRef<[number, number] | null>(null);
   const colocatedCoordsRef = useRef<[number, number] | null>(null);
+  const hoveredCoordsRef = useRef<[number, number] | null>(null);
 
   useEffect(() => {
     poisRef.current = pois;
@@ -610,11 +618,15 @@ export const MapView: React.FC<MapViewProps> = ({
       if (colocatedCoordsRef.current) {
         setColocatedPixel(currentMap.project(colocatedCoordsRef.current));
       }
+      if (hoveredCoordsRef.current) {
+        const newPixel = currentMap.project(hoveredCoordsRef.current);
+        setHoveredPoi((prev) => (prev ? { ...prev, pixel: newPixel } : null));
+      }
     };
 
     map.on("move", handleMapMove);
 
-    // Cursor pointer style on hover
+    // Cursor pointer style and POI name display on hover
     map.on("mousemove", (e) => {
       if (!map.isStyleLoaded()) return;
       const queryLayers = ["clusters", "unclustered-point"].filter((l) =>
@@ -625,6 +637,49 @@ export const MapView: React.FC<MapViewProps> = ({
         layers: queryLayers,
       });
       map.getCanvas().style.cursor = features.length > 0 ? "pointer" : "";
+
+      // Check if mouse is hovering over an unclustered POI pin
+      if (map.getLayer?.("unclustered-point")) {
+        const poiFeatures = map.queryRenderedFeatures(e.point, {
+          layers: ["unclustered-point"],
+        });
+        if (poiFeatures.length > 0) {
+          const rawPoi = poiFeatures[0].properties as POIMapFeature;
+          const fullPoi =
+            poisRef.current.find((p) => p.id === rawPoi.id) || rawPoi;
+          const poiName = fullPoi.name || rawPoi.name;
+          const pointGeom = poiFeatures[0].geometry as GeoJSON.Point;
+          const pinCoords: [number, number] = pointGeom?.coordinates
+            ? [pointGeom.coordinates[0], pointGeom.coordinates[1]]
+            : [
+                fullPoi.render_lng ?? fullPoi.canonical_lng,
+                fullPoi.render_lat ?? fullPoi.canonical_lat,
+              ];
+
+          if (poiName) {
+            hoveredCoordsRef.current = pinCoords;
+            const pixel =
+              typeof map.project === "function"
+                ? map.project(pinCoords)
+                : { x: e.point?.x ?? 0, y: e.point?.y ?? 0 };
+            setHoveredPoi({
+              id: fullPoi.id,
+              name: poiName,
+              pixel,
+            });
+            return;
+          }
+        }
+      }
+
+      // Not hovering over an unclustered POI pin
+      hoveredCoordsRef.current = null;
+      setHoveredPoi(null);
+    });
+
+    map.on("mouseout", () => {
+      hoveredCoordsRef.current = null;
+      setHoveredPoi(null);
     });
 
     // Viewport motion debouncing logic
@@ -766,6 +821,45 @@ export const MapView: React.FC<MapViewProps> = ({
           onSaveAsDefault={onSaveDefaultLayer}
         />
       </div>
+
+      {/* POI Name Hover Tooltip */}
+      {hoveredPoi && (!activePopupPoi || activePopupPoi.id !== hoveredPoi.id) && (
+        <div
+          data-testid="poi-hover-tooltip"
+          style={{
+            position: "absolute",
+            left: `${hoveredPoi.pixel.x}px`,
+            top: `${hoveredPoi.pixel.y}px`,
+            transform: "translate(-50%, -100%) translateY(-14px)",
+            backgroundColor: "#0f172a",
+            color: "#ffffff",
+            padding: "4px 8px",
+            borderRadius: "6px",
+            fontSize: "12px",
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 35,
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          <span>{hoveredPoi.name}</span>
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              borderWidth: "4px",
+              borderStyle: "solid",
+              borderColor: "#0f172a transparent transparent transparent",
+            }}
+          />
+        </div>
+      )}
 
       {/* User Story 4: Single POI Rich Popup Card */}
       {activePopupPoi && popupPixel && (

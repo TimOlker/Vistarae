@@ -45,6 +45,7 @@ from services.poi.scraping.secondary_sources import (
     TripAdvisorAdapter,
     WikidataAdapter,
     WikipediaAdapter,
+    is_map_service_url,
     scrape_website_hero_image,
 )
 from services.poi.scraping.tag_matcher import TagMatcher
@@ -58,6 +59,7 @@ DEFAULT_VALID_DOMAINS = [
     "atlasobscura.com",
     "google.com/maps",
     "roadtrippers.com",
+    "hillmanwonders.com",
 ]
 
 # Scale and category duration heuristics table: (hours, days) (REQ: FR-017)
@@ -301,16 +303,19 @@ class ScrapingOrchestrator:
 
             client = genai.Client(api_key=self._gemini_api_key)
             prompt_parts = [
-                f"Synthesize a tight, informative, elegant 2-3 sentence travel description for '{name}' ",
-                f"using these source details: '{combined_text[:1500]}'. ",
-                "Highlight historical significance, scenic beauty, or traveler activity. ",
-                "\nCRITICAL REQUIREMENT: Do NOT include or mention the capture source (such as 'Captured from Google Maps', 'Captured from TripAdvisor', or any source/scraping attribution prefix) in the description. Start directly with the factual description of the destination itself.",
+                f"Synthesize a concise, objective, informative 2-3 sentence encyclopedic travel description for '{name}' ",
+                f"using these source details: '{combined_text[:1500]}'.\n",
+                "ROLE & FOCUS:\n",
+                "- Explain WHAT the destination is, its geographic location, physical characteristics, architectural style, and historical origins.\n",
+                "- Maintain an objective, informative, encyclopedic tone.\n",
+                "- CRITICAL REQUIREMENT: Do NOT use promotional travel marketing clichés (e.g. avoid 'invites travelers to lose themselves', 'step back in time', 'breathtaking labyrinth', 'soulful beating heart', 'must-visit destination', 'hidden gem').\n",
+                "- CRITICAL REQUIREMENT: Do NOT include or mention the capture source (such as 'Captured from Google Maps', 'Captured from TripAdvisor', or any source/scraping attribution prefix) in the description. Start directly with the factual description of the destination itself.\n",
             ]
             if directive:
                 prompt_parts.append(
                     f"\nTraveler preference directive: {directive}\n"
                     "Apply this preference IF AND ONLY IF the source details support it. "
-                    "Do NOT invent, hallucinate, or force irrelevant themes if the destination does not feature them."
+                    "Do NOT invent, hallucinate, or force irrelevant themes if the destination does not feature them.\n"
                 )
             prompt_parts.append("\nReturn only the 2-3 sentence description without preamble.")
             prompt = "".join(prompt_parts)
@@ -339,6 +344,28 @@ class ScrapingOrchestrator:
             fallback = " ".join(sentences[:2]) if sentences else combined_text[:200]
             return self._clean_source_attribution(fallback, name=name)
 
+    @staticmethod
+    def _clean_reason_to_visit_plain_text(raw_text: str) -> str:
+        """Ensures Reason to Visit is plain text with dash prefixes and no markdown or flowery bullets."""
+        if not raw_text:
+            return ""
+        # Strip markdown bold/italic markers (**text**, *text*, __text__)
+        cleaned = re.sub(r"\*\*([^*]+)\*\*", r"\1", raw_text)
+        cleaned = re.sub(r"__([^_]+)__", r"\1", cleaned)
+        cleaned = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"\1", cleaned)
+
+        lines: list[str] = []
+        for line in cleaned.splitlines():
+            line_str = line.strip()
+            if not line_str:
+                continue
+            # Remove any leading bullet characters (•, *, +, -, –, —, ·) and whitespace
+            line_str = re.sub(r"^[\s•*+\-–—·]+\s*", "", line_str)
+            if line_str:
+                lines.append(f"- {line_str}")
+
+        return "\n".join(lines) + ("\n" if lines else "")
+
     async def synthesize_reason_to_visit(
         self,
         name: str,
@@ -347,21 +374,32 @@ class ScrapingOrchestrator:
         directive: str | None = None,
         *,
         description: str | None = None,
+        existing_description: str | None = None,
         reason_directive: str | None = None,
+        travel_style: str | None = None,
     ) -> str:
-        """Synthesizes an experiential 2-3 sentence tourist rationale explaining why to visit."""
-        actual_snippet = primary_snippet if primary_snippet is not None else description
-        actual_extracts = secondary_extracts if secondary_extracts is not None else []
-        actual_directive = directive if directive is not None else reason_directive
+        """Synthesizes a concise plain-text set of 2-3 dash items ('- Reason: details') explaining why to visit."""
+        actual_description = existing_description or description
+        actual_directive = travel_style or directive or reason_directive
 
-        clean_primary = self._clean_source_attribution(actual_snippet or "", name=name)
+        # Clean snippet and secondary extracts
+        clean_primary = self._clean_source_attribution(primary_snippet or "", name=name)
         clean_secondary = [
-            self._clean_source_attribution(s, name=name) for s in actual_extracts if s
+            self._clean_source_attribution(s, name=name) for s in (secondary_extracts or []) if s
         ]
-        combined_text = " ".join([s for s in [clean_primary, *clean_secondary] if s]).strip()
+
+        # Avoid using only the description as the primary context if it matches actual_description
+        if clean_primary and actual_description and clean_primary.strip() == actual_description.strip():
+            combined_text = " ".join(clean_secondary).strip()
+        else:
+            combined_text = " ".join([s for s in [clean_primary, *clean_secondary] if s]).strip()
 
         if not self._gemini_api_key:
-            return f"Visitors are drawn to {name} for its distinctive sights, cultural atmosphere, and memorable local character."
+            return (
+                f"- Distinctive Sights: Iconic vantage points and scenery unique to {name}.\n"
+                f"- Cultural Atmosphere: Authentic local character and traditions.\n"
+                f"- Exploration: Scenic highlights and memorable on-the-ground discovery.\n"
+            )
 
         def _call_gemini() -> str:
             from google import genai
@@ -369,18 +407,29 @@ class ScrapingOrchestrator:
 
             client = genai.Client(api_key=self._gemini_api_key)
             prompt_parts = [
-                f"Synthesize an engaging, compelling 2-3 sentence travel rationale explaining WHY a tourist would be interested in visiting '{name}' ",
-                f"based on these source details: '{combined_text[:1500]}'. ",
-                "Focus on tourist appeal, unique atmosphere, and memorable activities.",
-                "\nCRITICAL REQUIREMENT: Do NOT include or mention the capture source or scraping attribution prefix. Focus exclusively on the tourist rationale.",
+                f"Synthesize 2-3 concise, high-impact reasons explaining WHY a traveler should visit '{name}'.\n"
             ]
+            if combined_text:
+                prompt_parts.append(f"Source context: '{combined_text[:1500]}'.\n")
+            if actual_description:
+                prompt_parts.append(
+                    f"\nExisting Description (already shown to traveler in paragraph format):\n\"{actual_description[:1000]}\"\n"
+                )
             if actual_directive:
                 prompt_parts.append(
-                    f"\nTraveler motivation directive: {actual_directive}\n"
-                    "Highlight why this traveler specifically would enjoy visiting IF the destination aligns with these interests. "
-                    "Do not invent or force irrelevant themes."
+                    f"\nTraveler's Personal Travel Style & AI Context:\n\"{actual_directive}\"\n"
                 )
-            prompt_parts.append("\nReturn only the 2-3 sentence rationale without preamble.")
+
+            prompt_parts.append(
+                "\nCRITICAL FORMATTING & CONTENT REQUIREMENTS:\n"
+                "1. Plain text ONLY. Do NOT use markdown. No bolding or asterisks (no '**'), no italic markdown, no bullet characters (like '•'). It will be displayed in a plain text, textbox.\n"
+                "2. Each item MUST start with a dash '-' character and space, and finish each line with a carriage return (newline).\n"
+                "3. Conciseness is paramount: State the core reason to visit directly in 1 short sentence per item. Eliminate flowery adjectives, poetic waxing, and filler words. Every word must deliver clear signal so the reader can ingest data in seconds without unneeded words.\n"
+                "4. Do NOT repeat facts, dates, historical eras, or phrasing from the Existing Description above (which is in paragraph format).\n"
+                "5. Connect directly to the traveler's style if provided, focusing on what makes this site worth their time.\n"
+                "6. Do NOT include source attribution prefixes or mention scraping/capture sources.\n"
+                "\nReturn ONLY the dash items, one item per line, with no introductory or concluding text."
+            )
             prompt = "".join(prompt_parts)
 
             config = types.GenerateContentConfig(
@@ -393,11 +442,14 @@ class ScrapingOrchestrator:
                 contents=prompt,
                 config=config,
             )
-            res = (
-                (resp.text or "").strip()
-                or f"A compelling destination for travelers looking to experience {name}'s unique character and sights."
-            )
-            return self._clean_source_attribution(res, name=name)
+            res = (resp.text or "").strip()
+            if not res:
+                res = (
+                    f"- Distinctive Character: Unique sights and atmosphere of {name}.\n"
+                    f"- Memorable Exploration: Vibrant local highlights and scenery.\n"
+                )
+            cleaned = self._clean_source_attribution(res, name=name)
+            return self._clean_reason_to_visit_plain_text(cleaned)
 
         try:
             logger.info("MSG   |-> Gemini reason-to-visit synthesis for: %s", name)
@@ -406,7 +458,10 @@ class ScrapingOrchestrator:
             return reason
         except Exception as exc:
             logger.warning("MSG   |<- Gemini reason-to-visit synthesis fallback: %s", exc)
-            return f"Visitors are drawn to {name} for its distinctive sights, cultural atmosphere, and memorable local character."
+            return (
+                f"- Distinctive Sights: Iconic vantage points unique to {name}.\n"
+                f"- Cultural Atmosphere: Authentic local character and traditions.\n"
+            )
 
     @classmethod
     def _heuristic_duration_notes(
@@ -572,6 +627,7 @@ class ScrapingOrchestrator:
         name: str,
         source_url: str,
         allowed_domains: list[str] | None = None,
+        location: str | None = None,
     ) -> dict[str, Any]:
         """Queries authorized secondary sources bounded by timeout ceiling (REQ-EXT-020)."""
         domains = allowed_domains or self._valid_domains or DEFAULT_VALID_DOMAINS
@@ -579,10 +635,25 @@ class ScrapingOrchestrator:
 
         async def _query_with_timeout(adapter: SecondarySourceAdapter) -> dict[str, Any]:
             try:
-                return await asyncio.wait_for(
+                # If location context is available, search from most specific first
+                # to avoid ambiguous words (e.g. 'Hot Springs', 'Hermitage') matching generic concepts
+                if location and location.strip():
+                    clean_loc = location.strip()
+                    loc_query = f"{name} {clean_loc}"
+                    if clean_loc.lower() in name.lower():
+                        loc_query = name
+                    res = await asyncio.wait_for(
+                        adapter.augment(loc_query, source_url=source_url),
+                        timeout=self._timeout_seconds,
+                    )
+                    if res:
+                        return res
+
+                res = await asyncio.wait_for(
                     adapter.augment(name, source_url=source_url),
                     timeout=self._timeout_seconds,
                 )
+                return res or {}
             except TimeoutError:
                 logger.warning(
                     "MSG <-|  Secondary scraping source '%s' timed out after %.1fs; falling back to primary data",
@@ -644,6 +715,8 @@ class ScrapingOrchestrator:
                 }
                 for site in res["related_websites"]:
                     if isinstance(site, dict) and site.get("url"):
+                        if is_map_service_url(site.get("url"), site.get("name")):
+                            continue
                         k = site["url"].rstrip("/").lower()
                         if k not in seen_urls:
                             seen_urls.add(k)
@@ -655,12 +728,15 @@ class ScrapingOrchestrator:
             if isinstance(w, dict) and "url" in w
         }
         if merged["official_website_url"]:
-            off_k = merged["official_website_url"].rstrip("/").lower()
-            if off_k not in existing_urls:
-                existing_urls.add(off_k)
-                merged["related_websites"].insert(
-                    0, {"name": "Official Website", "url": merged["official_website_url"]}
-                )
+            if is_map_service_url(merged["official_website_url"]):
+                merged["official_website_url"] = None
+            else:
+                off_k = merged["official_website_url"].rstrip("/").lower()
+                if off_k not in existing_urls:
+                    existing_urls.add(off_k)
+                    merged["related_websites"].insert(
+                        0, {"name": "Official Website", "url": merged["official_website_url"]}
+                    )
         if merged["wikipedia_url"]:
             wiki_k = merged["wikipedia_url"].rstrip("/").lower()
             if wiki_k not in existing_urls:
@@ -799,7 +875,7 @@ class ScrapingOrchestrator:
             primary_dur = None
 
         try:
-            secondary = await self._augment_secondary(name, source_url)
+            secondary = await self._augment_secondary(name, source_url, location=client_raw_address)
         except Exception as exc:
             logger.warning("Secondary augmentation failed: %s; using primary only", exc)
             secondary = {}
@@ -809,7 +885,12 @@ class ScrapingOrchestrator:
             name, primary_desc, secondary_extracts, directive=desc_directive
         )
         reason_to_visit = await self.synthesize_reason_to_visit(
-            name, primary_desc, secondary_extracts, directive=reason_directive
+            name,
+            primary_desc,
+            secondary_extracts,
+            directive=reason_directive,
+            existing_description=desc,
+            travel_style=reason_directive,
         )
 
         extraction_sources = list(secondary.get("extraction_sources", []))
@@ -818,6 +899,8 @@ class ScrapingOrchestrator:
             extraction_sources.insert(0, parsed_url.netloc)
 
         official_website_url = primary_official or secondary.get("official_website_url")
+        if official_website_url and is_map_service_url(official_website_url):
+            official_website_url = None
         wikipedia_url = primary_wiki or secondary.get("wikipedia_url")
 
         if "wikipedia.org/wiki/" in source_url:

@@ -254,6 +254,26 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "isl": "Iceland",
     "iceland": "Iceland",
     "ísland": "Iceland",
+    # Yemen
+    "ye": "Yemen",
+    "yem": "Yemen",
+    "yemen": "Yemen",
+    # Egypt
+    "eg": "Egypt",
+    "egy": "Egypt",
+    "egypt": "Egypt",
+    # Jordan
+    "jo": "Jordan",
+    "jor": "Jordan",
+    "jordan": "Jordan",
+    # Saudi Arabia
+    "sa": "Saudi Arabia",
+    "sau": "Saudi Arabia",
+    "saudi arabia": "Saudi Arabia",
+    # Morocco
+    "ma": "Morocco",
+    "mar": "Morocco",
+    "morocco": "Morocco",
 }
 
 # ── Inverted Mapping: Standard English Name -> ISO 3166-1 alpha-2 Code ────────

@@ -425,3 +425,112 @@ async def test_upload_active_session_guard_returns_409(
     assert data["status"] == 409
     assert data["title"] == "Active Staging Session Exists"
     assert data["job_id"] == str(active_job_id)
+
+
+@pytest.mark.asyncio
+async def test_upload_staging_failure_rolls_back_and_returns_500(
+    mock_user: User,
+    mock_staging_service: MagicMock,
+) -> None:
+    """Verifies that an unhandled exception in stage_records rolls back and returns 500 error."""
+    from unittest.mock import AsyncMock
+
+    from vistarae_core.adapters.db.session import get_db_session
+    from vistarae_core.schemas.ingest_staging import ActiveSessionResponse
+
+    mock_staging_service.get_active_session = AsyncMock(
+        return_value=ActiveSessionResponse(has_active_session=False)
+    )
+    mock_staging_service.wipe_active_session = AsyncMock(
+        side_effect=RuntimeError("Database constraint error: ck_ingest_candidates_recommended_disp")
+    )
+    mock_staging_service.stage_records = AsyncMock(
+        side_effect=RuntimeError("Database constraint error: ck_ingest_candidates_recommended_disp")
+    )
+
+    mock_session = AsyncMock()
+    mock_repo = AsyncMock()
+    mock_repo.create_job = AsyncMock(
+        return_value=MagicMock(id=uuid.uuid4(), total_rows=1, processed_rows=0, job_status=MagicMock(value="pending"))
+    )
+
+    from services.ingest.dependencies import get_ingest_repo
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+    app.dependency_overrides[get_db_session] = lambda: mock_session
+    app.dependency_overrides[get_ingest_repo] = lambda: mock_repo
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/ingest/upload",
+            files={"file": ("test.csv", b"poi_name\nTest POI\n", "text/csv")},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert resp.status_code == 500
+    mock_session.rollback.assert_awaited_once()
+    mock_session.commit.assert_not_awaited()
+    data = resp.json()
+    assert data["title"] == "Ingest Staging Failed"
+    assert "Database constraint error" in data["detail"]
+
+
+@pytest.mark.asyncio
+async def test_upload_commits_session_on_success(
+    mock_user: User,
+    mock_staging_service: MagicMock,
+) -> None:
+    """Verifies that session.commit() is explicitly awaited before returning success."""
+    from unittest.mock import AsyncMock
+
+    from vistarae_core.adapters.db.session import get_db_session
+    from vistarae_core.domain.value_objects import IngestDisposition
+    from vistarae_core.schemas.ingest_staging import ActiveSessionResponse
+
+    mock_staging_service.get_active_session = AsyncMock(
+        return_value=ActiveSessionResponse(has_active_session=False)
+    )
+    mock_staging_service.wipe_active_session = AsyncMock()
+    candidate_mock = MagicMock(
+        id=uuid.uuid4(),
+        row_index=0,
+        poi_name="Petra",
+        recommended_disposition=IngestDisposition.EXISTING,
+        street_address=None,
+        city=None,
+        latitude=None,
+        longitude=None,
+    )
+    mock_staging_service.stage_records = AsyncMock(return_value=[candidate_mock])
+
+    mock_session = AsyncMock()
+    job_id = uuid.uuid4()
+    mock_repo = AsyncMock()
+    job_mock = MagicMock(
+        id=job_id,
+        total_rows=1,
+        processed_rows=0,
+        duplicate_payloads=[],
+        job_status=MagicMock(value="completed"),
+    )
+    mock_repo.create_job = AsyncMock(return_value=job_mock)
+
+    from services.ingest.dependencies import get_ingest_repo
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+    app.dependency_overrides[get_db_session] = lambda: mock_session
+    app.dependency_overrides[get_ingest_repo] = lambda: mock_repo
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/api/ingest/upload",
+            files={"file": ("test.csv", b"poi_name\nPetra\n", "text/csv")},
+        )
+
+    app.dependency_overrides.clear()
+
+    assert resp.status_code in (200, 202)
+    mock_session.commit.assert_awaited_once()

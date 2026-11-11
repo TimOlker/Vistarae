@@ -164,7 +164,7 @@ class TestSqlAlchemyScrapingPreferencesRepository:
         result = await repo.update_scraping_domains(user_id=uuid4(), domains=new_domains)
 
         assert result == new_domains
-        mock_session.execute.assert_awaited_once()
+        mock_session.scalar.assert_awaited_once()
         mock_session.flush.assert_awaited_once()
 
 

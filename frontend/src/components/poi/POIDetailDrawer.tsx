@@ -21,6 +21,7 @@ import React, { useState, useEffect } from "react";
 import type { POIMapFeature, VisitState } from "../../types/map";
 import { X, Star, Save, Trash2, ExternalLink, Globe } from "lucide-react";
 import { TagSelector } from "../tags/TagSelector";
+import { reconstructWebsitesList } from "../../utils/websiteInference";
 
 interface POIDetailDrawerProps {
   poi: POIMapFeature | null;
@@ -113,25 +114,27 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
           boxShadow: "var(--shadow-lg)",
           display: "flex",
           flexDirection: "column",
-          overflowY: "auto",
-          padding: "24px",
+          overflow: "hidden",
+          padding: 0,
         }}
       >
         <div
           style={{
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: "20px",
+            padding: "20px 24px 16px 24px",
+            borderBottom: "1px solid var(--border-color, #e2e8f0)",
           }}
         >
-          <h3 style={{ fontSize: "18px", fontWeight: 800 }}>
+          <h3 style={{ fontSize: "18px", fontWeight: 800, margin: 0 }}>
             Edit Point of Interest
           </h3>
           <button
             type="button"
             onClick={onClose}
-            style={{ padding: "4px", color: "var(--text-muted)" }}
+            style={{ padding: "4px", color: "var(--text-muted)", background: "transparent", border: "none", cursor: "pointer" }}
           >
             <X size={18} />
           </button>
@@ -142,10 +145,22 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "16px",
             flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              padding: "20px 24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}
+          >
           <div>
             <label
               style={{
@@ -229,10 +244,10 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
             </label>
             <textarea
               id="detail-poi-reason-to-visit"
-              rows={3}
+              rows={4}
               value={reasonToVisit}
               onChange={(e) => setReasonToVisit(e.target.value)}
-              placeholder="Why visit this location..."
+              placeholder="- Key Highlight: Direct experiential reason why a traveler should visit..."
               style={{
                 width: "100%",
                 padding: "8px 12px",
@@ -242,6 +257,7 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
                 resize: "vertical",
                 fontFamily: "inherit",
                 background: "var(--bg-surface, #ffffff)",
+                lineHeight: 1.4,
               }}
             />
           </div>
@@ -359,22 +375,7 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
 
           {/* Related Websites & Research */}
           {(() => {
-            const sites: { name: string; url: string }[] = [...((poi as any).related_websites || [])];
-            const existingUrls = new Set(sites.map((s) => s.url.trim().toLowerCase().replace(/\/$/, "")));
-            if (poi.official_url && poi.official_url.trim()) {
-              const norm = poi.official_url.trim().toLowerCase().replace(/\/$/, "");
-              if (!existingUrls.has(norm)) {
-                existingUrls.add(norm);
-                sites.unshift({ name: "Official Website", url: poi.official_url.trim() });
-              }
-            }
-            if (poi.wiki_url && poi.wiki_url.trim()) {
-              const norm = poi.wiki_url.trim().toLowerCase().replace(/\/$/, "");
-              if (!existingUrls.has(norm)) {
-                existingUrls.add(norm);
-                sites.push({ name: "Wikipedia", url: poi.wiki_url.trim() });
-              }
-            }
+            const sites = reconstructWebsitesList(poi as any);
             if (sites.length === 0) return null;
             return (
               <div
@@ -446,55 +447,90 @@ export const POIDetailDrawer: React.FC<POIDetailDrawerProps> = ({
             selectedTags={selectedTags}
             onChange={setSelectedTags}
           />
+        </div>
 
-          <div
-            style={{
-              marginTop: "auto",
-              paddingTop: "20px",
-              display: "flex",
-              gap: "10px",
-            }}
-          >
+        <div
+          style={{
+            flexShrink: 0,
+            padding: "16px 24px",
+            borderTop: "1px solid var(--border-color, #e2e8f0)",
+            background: "var(--bg-surface, #ffffff)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.05)",
+            gap: "10px",
+          }}
+        >
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(poi.id);
+                onClose();
+              }}
+              title="Delete POI"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 12px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "transparent",
+                color: "var(--danger, #ef4444)",
+                border: "1px solid var(--danger, #ef4444)",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <Trash2 size={15} />
+              Delete POI
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "var(--radius-md, 8px)",
+                background: "var(--bg-hover, #f1f5f9)",
+                border: "1px solid var(--border-color, #e2e8f0)",
+                color: "var(--text-secondary, #475569)",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
             <button
               type="submit"
               style={{
-                flex: 1,
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                justifyContent: "center",
                 gap: "6px",
-                padding: "10px",
+                padding: "8px 20px",
                 borderRadius: "var(--radius-md, 8px)",
                 background: "var(--accent, #2563eb)",
+                border: "none",
                 color: "#ffffff",
-                fontWeight: 600,
                 fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <Save size={15} />
-              <span>Save Changes</span>
+              Save Changes
             </button>
-
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => {
-                  onDelete(poi.id);
-                  onClose();
-                }}
-                title="Delete POI"
-                style={{
-                  padding: "10px",
-                  borderRadius: "var(--radius-md, 8px)",
-                  background: "var(--bg-hover, #f1f5f9)",
-                  color: "var(--danger, #ef4444)",
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
           </div>
-        </form>
+        </div>
+      </form>
       </div>
     </div>
   );

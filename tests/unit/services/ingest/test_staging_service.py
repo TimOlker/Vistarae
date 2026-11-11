@@ -378,7 +378,7 @@ async def test_stage_candidates_poi_name_only_forward_geocoding(
     assert item.city == "Wadi Musa"
     assert item.country == "Jordan"
     assert item.recommended_disposition == IngestDisposition.ACCEPT
-    mock_geocoding_service.geocode.assert_awaited_with("Petra")
+    mock_geocoding_service.geocode.assert_awaited_with("Petra", country_hint=None)
 
 
 @pytest.mark.asyncio
@@ -539,3 +539,182 @@ async def test_stage_candidates_forward_geocoding_with_street_address(
     # Assert geocode was called with queries containing street and city
     called_queries = [call.args[0] for call in mock_geocoding_service.geocode.await_args_list]
     assert any("Royal Mile" in q and "Edinburgh" in q for q in called_queries)
+
+
+@pytest.mark.asyncio
+async def test_duplicate_matches_existing_poi_with_no_changes_sets_disposition_existing() -> None:
+    """Verifies that matching an existing DB POI where import won't change values sets disposition to 'existing'."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from vistarae_core.domain.entities import POI
+    from vistarae_core.domain.value_objects import IngestDisposition, WGS84Point
+    from vistarae_core.schemas.scraping import DeduplicationVerdictSchema
+
+    user_id = uuid4()
+    job_id = uuid4()
+    existing_id = uuid4()
+
+    mock_cand_repo = MagicMock()
+    mock_cand_repo.create_batch = AsyncMock(side_effect=lambda cands: cands)
+
+    existing_poi = POI(
+        id=existing_id,
+        user_id=user_id,
+        name="Castillo de San Marcos",
+        geom=WGS84Point(lon=-81.3125, lat=29.8978),
+        city="St. Augustine",
+        admin_level_1="Florida",
+        country_code="US",
+        visited_dates=["2024-01-15"],
+    )
+
+    mock_poi_repo = MagicMock()
+    mock_poi_repo.get_by_id = AsyncMock(return_value=existing_poi)
+
+    mock_dup_service = MagicMock()
+    mock_dup_service.evaluate_candidate = AsyncMock(
+        return_value=DeduplicationVerdictSchema(
+            status="POTENTIAL_DUPLICATE",
+            distance_meters=2.5,
+            similarity_score=0.98,
+            scale_classification="micro",
+            existing_poi_id=existing_id,
+            existing_poi_name="Castillo de San Marcos",
+            recommended_action="proceed",
+        )
+    )
+
+    service = StagingService(
+        candidate_repo=mock_cand_repo,
+        poi_repo=mock_poi_repo,
+        duplicate_service=mock_dup_service,
+    )
+
+    # Record with identical coordinates, city, dates
+    record = POIExportRecord(
+        poi_name="Castillo de San Marcos",
+        town_city=["St. Augustine"],
+        state_province=["Florida"],
+        country=["United States"],
+        latitude=Decimal("29.8978"),
+        longitude=Decimal("-81.3125"),
+        dates_visited=["2024-01-15"],
+        photo_directory="",
+        location_confidence_percent=100,
+    )
+
+    staged = await service.stage_records(user_id, job_id, [record])
+    assert len(staged) == 1
+    assert staged[0].recommended_disposition == IngestDisposition.EXISTING
+    assert "identical values (no changes detected)" in (staged[0].disposition_justification or "")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_matches_existing_poi_with_changes_sets_update_existing() -> None:
+    """Verifies that matching an existing DB POI where import adds new values sets disposition to 'update_existing'."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from vistarae_core.domain.entities import POI
+    from vistarae_core.domain.value_objects import IngestDisposition, WGS84Point
+    from vistarae_core.schemas.scraping import DeduplicationVerdictSchema
+
+    user_id = uuid4()
+    job_id = uuid4()
+    existing_id = uuid4()
+
+    mock_cand_repo = MagicMock()
+    mock_cand_repo.create_batch = AsyncMock(side_effect=lambda cands: cands)
+
+    existing_poi = POI(
+        id=existing_id,
+        user_id=user_id,
+        name="Castillo de San Marcos",
+        geom=WGS84Point(lon=-81.3125, lat=29.8978),
+        city="St. Augustine",
+        admin_level_1="Florida",
+        country_code="US",
+        visited_dates=["2024-01-15"],
+    )
+
+    mock_poi_repo = MagicMock()
+    mock_poi_repo.get_by_id = AsyncMock(return_value=existing_poi)
+
+    mock_dup_service = MagicMock()
+    mock_dup_service.evaluate_candidate = AsyncMock(
+        return_value=DeduplicationVerdictSchema(
+            status="POTENTIAL_DUPLICATE",
+            distance_meters=2.5,
+            similarity_score=0.98,
+            scale_classification="micro",
+            existing_poi_id=existing_id,
+            existing_poi_name="Castillo de San Marcos",
+            recommended_action="proceed",
+        )
+    )
+
+    service = StagingService(
+        candidate_repo=mock_cand_repo,
+        poi_repo=mock_poi_repo,
+        duplicate_service=mock_dup_service,
+    )
+
+    # Record introduces a new visited date ("2025-02-20")
+    record = POIExportRecord(
+        poi_name="Castillo de San Marcos",
+        town_city=["St. Augustine"],
+        state_province=["Florida"],
+        country=["United States"],
+        latitude=Decimal("29.8978"),
+        longitude=Decimal("-81.3125"),
+        dates_visited=["2025-02-20"],
+        photo_directory="",
+        location_confidence_percent=100,
+    )
+
+    staged = await service.stage_records(user_id, job_id, [record])
+    assert len(staged) == 1
+    assert staged[0].recommended_disposition == IngestDisposition.UPDATE_EXISTING
+
+
+@pytest.mark.asyncio
+async def test_commit_job_skips_existing_disposition_same_as_ignore_and_exclude() -> None:
+    """Verifies that candidates with disposition 'existing' are skipped on commit without creating or updating POIs."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from vistarae_core.domain.entities import IngestCandidate
+    from vistarae_core.domain.value_objects import IngestDisposition
+
+    user_id = uuid4()
+    job_id = uuid4()
+
+    existing_cand = IngestCandidate(
+        id=uuid4(),
+        user_id=user_id,
+        job_id=job_id,
+        row_index=0,
+        poi_name="Existing Fortress",
+        recommended_disposition=IngestDisposition.EXISTING,
+        user_disposition=None,
+        latitude=Decimal("29.8978"),
+        longitude=Decimal("-81.3125"),
+    )
+
+    mock_cand_repo = MagicMock()
+    mock_cand_repo.list_by_job = AsyncMock(return_value=[existing_cand])
+    mock_cand_repo.purge_by_job = AsyncMock(return_value=1)
+
+    mock_poi_repo = MagicMock()
+    mock_poi_repo.create = AsyncMock()
+    mock_poi_repo.update = AsyncMock()
+
+    service = StagingService(
+        candidate_repo=mock_cand_repo,
+        poi_repo=mock_poi_repo,
+    )
+
+    total, created, merged = await service.commit_job(user_id, job_id)
+    assert total == 0
+    assert len(created) == 0
+    assert len(merged) == 0
+    mock_poi_repo.create.assert_not_called()
+    mock_poi_repo.update.assert_not_called()

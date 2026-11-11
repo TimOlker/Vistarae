@@ -16,6 +16,11 @@
 
 """Repositories adapter package — SQLAlchemy repository implementations."""
 
+from vistarae_core.adapters.repositories.enrichment_cache_repo import (
+    SqlAlchemyExternalEnrichmentCacheRepository,
+    get_default_enrichment_cache_ttl_days,
+    hash_enrichment_cache_key,
+)
 from vistarae_core.adapters.repositories.filter_rule_repo import (
     SqlAlchemyFilterRuleRepository,
 )
@@ -43,6 +48,7 @@ from vistarae_core.adapters.repositories.user_repo import SqlAlchemyUserReposito
 
 __all__ = [
     "IngestJobRepository",
+    "SqlAlchemyExternalEnrichmentCacheRepository",
     "SqlAlchemyIngestCandidateRepository",
     "SqlAlchemyFilterRuleRepository",
     "SqlAlchemyGeocodingCacheRepository",

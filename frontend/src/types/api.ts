@@ -1383,6 +1383,10 @@ export interface components {
       city?: string | null;
       /** Date Visited */
       date_visited?: string | null;
+      /** Add Tag */
+      add_tag?: string | null;
+      /** Remove Tag */
+      remove_tag?: string | null;
     };
     /**
      * BatchEditResponse
@@ -2399,7 +2403,8 @@ export interface components {
       | "update_existing"
       | "sublocation"
       | "in_batch_merge"
-      | "exclude";
+      | "exclude"
+      | "existing";
     /**
      * IngestJobProgressResponse
      * @description Progress status, counts, and duplicate items for an ingestion job.

@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from vistarae_core.domain.value_objects import (
     FilterConjunction,
@@ -37,10 +37,25 @@ from vistarae_core.domain.value_objects import (
 )
 from vistarae_core.schemas.base import StrictBaseModel
 
+OPERATOR_ALIASES: dict[str, FilterOperator] = {
+    ">=": FilterOperator.GREATER_THAN_OR_EQUAL,
+    "<=": FilterOperator.LESS_THAN_OR_EQUAL,
+    ">": FilterOperator.GREATER_THAN,
+    "<": FilterOperator.LESS_THAN,
+    "=": FilterOperator.EQUALS,
+    "==": FilterOperator.EQUALS,
+    "!=": FilterOperator.NOT_EQUALS,
+    "in": FilterOperator.IN_LIST,
+    "not_in": FilterOperator.NOT_IN_LIST,
+}
+
 
 class RuleClauseSchema(StrictBaseModel):
     """Single condition rule in the query builder AST."""
 
+    id: str | None = Field(
+        default=None, description="Client UI clause identifier (optional)"
+    )
     field: str = Field(
         ..., description="Target POI field (e.g. 'country', 'rating', 'visit_state')"
     )
@@ -49,12 +64,33 @@ class RuleClauseSchema(StrictBaseModel):
         default=None, description="Operand value (string, number, boolean, or null)"
     )
 
+    @field_validator("operator", mode="before")
+    @classmethod
+    def normalize_operator(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            clean = v.strip().lower()
+            if clean in OPERATOR_ALIASES:
+                return OPERATOR_ALIASES[clean]
+            if v.strip() in OPERATOR_ALIASES:
+                return OPERATOR_ALIASES[v.strip()]
+        return v
+
 
 class QueryTreeSchema(StrictBaseModel):
     """Recursive query builder AST tree node."""
 
+    id: str | None = Field(
+        default=None, description="Client UI group identifier (optional)"
+    )
     conjunction: FilterConjunction = Field(default=FilterConjunction.AND)
     rules: list[RuleClauseSchema | QueryTreeSchema] = Field(default_factory=list)
+
+    @field_validator("conjunction", mode="before")
+    @classmethod
+    def normalize_conjunction(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().upper()
+        return v
 
 
 class TableColumnSortSchema(StrictBaseModel):
@@ -62,6 +98,13 @@ class TableColumnSortSchema(StrictBaseModel):
 
     column: str = Field(..., description="Target column identifier")
     direction: SortDirection = Field(default=SortDirection.UNSORTED)
+
+    @field_validator("direction", mode="before")
+    @classmethod
+    def normalize_direction(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
 
 
 class TableConfigSchema(StrictBaseModel):
@@ -77,6 +120,24 @@ class TableConfigSchema(StrictBaseModel):
         default_factory=lambda: TableColumnSortSchema(column="name", direction=SortDirection.ASC)
     )
 
+    @field_validator("visible_columns", "column_order", mode="before")
+    @classmethod
+    def normalize_columns(cls, v: Any) -> Any:
+        if v is None:
+            return ["name", "city", "country", "rating", "visit_state", "tags"]
+        return v
+
+    @field_validator("sort", mode="before")
+    @classmethod
+    def normalize_sort(cls, v: Any) -> Any:
+        if v is None:
+            return TableColumnSortSchema(column="name", direction=SortDirection.ASC)
+        if isinstance(v, dict):
+            col = v.get("column") or "name"
+            dir_val = v.get("direction") or "asc"
+            return {"column": col, "direction": dir_val}
+        return v
+
 
 class PinColorSchemeSchema(StrictBaseModel):
     """Map pin coloring preferences."""
@@ -88,6 +149,37 @@ class PinColorSchemeSchema(StrictBaseModel):
         description="Value-to-hex mappings for rating (1-5) or visit status",
     )
     rule_mappings: list[dict[str, Any]] = Field(default_factory=list)
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def normalize_mode(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+    @field_validator("default_color", mode="before")
+    @classmethod
+    def normalize_default_color(cls, v: Any) -> Any:
+        if not v or not isinstance(v, str):
+            return "#2563eb"
+        v_clean = v.strip()
+        if not v_clean.startswith("#"):
+            v_clean = f"#{v_clean}"
+        return v_clean
+
+    @field_validator("palette", mode="before")
+    @classmethod
+    def normalize_palette(cls, v: Any) -> Any:
+        if v is None:
+            return {}
+        return v
+
+    @field_validator("rule_mappings", mode="before")
+    @classmethod
+    def normalize_rule_mappings(cls, v: Any) -> Any:
+        if v is None:
+            return []
+        return v
 
 
 class FilterRuleCreateRequest(StrictBaseModel):

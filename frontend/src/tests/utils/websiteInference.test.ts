@@ -15,9 +15,59 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from "vitest";
-import { inferWebsiteName } from "../../utils/websiteInference";
+import {
+  inferWebsiteName,
+  isMapServiceWebsite,
+  normalizeUrl,
+  reconstructWebsitesList,
+} from "../../utils/websiteInference";
 
 describe("websiteInference", () => {
+  describe("normalizeUrl", () => {
+    it("resolves percent-encoding and strips trailing slashes", () => {
+      expect(normalizeUrl("https://en.wikipedia.org/wiki/Zwinger_%28Dresden%29/")).toBe(
+        "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+      );
+      expect(normalizeUrl("https://en.wikipedia.org/wiki/Zwinger_(Dresden)")).toBe(
+        "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+      );
+      expect(normalizeUrl("  https://www.dresden.de/  ")).toBe("https://www.dresden.de");
+      expect(normalizeUrl("https://www.skd.museum/en/besuch/zwinger-mit-semperbau/")).toBe(
+        "https://www.skd.museum/en/besuch/zwinger-mit-semperbau",
+      );
+    });
+  });
+
+  describe("reconstructWebsitesList", () => {
+    it("deduplicates encoded vs unencoded URLs and normalizes trailing slashes", () => {
+      const cand = {
+        official_url: "https://www.skd.museum/en/besuch/zwinger-mit-semperbau/",
+        wiki_url: "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+        related_websites: [
+          { name: "Wikipedia", url: "https://en.wikipedia.org/wiki/Zwinger_%28Dresden%29" },
+          { name: "Official Website", url: "https://www.skd.museum/en/besuch/zwinger-mit-semperbau" },
+          { name: "Hillman Wonders", url: "https://hillmanswonders.com/zwinger.html" },
+        ],
+        tags: ["Historic"],
+      };
+
+      const sites = reconstructWebsitesList(cand);
+      expect(sites).toEqual([
+        {
+          name: "Official Website",
+          url: "https://www.skd.museum/en/besuch/zwinger-mit-semperbau",
+        },
+        {
+          name: "Wikipedia",
+          url: "https://en.wikipedia.org/wiki/Zwinger_(Dresden)",
+        },
+        {
+          name: "Hillman Wonders",
+          url: "https://www.hillmanswonders.com/zwinger.html",
+        },
+      ]);
+    });
+  });
   it("resolves known domains to human-readable names", () => {
     expect(inferWebsiteName("https://en.wikipedia.org/wiki/Roman_baths")).toBe("Wikipedia");
     expect(inferWebsiteName("https://www.wikidata.org/wiki/Q12345")).toBe("Wikidata");
@@ -41,6 +91,39 @@ describe("websiteInference", () => {
   it("falls back to Website for invalid or empty strings", () => {
     expect(inferWebsiteName("")).toBe("Website");
     expect(inferWebsiteName("   ")).toBe("Website");
+  });
+
+  describe("isMapServiceWebsite", () => {
+    it("identifies OpenStreetMap URLs and names", () => {
+      expect(isMapServiceWebsite("https://www.openstreetmap.org/relation/12345")).toBe(true);
+      expect(isMapServiceWebsite("https://osm.org/node/987")).toBe(true);
+      expect(isMapServiceWebsite("https://example.com", "OpenStreetMap")).toBe(true);
+      expect(isMapServiceWebsite("https://example.com", "OSM")).toBe(true);
+    });
+
+    it("identifies Google Maps URLs and names", () => {
+      expect(isMapServiceWebsite("https://www.google.com/maps/place/Eiffel+Tower")).toBe(true);
+      expect(isMapServiceWebsite("https://maps.google.com/?q=Paris")).toBe(true);
+      expect(isMapServiceWebsite("https://maps.app.goo.gl/xyz123")).toBe(true);
+      expect(isMapServiceWebsite("https://example.com", "Google Maps")).toBe(true);
+    });
+
+    it("identifies Bing, Apple, and other navigation services", () => {
+      expect(isMapServiceWebsite("https://www.bing.com/maps?osid=1")).toBe(true);
+      expect(isMapServiceWebsite("https://maps.apple.com/?address=Central+Park")).toBe(true);
+      expect(isMapServiceWebsite("https://www.mapquest.com/us/ny/new-york")).toBe(true);
+      expect(isMapServiceWebsite("https://www.waze.com/live-map/directions")).toBe(true);
+      expect(isMapServiceWebsite("https://geohack.toolforge.org/geohack.php?params=48_51_24_N_2_21_07_E")).toBe(true);
+    });
+
+    it("returns false for non-mapping POI websites", () => {
+      expect(isMapServiceWebsite("https://en.wikipedia.org/wiki/Eiffel_Tower", "Wikipedia")).toBe(false);
+      expect(isMapServiceWebsite("https://www.toureiffel.paris/en", "Official Website")).toBe(false);
+      expect(isMapServiceWebsite("https://www.alltrails.com/trail/france/paris", "AllTrails")).toBe(false);
+      expect(isMapServiceWebsite("https://www.atlasobscura.com/places/eiffel-tower")).toBe(false);
+      expect(isMapServiceWebsite(null, null)).toBe(false);
+      expect(isMapServiceWebsite("", "")).toBe(false);
+    });
   });
 });
 

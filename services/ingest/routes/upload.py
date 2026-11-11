@@ -31,8 +31,10 @@ from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.domain.entities import IngestJob, User
 from vistarae_core.domain.enums import TagResolutionAction
 from vistarae_core.domain.value_objects import IngestDisposition, IngestJobStatus
@@ -83,6 +85,42 @@ def _extract_or_generate_trace_context(request: Request) -> dict[str, str]:
     }
 
 
+async def _run_background_staging(
+    user_id: UUID,
+    job_id: UUID,
+    records: list[POIExportRecord],
+) -> None:
+    """Asynchronously stages CSV records into ingest_candidates with rate-limited geocaching (Option A)."""
+    import logging
+    from vistarae_core.adapters.db.session import get_session_factory
+    from services.ingest.dependencies import create_staging_service
+
+    logger = logging.getLogger(__name__)
+    stage = os.getenv("STAGE", os.getenv("APP_ENV", "local")).lower()
+    if stage == "testing":
+        logger.info("STAGE is 'testing'; skipping background database staging task.")
+        return
+
+    try:
+        session_factory = get_session_factory()
+    except Exception as exc:
+        logger.warning("Could not obtain session factory for background staging: %s", exc)
+        return
+
+    try:
+        async with session_factory() as bg_session:
+            staging_svc = create_staging_service(bg_session)
+            await staging_svc.stage_records_progressive(
+                user_id=user_id,
+                job_id=job_id,
+                records=records,
+                session=bg_session,
+            )
+    except Exception as exc:
+        logger.exception("Background staging failed for job %s: %s", job_id, exc)
+
+
+
 @router.post(
     "/csv",
     status_code=status.HTTP_202_ACCEPTED,
@@ -107,9 +145,11 @@ def _extract_or_generate_trace_context(request: Request) -> dict[str, str]:
     response_model=IngestUploadResponse,
     include_in_schema=False,
 )
+
 async def upload_csv(  # noqa: C901
     request: Request,
     file: Annotated[UploadFile, File(description="CSV file to ingest")],
+    background_tasks: BackgroundTasks,
     target_list_id: Annotated[UUID | None, Form(description="Optional target list ID")] = None,
     target_list_name: Annotated[
         str | None, Form(description="Optional target list name to attach POIs to")
@@ -122,6 +162,7 @@ async def upload_csv(  # noqa: C901
     list_repo: IListRepository = Depends(get_list_repo),
     queue_port: IQueuePort = Depends(get_queue_port),
     staging_service: StagingService | None = Depends(get_staging_service),
+    session: AsyncSession = Depends(get_db_session),
 ) -> IngestUploadResponse:
     """Accepts CSV file upload, applies security guardrails, and dispatches to queue.
 
@@ -200,20 +241,38 @@ async def upload_csv(  # noqa: C901
                 "Failed resolving target list '%s': %s", clean_name, exc
             )
 
-    job_id = uuid.uuid4()
-    job = IngestJob(
-        id=job_id,
-        user_id=user.id,
-        job_status=IngestJobStatus.PENDING,
-        total_rows=len(parsed_rows),
-        processed_rows=0,
-        duplicate_payloads=[],
-        target_list_id=target_list_id,
-        error_summary=[],
-    )
-    created_job = await ingest_repo.create_job(job)
+    try:
+        if staging_service is not None:
+            await staging_service.wipe_active_session(user.id)
 
-    # Stage records into ingest_candidates for interactive two-phase triage
+        job_id = uuid.uuid4()
+        job = IngestJob(
+            id=job_id,
+            user_id=user.id,
+            job_status=IngestJobStatus.PENDING,
+            total_rows=len(parsed_rows),
+            processed_rows=0,
+            duplicate_payloads=[],
+            target_list_id=target_list_id,
+            error_summary=[],
+        )
+        created_job = await ingest_repo.create_job(job)
+    except Exception as exc:
+        if session is not None and hasattr(session, "rollback"):
+            await session.rollback()
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "type": "https://api.vistarae.com/errors/internal-server-error",
+                "title": "Ingest Staging Failed",
+                "status": 500,
+                "detail": f"Failed to stage CSV records: {exc}",
+                "instance": request.url.path,
+            },
+            headers={"Content-Type": "application/problem+json"},
+        )
+
+    # Convert parsed rows to POIExportRecord objects
     export_records: list[POIExportRecord] = []
     for r in parsed_rows:
         rd = r["row_data"]
@@ -242,51 +301,6 @@ async def upload_csv(  # noqa: C901
                 confidence_source=rd.get("confidence_source"),
             )
         )
-
-    staged_candidates = []
-    if staging_service is not None:
-        try:
-            # Wipe any previous uncommitted staging progress for tenant
-            with contextlib.suppress(Exception):
-                await staging_service.wipe_active_session(user.id)
-
-            staged_candidates = list(
-                await staging_service.stage_records(user.id, created_job.id, export_records)
-            )
-        except Exception as exc:
-            import logging
-
-            logging.getLogger(__name__).exception("StagingService.stage_records failed: %s", exc)
-
-    if staged_candidates:
-        dup_payloads = [
-            {
-                "row_number": c.row_index + 1,
-                "raw_name": c.poi_name,
-                "candidate_poi_id": str(c.id),
-                "match_type": "POTENTIAL_DUPLICATE",
-                "similarity_score": 0.0,
-                "distance_meters": 0.0,
-                "triage_status": "PENDING_REVIEW",
-                "staged_poi_data": {
-                    "name": c.poi_name,
-                    "address": c.street_address or "",
-                    "city": c.city or "",
-                    "latitude": float(c.latitude) if c.latitude is not None else None,
-                    "longitude": float(c.longitude) if c.longitude is not None else None,
-                },
-            }
-            for c in staged_candidates
-            if c.recommended_disposition != IngestDisposition.ACCEPT
-        ]
-        created_job.processed_rows = len(staged_candidates)
-        created_job.duplicate_payloads = dup_payloads
-        created_job.job_status = IngestJobStatus.COMPLETED
-        with contextlib.suppress(Exception):
-            await ingest_repo.increment_processed_rows(
-                created_job.id, user.id, len(staged_candidates)
-            )
-            await ingest_repo.update_job_status(created_job.id, user.id, IngestJobStatus.COMPLETED)
 
     # Prepare SQS messages with trace attributes
     trace_ctx = _extract_or_generate_trace_context(request)
@@ -323,12 +337,60 @@ async def upload_csv(  # noqa: C901
             batch = messages[i : i + 10]
             await queue_port.send_message_batch(queue_name, batch)
 
+    # Commit the IngestJob immediately so GET /api/ingest/jobs/{job_id} finds it right away
+    if session is not None and hasattr(session, "commit"):
+        await session.commit()
+
+    # Launch asynchronous background staging (Option A)
+    if staging_service is not None:
+        background_tasks.add_task(
+            _run_background_staging,
+            user_id=user.id,
+            job_id=created_job.id,
+            records=export_records,
+        )
+
     return IngestUploadResponse(
         job_id=created_job.id,
-        job_status=created_job.job_status,
+        job_status=created_job.job_status if isinstance(getattr(created_job, "job_status", None), IngestJobStatus) else IngestJobStatus.PENDING,
         total_rows=created_job.total_rows,
         message="CSV upload accepted for asynchronous batch processing.",
     )
+
+
+async def _run_background_flexible_staging(
+    user_id: UUID,
+    job_id: UUID,
+    records: list[POIExchangeRecord],
+) -> None:
+    """Asynchronously stages exchange records with rate-limited geocaching."""
+    import logging
+    from vistarae_core.adapters.db.session import get_session_factory
+    from services.ingest.dependencies import create_staging_service
+
+    logger = logging.getLogger(__name__)
+    stage = os.getenv("STAGE", os.getenv("APP_ENV", "local")).lower()
+    if stage == "testing":
+        logger.info("STAGE is 'testing'; skipping background database staging task.")
+        return
+
+    try:
+        session_factory = get_session_factory()
+    except Exception as exc:
+        logger.warning("Could not obtain session factory for flexible background staging: %s", exc)
+        return
+
+    try:
+        async with session_factory() as bg_session:
+            staging_svc = create_staging_service(bg_session)
+            await staging_svc.stage_exchange_records(
+                user_id=user_id,
+                job_id=job_id,
+                records=records,
+            )
+            await bg_session.commit()
+    except Exception as exc:
+        logger.exception("Flexible background staging failed for job %s: %s", job_id, exc)
 
 
 @router.post(
@@ -338,6 +400,7 @@ async def upload_csv(  # noqa: C901
 async def upload_flexible(
     request: Request,
     file: Annotated[UploadFile, File(description="CSV, JSON, or YAML file to ingest")],
+    background_tasks: BackgroundTasks,
     skip_invalid_rows: Annotated[bool, Form()] = False,
     column_mappings: Annotated[str | None, Form()] = None,
     recalculate_fields: Annotated[str | None, Form()] = None,
@@ -348,6 +411,7 @@ async def upload_flexible(
     ingest_repo: IIngestJobRepository = Depends(get_ingest_repo),
     list_repo: IListRepository = Depends(get_list_repo),
     staging_service: StagingService = Depends(get_staging_service),
+    session: AsyncSession = Depends(get_db_session),
 ) -> JSONResponse:
     """Handles multi-format uploads, column mapping detection, and pre-validation reporting (T-018)."""
     file_bytes = await file.read()
@@ -445,8 +509,15 @@ async def upload_flexible(
         error_summary=[],
     )
     await ingest_repo.create_job(job)
+    if session is not None and hasattr(session, "commit"):
+        await session.commit()
 
-    await staging_service.stage_exchange_records(user.id, job_id, records)
+    background_tasks.add_task(
+        _run_background_flexible_staging,
+        user_id=user.id,
+        job_id=job_id,
+        records=records,
+    )
 
     return JSONResponse(
         status_code=200,

@@ -452,6 +452,9 @@ class ForwardGeocodeResponse(StrictBaseModel):
 
     latitude: float | None = Field(default=None, description="Resolved latitude")
     longitude: float | None = Field(default=None, description="Resolved longitude")
+    resolved_name: str | None = Field(
+        default=None, max_length=255, description="Canonical POI name if resolved via alias or knowledge base"
+    )
     street: str | None = Field(default=None, max_length=255, description="Street address")
     city: str | None = Field(default=None, max_length=100, description="City or municipality")
     state_province: str | None = Field(
@@ -473,6 +476,24 @@ class ForwardGeocodeResponse(StrictBaseModel):
     )
     raw_geocoding: dict[str, Any] | None = Field(default=None, description="Raw geocoding response")
     cached: bool = Field(default=False, description="True if resolved from PostGIS geocache")
+
+
+class ExtractUrlCoordinatesResponse(StrictBaseModel):
+    """Response payload for coordinates and address extracted from a webpage URL."""
+
+    latitude: float | None = Field(default=None, description="Extracted or resolved latitude")
+    longitude: float | None = Field(default=None, description="Extracted or resolved longitude")
+    place_name: str | None = Field(default=None, description="Place or attraction name extracted from page")
+    extraction_source: str = Field(default="unknown", description="Source of extraction")
+    street: str | None = Field(default=None, max_length=255, description="Street address if resolved")
+    city: str | None = Field(default=None, max_length=100, description="City or municipality if resolved")
+    locality: str | None = Field(default=None, max_length=150, description="City or locality")
+    state_province: str | None = Field(default=None, max_length=100, description="State or province if resolved")
+    admin_level_1: str | None = Field(default=None, max_length=100, description="State or province")
+    admin_level_2: str | None = Field(default=None, max_length=100, description="County or district")
+    country: str | None = Field(default=None, max_length=100, description="Country name if resolved")
+    postal_code: str | None = Field(default=None, max_length=32, description="Postal code if resolved")
+    country_code: str | None = Field(default=None, max_length=2, description="ISO 3166-1 alpha-2 code")
 
 
 class POIMergeRequest(StrictBaseModel):

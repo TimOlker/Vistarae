@@ -502,8 +502,10 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         state_province: str | None = None,
         city: str | None = None,
         date_visited: str | None = None,
+        add_tag: str | None = None,
+        remove_tag: str | None = None,
     ) -> int:
-        """Batch updates location and date visited fields for selected candidates."""
+        """Batch updates location, date visited, and tag fields for selected candidates."""
         if not candidate_ids:
             return 0
 
@@ -525,6 +527,18 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
                 if date_visited not in current_dates:
                     current_dates.append(date_visited)
                 row.dates_visited = current_dates
+            if add_tag and add_tag.strip():
+                clean_tag = add_tag.strip()
+                current_tags = list(row.tags or [])
+                if clean_tag not in current_tags:
+                    current_tags.append(clean_tag)
+                row.tags = current_tags
+            if remove_tag and remove_tag.strip():
+                clean_rem = remove_tag.strip()
+                current_tags = list(row.tags or [])
+                if clean_rem in current_tags:
+                    current_tags.remove(clean_rem)
+                row.tags = current_tags
             row.updated_at = datetime.now(UTC)
 
         await self._session.flush()

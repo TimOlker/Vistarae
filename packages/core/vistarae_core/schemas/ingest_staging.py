@@ -66,6 +66,7 @@ class CandidateItemResponse(StrictBaseModel):
     job_id: UUID
     row_index: int
     poi_name: str
+    recommended_poi_name: str | None = None
     recommended_disposition: IngestDisposition
     user_disposition: IngestDisposition | None = None
     matched_existing_poi_id: UUID | None = None
@@ -95,6 +96,7 @@ class CandidateItemResponse(StrictBaseModel):
     wiki_url: str | None = None
     related_websites: list[dict[str, Any]] = Field(default_factory=list)
     hero_image_url: str | None = None
+    hero_image_urls: list[str] = Field(default_factory=list)
     recommended_duration_hours: float | None = None
     recommended_visit_days: int | None = None
     estimated_visit_time_notes: str | None = None
@@ -150,6 +152,7 @@ class CandidateUpdateRequest(StrictBaseModel):
     wiki_url: str | None = None
     related_websites: list[dict[str, Any]] | None = None
     hero_image_url: str | None = None
+    hero_image_urls: list[str] | None = None
     recommended_duration_hours: float | None = None
     recommended_visit_days: int | None = None
     estimated_visit_time_notes: str | None = None
@@ -201,13 +204,15 @@ class JobCancellationResponse(StrictBaseModel):
 
 
 class BatchEditCandidatesRequest(StrictBaseModel):
-    """Client payload for batch updating country, state/province, city, and date_visited across candidates."""
+    """Client payload for batch updating location, date_visited, and tags across candidates."""
 
     candidate_ids: list[UUID]
     country: str | None = None
     state_province: str | None = None
     city: str | None = None
     date_visited: str | None = None
+    add_tag: str | None = None
+    remove_tag: str | None = None
 
 
 class BatchEditResponse(StrictBaseModel):

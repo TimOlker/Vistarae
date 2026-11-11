@@ -260,6 +260,18 @@ class GeocodingCacheEntry:
 
 
 @dataclass
+class ExternalEnrichmentCacheEntry:
+    """Cached external enrichment result keyed by SHA-256 hash of source:query."""
+
+    cache_key: str
+    source: str
+    query_text: str
+    response_data: dict[str, Any]
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=60))
+
+
+@dataclass
 class PotentialDuplicateMatch:
     """Represents a flagged collision during deduplication checks."""
 

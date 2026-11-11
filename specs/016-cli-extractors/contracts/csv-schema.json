@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VistaraeExtractorCSVRow",
+  "description": "Validation schema for a single row exported by Vistarae CLI extractors",
+  "type": "object",
+  "required": ["POI Name"],
+  "properties": {
+    "POI Name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "Street Address": {
+      "type": "string"
+    },
+    "Town/City": {
+      "type": "string"
+    },
+    "State/Province": {
+      "type": "string"
+    },
+    "Zip Code": {
+      "type": "string"
+    },
+    "Country": {
+      "type": "string"
+    },
+    "Country Code": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$"
+    },
+    "latitude": {
+      "type": "string",
+      "pattern": "^-?([0-8]?[0-9](\\.[0-9]{1,6})?|90(\\.0{1,6})?)$"
+    },
+    "longitude": {
+      "type": "string",
+      "pattern": "^-?((1[0-7][0-9]|[0-9]?[0-9])(\\.[0-9]{1,6})?|180(\\.0{1,6})?)$"
+    },
+    "Tags": {
+      "type": "string",
+      "description": "Semicolon-separated tag string"
+    },
+    "Hero Image URL": {
+      "type": "string"
+    },
+    "Websites": {
+      "type": "string",
+      "description": "JSON-encoded array of {name: string, url: string} objects"
+    },
+    "Additional Address": {
+      "type": "string",
+      "description": "JSON-encoded array of address objects"
+    },
+    "Estimated Visit Hours": {
+      "type": "string"
+    },
+    "Itinerary Days": {
+      "type": "string"
+    },
+    "Description": {
+      "type": "string"
+    },
+    "Reason to Visit": {
+      "type": "string"
+    },
+    "Photo Directory": {
+      "type": "string"
+    },
+    "Dates Visited": {
+      "type": "string"
+    }
+  }
+}
+

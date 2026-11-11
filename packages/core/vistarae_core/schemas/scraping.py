@@ -16,13 +16,29 @@
 
 """Scraping sources preferences schemas enforcing Constitution Principle 5."""
 
-from typing import Literal
+import re
+import urllib.parse
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from vistarae_core.domain.value_objects import AddressRecord
 from vistarae_core.schemas.base import StrictBaseModel
+
+
+def normalize_scraping_domain(raw: str) -> str:
+    """Normalizes a domain entry: decodes percent-encoding, removes http(s)://, www., quotes, and strips trailing slashes."""
+    if not raw:
+        return ""
+    clean = urllib.parse.unquote(raw.strip())
+    clean = re.sub(r"^['\"“”‘’]+|['\"“”‘’]+$", "", clean)
+    clean = re.sub(r"^https?://", "", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"^//", "", clean)
+    clean = re.sub(r"^www\.", "", clean, flags=re.IGNORECASE)
+    clean = clean.rstrip("/")
+    clean = re.sub(r"^['\"“”‘’]+|['\"“”‘’]+$", "", clean)
+    return clean.strip().lower()
 
 
 class ScrapingSourcesResponse(StrictBaseModel):
@@ -33,6 +49,20 @@ class ScrapingSourcesResponse(StrictBaseModel):
         description="List of domain suffixes authorized for secondary scraping",
     )
 
+    @field_validator("valid_scraping_domains", mode="before")
+    @classmethod
+    def normalize_domains(cls, val: Any) -> list[str]:
+        """Normalizes and deduplicates domain list entries."""
+        if not isinstance(val, list):
+            return val
+        normalized: list[str] = []
+        for item in val:
+            if isinstance(item, str):
+                cleaned = normalize_scraping_domain(item)
+                if cleaned and cleaned not in normalized:
+                    normalized.append(cleaned)
+        return normalized
+
 
 class ScrapingSourcesUpdateRequest(StrictBaseModel):
     """Payload to update the user's authorized secondary scraping domains."""
@@ -41,6 +71,20 @@ class ScrapingSourcesUpdateRequest(StrictBaseModel):
         min_length=1,
         description="List of domain suffixes authorized for secondary scraping",
     )
+
+    @field_validator("valid_scraping_domains", mode="before")
+    @classmethod
+    def normalize_domains(cls, val: Any) -> list[str]:
+        """Normalizes and deduplicates domain list entries."""
+        if not isinstance(val, list):
+            return val
+        normalized: list[str] = []
+        for item in val:
+            if isinstance(item, str):
+                cleaned = normalize_scraping_domain(item)
+                if cleaned and cleaned not in normalized:
+                    normalized.append(cleaned)
+        return normalized
 
 
 class ExtractAndCheckRequest(StrictBaseModel):
