@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.domain.entities import IngestJob, User
 from vistarae_core.domain.enums import TagResolutionAction
-from vistarae_core.domain.value_objects import IngestDisposition, IngestJobStatus
+from vistarae_core.domain.value_objects import IngestJobStatus
 from vistarae_core.ports.queue import IQueuePort
 from vistarae_core.ports.repositories import IIngestJobRepository, IListRepository
 from vistarae_core.schemas.ingest import IngestUploadResponse
@@ -92,7 +92,9 @@ async def _run_background_staging(
 ) -> None:
     """Asynchronously stages CSV records into ingest_candidates with rate-limited geocaching (Option A)."""
     import logging
+
     from vistarae_core.adapters.db.session import get_session_factory
+
     from services.ingest.dependencies import create_staging_service
 
     logger = logging.getLogger(__name__)
@@ -120,7 +122,6 @@ async def _run_background_staging(
         logger.exception("Background staging failed for job %s: %s", job_id, exc)
 
 
-
 @router.post(
     "/csv",
     status_code=status.HTTP_202_ACCEPTED,
@@ -145,7 +146,6 @@ async def _run_background_staging(
     response_model=IngestUploadResponse,
     include_in_schema=False,
 )
-
 async def upload_csv(  # noqa: C901
     request: Request,
     file: Annotated[UploadFile, File(description="CSV file to ingest")],
@@ -285,6 +285,24 @@ async def upload_csv(  # noqa: C901
             with contextlib.suppress(Exception):
                 lon = Decimal(str(rd["longitude"]).lstrip("'").strip())
 
+        def _parse_uuid(val: Any) -> uuid.UUID | None:
+            if not val:
+                return None
+            try:
+                return uuid.UUID(str(val).strip())
+            except Exception:
+                return None
+
+        rec_duration = None
+        if rd.get("recommended_duration_hours"):
+            with contextlib.suppress(Exception):
+                rec_duration = Decimal(str(rd["recommended_duration_hours"]).strip())
+
+        rec_days = None
+        if rd.get("recommended_visit_days"):
+            with contextlib.suppress(Exception):
+                rec_days = int(str(rd["recommended_visit_days"]).strip())
+
         export_records.append(
             POIExportRecord(
                 poi_name=rd.get("poi_name") or rd.get("name", "Unknown"),
@@ -293,12 +311,38 @@ async def upload_csv(  # noqa: C901
                 state_province=[rd["state_province"]] if rd.get("state_province") else [],
                 zip_code=[rd["postal_code"]] if rd.get("postal_code") else [],
                 country=[rd["country"]] if rd.get("country") else [],
+                tags=rd.get("tags") or [],
                 latitude=lat,
                 longitude=lon,
                 dates_visited=rd.get("dates_visited", []),
                 photo_directory=rd.get("photo_directory", ""),
+                photo_directories=rd.get("photo_directories") or [],
                 location_confidence_percent=rd.get("confidence_score", 0),
                 confidence_source=rd.get("confidence_source"),
+                candidate_id=_parse_uuid(rd.get("candidate_id")),
+                parent_candidate_id=_parse_uuid(rd.get("parent_candidate_id")),
+                parent_poi_id=_parse_uuid(rd.get("parent_poi_id")),
+                matched_existing_poi_id=_parse_uuid(rd.get("matched_existing_poi_id")),
+                merge_target_id=_parse_uuid(rd.get("merge_target_id")),
+                locality=rd.get("locality") or None,
+                admin_level_1=rd.get("admin_level_1") or None,
+                admin_level_2=rd.get("admin_level_2") or None,
+                country_code=rd.get("country_code") or None,
+                description=rd.get("description") or None,
+                reason_to_visit=rd.get("reason_to_visit") or None,
+                hero_image_url=rd.get("hero_image_url") or None,
+                official_url=rd.get("official_url") or None,
+                wiki_url=rd.get("wiki_url") or None,
+                related_websites=rd.get("related_websites") or [],
+                no_websites=bool(rd.get("no_websites", False)),
+                recommended_duration_hours=rec_duration,
+                recommended_visit_days=rec_days,
+                estimated_visit_time_notes=rd.get("estimated_visit_time_notes") or None,
+                recommended_disposition=rd.get("recommended_disposition") or None,
+                user_disposition=rd.get("user_disposition") or None,
+                disposition_justification=rd.get("disposition_justification") or None,
+                is_user_overridden=bool(rd.get("is_user_overridden", False)),
+                raw_geocoding=rd.get("raw_geocoding") or None,
             )
         )
 
@@ -352,7 +396,9 @@ async def upload_csv(  # noqa: C901
 
     return IngestUploadResponse(
         job_id=created_job.id,
-        job_status=created_job.job_status if isinstance(getattr(created_job, "job_status", None), IngestJobStatus) else IngestJobStatus.PENDING,
+        job_status=created_job.job_status
+        if isinstance(getattr(created_job, "job_status", None), IngestJobStatus)
+        else IngestJobStatus.PENDING,
         total_rows=created_job.total_rows,
         message="CSV upload accepted for asynchronous batch processing.",
     )
@@ -365,7 +411,9 @@ async def _run_background_flexible_staging(
 ) -> None:
     """Asynchronously stages exchange records with rate-limited geocaching."""
     import logging
+
     from vistarae_core.adapters.db.session import get_session_factory
+
     from services.ingest.dependencies import create_staging_service
 
     logger = logging.getLogger(__name__)

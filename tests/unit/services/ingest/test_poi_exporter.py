@@ -126,3 +126,33 @@ def test_streaming_csv_chunks(sample_records: list[POIExchangeRecord]):
     combined = "".join(chunks)
     assert combined.startswith("\ufeff")  # BOM in Python unicode
     assert "Senso-ji" in combined
+
+
+def test_stream_candidate_export_chunks_full_fidelity():
+    """Asserts that stream_candidate_export_chunks streams all 37 attributes with UTF-8 BOM."""
+    from tests.fixtures.export_fixtures import get_sample_staged_candidates
+    candidates = get_sample_staged_candidates()
+
+    chunks = list(POIExporter.stream_candidate_export_chunks(candidates, chunk_size=1))
+    combined = "".join(chunks)
+
+    assert combined.startswith("\ufeff")
+    lines = combined.replace("\ufeff", "").split("\r\n")
+    headers = lines[0].split(",")
+
+    assert len(headers) == 37
+    assert headers[0] == "Candidate ID"
+    assert headers[2] == "POI Name"
+    assert headers[5] == "Locality"
+    assert headers[6] == "County / District (Admin Level 2)"
+
+    # Row 1 check
+    assert "Yellowstone National Park" in lines[1]
+    assert "Mammoth Hot Springs" in lines[1]
+    assert "Park County" in lines[1]
+    assert "National Park; Geyser; Wildlife; Scenic" in lines[1]
+
+    # Row 2 check (formula sanitized)
+    assert "'=Grand Prismatic Spring" in lines[2]
+    assert "'+Sublocation nested" in lines[2]
+    assert "'@Largest hot spring" in lines[2]

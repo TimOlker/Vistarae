@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StagingCandidateCsvRow",
+  "description": "Validation schema for a single full-fidelity exported staging candidate CSV row.",
+  "type": "object",
+  "required": [
+    "POI Name"
+  ],
+  "properties": {
+    "Candidate ID": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Internal UUID of the staging candidate row."
+    },
+    "Row Index": {
+      "type": ["integer", "string"],
+      "description": "Original line index in the initial intake source."
+    },
+    "POI Name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Primary display name of the Point of Interest."
+    },
+    "Street Address": {
+      "type": "string",
+      "description": "Street address line."
+    },
+    "City / Town": {
+      "type": "string",
+      "description": "Municipality or town name."
+    },
+    "Locality": {
+      "type": "string",
+      "description": "Neighborhood, sub-municipality or local settlement."
+    },
+    "County / District (Admin Level 2)": {
+      "type": "string",
+      "description": "Second-tier administrative jurisdiction."
+    },
+    "State / Province (Admin Level 1)": {
+      "type": "string",
+      "description": "First-tier administrative jurisdiction."
+    },
+    "Postal Code / Zip": {
+      "type": "string",
+      "description": "Postal code or ZIP code."
+    },
+    "Country": {
+      "type": "string",
+      "description": "Normalized sovereign country name."
+    },
+    "Country Code": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "ISO 3166-1 alpha-2 two-letter country code."
+    },
+    "Latitude": {
+      "type": ["number", "string", "null"],
+      "minimum": -90.0,
+      "maximum": 90.0,
+      "description": "WGS-84 decimal latitude."
+    },
+    "Longitude": {
+      "type": ["number", "string", "null"],
+      "minimum": -180.0,
+      "maximum": 180.0,
+      "description": "WGS-84 decimal longitude."
+    },
+    "Recommended Disposition": {
+      "type": "string",
+      "enum": ["accept", "sublocation", "in_batch_merge", "exclude", "ignore", "update_existing"],
+      "description": "System-recommended triage disposition."
+    },
+    "User Disposition": {
+      "type": ["string", "null"],
+      "description": "User-assigned triage disposition."
+    },
+    "Confidence Score": {
+      "type": ["integer", "string"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Resolution confidence percentage."
+    },
+    "Disposition Justification": {
+      "type": "string",
+      "description": "Reasoning supporting the disposition."
+    },
+    "Description": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Synthesized or extracted descriptive overview."
+    },
+    "Reason to Visit": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Experiential rationale for travelers."
+    },
+    "Hero Image URL": {
+      "type": "string",
+      "description": "Primary high-resolution image URL."
+    },
+    "Official URL": {
+      "type": "string",
+      "description": "Official destination website URL."
+    },
+    "Wikipedia URL": {
+      "type": "string",
+      "description": "Authoritative Wikipedia article URL."
+    },
+    "Related Websites": {
+      "type": "string",
+      "description": "JSON-encoded array of website name and URL objects."
+    },
+    "No Websites Flag": {
+      "type": ["boolean", "string"],
+      "description": "Explicit user indication that the POI possesses no websites."
+    },
+    "Tags": {
+      "type": "string",
+      "description": "Semicolon-separated taxonomy tags."
+    },
+    "Photo Directory": {
+      "type": "string",
+      "description": "Filesystem directory path of photos."
+    },
+    "Photo Directories": {
+      "type": "string",
+      "description": "Semicolon-separated directory paths."
+    },
+    "Dates Visited": {
+      "type": "string",
+      "description": "Semicolon-separated ISO dates."
+    },
+    "Recommended Duration Hours": {
+      "type": ["number", "string", "null"],
+      "description": "Dwell time estimate in hours."
+    },
+    "Recommended Visit Days": {
+      "type": ["integer", "string", "null"],
+      "description": "Itinerary duration in days."
+    },
+    "Estimated Visit Time Notes": {
+      "type": "string",
+      "description": "Practical visit time guidance."
+    },
+    "Parent Candidate ID": {
+      "type": ["string", "null"],
+      "description": "Candidate ID of the parent macro-site in the same batch."
+    },
+    "Parent POI ID": {
+      "type": ["string", "null"],
+      "description": "UUID of the existing database parent POI."
+    },
+    "Matched Existing POI ID": {
+      "type": ["string", "null"],
+      "description": "UUID of the duplicate database POI."
+    },
+    "Merge Target ID": {
+      "type": ["string", "null"],
+      "description": "Candidate ID of the in-batch merge target."
+    },
+    "Is User Overridden": {
+      "type": ["boolean", "string"],
+      "description": "Whether the record contains manual user edits."
+    }
+  }
+}
+

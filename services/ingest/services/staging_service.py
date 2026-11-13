@@ -183,7 +183,9 @@ class StagingService:
                 continue
 
             try:
-                lat, lon, addrs, _ = await self._geocoding_service.geocode(query, country_hint=country)
+                lat, lon, addrs, _ = await self._geocoding_service.geocode(
+                    query, country_hint=country
+                )
                 if batch_cache is not None:
                     batch_cache[query] = (lat, lon, addrs)
                 if lat is not None and lon is not None:
@@ -259,7 +261,9 @@ class StagingService:
                         db_tags = await self._tag_repo.get_tags_for_poi(existing_poi.id)
                         existing_tags.update(t.name.strip().lower() for t in db_tags)
                     except Exception as exc:
-                        logger.debug("Failed querying existing tags for POI %s: %s", existing_poi.id, exc)
+                        logger.debug(
+                            "Failed querying existing tags for POI %s: %s", existing_poi.id, exc
+                        )
                 if hasattr(existing_poi, "tags") and existing_poi.tags:
                     for t in existing_poi.tags:
                         if isinstance(t, str) and t.strip():
@@ -296,7 +300,9 @@ class StagingService:
             if existing_poi.address:
                 existing_streets.add(existing_poi.address.strip().lower())
             for addr in getattr(existing_poi, "addresses", []) or []:
-                s = getattr(addr, "street", None) or (addr.get("street") if isinstance(addr, dict) else None)
+                s = getattr(addr, "street", None) or (
+                    addr.get("street") if isinstance(addr, dict) else None
+                )
                 if s:
                     existing_streets.add(str(s).strip().lower())
             if cand_street not in existing_streets:
@@ -313,7 +319,9 @@ class StagingService:
         if state and state.strip():
             cand_state = state.strip().lower()
             existing_state = (existing_poi.admin_level_1 or "").strip().lower()
-            existing_states = {s.strip().lower() for s in (getattr(existing_poi, "states", []) or [])}
+            existing_states = {
+                s.strip().lower() for s in (getattr(existing_poi, "states", []) or [])
+            }
             if existing_state:
                 if cand_state != existing_state and cand_state not in existing_states:
                     return True
@@ -368,7 +376,9 @@ class StagingService:
             if existing_poi.recommended_duration_hours is None:
                 return True
             try:
-                if float(recommended_duration_hours) != float(existing_poi.recommended_duration_hours):
+                if float(recommended_duration_hours) != float(
+                    existing_poi.recommended_duration_hours
+                ):
                     return True
             except (ValueError, TypeError):
                 pass
@@ -416,7 +426,15 @@ class StagingService:
         state = rec.state_province[0] if rec.state_province else None
         postal = rec.zip_code[0] if rec.zip_code else None
         country = rec.country[0] if rec.country else None
-        country_code = "CN" if (is_great_wall or is_summer_palace) else (AddressNormalizer.country_to_iso_code(country) if country and AddressNormalizer.country_to_iso_code(country) != "XX" else "US")
+        country_code = (
+            "CN"
+            if (is_great_wall or is_summer_palace)
+            else (
+                AddressNormalizer.country_to_iso_code(country)
+                if country and AddressNormalizer.country_to_iso_code(country) != "XX"
+                else "US"
+            )
+        )
         admin_level_1 = None
         admin_level_2 = None
         locality = None
@@ -496,9 +514,16 @@ class StagingService:
                 # Hong Kong and Macau Special Administrative Regions
                 is_hk = (
                     state in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
-                    or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or admin_level_1
+                    in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
                     or "hong kong" in rec.poi_name.lower()
-                    or (city and any(k in city.lower() for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")))
+                    or (
+                        city
+                        and any(
+                            k in city.lower()
+                            for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")
+                        )
+                    )
                 )
                 is_macau = (
                     state in ("Macau", "Macao")
@@ -519,7 +544,12 @@ class StagingService:
                     city = "Macau"
                     locality = "Macau"
                 # Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
-                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in (
+                    "Beijing",
+                    "Shanghai",
+                    "Tianjin",
+                    "Chongqing",
+                ):
                     city = state or admin_level_1
                     locality = city
                 elif raw_geocoding and isinstance(raw_geocoding, dict):
@@ -538,7 +568,9 @@ class StagingService:
                         city = "Xi'an"
                         locality = "Xi'an"
                         if not admin_level_2:
-                            admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            admin_level_2 = (
+                                "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            )
                     elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
                         city = "Lhasa"
                         locality = "Lhasa"
@@ -610,9 +642,16 @@ class StagingService:
                 # Hong Kong and Macau Special Administrative Regions
                 is_hk = (
                     state in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
-                    or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or admin_level_1
+                    in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
                     or "hong kong" in rec.poi_name.lower()
-                    or (city and any(k in city.lower() for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")))
+                    or (
+                        city
+                        and any(
+                            k in city.lower()
+                            for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")
+                        )
+                    )
                 )
                 is_macau = (
                     state in ("Macau", "Macao")
@@ -633,7 +672,12 @@ class StagingService:
                     city = "Macau"
                     locality = "Macau"
                 # Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
-                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in (
+                    "Beijing",
+                    "Shanghai",
+                    "Tianjin",
+                    "Chongqing",
+                ):
                     city = state or admin_level_1
                     locality = city
                 elif raw_geocoding and isinstance(raw_geocoding, dict):
@@ -652,7 +696,9 @@ class StagingService:
                         city = "Xi'an"
                         locality = "Xi'an"
                         if not admin_level_2:
-                            admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            admin_level_2 = (
+                                "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            )
                     elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
                         city = "Lhasa"
                         locality = "Lhasa"
@@ -688,110 +734,147 @@ class StagingService:
                     break
 
         # 4. Deduplication & Nesting classification (REQ-ING-006 to REQ-ING-010, FR-019, FR-020)
+        raw_user_disp = getattr(rec, "user_disposition", None)
+        user_disposition: IngestDisposition | None = None
+        if raw_user_disp:
+            if isinstance(raw_user_disp, IngestDisposition):
+                user_disposition = raw_user_disp
+            else:
+                with contextlib.suppress(Exception):
+                    user_disposition = IngestDisposition(str(raw_user_disp).strip().lower())
+
+        is_overridden = bool(getattr(rec, "is_user_overridden", False))
+        disposition_justification = getattr(rec, "disposition_justification", None)
+
         recommended_disposition = IngestDisposition.ACCEPT
-        matched_existing_poi_id: UUID | None = None
-        parent_poi_id: UUID | None = None
-        merge_target_id: UUID | None = None
-        disposition_justification: str | None = None
+        matched_existing_poi_id: UUID | None = getattr(rec, "matched_existing_poi_id", None)
+        parent_poi_id: UUID | None = getattr(rec, "parent_poi_id", None)
+        merge_target_id: UUID | None = getattr(rec, "merge_target_id", None)
 
-        in_batch_match = self._check_in_batch_duplicate(
-            rec.poi_name, lat, lon, candidates_to_stage
-        )
-
-        if is_excluded:
-            recommended_disposition = IngestDisposition.EXCLUDE
-            disposition_justification = "Point falls within user exclusion zone"
-        elif in_batch_match is not None:
-            # In-batch duplicate match
-            recommended_disposition = IngestDisposition.IN_BATCH_MERGE
-            merge_target_id = in_batch_match.id
-            disposition_justification = f"Duplicate of #{in_batch_match.row_index + 1} '{in_batch_match.poi_name}' in batch"
-        elif lat is None or lon is None:
-            # Unmappable missing-coordinate row (REQ-ING-005)
-            recommended_disposition = IngestDisposition.IGNORE
-            disposition_justification = "Missing coordinates and geocoding failed"
-        elif self._duplicate_service is not None:
-            verdict = await self._duplicate_service.evaluate_candidate(
-                user_id=user_id,
-                name=rec.poi_name,
-                latitude=lat,
-                longitude=lon,
-            )
-            if verdict.status == "POTENTIAL_DUPLICATE":
-                matched_existing_poi_id = verdict.existing_poi_id
-                changes_values = True
-                if self._poi_repo:
-                    try:
-                        existing_poi = await self._poi_repo.get_by_id(matched_existing_poi_id, user_id)
-                        if existing_poi:
-                            changes_values = await self._check_if_import_changes_poi(
-                                existing_poi=existing_poi,
-                                user_id=user_id,
-                                lat=lat,
-                                lon=lon,
-                                street=street,
-                                city=city,
-                                state=state,
-                                country=country,
-                                tags=getattr(rec, "tags", None) or [],
-                                dates_visited=getattr(rec, "dates_visited", None) or [],
-                                photo_directory=getattr(rec, "photo_directory", None) or "",
-                                description=getattr(rec, "description", None) or getattr(rec, "ai_description", None),
-                                reason_to_visit=getattr(rec, "reason_to_visit", None),
-                                official_url=getattr(rec, "official_website", None) or getattr(rec, "official_url", None),
-                                wiki_url=getattr(rec, "wikipedia_url", None) or getattr(rec, "wiki_url", None),
-                                hero_image_url=getattr(rec, "hero_image_url", None),
-                                related_websites=getattr(rec, "related_websites", None) or [],
-                                recommended_duration_hours=getattr(rec, "recommended_duration_hours", None),
-                                recommended_visit_days=getattr(rec, "itinerary_days", None) or getattr(rec, "recommended_visit_days", None),
-                                estimated_visit_time_notes=getattr(rec, "estimated_visit_time_notes", None),
-                            )
-                    except Exception as exc:
-                        logger.debug("Failed checking POI changes: %s", exc)
-
-                if not changes_values:
-                    recommended_disposition = IngestDisposition.EXISTING
-                    disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' with identical values (no changes detected)"
+        if user_disposition is not None or is_overridden:
+            # Preserved imported user disposition bypassing heuristic recalculation (FR-007)
+            raw_rec_disp = getattr(rec, "recommended_disposition", None)
+            if raw_rec_disp:
+                if isinstance(raw_rec_disp, IngestDisposition):
+                    recommended_disposition = raw_rec_disp
                 else:
-                    recommended_disposition = IngestDisposition.UPDATE_EXISTING
-                    disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
-            elif verdict.status == "NEARBY_PARENT":
-                recommended_disposition = IngestDisposition.SUBLOCATION
-                parent_poi_id = verdict.existing_poi_id
-                disposition_justification = f"Near macro-site '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
+                    with contextlib.suppress(Exception):
+                        recommended_disposition = IngestDisposition(
+                            str(raw_rec_disp).strip().lower()
+                        )
+            elif user_disposition is not None:
+                recommended_disposition = user_disposition
+        else:
+            in_batch_match = self._check_in_batch_duplicate(
+                rec.poi_name, lat, lon, candidates_to_stage
+            )
+
+            if is_excluded:
+                recommended_disposition = IngestDisposition.EXCLUDE
+                disposition_justification = "Point falls within user exclusion zone"
+            elif in_batch_match is not None:
+                # In-batch duplicate match
+                recommended_disposition = IngestDisposition.IN_BATCH_MERGE
+                merge_target_id = in_batch_match.id
+                disposition_justification = f"Duplicate of #{in_batch_match.row_index + 1} '{in_batch_match.poi_name}' in batch"
+            elif lat is None or lon is None:
+                # Unmappable missing-coordinate row (REQ-ING-005)
+                recommended_disposition = IngestDisposition.IGNORE
+                disposition_justification = "Missing coordinates and geocoding failed"
+            elif self._duplicate_service is not None:
+                verdict = await self._duplicate_service.evaluate_candidate(
+                    user_id=user_id,
+                    name=rec.poi_name,
+                    latitude=lat,
+                    longitude=lon,
+                )
+                if verdict.status == "POTENTIAL_DUPLICATE":
+                    matched_existing_poi_id = verdict.existing_poi_id
+                    changes_values = True
+                    if self._poi_repo:
+                        try:
+                            existing_poi = await self._poi_repo.get_by_id(
+                                matched_existing_poi_id, user_id
+                            )
+                            if existing_poi:
+                                changes_values = await self._check_if_import_changes_poi(
+                                    existing_poi=existing_poi,
+                                    user_id=user_id,
+                                    lat=lat,
+                                    lon=lon,
+                                    street=street,
+                                    city=city,
+                                    state=state,
+                                    country=country,
+                                    tags=getattr(rec, "tags", None) or [],
+                                    dates_visited=getattr(rec, "dates_visited", None) or [],
+                                    photo_directory=getattr(rec, "photo_directory", None) or "",
+                                    description=getattr(rec, "description", None)
+                                    or getattr(rec, "ai_description", None),
+                                    reason_to_visit=getattr(rec, "reason_to_visit", None),
+                                    official_url=getattr(rec, "official_website", None)
+                                    or getattr(rec, "official_url", None),
+                                    wiki_url=getattr(rec, "wikipedia_url", None)
+                                    or getattr(rec, "wiki_url", None),
+                                    hero_image_url=getattr(rec, "hero_image_url", None),
+                                    related_websites=getattr(rec, "related_websites", None) or [],
+                                    recommended_duration_hours=getattr(
+                                        rec, "recommended_duration_hours", None
+                                    ),
+                                    recommended_visit_days=getattr(rec, "itinerary_days", None)
+                                    or getattr(rec, "recommended_visit_days", None),
+                                    estimated_visit_time_notes=getattr(
+                                        rec, "estimated_visit_time_notes", None
+                                    ),
+                                )
+                        except Exception as exc:
+                            logger.debug("Failed checking POI changes: %s", exc)
+
+                    if not changes_values:
+                        recommended_disposition = IngestDisposition.EXISTING
+                        disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' with identical values (no changes detected)"
+                    else:
+                        recommended_disposition = IngestDisposition.UPDATE_EXISTING
+                        disposition_justification = f"Matches existing POI '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
+                elif verdict.status == "NEARBY_PARENT":
+                    recommended_disposition = IngestDisposition.SUBLOCATION
+                    parent_poi_id = verdict.existing_poi_id
+                    disposition_justification = f"Near macro-site '{verdict.existing_poi_name}' ({round(verdict.distance_meters, 1)}m away)"
+                else:
+                    if is_great_wall:
+                        recommended_disposition = IngestDisposition.ACCEPT
+                        disposition_justification = "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
+                    elif 0 < confidence_score < 40:
+                        recommended_disposition = IngestDisposition.IGNORE
+                        disposition_justification = "Low confidence location score"
+                    else:
+                        recommended_disposition = IngestDisposition.ACCEPT
+                        disposition_justification = "Unique coordinate location verified"
             else:
                 if is_great_wall:
                     recommended_disposition = IngestDisposition.ACCEPT
-                    disposition_justification = (
-                        "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
-                    )
+                    disposition_justification = "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
                 elif 0 < confidence_score < 40:
                     recommended_disposition = IngestDisposition.IGNORE
                     disposition_justification = "Low confidence location score"
                 else:
                     recommended_disposition = IngestDisposition.ACCEPT
                     disposition_justification = "Unique coordinate location verified"
-        else:
-            if is_great_wall:
-                recommended_disposition = IngestDisposition.ACCEPT
-                disposition_justification = (
-                    "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
-                )
-            elif 0 < confidence_score < 40:
-                recommended_disposition = IngestDisposition.IGNORE
-                disposition_justification = "Low confidence location score"
-            else:
-                recommended_disposition = IngestDisposition.ACCEPT
-                disposition_justification = "Unique coordinate location verified"
+
+        # Resolve duration hours as Decimal or None
+        rec_duration: Decimal | None = None
+        if getattr(rec, "recommended_duration_hours", None) is not None:
+            with contextlib.suppress(Exception):
+                rec_duration = Decimal(str(rec.recommended_duration_hours))
 
         return IngestCandidate(
             id=uuid4(),
             user_id=user_id,
             job_id=job_id,
-            row_index=idx,
+            row_index=idx if getattr(rec, "row_index", None) is None else rec.row_index,
             poi_name=rec.poi_name,
             recommended_disposition=recommended_disposition,
-            user_disposition=None,
+            user_disposition=user_disposition,
             matched_existing_poi_id=matched_existing_poi_id,
             parent_poi_id=parent_poi_id,
             latitude=Decimal(str(round(lat, 7))) if lat is not None else None,
@@ -802,14 +885,15 @@ class StagingService:
             admin_level_1=admin_level_1 or state,
             admin_level_2=admin_level_2,
             locality=locality or city,
-            raw_geocoding=raw_geocoding,
+            raw_geocoding=raw_geocoding or getattr(rec, "raw_geocoding", None),
             state_province=state,
             postal_code=postal,
             country=country,
-            photo_directories=[rec.photo_directory] if rec.photo_directory else [],
+            photo_directories=getattr(rec, "photo_directories", None)
+            or ([rec.photo_directory] if rec.photo_directory else []),
             addresses=addresses_list,
-            dates_visited=list(rec.dates_visited),
-            photo_directory=rec.photo_directory,
+            dates_visited=list(rec.dates_visited or []),
+            photo_directory=rec.photo_directory or "",
             confidence_score=confidence_score,
             tags=[
                 tag_lookup[t.strip().lower()]
@@ -818,15 +902,23 @@ class StagingService:
             ]
             if tag_lookup
             else list(rec.tags or []),
-            description=None,
-            reason_to_visit=None,
+            description=getattr(rec, "description", None),
+            reason_to_visit=getattr(rec, "reason_to_visit", None),
+            official_url=getattr(rec, "official_url", None)
+            or getattr(rec, "official_website", None),
+            wiki_url=getattr(rec, "wiki_url", None) or getattr(rec, "wikipedia_url", None),
+            hero_image_url=getattr(rec, "hero_image_url", None),
+            related_websites=getattr(rec, "related_websites", None) or [],
+            recommended_duration_hours=rec_duration,
+            recommended_visit_days=getattr(rec, "recommended_visit_days", None),
+            estimated_visit_time_notes=getattr(rec, "estimated_visit_time_notes", None),
             update_coordinates=False,
             is_skipped=False,
             phase_state=IngestCandidatePhaseState.PHASE_1_TRIAGE,
-            no_websites=False,
+            no_websites=getattr(rec, "no_websites", False),
             disposition_justification=disposition_justification,
-            is_user_overridden=False,
-            parent_candidate_id=None,
+            is_user_overridden=is_overridden,
+            parent_candidate_id=getattr(rec, "parent_candidate_id", None),
             merge_target_id=merge_target_id,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -857,6 +949,7 @@ class StagingService:
             except Exception as exc:
                 logger.debug("Could not load user tags for filtering staging upload: %s", exc)
 
+        uuid_translation_map: dict[UUID, UUID] = {}
         for idx, rec in enumerate(records):
             cand = await self._process_single_export_record(
                 idx=idx,
@@ -868,7 +961,19 @@ class StagingService:
                 tag_lookup=tag_lookup,
                 batch_geocache=batch_geocache,
             )
+            if getattr(rec, "candidate_id", None):
+                uuid_translation_map[rec.candidate_id] = cand.id
             candidates_to_stage.append(cand)
+
+        # Reconstruct intra-batch parent_candidate_id and merge_target_id (FR-011)
+        if uuid_translation_map:
+            for cand, rec in zip(candidates_to_stage, records, strict=False):
+                raw_parent = getattr(rec, "parent_candidate_id", None)
+                if raw_parent and raw_parent in uuid_translation_map:
+                    cand.parent_candidate_id = uuid_translation_map[raw_parent]
+                raw_merge = getattr(rec, "merge_target_id", None)
+                if raw_merge and raw_merge in uuid_translation_map:
+                    cand.merge_target_id = uuid_translation_map[raw_merge]
 
         return await self._candidate_repo.create_batch(candidates_to_stage)
 
@@ -898,6 +1003,7 @@ class StagingService:
             except Exception as exc:
                 logger.debug("Could not load user tags for filtering staging upload: %s", exc)
 
+        uuid_translation_map: dict[UUID, UUID] = {}
         for idx, rec in enumerate(records):
             try:
                 cand = await self._process_single_export_record(
@@ -910,6 +1016,8 @@ class StagingService:
                     tag_lookup=tag_lookup,
                     batch_geocache=batch_geocache,
                 )
+                if getattr(rec, "candidate_id", None):
+                    uuid_translation_map[rec.candidate_id] = cand.id
                 await self._candidate_repo.create_batch([cand])
                 candidates_to_stage.append(cand)
 
@@ -927,7 +1035,9 @@ class StagingService:
                             "address": cand.street_address or "",
                             "city": cand.city or "",
                             "latitude": float(cand.latitude) if cand.latitude is not None else None,
-                            "longitude": float(cand.longitude) if cand.longitude is not None else None,
+                            "longitude": float(cand.longitude)
+                            if cand.longitude is not None
+                            else None,
                         },
                     }
                     if self._ingest_repo:
@@ -939,7 +1049,9 @@ class StagingService:
                 if session is not None and hasattr(session, "commit"):
                     await session.commit()
             except Exception as exc:
-                logger.exception("Failed processing row %d (%s) for job %s: %s", idx, rec.poi_name, job_id, exc)
+                logger.exception(
+                    "Failed processing row %d (%s) for job %s: %s", idx, rec.poi_name, job_id, exc
+                )
                 if self._ingest_repo:
                     error_obj = {
                         "row_number": idx + 1,
@@ -954,6 +1066,25 @@ class StagingService:
                 if session is not None and hasattr(session, "commit"):
                     with contextlib.suppress(Exception):
                         await session.commit()
+
+        if uuid_translation_map:
+            for cand, rec in zip(candidates_to_stage, records, strict=False):
+                raw_parent = getattr(rec, "parent_candidate_id", None)
+                raw_merge = getattr(rec, "merge_target_id", None)
+                needs_update = False
+                if raw_parent and raw_parent in uuid_translation_map:
+                    cand.parent_candidate_id = uuid_translation_map[raw_parent]
+                    needs_update = True
+                if raw_merge and raw_merge in uuid_translation_map:
+                    cand.merge_target_id = uuid_translation_map[raw_merge]
+                    needs_update = True
+                if (
+                    needs_update
+                    and self._candidate_repo
+                    and hasattr(self._candidate_repo, "update_candidate")
+                ):
+                    with contextlib.suppress(Exception):
+                        await self._candidate_repo.update_candidate(user_id, cand)
 
         if self._ingest_repo:
             await self._ingest_repo.update_job_status(job_id, user_id, IngestJobStatus.COMPLETED)
@@ -1124,9 +1255,16 @@ class StagingService:
                 # Hong Kong and Macau Special Administrative Regions
                 is_hk = (
                     state in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
-                    or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+                    or admin_level_1
+                    in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
                     or "hong kong" in rec.poi_name.lower()
-                    or (city and any(k in city.lower() for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")))
+                    or (
+                        city
+                        and any(
+                            k in city.lower()
+                            for k in ("mong kok", "tsim sha tsui", "hong kong", "fife street")
+                        )
+                    )
                 )
                 is_macau = (
                     state in ("Macau", "Macao")
@@ -1147,7 +1285,12 @@ class StagingService:
                     city = "Macau"
                     locality = "Macau"
                 # Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
-                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                elif state in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or admin_level_1 in (
+                    "Beijing",
+                    "Shanghai",
+                    "Tianjin",
+                    "Chongqing",
+                ):
                     city = state or admin_level_1
                     locality = city
                 elif raw_geocoding and isinstance(raw_geocoding, dict):
@@ -1166,7 +1309,9 @@ class StagingService:
                         city = "Xi'an"
                         locality = "Xi'an"
                         if not admin_level_2:
-                            admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            admin_level_2 = (
+                                "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            )
                     elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
                         city = "Lhasa"
                         locality = "Lhasa"
@@ -1265,7 +1410,9 @@ class StagingService:
                         changes_values = True
                         if self._poi_repo:
                             try:
-                                existing_poi = await self._poi_repo.get_by_id(matched_existing_poi_id, user_id)
+                                existing_poi = await self._poi_repo.get_by_id(
+                                    matched_existing_poi_id, user_id
+                                )
                                 if existing_poi:
                                     changes_values = await self._check_if_import_changes_poi(
                                         existing_poi=existing_poi,
@@ -1353,8 +1500,10 @@ class StagingService:
         return await self._candidate_repo.create_batch(candidates_to_stage)
 
     @staticmethod
-    def _normalize_china_candidate(cand: IngestCandidate) -> None:
-        if cand.country_code == "CN" or (cand.country and cand.country.strip().lower() in ("china", "中国")):
+    def _normalize_china_candidate(cand: IngestCandidate) -> None:  # noqa: C901
+        if cand.country_code == "CN" or (
+            cand.country and cand.country.strip().lower() in ("china", "中国")
+        ):
             c_city = cand.city or cand.locality or ""
             c_city_lower = c_city.strip().lower()
             is_district = (
@@ -1367,12 +1516,19 @@ class StagingService:
                 if not cand.admin_level_2:
                     cand.admin_level_2 = c_city
                 # Direct municipalities
-                if cand.state_province in ("Beijing", "Shanghai", "Tianjin", "Chongqing") or cand.admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+                if cand.state_province in (
+                    "Beijing",
+                    "Shanghai",
+                    "Tianjin",
+                    "Chongqing",
+                ) or cand.admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
                     cand.city = cand.state_province or cand.admin_level_1
                     cand.locality = cand.city
                 elif cand.raw_geocoding and isinstance(cand.raw_geocoding, dict):
                     re_p = AddressNormalizer.parse_nominatim_iso_address(cand.raw_geocoding)
-                    if re_p.get("locality") and not any(k in re_p["locality"].lower() for k in ("district", "subdistrict")):
+                    if re_p.get("locality") and not any(
+                        k in re_p["locality"].lower() for k in ("district", "subdistrict")
+                    ):
                         cand.city = re_p["locality"]
                         cand.locality = re_p["locality"]
                     if re_p.get("admin_level_2"):
@@ -1387,7 +1543,9 @@ class StagingService:
                         cand.city = "Xi'an"
                         cand.locality = "Xi'an"
                         if not cand.admin_level_2:
-                            cand.admin_level_2 = "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            cand.admin_level_2 = (
+                                "Yanta District" if "wild goose" in p_low else "Lintong District"
+                            )
                     elif "jokhang" in p_low or "potala" in p_low or "sera" in p_low:
                         cand.city = "Lhasa"
                         cand.locality = "Lhasa"
@@ -1435,7 +1593,11 @@ class StagingService:
                 if cand.matched_existing_poi_id:
                     continue
                 disp = cand.user_disposition or cand.recommended_disposition
-                if disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
+                if disp in (
+                    IngestDisposition.IGNORE,
+                    IngestDisposition.EXCLUDE,
+                    IngestDisposition.EXISTING,
+                ):
                     continue
 
                 norm_key = f"{cand.poi_name.strip().lower()}|{(cand.city or '').strip().lower()}"
@@ -1510,13 +1672,22 @@ class StagingService:
                 )
 
         # Orphan prevention guard (FR-027)
-        if target_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
+        if target_disp in (
+            IngestDisposition.IGNORE,
+            IngestDisposition.EXCLUDE,
+            IngestDisposition.EXISTING,
+        ):
             all_cands = await self._candidate_repo.list_by_job(user_id, candidate.job_id)
             for c in all_cands:
                 c_disp = c.user_disposition or c.recommended_disposition
                 if (
                     c.id != candidate.id
-                    and c_disp not in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING)
+                    and c_disp
+                    not in (
+                        IngestDisposition.IGNORE,
+                        IngestDisposition.EXCLUDE,
+                        IngestDisposition.EXISTING,
+                    )
                     and (c.parent_candidate_id == candidate.id or c.merge_target_id == candidate.id)
                 ):
                     raise HTTPException(
@@ -1572,7 +1743,9 @@ class StagingService:
             candidate.no_websites = False
 
         if "hero_image_urls" in update_fields and update_fields["hero_image_urls"] is not None:
-            raw_geo = dict(candidate.raw_geocoding) if isinstance(candidate.raw_geocoding, dict) else {}
+            raw_geo = (
+                dict(candidate.raw_geocoding) if isinstance(candidate.raw_geocoding, dict) else {}
+            )
             raw_geo["hero_image_urls"] = list(update_fields["hero_image_urls"])
             candidate.raw_geocoding = raw_geo
 
@@ -1627,7 +1800,11 @@ class StagingService:
 
         for cand in candidates:
             effective_disp = cand.user_disposition or cand.recommended_disposition
-            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
+            if effective_disp in (
+                IngestDisposition.IGNORE,
+                IngestDisposition.EXCLUDE,
+                IngestDisposition.EXISTING,
+            ):
                 ignored_count += 1
                 continue
 
@@ -1761,7 +1938,11 @@ class StagingService:
                 continue
 
             effective_disp = cand.user_disposition or cand.recommended_disposition
-            if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
+            if effective_disp in (
+                IngestDisposition.IGNORE,
+                IngestDisposition.EXCLUDE,
+                IngestDisposition.EXISTING,
+            ):
                 continue
 
             lat = float(cand.latitude) if cand.latitude is not None else 0.0
@@ -1881,8 +2062,19 @@ class StagingService:
                 city=cand.city,
                 country_code=(
                     cand.country_code
-                    if cand.country_code and cand.country_code != "XX" and not (cand.country_code == "US" and cand.country and cand.country.strip().lower() not in ("united states", "usa", "us"))
-                    else (AddressNormalizer.country_to_iso_code(cand.country) if cand.country and AddressNormalizer.country_to_iso_code(cand.country) != "XX" else "US")
+                    if cand.country_code
+                    and cand.country_code != "XX"
+                    and not (
+                        cand.country_code == "US"
+                        and cand.country
+                        and cand.country.strip().lower() not in ("united states", "usa", "us")
+                    )
+                    else (
+                        AddressNormalizer.country_to_iso_code(cand.country)
+                        if cand.country
+                        and AddressNormalizer.country_to_iso_code(cand.country) != "XX"
+                        else "US"
+                    )
                 ),
                 admin_level_1=cand.admin_level_1,
                 admin_level_2=cand.admin_level_2,
@@ -2209,7 +2401,14 @@ class StagingService:
 
         has_updates = any(
             getattr(req, field, None) is not None
-            for field in ("country", "state_province", "city", "date_visited", "add_tag", "remove_tag")
+            for field in (
+                "country",
+                "state_province",
+                "city",
+                "date_visited",
+                "add_tag",
+                "remove_tag",
+            )
         )
         if not has_updates:
             return 0
