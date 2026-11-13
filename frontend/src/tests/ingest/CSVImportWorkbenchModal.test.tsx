@@ -17,7 +17,14 @@ import "@testing-library/jest-dom/vitest";
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  cleanup,
+  within,
+} from "@testing-library/react";
 
 afterEach(() => {
   cleanup();
@@ -118,8 +125,8 @@ vi.mock("../../services/geocodeService", () => ({
       isSpecificLandmark: true,
     },
     {
-      lat: 35.4000,
-      lng: 138.8000,
+      lat: 35.4,
+      lng: 138.8,
       display_name: "Fuji-Hakone-Izu National Park, Japan",
       name: "Fuji-Hakone-Izu National Park",
       type: "national_park",
@@ -218,7 +225,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       total_candidates: 2,
       candidates: mockCandidates,
     });
-    const { forwardSearch, reverseGeocode } = await import("../../services/geocodeService");
+    const { forwardSearch, reverseGeocode } = await import(
+      "../../services/geocodeService"
+    );
     vi.mocked(reverseGeocode).mockResolvedValue({
       street: "123 New Road",
       city: "Fujinomiya",
@@ -235,7 +244,8 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       {
         lat: 35.3606,
         lng: 138.7274,
-        display_name: "Mount Fuji, Kitayama, Fujinomiya, Shizuoka Prefecture, Japan",
+        display_name:
+          "Mount Fuji, Kitayama, Fujinomiya, Shizuoka Prefecture, Japan",
         name: "Mount Fuji",
         type: "volcano",
         class: "natural",
@@ -243,8 +253,8 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
         isSpecificLandmark: true,
       },
       {
-        lat: 35.4000,
-        lng: 138.8000,
+        lat: 35.4,
+        lng: 138.8,
         display_name: "Fuji-Hakone-Izu National Park, Japan",
         name: "Fuji-Hakone-Izu National Park",
         type: "national_park",
@@ -402,7 +412,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("recalculate-force-refresh-btn")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("recalculate-force-refresh-btn"),
+      ).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByTestId("recalculate-force-refresh-btn"));
@@ -916,10 +928,15 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     // Verify Incomplete badge has title attribute listing what's missing
     const badge = screen.getByTestId("completeness-badge-incomplete");
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveAttribute("title", "Missing: Photo, Street Address, Websites");
+    expect(badge).toHaveAttribute(
+      "title",
+      "Missing: Photo, Street Address, Websites",
+    );
 
     // Verify Assigned Disposition & Rationale readonly textarea includes the missing fields
-    const rationaleTextarea = screen.getByTestId("disposition-rationale-readonly");
+    const rationaleTextarea = screen.getByTestId(
+      "disposition-rationale-readonly",
+    );
     expect(rationaleTextarea).toHaveValue(
       "Disposition: accept\nRationale: Unique coordinate location verified\nMissing: Photo, Street Address, Websites",
     );
@@ -990,7 +1007,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal({ existingPOIs: [existingDbPoi as any] });
 
     await waitFor(() => {
-      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Existing Petra");
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Existing Petra",
+      );
     });
 
     // POI Name matches -> light green #f0fdf4
@@ -1025,16 +1044,20 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     expect(screen.getByTestId("matched-existing-poi-card")).toBeInTheDocument();
 
     // Verify original value is displayed in parenthesis on differing field labels
-    expect(screen.getByTestId("field-diff-current-value-street_address")).toHaveTextContent(
-      "(Current: Petra Main Trail)",
-    );
-    expect(screen.getByTestId("field-diff-current-value-description")).toHaveTextContent(
-      "(Current: Ancient carved city)",
-    );
+    expect(
+      screen.getByTestId("field-diff-current-value-street_address"),
+    ).toHaveTextContent("(Current: Petra Main Trail)");
+    expect(
+      screen.getByTestId("field-diff-current-value-description"),
+    ).toHaveTextContent("(Current: Ancient carved city)");
 
     // Verify matching fields do not render (Current: ...)
-    expect(screen.queryByTestId("field-diff-current-value-poi_name")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("field-diff-current-value-city")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("field-diff-current-value-poi_name"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("field-diff-current-value-city"),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps standard background on candidate not associated with any existing POI", async () => {
@@ -1084,13 +1107,17 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Brand New Spot");
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Brand New Spot",
+      );
     });
 
     const nameInput = screen.getByTestId("editor-poi-name-input");
     expect(nameInput.style.backgroundColor).not.toBe("rgb(240, 253, 244)");
     expect(nameInput.style.backgroundColor).not.toBe("rgb(254, 252, 232)");
-    expect(screen.queryByTestId("matched-existing-poi-card")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("matched-existing-poi-card"),
+    ).not.toBeInTheDocument();
   });
 
   it("detects Google Maps URL in search input and populates coordinates and address on Find", async () => {
@@ -1124,7 +1151,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("latitude-input")).toHaveValue("32.472700");
       expect(screen.getByTestId("longitude-input")).toHaveValue("3.708202");
-      expect(screen.getByTestId("street-address-input")).toHaveValue("Ksar El Atteuf");
+      expect(screen.getByTestId("street-address-input")).toHaveValue(
+        "Ksar El Atteuf",
+      );
       expect(screen.getByTestId("city-input")).toHaveValue("Ghardaïa");
       expect(screen.getByTestId("country-input")).toHaveValue("Algeria");
     });
@@ -1161,7 +1190,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("latitude-input")).toHaveValue("30.421880");
       expect(screen.getByTestId("longitude-input")).toHaveValue("108.183895");
-      expect(screen.getByTestId("street-address-input")).toHaveValue("Shibao Town");
+      expect(screen.getByTestId("street-address-input")).toHaveValue(
+        "Shibao Town",
+      );
       expect(screen.getByTestId("city-input")).toHaveValue("Zhong County");
       expect(screen.getByTestId("country-input")).toHaveValue("China");
     });
@@ -1206,23 +1237,33 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Name change prompt modal should appear
     await waitFor(() => {
-      expect(screen.getByTestId("name-change-prompt-modal")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("name-change-prompt-modal"),
+      ).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId("recommended-name-display")).toHaveTextContent("Baraqish");
+    expect(screen.getByTestId("recommended-name-display")).toHaveTextContent(
+      "Baraqish",
+    );
 
     // Click "Yes, Update Name"
     fireEvent.click(screen.getByTestId("name-change-yes-btn"));
 
     // Prompt closes and POI Name input is updated
     await waitFor(() => {
-      expect(screen.queryByTestId("name-change-prompt-modal")).not.toBeInTheDocument();
-      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Baraqish");
+      expect(
+        screen.queryByTestId("name-change-prompt-modal"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Baraqish",
+      );
     });
   });
 
   it("allows user to dismiss name change prompt without modifying POI name on No", async () => {
-    const { forwardSearch, reverseGeocode } = await import("../../services/geocodeService");
+    const { forwardSearch, reverseGeocode } = await import(
+      "../../services/geocodeService"
+    );
     vi.mocked(reverseGeocode).mockResolvedValue({
       street: "123 New Road",
       city: "Fujinomiya",
@@ -1248,7 +1289,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     fireEvent.click(screen.getByTestId("find-location-btn"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("name-change-prompt-modal")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("name-change-prompt-modal"),
+      ).toBeInTheDocument();
     });
 
     // Click "No, Keep Current Name"
@@ -1256,8 +1299,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Modal closes and original POI name remains
     await waitFor(() => {
-      expect(screen.queryByTestId("name-change-prompt-modal")).not.toBeInTheDocument();
-      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue("Mount Fuji");
+      expect(
+        screen.queryByTestId("name-change-prompt-modal"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Mount Fuji",
+      );
     });
   });
 
@@ -1334,8 +1381,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 1 of 3");
-      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo1.jpg");
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent(
+        "Photo 1 of 3",
+      );
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue(
+        "https://example.com/photo1.jpg",
+      );
     });
 
     // Click next image button
@@ -1343,8 +1394,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     fireEvent.click(nextBtn);
 
     await waitFor(() => {
-      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 2 of 3");
-      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo2.jpg");
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent(
+        "Photo 2 of 3",
+      );
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue(
+        "https://example.com/photo2.jpg",
+      );
     });
 
     // Click rotate image button
@@ -1352,16 +1407,24 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     fireEvent.click(rotateBtn);
 
     await waitFor(() => {
-      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 3 of 3");
-      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo3.jpg");
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent(
+        "Photo 3 of 3",
+      );
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue(
+        "https://example.com/photo3.jpg",
+      );
     });
 
     // Click next button wraps back to 1
     fireEvent.click(nextBtn);
 
     await waitFor(() => {
-      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent("Photo 1 of 3");
-      expect(screen.getByTestId("hero-image-url-input")).toHaveValue("https://example.com/photo1.jpg");
+      expect(screen.getByTestId("hero-image-count-badge")).toHaveTextContent(
+        "Photo 1 of 3",
+      );
+      expect(screen.getByTestId("hero-image-url-input")).toHaveValue(
+        "https://example.com/photo1.jpg",
+      );
     });
   });
 
@@ -1425,9 +1488,13 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       expect(screen.getByTestId("editor-poi-name-input")).toBeInTheDocument();
     });
 
-    const scrollContainer = screen.getByTestId("candidate-editor-scroll-container");
+    const scrollContainer = screen.getByTestId(
+      "candidate-editor-scroll-container",
+    );
     const poiNameInput = screen.getByTestId("editor-poi-name-input");
-    const dispositionRationale = screen.getByTestId("disposition-rationale-container");
+    const dispositionRationale = screen.getByTestId(
+      "disposition-rationale-container",
+    );
     const heroImageInput = screen.getByTestId("hero-image-url-input");
     const latInput = screen.getByTestId("latitude-input");
     const proximityContainer = screen.getByTestId("proximity-search-container");
@@ -1443,17 +1510,50 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     expect(visitDetailsSection).toBeInTheDocument();
 
     // Verify DOM sequence via compareDocumentPosition (DOCUMENT_POSITION_FOLLOWING = 4)
-    expect(poiNameInput.compareDocumentPosition(dispositionRationale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(dispositionRationale.compareDocumentPosition(heroImageInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(heroImageInput.compareDocumentPosition(latInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(latInput.compareDocumentPosition(proximityContainer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(proximityContainer.compareDocumentPosition(descriptionTextarea) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(descriptionTextarea.compareDocumentPosition(reasonTextarea) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(reasonTextarea.compareDocumentPosition(visitDetailsSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(visitDetailsSection.compareDocumentPosition(tagsContainer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(tagsContainer.compareDocumentPosition(visitDateInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(visitDateInput.compareDocumentPosition(directoryInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(directoryInput.compareDocumentPosition(websiteInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      poiNameInput.compareDocumentPosition(dispositionRationale) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      dispositionRationale.compareDocumentPosition(heroImageInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      heroImageInput.compareDocumentPosition(latInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      latInput.compareDocumentPosition(proximityContainer) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      proximityContainer.compareDocumentPosition(descriptionTextarea) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      descriptionTextarea.compareDocumentPosition(reasonTextarea) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      reasonTextarea.compareDocumentPosition(visitDetailsSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      visitDetailsSection.compareDocumentPosition(tagsContainer) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      tagsContainer.compareDocumentPosition(visitDateInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      visitDateInput.compareDocumentPosition(directoryInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      directoryInput.compareDocumentPosition(websiteInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     // Verify Visit Details inputs
     const durationHours = screen.getByTestId("duration-hours-input");
@@ -1479,13 +1579,17 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       expect(screen.getByTestId("perspective-select")).toBeInTheDocument();
     });
 
-    const perspectiveSelect = screen.getByTestId("perspective-select") as HTMLSelectElement;
+    const perspectiveSelect = screen.getByTestId(
+      "perspective-select",
+    ) as HTMLSelectElement;
     expect(perspectiveSelect.value).toBe("Location");
 
     // Toggle to POI
     fireEvent.change(perspectiveSelect, { target: { value: "POI" } });
     expect(perspectiveSelect.value).toBe("POI");
-    expect(sessionStorage.getItem("vistarae_workbench_perspective")).toBe("POI");
+    expect(sessionStorage.getItem("vistarae_workbench_perspective")).toBe(
+      "POI",
+    );
   });
 
   it("initializes multi-select dispositions with all selected by default and saves to sessionStorage", async () => {
@@ -1494,7 +1598,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("disposition-filter-button")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("disposition-filter-button"),
+      ).toBeInTheDocument();
     });
 
     const filterBtn = screen.getByTestId("disposition-filter-button");
@@ -1523,7 +1629,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("disposition-filter-button")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("disposition-filter-button"),
+      ).toBeInTheDocument();
     });
 
     const filterBtn = screen.getByTestId("disposition-filter-button");
@@ -1536,18 +1644,26 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("disposition-filter-button")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("disposition-filter-button"),
+      ).toBeInTheDocument();
     });
 
-    const tableContainer = screen.getByTestId("candidate-table-scroll-container");
+    const tableContainer = screen.getByTestId(
+      "candidate-table-scroll-container",
+    );
 
     // Both candidates visible initially (cand-1: accept, cand-2: sublocation)
     expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
-    expect(within(tableContainer).getByText("Lake Kawaguchi")).toBeInTheDocument();
+    expect(
+      within(tableContainer).getByText("Lake Kawaguchi"),
+    ).toBeInTheDocument();
 
     // Open disposition dropdown
     fireEvent.click(screen.getByTestId("disposition-filter-button"));
-    expect(screen.getByTestId("disposition-filter-dropdown")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("disposition-filter-dropdown"),
+    ).toBeInTheDocument();
 
     // Deselect sublocation
     const subCheckbox = screen.getByTestId("disposition-checkbox-sublocation");
@@ -1555,8 +1671,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Lake Kawaguchi (sublocation) should be filtered out
     await waitFor(() => {
-      expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
-      expect(within(tableContainer).queryByText("Lake Kawaguchi")).not.toBeInTheDocument();
+      expect(
+        within(tableContainer).getByText("Mount Fuji"),
+      ).toBeInTheDocument();
+      expect(
+        within(tableContainer).queryByText("Lake Kawaguchi"),
+      ).not.toBeInTheDocument();
     });
 
     // Click "Clear" to deselect all dispositions
@@ -1565,8 +1685,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     // Both should be filtered out
     await waitFor(() => {
-      expect(within(tableContainer).queryByText("Mount Fuji")).not.toBeInTheDocument();
-      expect(within(tableContainer).queryByText("Lake Kawaguchi")).not.toBeInTheDocument();
+      expect(
+        within(tableContainer).queryByText("Mount Fuji"),
+      ).not.toBeInTheDocument();
+      expect(
+        within(tableContainer).queryByText("Lake Kawaguchi"),
+      ).not.toBeInTheDocument();
     });
 
     // Click "All" to reselect all dispositions
@@ -1574,8 +1698,12 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     fireEvent.click(allBtn);
 
     await waitFor(() => {
-      expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
-      expect(within(tableContainer).getByText("Lake Kawaguchi")).toBeInTheDocument();
+      expect(
+        within(tableContainer).getByText("Mount Fuji"),
+      ).toBeInTheDocument();
+      expect(
+        within(tableContainer).getByText("Lake Kawaguchi"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -1586,19 +1714,29 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       expect(screen.getByTestId("completeness-filter")).toBeInTheDocument();
     });
 
-    const completenessSelect = screen.getByTestId("completeness-filter") as HTMLSelectElement;
-    const completedOption = screen.getByRole("option", { name: "Completed Only" }) as HTMLOptionElement;
+    const completenessSelect = screen.getByTestId(
+      "completeness-filter",
+    ) as HTMLSelectElement;
+    const completedOption = screen.getByRole("option", {
+      name: "Completed Only",
+    }) as HTMLOptionElement;
     expect(completedOption).toBeInTheDocument();
     expect(completedOption.value).toBe("complete");
 
-    const tableContainer = screen.getByTestId("candidate-table-scroll-container");
+    const tableContainer = screen.getByTestId(
+      "candidate-table-scroll-container",
+    );
 
     // Select "Completed Only": cand-1 is complete, cand-2 lacks hero_image_url and official_url
     fireEvent.change(completenessSelect, { target: { value: "complete" } });
 
     await waitFor(() => {
-      expect(within(tableContainer).getByText("Mount Fuji")).toBeInTheDocument();
-      expect(within(tableContainer).queryByText("Lake Kawaguchi")).not.toBeInTheDocument();
+      expect(
+        within(tableContainer).getByText("Mount Fuji"),
+      ).toBeInTheDocument();
+      expect(
+        within(tableContainer).queryByText("Lake Kawaguchi"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -1815,9 +1953,13 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
     expect(screen.getByTestId("state-province-input")).toHaveValue("Shaanxi");
 
     // In the table on the left, City / Town should display Xi'an
-    const tableContainer = screen.getByTestId("candidate-table-scroll-container");
+    const tableContainer = screen.getByTestId(
+      "candidate-table-scroll-container",
+    );
     expect(within(tableContainer).getByText("Xi'an")).toBeInTheDocument();
-    expect(within(tableContainer).queryByText("Yanta District")).not.toBeInTheDocument();
+    expect(
+      within(tableContainer).queryByText("Yanta District"),
+    ).not.toBeInTheDocument();
 
     // Re-syncing address from pin also preserves/populates Xi'an as city and Yanta District as admin_level_2
     const resyncBtn = screen.getByTestId("resync-address-from-pin-btn");
@@ -1888,7 +2030,7 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
   it("normalizes Hong Kong candidate from Fife Street Mong Kok / Kowloon to Hong Kong / Yau Tsim Mong District", async () => {
     const { getDisplayCandidateCity } = await import(
-      "../../components/ingest/CSVImportWorkbenchModal"
+      "../../utils/candidateUtils"
     );
     const { reverseGeocode } = await import("../../services/geocodeService");
 
@@ -1973,7 +2115,9 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
         "688 Sai Yeung Choi Street South",
       );
       expect(screen.getByTestId("city-input")).toHaveValue("Hong Kong");
-      expect(screen.getByTestId("state-province-input")).toHaveValue("Hong Kong");
+      expect(screen.getByTestId("state-province-input")).toHaveValue(
+        "Hong Kong",
+      );
       expect(screen.getByTestId("admin-level-2-input")).toHaveValue(
         "Yau Tsim Mong District",
       );
@@ -2047,5 +2191,50 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
       expect(screen.getByTestId("country-code-input")).toHaveValue("NA");
       expect(screen.getByTestId("state-province-input")).toHaveValue("Oshana");
     });
+  });
+
+  it("triggers CSV export and downloads file when clicking Export button", async () => {
+    const createUrlSpy = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:mock-export-url");
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-poi-name-input")).toHaveValue(
+        "Mount Fuji",
+      );
+    });
+
+    const exportBtn = screen.getByTestId("export-csv-btn");
+    fireEvent.click(exportBtn);
+
+    expect(createUrlSpy).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+
+    createUrlSpy.mockRestore();
+    clickSpy.mockRestore();
+  });
+
+  it("warns user when clicking Export with 0 candidates", async () => {
+    vi.mocked(ingestApi.listStagingCandidates).mockResolvedValue({
+      job_id: "job-1",
+      total_candidates: 0,
+      candidates: [],
+    });
+
+    renderModal();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("No candidates found matching the selected filters."),
+      ).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByTestId("export-csv-btn");
+    fireEvent.click(exportBtn);
   });
 });

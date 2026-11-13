@@ -26,6 +26,11 @@ from typing import Any
 
 import yaml
 
+from vistarae_core.schemas.export_schema import (
+    CANONICAL_EXPORT_FIELDS,
+    get_canonical_headers,
+    serialize_candidate_value,
+)
 from vistarae_core.schemas.poi_exchange import POIExchangeRecord
 
 # Formula injection trigger characters
@@ -101,6 +106,65 @@ class POIExporter:
                 buffer_count = 0
 
         # Yield any trailing buffered rows
+        remainder = output.getvalue()
+        if remainder:
+            yield remainder
+
+    @classmethod
+    def stream_candidate_export_chunks(
+        cls, candidates: Iterable[Any], chunk_size: int = 100
+    ) -> Iterator[str]:
+        """Streams full-fidelity RFC 4180 CSV chunks for staged workbench candidates.
+
+        Prepends UTF-8 BOM, outputs canonical headers, applies formula sanitization,
+        and serializes all 37 attributes.
+
+        Args:
+            candidates: Iterable stream of IngestCandidateTable rows or candidate dicts.
+            chunk_size: Number of records to buffer per yielded chunk.
+
+        Yields:
+            str: Chunk of CSV text.
+        """
+        headers = get_canonical_headers()
+        output = io.StringIO()
+        writer = csv.writer(output, lineterminator="\r\n")
+
+        # Yield BOM + Canonical header row
+        output.write(UTF8_BOM)
+        writer.writerow(headers)
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+
+        buffer_count = 0
+        for cand in candidates:
+            row: list[str] = []
+            for field_def in CANONICAL_EXPORT_FIELDS:
+                key = field_def.attribute_key
+                if isinstance(cand, dict):
+                    raw_val = cand.get(key)
+                    if raw_val is None and key == "candidate_id":
+                        raw_val = cand.get("id")
+                else:
+                    raw_val = getattr(cand, key, None)
+                    if raw_val is None and key == "candidate_id":
+                        raw_val = getattr(cand, "id", None)
+
+                if raw_val is None and field_def.default_value is not None:
+                    raw_val = field_def.default_value
+
+                val_str = serialize_candidate_value(field_def, raw_val)
+                row.append(val_str)
+
+            writer.writerow(row)
+            buffer_count += 1
+            if buffer_count >= chunk_size:
+                yield output.getvalue()
+                output.seek(0)
+                output.truncate(0)
+                buffer_count = 0
+
         remainder = output.getvalue()
         if remainder:
             yield remainder

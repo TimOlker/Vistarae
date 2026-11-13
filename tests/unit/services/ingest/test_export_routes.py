@@ -26,8 +26,9 @@ from httpx import ASGITransport, AsyncClient
 from vistarae_core.domain.entities import User
 from vistarae_core.schemas.poi_exchange import POIExchangeRecord
 
+from services.ingest.dependencies import get_current_user, get_staging_service
 from services.ingest.main import app
-from services.user.dependencies import get_current_user
+from services.ingest.routes.export import get_export_service
 
 
 @pytest.fixture
@@ -41,9 +42,13 @@ def mock_user() -> User:
 
 
 @pytest.fixture(autouse=True)
-def override_auth(mock_user: User):
-    """Override get_current_user dependency across all tests."""
+def override_auth_and_services(mock_user: User):
+    """Override get_current_user, export_service, and staging_service across tests."""
+    mock_export_svc = AsyncMock()
+    mock_staging_svc = AsyncMock()
     app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_export_service] = lambda: mock_export_svc
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_svc
     yield
     app.dependency_overrides.clear()
 
@@ -176,3 +181,59 @@ async def test_export_phase2_candidates_streams_yaml(mock_user: User):
             assert "poi_name: Matterhorn" in body_text
     finally:
         app.dependency_overrides.pop(get_export_service, None)
+
+
+@pytest.mark.asyncio
+async def test_get_job_candidates_export_streams_full_fidelity_csv(mock_user: User):
+    """Asserts that GET /api/ingest/jobs/{job_id}/candidates/export streams RFC 4180 CSV with UTF-8 BOM."""
+    job_id = uuid4()
+    cand1_id = uuid4()
+    cand2_id = uuid4()
+
+    from tests.fixtures.export_fixtures import get_sample_staged_candidates
+    from services.ingest.dependencies import get_staging_service
+    from vistarae_core.schemas.export_schema import UTF8_BOM_BYTES
+
+    sample_candidates = get_sample_staged_candidates()
+
+    mock_staging_service = AsyncMock()
+    mock_staging_service.list_candidates.return_value = sample_candidates
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.get(f"/api/ingest/jobs/{job_id}/candidates/export")
+            assert res.status_code == 200
+            assert res.headers["content-type"].startswith("text/csv")
+            assert f"vistarae_staging_{job_id}" in res.headers["content-disposition"]
+            body_bytes = res.content
+            assert body_bytes.startswith(b"\xef\xbb\xbf")
+
+            text = body_bytes.decode("utf-8")
+            lines = text.replace("\ufeff", "").split("\r\n")
+            header_cols = lines[0].split(",")
+            assert len(header_cols) == 37
+            assert header_cols[0] == "Candidate ID"
+            assert header_cols[2] == "POI Name"
+            assert "Yellowstone National Park" in text
+            assert "'=Grand Prismatic Spring" in text
+    finally:
+        app.dependency_overrides.pop(get_staging_service, None)
+
+
+@pytest.mark.asyncio
+async def test_get_job_candidates_export_empty_returns_404(mock_user: User):
+    """Asserts that exporting a job with 0 staged candidates returns 404 Not Found."""
+    job_id = uuid4()
+    from services.ingest.dependencies import get_staging_service
+
+    mock_staging_service = AsyncMock()
+    mock_staging_service.list_candidates.return_value = []
+    app.dependency_overrides[get_staging_service] = lambda: mock_staging_service
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.get(f"/api/ingest/jobs/{job_id}/candidates/export")
+            assert res.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_staging_service, None)

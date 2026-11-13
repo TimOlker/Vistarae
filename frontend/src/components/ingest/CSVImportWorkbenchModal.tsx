@@ -37,7 +37,10 @@ import {
   type ReverseGeocodeResponse,
 } from "../../services/geocodeService";
 import { useToast } from "../../context/ToastContext";
-import { normalizeUrl, reconstructWebsitesList } from "../../utils/websiteInference";
+import {
+  normalizeUrl,
+  reconstructWebsitesList,
+} from "../../utils/websiteInference";
 import {
   parseGoogleMapsUrl,
   isGoogleMapsUrl,
@@ -46,6 +49,8 @@ import {
   isWebpageUrl,
   countryNameToIsoCode,
 } from "../../utils/coordinates";
+import * as csvExport from "../../utils/csvExport";
+import { getDisplayCandidateCity } from "../../utils/candidateUtils";
 import { WorkbenchMap, type NearbyPointMarker } from "./WorkbenchMap";
 import {
   POINameRecommendationsModal,
@@ -134,15 +139,15 @@ export type CompletenessFilter =
 
 export type PerspectiveMode = "POI" | "Location";
 
-export const SESSION_KEY_WORKBENCH_PERSPECTIVE = "vistarae_workbench_perspective";
-export const SESSION_KEY_WORKBENCH_DISPOSITIONS = "vistarae_workbench_dispositions";
+const SESSION_KEY_WORKBENCH_PERSPECTIVE = "vistarae_workbench_perspective";
+const SESSION_KEY_WORKBENCH_DISPOSITIONS = "vistarae_workbench_dispositions";
 
-export interface WorkbenchDispositionOption {
+interface WorkbenchDispositionOption {
   key: string;
   label: string;
 }
 
-export const ALL_WORKBENCH_DISPOSITIONS: WorkbenchDispositionOption[] = [
+const ALL_WORKBENCH_DISPOSITIONS: WorkbenchDispositionOption[] = [
   { key: "accept", label: "Accept (New POI)" },
   { key: "sublocation", label: "Sublocation" },
   { key: "in_batch_merge", label: "In-Batch Merge" },
@@ -152,7 +157,9 @@ export const ALL_WORKBENCH_DISPOSITIONS: WorkbenchDispositionOption[] = [
   { key: "ignore", label: "Ignore" },
 ];
 
-export const DEFAULT_WORKBENCH_DISPOSITIONS = ALL_WORKBENCH_DISPOSITIONS.map((d) => d.key);
+const DEFAULT_WORKBENCH_DISPOSITIONS = ALL_WORKBENCH_DISPOSITIONS.map(
+  (d) => d.key,
+);
 
 /**
  * Calculates which completeness criteria are missing for a staged candidate.
@@ -189,92 +196,6 @@ function isCandidateComplete(cand: CandidateItem): boolean {
   return getCandidateMissingFields(cand).length === 0;
 }
 
-export function getDisplayCandidateCity(cand: CandidateItem): string {
-  const prov = (cand.state_province || cand.admin_level_1 || "").toLowerCase();
-  const cName = (cand.country || "").toLowerCase();
-  const poiName = (cand.poi_name || "").toLowerCase();
-  const cityName = (cand.city || "").toLowerCase();
-
-  const isHongKong =
-    cName === "hong kong" ||
-    cand.country_code === "HK" ||
-    ["hong kong", "kowloon", "new territories", "hong kong island"].includes(prov) ||
-    poiName.includes("hong kong") ||
-    cityName.includes("mong kok") ||
-    cityName.includes("tsim sha tsui") ||
-    cityName.includes("fife street");
-
-  if (isHongKong) {
-    return "Hong Kong";
-  }
-
-  if (
-    cand.country_code === "CN" ||
-    cand.country === "China" ||
-    cand.country === "中国"
-  ) {
-    const isChineseDistrict = (name: string | null | undefined): boolean => {
-      if (!name) return false;
-      const nl = name.trim().toLowerCase();
-      return (
-        nl.includes("district") ||
-        nl.includes("subdistrict") ||
-        nl === "pudong" ||
-        nl === "pudong new area" ||
-        (/[\u4e00-\u9fff]/.test(name) &&
-          (name.includes("区") || name.includes("街道") || name.includes("旗")))
-      );
-    };
-
-    if (isChineseDistrict(cand.city)) {
-      const prov = cand.state_province || cand.admin_level_1 || "";
-      if (["Beijing", "Shanghai", "Tianjin", "Chongqing"].includes(prov)) {
-        return prov;
-      }
-      const rawGeo = (cand.raw_geocoding || {}) as Record<string, any>;
-      const disp = String(rawGeo.display_name || "");
-      if (disp) {
-        const parts = disp.split(",").map((p) => p.trim()).filter(Boolean);
-        let a1Idx = -1;
-        for (let i = 0; i < parts.length; i++) {
-          if (
-            prov &&
-            (prov.toLowerCase() === parts[i].toLowerCase() ||
-              parts[i].toLowerCase().startsWith(prov.toLowerCase()))
-          ) {
-            a1Idx = i;
-            break;
-          }
-        }
-        if (a1Idx > 0) {
-          for (let i = a1Idx - 1; i >= 0; i--) {
-            const seg = parts[i];
-            if (/^\d+$/.test(seg) || isChineseDistrict(seg)) continue;
-            return seg.replace(/\s+Prefecture$/, "");
-          }
-        }
-      }
-      const pLow = (cand.poi_name || "").toLowerCase();
-      if (
-        pLow.includes("wild goose") ||
-        pLow.includes("terra cotta") ||
-        pLow.includes("terracotta")
-      )
-        return "Xi'an";
-      if (
-        pLow.includes("jokhang") ||
-        pLow.includes("potala") ||
-        pLow.includes("sera")
-      )
-        return "Lhasa";
-      if (pLow.includes("longmen")) return "Luoyang";
-      if (pLow.includes("leshan")) return "Leshan";
-      if (pLow.includes("jade buddha") || pLow.includes("bund")) return "Shanghai";
-    }
-  }
-  return cand.city || "-";
-}
-
 const PROXIMITY_STEPS = [
   { label: "100 ft", miles: 100 / 5280 },
   { label: "500 ft", miles: 500 / 5280 },
@@ -300,8 +221,8 @@ function haversineMiles(
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -430,24 +351,31 @@ export const CSVImportWorkbenchModal: React.FC<
     useState<CompletenessFilter>("all");
 
   // Multi-select disposition filter, restored from session data (defaults to all)
-  const [selectedDispositions, setSelectedDispositions] = useState<string[]>(() => {
-    try {
-      const saved = sessionStorage.getItem(SESSION_KEY_WORKBENCH_DISPOSITIONS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const validKeys = ALL_WORKBENCH_DISPOSITIONS.map((d) => d.key);
-          const filtered = parsed.filter((k) => typeof k === "string" && validKeys.includes(k));
-          return filtered;
+  const [selectedDispositions, setSelectedDispositions] = useState<string[]>(
+    () => {
+      try {
+        const saved = sessionStorage.getItem(
+          SESSION_KEY_WORKBENCH_DISPOSITIONS,
+        );
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const validKeys = ALL_WORKBENCH_DISPOSITIONS.map((d) => d.key);
+            const filtered = parsed.filter(
+              (k) => typeof k === "string" && validKeys.includes(k),
+            );
+            return filtered;
+          }
         }
+      } catch {
+        // sessionStorage unavailable
       }
-    } catch {
-      // sessionStorage unavailable
-    }
-    return DEFAULT_WORKBENCH_DISPOSITIONS;
-  });
+      return DEFAULT_WORKBENCH_DISPOSITIONS;
+    },
+  );
 
-  const [isDispositionDropdownOpen, setIsDispositionDropdownOpen] = useState(false);
+  const [isDispositionDropdownOpen, setIsDispositionDropdownOpen] =
+    useState(false);
   const dispositionDropdownRef = useRef<HTMLDivElement>(null);
 
   // Save selected dispositions to session data whenever updated
@@ -500,7 +428,9 @@ export const CSVImportWorkbenchModal: React.FC<
       return "0 Dispositions Selected";
     }
     if (selectedDispositions.length === 1) {
-      const match = ALL_WORKBENCH_DISPOSITIONS.find((d) => d.key === selectedDispositions[0]);
+      const match = ALL_WORKBENCH_DISPOSITIONS.find(
+        (d) => d.key === selectedDispositions[0],
+      );
       return match ? match.label : "1 Disposition";
     }
     return `Dispositions (${selectedDispositions.length}/${ALL_WORKBENCH_DISPOSITIONS.length})`;
@@ -512,7 +442,11 @@ export const CSVImportWorkbenchModal: React.FC<
       counts[d.key] = 0;
     }
     for (const c of candidates) {
-      const disp = (c.user_disposition || c.recommended_disposition || "").toLowerCase();
+      const disp = (
+        c.user_disposition ||
+        c.recommended_disposition ||
+        ""
+      ).toLowerCase();
       if (counts[disp] !== undefined) {
         counts[disp] += 1;
       }
@@ -559,7 +493,9 @@ export const CSVImportWorkbenchModal: React.FC<
   const [editCountryCode, setEditCountryCode] = useState("");
   const [editCountry, setEditCountry] = useState("");
   const [editHeroImageUrl, setEditHeroImageUrl] = useState("");
-  const [availableHeroImageUrls, setAvailableHeroImageUrls] = useState<string[]>([]);
+  const [availableHeroImageUrls, setAvailableHeroImageUrls] = useState<
+    string[]
+  >([]);
   const [currentHeroImageIndex, setCurrentHeroImageIndex] = useState(0);
   const [editRelatedWebsites, setEditRelatedWebsites] = useState<
     Array<{ name: string; url: string }>
@@ -598,7 +534,9 @@ export const CSVImportWorkbenchModal: React.FC<
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [showLocationSearchDropdown, setShowLocationSearchDropdown] =
     useState(false);
-  const locationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const locationSearchContainerRef = useRef<HTMLDivElement>(null);
 
   // Close search dropdown on click outside
@@ -717,8 +655,8 @@ export const CSVImportWorkbenchModal: React.FC<
         selectedDispositions.length === ALL_WORKBENCH_DISPOSITIONS.length
           ? undefined
           : selectedDispositions.length === 0
-          ? "none"
-          : selectedDispositions.join(",");
+            ? "none"
+            : selectedDispositions.join(",");
       const res = await ingestApi.listStagingCandidates(jobId, {
         completeness: completenessFilter,
         disposition: dispParam,
@@ -768,8 +706,8 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditPoiName(selectedCandidate.poi_name || "");
       setEditDisposition(
         selectedCandidate.user_disposition ||
-        selectedCandidate.recommended_disposition ||
-        "accept",
+          selectedCandidate.recommended_disposition ||
+          "accept",
       );
       const initLat =
         selectedCandidate.latitude != null
@@ -787,13 +725,19 @@ export const CSVImportWorkbenchModal: React.FC<
       setShowLocationSearchDropdown(false);
 
       const poiLower = (selectedCandidate.poi_name || "").toLowerCase();
-      const isGreatWall = poiLower.includes("great wall") || poiLower.includes("长城");
-      const isSummerPalace = poiLower.includes("summer palace") || poiLower.includes("颐和园");
+      const isGreatWall =
+        poiLower.includes("great wall") || poiLower.includes("长城");
+      const isSummerPalace =
+        poiLower.includes("summer palace") || poiLower.includes("颐和园");
 
       let rawStreet = selectedCandidate.street_address || "";
-      let rawLocality = selectedCandidate.locality || selectedCandidate.city || "";
+      let rawLocality =
+        selectedCandidate.locality || selectedCandidate.city || "";
       let rawAdmin2 = selectedCandidate.admin_level_2 || "";
-      let rawAdmin1 = selectedCandidate.admin_level_1 || selectedCandidate.state_province || "";
+      let rawAdmin1 =
+        selectedCandidate.admin_level_1 ||
+        selectedCandidate.state_province ||
+        "";
       let rawCountry = (selectedCandidate.country || "").trim();
       let rawCC = (selectedCandidate.country_code || "").trim().toUpperCase();
 
@@ -807,7 +751,9 @@ export const CSVImportWorkbenchModal: React.FC<
         rawCountry = "China";
         rawCC = "CN";
 
-        const isChineseDistrict = (name: string | null | undefined): boolean => {
+        const isChineseDistrict = (
+          name: string | null | undefined,
+        ): boolean => {
           if (!name) return false;
           const nl = name.trim().toLowerCase();
           return (
@@ -816,7 +762,9 @@ export const CSVImportWorkbenchModal: React.FC<
             nl === "pudong" ||
             nl === "pudong new area" ||
             (/[\u4e00-\u9fff]/.test(name) &&
-              (name.includes("区") || name.includes("街道") || name.includes("旗")))
+              (name.includes("区") ||
+                name.includes("街道") ||
+                name.includes("旗")))
           );
         };
 
@@ -830,7 +778,12 @@ export const CSVImportWorkbenchModal: React.FC<
         const isHongKong =
           rawCountry?.toLowerCase() === "hong kong" ||
           rawCC === "HK" ||
-          ["hong kong", "kowloon", "new territories", "hong kong island"].includes(rawAdmin1.toLowerCase()) ||
+          [
+            "hong kong",
+            "kowloon",
+            "new territories",
+            "hong kong island",
+          ].includes(rawAdmin1.toLowerCase()) ||
           poiLower.includes("hong kong") ||
           rawLocality?.toLowerCase().includes("mong kok") ||
           rawLocality?.toLowerCase().includes("tsim sha tsui") ||
@@ -852,7 +805,10 @@ export const CSVImportWorkbenchModal: React.FC<
           rawCountry = "China";
           rawCC = "CN";
           if (!rawAdmin2) {
-            const rawGeo = (selectedCandidate?.raw_geocoding || {}) as Record<string, any>;
+            const rawGeo = (selectedCandidate?.raw_geocoding || {}) as Record<
+              string,
+              any
+            >;
             const disp = String(rawGeo.display_name || "");
             const hkDistricts = [
               "Yau Tsim Mong",
@@ -882,8 +838,14 @@ export const CSVImportWorkbenchModal: React.FC<
               }
             }
             if (!rawAdmin2) {
-              const checkStr = `${dispLower} ${(selectedCandidate?.city || "")} ${(selectedCandidate?.poi_name || "")}`.toLowerCase();
-              if (/mong kok|tsim sha tsui|yau ma tei|jordan|fife street/.test(checkStr)) {
+              const checkStr = `${dispLower} ${selectedCandidate?.city || ""} ${
+                selectedCandidate?.poi_name || ""
+              }`.toLowerCase();
+              if (
+                /mong kok|tsim sha tsui|yau ma tei|jordan|fife street/.test(
+                  checkStr,
+                )
+              ) {
                 rawAdmin2 = "Yau Tsim Mong District";
               } else if (/central|admiralty|sheung wan/.test(checkStr)) {
                 rawAdmin2 = "Central and Western District";
@@ -926,12 +888,21 @@ export const CSVImportWorkbenchModal: React.FC<
             if (!rawAdmin2) rawAdmin2 = "Pudong New Area";
           }
           if (!rawAdmin2 && selectedCandidate?.raw_geocoding) {
-            const rawGeo = (selectedCandidate.raw_geocoding || {}) as Record<string, any>;
+            const rawGeo = (selectedCandidate.raw_geocoding || {}) as Record<
+              string,
+              any
+            >;
             const disp = String(rawGeo.display_name || "");
             if (disp) {
-              const parts = disp.split(",").map((p) => p.trim()).filter(Boolean);
+              const parts = disp
+                .split(",")
+                .map((p) => p.trim())
+                .filter(Boolean);
               for (let i = parts.length - 1; i >= 0; i--) {
-                if (parts[i].toLowerCase().endsWith("district") || parts[i].endsWith("区")) {
+                if (
+                  parts[i].toLowerCase().endsWith("district") ||
+                  parts[i].endsWith("区")
+                ) {
                   rawAdmin2 = parts[i];
                   break;
                 }
@@ -940,10 +911,16 @@ export const CSVImportWorkbenchModal: React.FC<
           }
         } else {
           // Other Chinese provinces (Shaanxi, Xizang, Henan, Sichuan, Yunnan, etc.)
-          const rawGeo = (selectedCandidate.raw_geocoding || {}) as Record<string, any>;
+          const rawGeo = (selectedCandidate.raw_geocoding || {}) as Record<
+            string,
+            any
+          >;
           const disp = String(rawGeo.display_name || "");
           if (disp) {
-            const parts = disp.split(",").map((p) => p.trim()).filter(Boolean);
+            const parts = disp
+              .split(",")
+              .map((p) => p.trim())
+              .filter(Boolean);
             let admin1Idx = -1;
             for (let i = 0; i < parts.length; i++) {
               if (
@@ -1003,7 +980,8 @@ export const CSVImportWorkbenchModal: React.FC<
         if (rawAdmin2 === "城关区") rawAdmin2 = "Chengguan District";
         if (rawAdmin2 === "静安区") rawAdmin2 = "Jing'an District";
         if (rawAdmin2 === "洛龙区") rawAdmin2 = "Luolong District";
-        if (rawAdmin2?.toLowerCase() === "pudong") rawAdmin2 = "Pudong New Area";
+        if (rawAdmin2?.toLowerCase() === "pudong")
+          rawAdmin2 = "Pudong New Area";
       } else if (rawCountry === "中国") {
         rawCountry = "China";
         rawCC = "CN";
@@ -1011,7 +989,9 @@ export const CSVImportWorkbenchModal: React.FC<
         (!rawCC ||
           (rawCC === "US" &&
             rawCountry &&
-            !["united states", "usa", "us"].includes(rawCountry.toLowerCase()))) &&
+            !["united states", "usa", "us"].includes(
+              rawCountry.toLowerCase(),
+            ))) &&
         rawCountry
       ) {
         const mapped = countryNameToIsoCode(rawCountry);
@@ -1060,7 +1040,10 @@ export const CSVImportWorkbenchModal: React.FC<
         }
       }
       setAvailableHeroImageUrls(allHeroImgs);
-      const initialHero = allHeroImgs.length > 0 ? allHeroImgs[0] : (selectedCandidate.hero_image_url || "");
+      const initialHero =
+        allHeroImgs.length > 0
+          ? allHeroImgs[0]
+          : selectedCandidate.hero_image_url || "";
       setEditHeroImageUrl(initialHero);
       setCurrentHeroImageIndex(0);
 
@@ -1099,7 +1082,9 @@ export const CSVImportWorkbenchModal: React.FC<
       setEditDatesVisited([...(selectedCandidate.dates_visited || [])]);
 
       setEditDescription(selectedCandidate.description || "");
-      setEditReasonToVisit(cleanReasonToVisit(selectedCandidate.reason_to_visit));
+      setEditReasonToVisit(
+        cleanReasonToVisit(selectedCandidate.reason_to_visit),
+      );
       setEditParentPoiId(selectedCandidate.parent_poi_id || "");
       setEditParentCandidateId(selectedCandidate.parent_candidate_id || "");
       setEditMergeTargetId(selectedCandidate.merge_target_id || "");
@@ -1116,8 +1101,14 @@ export const CSVImportWorkbenchModal: React.FC<
   // Active missing fields for currently selected candidate in detail editor
   const editorCandidateMissingFields = useMemo(() => {
     if (!selectedCandidate) return [];
-    const lat = editLatitude && editLatitude.trim() ? parseFloat(editLatitude) : selectedCandidate.latitude;
-    const lng = editLongitude && editLongitude.trim() ? parseFloat(editLongitude) : selectedCandidate.longitude;
+    const lat =
+      editLatitude && editLatitude.trim()
+        ? parseFloat(editLatitude)
+        : selectedCandidate.latitude;
+    const lng =
+      editLongitude && editLongitude.trim()
+        ? parseFloat(editLongitude)
+        : selectedCandidate.longitude;
     return getCandidateMissingFields({
       hero_image_url: editHeroImageUrl,
       latitude: lat,
@@ -1149,7 +1140,11 @@ export const CSVImportWorkbenchModal: React.FC<
   // Associated target POI: either existing DB POI or another candidate in current batch
   const associatedTarget = useMemo(() => {
     if (!selectedCandidate) return null;
-    const disp = (editDisposition || selectedCandidate.recommended_disposition || "").toLowerCase();
+    const disp = (
+      editDisposition ||
+      selectedCandidate.recommended_disposition ||
+      ""
+    ).toLowerCase();
     const isAssociatedWithDb =
       editMatchedExistingPoiId ||
       selectedCandidate.matched_existing_poi_id ||
@@ -1287,7 +1282,8 @@ export const CSVImportWorkbenchModal: React.FC<
           if (isBlank(editCountry)) return true;
           const targetCountry = target.country || "";
           return (
-            editCountry.trim().toLowerCase() === targetCountry.trim().toLowerCase()
+            editCountry.trim().toLowerCase() ===
+            targetCountry.trim().toLowerCase()
           );
         }
         case "duration_hours": {
@@ -1340,11 +1336,9 @@ export const CSVImportWorkbenchModal: React.FC<
         case "dates_visited": {
           if (!editDatesVisited || editDatesVisited.length === 0) return true;
           const targetDates = new Set(
-            (
-              target.dates_visited ||
-              target.visited_dates ||
-              []
-            ).map((d: string) => d.trim()),
+            (target.dates_visited || target.visited_dates || []).map(
+              (d: string) => d.trim(),
+            ),
           );
           return editDatesVisited.every((d) => targetDates.has(d.trim()));
         }
@@ -1520,11 +1514,11 @@ export const CSVImportWorkbenchModal: React.FC<
           const list = target.related_websites || [];
           return list.length > 0
             ? list
-              .map((w: any) =>
-                typeof w === "string" ? w : w.url || w.name || "",
-              )
-              .filter(Boolean)
-              .join(", ")
+                .map((w: any) =>
+                  typeof w === "string" ? w : w.url || w.name || "",
+                )
+                .filter(Boolean)
+                .join(", ")
             : "None";
         }
         default:
@@ -1567,7 +1561,11 @@ export const CSVImportWorkbenchModal: React.FC<
     let list = [...candidates];
     if (selectedDispositions.length < ALL_WORKBENCH_DISPOSITIONS.length) {
       list = list.filter((c) => {
-        const d = (c.user_disposition || c.recommended_disposition || "").toLowerCase();
+        const d = (
+          c.user_disposition ||
+          c.recommended_disposition ||
+          ""
+        ).toLowerCase();
         return selectedDispositions.includes(d);
       });
     }
@@ -1613,12 +1611,22 @@ export const CSVImportWorkbenchModal: React.FC<
       // Default POI mode: alphabetical by POI Name
       return (a.poi_name || "").localeCompare(b.poi_name || "");
     });
-  }, [candidates, selectedDispositions, completenessFilter, sortField, sortAsc, perspective]);
+  }, [
+    candidates,
+    selectedDispositions,
+    completenessFilter,
+    sortField,
+    sortAsc,
+    perspective,
+  ]);
 
   // Keep selected candidate synced with visible candidate list
   useEffect(() => {
     if (sortedCandidates.length > 0) {
-      if (!selectedCandidateId || !sortedCandidates.some((c) => c.id === selectedCandidateId)) {
+      if (
+        !selectedCandidateId ||
+        !sortedCandidates.some((c) => c.id === selectedCandidateId)
+      ) {
         setSelectedCandidateId(sortedCandidates[0].id);
       }
     } else {
@@ -1669,7 +1677,11 @@ export const CSVImportWorkbenchModal: React.FC<
           patch.description = null;
         }
         if (Object.keys(patch).length > 0) {
-          await ingestApi.updateStagingCandidate(jobId, selectedCandidateId, patch);
+          await ingestApi.updateStagingCandidate(
+            jobId,
+            selectedCandidateId,
+            patch,
+          );
         }
       }
 
@@ -1726,9 +1738,9 @@ export const CSVImportWorkbenchModal: React.FC<
       const res = await ingestApi.enrichAllCandidates(jobId, forceRefresh);
       showToast(
         res.message ||
-        (forceRefresh
-          ? "Bulk recalculation queued in background"
-          : "Bulk AI enrichment queued in background"),
+          (forceRefresh
+            ? "Bulk recalculation queued in background"
+            : "Bulk AI enrichment queued in background"),
         "info",
       );
       setTimeout(() => {
@@ -1737,7 +1749,10 @@ export const CSVImportWorkbenchModal: React.FC<
       }, 3000);
     } catch (err: any) {
       console.error("Batch enrichment failed:", err);
-      const detail = err?.problem?.detail || err?.message || "Failed to launch batch enrichment";
+      const detail =
+        err?.problem?.detail ||
+        err?.message ||
+        "Failed to launch batch enrichment";
       showToast(detail, "error");
       setIsEnrichingAll(false);
     }
@@ -1757,7 +1772,11 @@ export const CSVImportWorkbenchModal: React.FC<
     const name = newWebsiteName.trim() || "Website";
     const url = normalizeUrl(newWebsiteUrl);
     const key = url.toLowerCase();
-    if (!editRelatedWebsites.some((w) => normalizeUrl(w.url).toLowerCase() === key)) {
+    if (
+      !editRelatedWebsites.some(
+        (w) => normalizeUrl(w.url).toLowerCase() === key,
+      )
+    ) {
       setEditRelatedWebsites([...editRelatedWebsites, { name, url }]);
     }
     setNewWebsiteName("");
@@ -1852,8 +1871,8 @@ export const CSVImportWorkbenchModal: React.FC<
     let countryCode = res.country_code
       ? res.country_code.toUpperCase()
       : addr.country_code
-      ? String(addr.country_code).toUpperCase()
-      : "";
+        ? String(addr.country_code).toUpperCase()
+        : "";
     let country = res.country || addr.country || "";
 
     if (!countryCode && country) {
@@ -1912,7 +1931,12 @@ export const CSVImportWorkbenchModal: React.FC<
         countryCode === "HK" ||
         country.toLowerCase() === "hong kong" ||
         poiLower.includes("hong kong") ||
-        ["kowloon", "new territories", "hong kong island", "hong kong"].includes(admin1.toLowerCase());
+        [
+          "kowloon",
+          "new territories",
+          "hong kong island",
+          "hong kong",
+        ].includes(admin1.toLowerCase());
       const isMacau =
         displayName.toLowerCase().includes("macau") ||
         displayName.toLowerCase().includes("macao") ||
@@ -1957,7 +1981,9 @@ export const CSVImportWorkbenchModal: React.FC<
         }
         if (!admin2) {
           if (
-            /mong kok|tsim sha tsui|yau ma tei|jordan|fife street/.test(dispLower) ||
+            /mong kok|tsim sha tsui|yau ma tei|jordan|fife street/.test(
+              dispLower,
+            ) ||
             /mong kok|tsim sha tsui/.test(poiLower)
           ) {
             admin2 = "Yau Tsim Mong District";
@@ -1973,7 +1999,11 @@ export const CSVImportWorkbenchModal: React.FC<
         country = "China";
         countryCode = "CN";
       } else if (isBeijing) {
-        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+        if (
+          !locality ||
+          locality.includes("District") ||
+          /[\u4e00-\u9fff]/.test(locality)
+        ) {
           if (locality && locality.includes("District") && !admin2) {
             admin2 = locality;
           }
@@ -1996,17 +2026,26 @@ export const CSVImportWorkbenchModal: React.FC<
           ) {
             street = "19 Xinjiangongmen Road";
           }
-          if (!admin2 || /[\u4e00-\u9fff]/.test(admin2)) admin2 = "Haidian District";
-        } else if (poiLower.includes("great wall") || poiLower.includes("长城")) {
+          if (!admin2 || /[\u4e00-\u9fff]/.test(admin2))
+            admin2 = "Haidian District";
+        } else if (
+          poiLower.includes("great wall") ||
+          poiLower.includes("长城")
+        ) {
           if (!street || /[\u4e00-\u9fff]/.test(street)) {
             street = "Mutianyu Road";
           }
-          if (!admin2 || /[\u4e00-\u9fff]/.test(admin2)) admin2 = "Huairou District";
+          if (!admin2 || /[\u4e00-\u9fff]/.test(admin2))
+            admin2 = "Huairou District";
         }
         if (admin2 === "怀柔区") admin2 = "Huairou District";
         if (admin2 === "海淀区") admin2 = "Haidian District";
       } else if (isShanghai) {
-        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+        if (
+          !locality ||
+          locality.includes("District") ||
+          /[\u4e00-\u9fff]/.test(locality)
+        ) {
           if (locality && locality.includes("District") && !admin2) {
             admin2 = locality;
           }
@@ -2016,9 +2055,15 @@ export const CSVImportWorkbenchModal: React.FC<
           admin1 = "Shanghai";
         }
         if (!admin2 && displayName) {
-          const parts = displayName.split(",").map((p) => p.trim()).filter(Boolean);
+          const parts = displayName
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean);
           for (let i = parts.length - 1; i >= 0; i--) {
-            if (parts[i].toLowerCase().endsWith("district") || parts[i].endsWith("区")) {
+            if (
+              parts[i].toLowerCase().endsWith("district") ||
+              parts[i].endsWith("区")
+            ) {
               admin2 = parts[i];
               break;
             }
@@ -2026,11 +2071,16 @@ export const CSVImportWorkbenchModal: React.FC<
         }
         if (!admin2) {
           if (poiLower.includes("bund")) admin2 = "Huangpu District";
-          else if (poiLower.includes("jade buddha")) admin2 = "Jing'an District";
+          else if (poiLower.includes("jade buddha"))
+            admin2 = "Jing'an District";
           else if (poiLower.includes("pudong")) admin2 = "Pudong New Area";
         }
       } else if (isTianjin) {
-        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+        if (
+          !locality ||
+          locality.includes("District") ||
+          /[\u4e00-\u9fff]/.test(locality)
+        ) {
           if (locality && locality.includes("District") && !admin2) {
             admin2 = locality;
           }
@@ -2040,7 +2090,11 @@ export const CSVImportWorkbenchModal: React.FC<
           admin1 = "Tianjin";
         }
       } else if (isChongqing) {
-        if (!locality || locality.includes("District") || /[\u4e00-\u9fff]/.test(locality)) {
+        if (
+          !locality ||
+          locality.includes("District") ||
+          /[\u4e00-\u9fff]/.test(locality)
+        ) {
           if (locality && locality.includes("District") && !admin2) {
             admin2 = locality;
           }
@@ -2050,7 +2104,9 @@ export const CSVImportWorkbenchModal: React.FC<
           admin1 = "Chongqing";
         }
       } else {
-        const isChineseDistrict = (name: string | null | undefined): boolean => {
+        const isChineseDistrict = (
+          name: string | null | undefined,
+        ): boolean => {
           if (!name) return false;
           const nl = name.trim().toLowerCase();
           return (
@@ -2059,7 +2115,9 @@ export const CSVImportWorkbenchModal: React.FC<
             nl === "pudong" ||
             nl === "pudong new area" ||
             (/[\u4e00-\u9fff]/.test(name) &&
-              (name.includes("区") || name.includes("街道") || name.includes("旗")))
+              (name.includes("区") ||
+                name.includes("街道") ||
+                name.includes("旗")))
           );
         };
 
@@ -2070,7 +2128,10 @@ export const CSVImportWorkbenchModal: React.FC<
           locality = "";
         }
 
-        const parts = displayName.split(",").map((p) => p.trim()).filter(Boolean);
+        const parts = displayName
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean);
         let admin1Idx = -1;
         for (let i = 0; i < parts.length; i++) {
           if (
@@ -2215,10 +2276,17 @@ export const CSVImportWorkbenchModal: React.FC<
         try {
           const res = await reverseGeocode(gmapsResult.lat, gmapsResult.lng);
           applyReverseGeocodeResult(res, gmapsResult.placeName);
-          const label = gmapsResult.placeName || res.locality || res.city || `${latStr}, ${lngStr}`;
+          const label =
+            gmapsResult.placeName ||
+            res.locality ||
+            res.city ||
+            `${latStr}, ${lngStr}`;
           showToast(`Location set from Google Maps URL: ${label}`, "success");
         } catch {
-          showToast(`Coordinates set to (${latStr}, ${lngStr}) from Google Maps URL`, "info");
+          showToast(
+            `Coordinates set to (${latStr}, ${lngStr}) from Google Maps URL`,
+            "info",
+          );
         } finally {
           setIsResyncingAddress(false);
           setIsSearchingLocation(false);
@@ -2229,7 +2297,10 @@ export const CSVImportWorkbenchModal: React.FC<
         q = gmapsResult.placeName;
         setLocationSearchQuery(q);
       } else {
-        showToast("Google Maps URL detected but coordinates could not be parsed", "error");
+        showToast(
+          "Google Maps URL detected but coordinates could not be parsed",
+          "error",
+        );
         return;
       }
     }
@@ -2253,10 +2324,17 @@ export const CSVImportWorkbenchModal: React.FC<
         try {
           const res = await reverseGeocode(ghResult.lat, ghResult.lng);
           applyReverseGeocodeResult(res, ghResult.placeName);
-          const label = ghResult.placeName || res.locality || res.city || `${latStr}, ${lngStr}`;
+          const label =
+            ghResult.placeName ||
+            res.locality ||
+            res.city ||
+            `${latStr}, ${lngStr}`;
           showToast(`Location set from GeoHack URL: ${label}`, "success");
         } catch {
-          showToast(`Coordinates set to (${latStr}, ${lngStr}) from GeoHack URL`, "info");
+          showToast(
+            `Coordinates set to (${latStr}, ${lngStr}) from GeoHack URL`,
+            "info",
+          );
         } finally {
           setIsResyncingAddress(false);
           setIsSearchingLocation(false);
@@ -2266,7 +2344,10 @@ export const CSVImportWorkbenchModal: React.FC<
         q = ghResult.placeName;
         setLocationSearchQuery(q);
       } else {
-        showToast("GeoHack URL detected but coordinates could not be parsed", "error");
+        showToast(
+          "GeoHack URL detected but coordinates could not be parsed",
+          "error",
+        );
         return;
       }
     }
@@ -2298,11 +2379,17 @@ export const CSVImportWorkbenchModal: React.FC<
           q = res.place_name;
           setLocationSearchQuery(q);
         } else {
-          showToast("Webpage detected but no coordinates could be found in page body", "error");
+          showToast(
+            "Webpage detected but no coordinates could be found in page body",
+            "error",
+          );
           return;
         }
       } catch (err: any) {
-        showToast(err.message || "Failed to extract coordinates from webpage", "error");
+        showToast(
+          err.message || "Failed to extract coordinates from webpage",
+          "error",
+        );
         return;
       } finally {
         setIsSearchingLocation(false);
@@ -2331,12 +2418,18 @@ export const CSVImportWorkbenchModal: React.FC<
               setLocationSearchQuery(enhanced.resolved_name);
               checkAndPromptNameChange(enhanced.resolved_name);
             }
-            applyReverseGeocodeResult(enhanced as any, enhanced.resolved_name || undefined);
+            applyReverseGeocodeResult(
+              enhanced as any,
+              enhanced.resolved_name || undefined,
+            );
             setShowLocationSearchDropdown(false);
             const label = enhanced.resolved_name
               ? `${enhanced.resolved_name} (from "${q}")`
-              : (enhanced.city || `${latStr}, ${lngStr}`);
-            showToast(`Location resolved via enhanced search: ${label}`, "success");
+              : enhanced.city || `${latStr}, ${lngStr}`;
+            showToast(
+              `Location resolved via enhanced search: ${label}`,
+              "success",
+            );
             return;
           }
         } catch (fwdErr) {
@@ -2465,7 +2558,10 @@ export const CSVImportWorkbenchModal: React.FC<
           ? (editParentCandidateId as any)
           : null,
         merge_target_id: editMergeTargetId ? (editMergeTargetId as any) : null,
-        matched_existing_poi_id: editMatchedExistingPoiId || selectedCandidate?.matched_existing_poi_id || null,
+        matched_existing_poi_id:
+          editMatchedExistingPoiId ||
+          selectedCandidate?.matched_existing_poi_id ||
+          null,
         disposition_justification: editDispositionJustification.trim() || null,
         is_user_overridden: editIsUserOverridden,
       };
@@ -2603,45 +2699,86 @@ export const CSVImportWorkbenchModal: React.FC<
     }
   };
 
-  // CSV Export of current staged candidates
+  // CSV Export of current staged candidates (Full-Fidelity 017-export)
   const handleExportCSV = () => {
-    if (candidates.length === 0) return;
-    const headers = [
-      "POI Name",
-      "Street Address",
-      "City/Town",
-      "State/Province",
-      "Country",
-      "Latitude",
-      "Longitude",
-      "Disposition",
-      "Confidence Score",
-      "Photo URL",
-    ];
-    const rows = candidates.map((c) => [
-      `"${(c.poi_name || "").replace(/"/g, '""')}"`,
-      `"${(c.street_address || "").replace(/"/g, '""')}"`,
-      `"${(c.city || "").replace(/"/g, '""')}"`,
-      `"${(c.state_province || "").replace(/"/g, '""')}"`,
-      `"${(c.country || "").replace(/"/g, '""')}"`,
-      c.latitude != null ? String(c.latitude) : "",
-      c.longitude != null ? String(c.longitude) : "",
-      c.user_disposition || c.recommended_disposition || "accept",
-      c.confidence_score != null ? String(c.confidence_score) : "",
-      `"${(c.hero_image_url || "").replace(/"/g, '""')}"`,
-    ]);
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((r) => r.join(",")),
-    ].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `vistarae_staging_${jobId || "export"}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (candidates.length === 0) {
+      showToast("No candidates available to export.", "warning");
+      return;
+    }
+
+    try {
+      // Flush active candidate detail editor state
+      const activeEditorCandidate = selectedCandidateId
+        ? {
+            id: selectedCandidateId,
+            candidate_id: selectedCandidateId,
+            poi_name: editPoiName.trim(),
+            user_disposition: editDisposition,
+            latitude: editLatitude ? parseFloat(editLatitude) : null,
+            longitude: editLongitude ? parseFloat(editLongitude) : null,
+            street_address: editStreetAddress.trim() || null,
+            postal_code: editPostalCode.trim() || null,
+            locality: editLocality.trim() || null,
+            city: editLocality.trim() || editCity.trim() || null,
+            admin_level_2: editAdminLevel2.trim() || null,
+            admin_level_1: editAdminLevel1.trim() || null,
+            state_province:
+              editStateProvince.trim() || editAdminLevel1.trim() || null,
+            country: editCountry.trim() || null,
+            country_code: editCountryCode.trim() || null,
+            description: editDescription.trim() || null,
+            reason_to_visit: editReasonToVisit.trim() || null,
+            hero_image_url: editHeroImageUrl.trim() || null,
+            official_url:
+              editRelatedWebsites.find((w) =>
+                w.name.toLowerCase().includes("official"),
+              )?.url ||
+              editRelatedWebsites[0]?.url ||
+              null,
+            wiki_url:
+              editRelatedWebsites.find((w) =>
+                w.url.toLowerCase().includes("wikipedia.org"),
+              )?.url || null,
+            related_websites: editRelatedWebsites,
+            no_websites: editNoWebsites,
+            tags: editTags,
+            photo_directories: editPhotoDirectories,
+            photo_directory: editPhotoDirectories[0] || null,
+            dates_visited: editDatesVisited,
+            recommended_duration_hours: editDurationHours
+              ? parseFloat(editDurationHours)
+              : null,
+            recommended_visit_days: editDurationDays
+              ? parseFloat(editDurationDays)
+              : null,
+            estimated_visit_time_notes: editDurationNotes.trim() || null,
+            parent_poi_id: editParentPoiId.trim() || null,
+            parent_candidate_id: editParentCandidateId.trim() || null,
+            merge_target_id: editMergeTargetId.trim() || null,
+            matched_existing_poi_id: editMatchedExistingPoiId.trim() || null,
+            disposition_justification:
+              editDispositionJustification.trim() || null,
+            is_user_overridden: true,
+          }
+        : null;
+
+      const result = csvExport.exportWorkbenchCandidatesToCsv(candidates, {
+        jobId,
+        selectedCandidateIds:
+          selectedCandidateIds.length > 0
+            ? new Set(selectedCandidateIds)
+            : undefined,
+        activeEditorCandidate,
+        triggerDownload: true,
+      });
+
+      showToast(
+        `Successfully exported ${result.exportedCount} candidate(s) to ${result.filename}`,
+        "success",
+      );
+    } catch (err: any) {
+      showToast(err?.message || "Failed to export candidates", "error");
+    }
   };
 
   if (!isOpen) return null;
@@ -3118,7 +3255,9 @@ export const CSVImportWorkbenchModal: React.FC<
                             padding: "5px 8px",
                             borderRadius: "4px",
                             cursor: "pointer",
-                            backgroundColor: isChecked ? "#f8fafc" : "transparent",
+                            backgroundColor: isChecked
+                              ? "#f8fafc"
+                              : "transparent",
                             fontSize: "12px",
                             color: "#334155",
                             userSelect: "none",
@@ -3423,7 +3562,7 @@ export const CSVImportWorkbenchModal: React.FC<
                             <input
                               type="checkbox"
                               checked={isChecked}
-                              onChange={() => { }}
+                              onChange={() => {}}
                               data-testid={`row-checkbox-${cand.id}`}
                               style={{ cursor: "pointer" }}
                             />
@@ -3570,7 +3709,9 @@ export const CSVImportWorkbenchModal: React.FC<
                             ) : (
                               <span
                                 data-testid="completeness-badge-incomplete"
-                                title={`Missing: ${getCandidateMissingFields(cand).join(", ")}`}
+                                title={`Missing: ${getCandidateMissingFields(
+                                  cand,
+                                ).join(", ")}`}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -3700,7 +3841,13 @@ export const CSVImportWorkbenchModal: React.FC<
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => handleEnrichSingle(false)}
@@ -3896,15 +4043,19 @@ export const CSVImportWorkbenchModal: React.FC<
                       value={`Disposition: ${editDisposition.replace(
                         /_/g,
                         " ",
-                      )}\nRationale: ${editDispositionJustification ||
+                      )}\nRationale: ${
+                        editDispositionJustification ||
                         selectedCandidate.disposition_justification ||
                         (isSelectedGreatWall
                           ? "Great Wall of China correctly identified; multiple possible locations exist across this extensive site."
                           : "Unique location verified")
-                        }${editorCandidateMissingFields.length > 0
-                          ? `\nMissing: ${editorCandidateMissingFields.join(", ")}`
+                      }${
+                        editorCandidateMissingFields.length > 0
+                          ? `\nMissing: ${editorCandidateMissingFields.join(
+                              ", ",
+                            )}`
                           : ""
-                        }`}
+                      }`}
                       data-testid="disposition-rationale-readonly"
                       style={{
                         width: "100%",
@@ -4200,11 +4351,11 @@ export const CSVImportWorkbenchModal: React.FC<
                         <div style={{ fontSize: "11px", color: "#4b5563" }}>
                           {[
                             associatedTarget.data.street_address ||
-                            associatedTarget.data.address,
+                              associatedTarget.data.address,
                             associatedTarget.data.city ||
-                            associatedTarget.data.locality,
+                              associatedTarget.data.locality,
                             associatedTarget.data.state_province ||
-                            associatedTarget.data.state,
+                              associatedTarget.data.state,
                             associatedTarget.data.country,
                           ]
                             .filter(Boolean)
@@ -4239,7 +4390,10 @@ export const CSVImportWorkbenchModal: React.FC<
                           color: "#475569",
                         }}
                       >
-                        {renderFieldLabelText("Hero Photo URL:", "hero_image_url")}
+                        {renderFieldLabelText(
+                          "Hero Photo URL:",
+                          "hero_image_url",
+                        )}
                         <AIIconBadge />
                       </label>
                       {availableHeroImageUrls.length > 1 && (
@@ -4273,7 +4427,9 @@ export const CSVImportWorkbenchModal: React.FC<
                                   availableHeroImageUrls.length) %
                                 availableHeroImageUrls.length;
                               setCurrentHeroImageIndex(prevIdx);
-                              setEditHeroImageUrl(availableHeroImageUrls[prevIdx]);
+                              setEditHeroImageUrl(
+                                availableHeroImageUrls[prevIdx],
+                              );
                             }}
                             style={{
                               display: "flex",
@@ -4300,7 +4456,9 @@ export const CSVImportWorkbenchModal: React.FC<
                                 (currentHeroImageIndex + 1) %
                                 availableHeroImageUrls.length;
                               setCurrentHeroImageIndex(nextIdx);
-                              setEditHeroImageUrl(availableHeroImageUrls[nextIdx]);
+                              setEditHeroImageUrl(
+                                availableHeroImageUrls[nextIdx],
+                              );
                             }}
                             style={{
                               display: "flex",
@@ -4467,8 +4625,8 @@ export const CSVImportWorkbenchModal: React.FC<
                           cursor: "pointer",
                           opacity:
                             isResyncingAddress ||
-                              !editLatitude ||
-                              !editLongitude
+                            !editLatitude ||
+                            !editLongitude
                               ? 0.6
                               : 1,
                         }}
@@ -4516,7 +4674,8 @@ export const CSVImportWorkbenchModal: React.FC<
                             gap: "4px",
                           }}
                         >
-                          <Search size={12} color="#0284c7" /> Search Location / POI:
+                          <Search size={12} color="#0284c7" /> Search Location /
+                          POI:
                         </label>
                         {selectedCandidate?.poi_name && (
                           <button
@@ -4538,12 +4697,22 @@ export const CSVImportWorkbenchModal: React.FC<
                             }}
                             title="Lookup candidate POI name"
                           >
-                            Lookup &quot;{selectedCandidate.poi_name.length > 25 ? selectedCandidate.poi_name.slice(0, 22) + "..." : selectedCandidate.poi_name}&quot;
+                            Lookup &quot;
+                            {selectedCandidate.poi_name.length > 25
+                              ? selectedCandidate.poi_name.slice(0, 22) + "..."
+                              : selectedCandidate.poi_name}
+                            &quot;
                           </button>
                         )}
                       </div>
 
-                      <div style={{ display: "flex", gap: "6px", position: "relative" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          position: "relative",
+                        }}
+                      >
                         <div style={{ flex: 1, position: "relative" }}>
                           <input
                             id="location-search-input"
@@ -4598,8 +4767,12 @@ export const CSVImportWorkbenchModal: React.FC<
                         </div>
                         <button
                           type="button"
-                          onClick={() => executeLocationSearch(locationSearchQuery)}
-                          disabled={isSearchingLocation || !locationSearchQuery.trim()}
+                          onClick={() =>
+                            executeLocationSearch(locationSearchQuery)
+                          }
+                          disabled={
+                            isSearchingLocation || !locationSearchQuery.trim()
+                          }
                           data-testid="find-location-btn"
                           style={{
                             display: "inline-flex",
@@ -4638,85 +4811,93 @@ export const CSVImportWorkbenchModal: React.FC<
                       </div>
 
                       {/* Dropdown with search results */}
-                      {showLocationSearchDropdown && locationSearchResults.length > 0 && (
-                        <div
-                          data-testid="location-search-dropdown"
-                          style={{
-                            position: "absolute",
-                            top: "calc(100% + 4px)",
-                            left: 0,
-                            right: 0,
-                            maxHeight: "220px",
-                            overflowY: "auto",
-                            backgroundColor: "#ffffff",
-                            borderRadius: "6px",
-                            boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
-                            border: "1px solid #cbd5e1",
-                            zIndex: 1000,
-                          }}
-                        >
-                          {locationSearchResults.map((match, idx) => (
-                            <div
-                              key={idx}
-                              data-testid={`location-search-result-${idx}`}
-                              onClick={() => handleSelectLocationMatch(match)}
-                              style={{
-                                padding: "7px 10px",
-                                cursor: "pointer",
-                                borderBottom:
-                                  idx < locationSearchResults.length - 1
-                                    ? "1px solid #f1f5f9"
-                                    : "none",
-                                fontSize: "11px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "2px",
-                                transition: "background-color 0.15s ease",
-                              }}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLElement).style.backgroundColor =
-                                  "#f0f9ff";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLElement).style.backgroundColor =
-                                  "transparent";
-                              }}
-                            >
+                      {showLocationSearchDropdown &&
+                        locationSearchResults.length > 0 && (
+                          <div
+                            data-testid="location-search-dropdown"
+                            style={{
+                              position: "absolute",
+                              top: "calc(100% + 4px)",
+                              left: 0,
+                              right: 0,
+                              maxHeight: "220px",
+                              overflowY: "auto",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "6px",
+                              boxShadow: "0 4px 14px rgba(0,0,0,0.15)",
+                              border: "1px solid #cbd5e1",
+                              zIndex: 1000,
+                            }}
+                          >
+                            {locationSearchResults.map((match, idx) => (
                               <div
+                                key={idx}
+                                data-testid={`location-search-result-${idx}`}
+                                onClick={() => handleSelectLocationMatch(match)}
                                 style={{
+                                  padding: "7px 10px",
+                                  cursor: "pointer",
+                                  borderBottom:
+                                    idx < locationSearchResults.length - 1
+                                      ? "1px solid #f1f5f9"
+                                      : "none",
+                                  fontSize: "11px",
                                   display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
+                                  flexDirection: "column",
+                                  gap: "2px",
+                                  transition: "background-color 0.15s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                  (
+                                    e.currentTarget as HTMLElement
+                                  ).style.backgroundColor = "#f0f9ff";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (
+                                    e.currentTarget as HTMLElement
+                                  ).style.backgroundColor = "transparent";
                                 }}
                               >
-                                <span style={{ fontWeight: 600, color: "#0f172a" }}>
-                                  {match.name}
-                                </span>
-                                <span
+                                <div
                                   style={{
-                                    fontSize: "9px",
-                                    color: "#64748b",
-                                    backgroundColor: "#f1f5f9",
-                                    padding: "1px 5px",
-                                    borderRadius: "3px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
                                   }}
                                 >
-                                  {match.type || match.class}
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      color: "#0f172a",
+                                    }}
+                                  >
+                                    {match.name}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "9px",
+                                      color: "#64748b",
+                                      backgroundColor: "#f1f5f9",
+                                      padding: "1px 5px",
+                                      borderRadius: "3px",
+                                    }}
+                                  >
+                                    {match.type || match.class}
+                                  </span>
+                                </div>
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    color: "#64748b",
+                                    lineHeight: 1.3,
+                                  }}
+                                >
+                                  {match.display_name}
                                 </span>
                               </div>
-                              <span
-                                style={{
-                                  fontSize: "10px",
-                                  color: "#64748b",
-                                  lineHeight: 1.3,
-                                }}
-                              >
-                                {match.display_name}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
                     </div>
 
                     <div
@@ -4844,7 +5025,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          {renderFieldLabelText("Street Address:", "street_address")}
+                          {renderFieldLabelText(
+                            "Street Address:",
+                            "street_address",
+                          )}
                         </label>
                         <input
                           type="text"
@@ -4870,7 +5054,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          {renderFieldLabelText("Postal Code / Zip:", "postal_code")}
+                          {renderFieldLabelText(
+                            "Postal Code / Zip:",
+                            "postal_code",
+                          )}
                         </label>
                         <input
                           type="text"
@@ -4905,7 +5092,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          {renderFieldLabelText("Locality (City / Town):", "city")}
+                          {renderFieldLabelText(
+                            "Locality (City / Town):",
+                            "city",
+                          )}
                         </label>
                         <input
                           type="text"
@@ -4934,7 +5124,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          {renderFieldLabelText("Admin Level 2 (County / District):", "admin_level_2")}
+                          {renderFieldLabelText(
+                            "Admin Level 2 (County / District):",
+                            "admin_level_2",
+                          )}
                         </label>
                         <input
                           type="text"
@@ -4969,7 +5162,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          {renderFieldLabelText("Admin Level 1 (State / Province / Region):", "state_province")}
+                          {renderFieldLabelText(
+                            "Admin Level 1 (State / Province / Region):",
+                            "state_province",
+                          )}
                         </label>
                         <input
                           type="text"
@@ -4998,7 +5194,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             color: "#64748b",
                           }}
                         >
-                          {renderFieldLabelText("Country Code:", "country_code")}
+                          {renderFieldLabelText(
+                            "Country Code:",
+                            "country_code",
+                          )}
                         </label>
                         <input
                           type="text"
@@ -5037,7 +5236,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             const val = e.target.value;
                             setEditCountry(val);
                             const mapped = countryNameToIsoCode(val);
-                            if (mapped && (editCountryCode === "US" || !editCountryCode)) {
+                            if (
+                              mapped &&
+                              (editCountryCode === "US" || !editCountryCode)
+                            ) {
                               setEditCountryCode(mapped);
                             }
                           }}
@@ -5183,7 +5385,10 @@ export const CSVImportWorkbenchModal: React.FC<
                         marginBottom: "4px",
                       }}
                     >
-                      {renderFieldLabelText("Reason to Visit:", "reason_to_visit")}
+                      {renderFieldLabelText(
+                        "Reason to Visit:",
+                        "reason_to_visit",
+                      )}
                       <AIIconBadge />
                     </label>
                     <textarea
@@ -5243,7 +5448,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             marginBottom: "4px",
                           }}
                         >
-                          {renderFieldLabelText("Estimated Hours:", "duration_hours")}
+                          {renderFieldLabelText(
+                            "Estimated Hours:",
+                            "duration_hours",
+                          )}
                         </label>
                         <input
                           type="number"
@@ -5271,7 +5479,10 @@ export const CSVImportWorkbenchModal: React.FC<
                             marginBottom: "4px",
                           }}
                         >
-                          {renderFieldLabelText("Estimated Days:", "duration_days")}
+                          {renderFieldLabelText(
+                            "Estimated Days:",
+                            "duration_days",
+                          )}
                         </label>
                         <input
                           type="number"
@@ -5301,7 +5512,10 @@ export const CSVImportWorkbenchModal: React.FC<
                           marginBottom: "4px",
                         }}
                       >
-                        {renderFieldLabelText("Visit Timing Notes:", "duration_notes")}
+                        {renderFieldLabelText(
+                          "Visit Timing Notes:",
+                          "duration_notes",
+                        )}
                       </label>
                       <textarea
                         rows={3}
@@ -5694,7 +5908,10 @@ export const CSVImportWorkbenchModal: React.FC<
                         }}
                       >
                         <Globe size={14} color="#2563eb" />{" "}
-                        {renderFieldLabelText("Related Websites", "related_websites")}
+                        {renderFieldLabelText(
+                          "Related Websites",
+                          "related_websites",
+                        )}
                         <AIIconBadge />
                       </span>
 
@@ -5875,8 +6092,6 @@ export const CSVImportWorkbenchModal: React.FC<
                       </div>
                     )}
                   </div>
-
-
                 </div>
 
                 {/* PINNED FOOTER CONTAINER */}
@@ -5917,26 +6132,26 @@ export const CSVImportWorkbenchModal: React.FC<
                         setEditPostalCode(selectedCandidate.postal_code || "");
                         setEditLocality(
                           selectedCandidate.locality ||
-                          selectedCandidate.city ||
-                          "",
+                            selectedCandidate.city ||
+                            "",
                         );
                         setEditCity(
                           selectedCandidate.city ||
-                          selectedCandidate.locality ||
-                          "",
+                            selectedCandidate.locality ||
+                            "",
                         );
                         setEditAdminLevel2(
                           selectedCandidate.admin_level_2 || "",
                         );
                         setEditAdminLevel1(
                           selectedCandidate.admin_level_1 ||
-                          selectedCandidate.state_province ||
-                          "",
+                            selectedCandidate.state_province ||
+                            "",
                         );
                         setEditStateProvince(
                           selectedCandidate.state_province ||
-                          selectedCandidate.admin_level_1 ||
-                          "",
+                            selectedCandidate.admin_level_1 ||
+                            "",
                         );
                         setEditCountryCode(
                           selectedCandidate.country_code || "",
@@ -5948,8 +6163,8 @@ export const CSVImportWorkbenchModal: React.FC<
                         );
                         setEditDisposition(
                           selectedCandidate.user_disposition ||
-                          selectedCandidate.recommended_disposition ||
-                          "accept",
+                            selectedCandidate.recommended_disposition ||
+                            "accept",
                         );
                       }
                     }}
@@ -6414,7 +6629,10 @@ export const CSVImportWorkbenchModal: React.FC<
                     marginTop: "4px",
                   }}
                 >
-                  Current: <span style={{ color: "#64748b" }}>{nameChangePrompt.currentName}</span>
+                  Current:{" "}
+                  <span style={{ color: "#64748b" }}>
+                    {nameChangePrompt.currentName}
+                  </span>
                 </div>
               </div>
 
@@ -6501,7 +6719,6 @@ export const CSVImportWorkbenchModal: React.FC<
           candidates={candidates}
           onAcceptChanges={handleAcceptNameChanges}
         />
-
       </div>
     </Modal>
   );

@@ -32,6 +32,8 @@ from __future__ import annotations
 import contextlib
 import csv
 import io
+import json
+import logging
 import re
 from typing import Any
 
@@ -42,81 +44,105 @@ from vistarae_core.domain.exceptions import (
     InvalidMimeTypeError,
     RowLimitExceededError,
 )
+from vistarae_core.schemas.export_schema import (
+    FORMULA_PREFIXES,
+    desanitize_formula_prefix,
+    deserialize_json_pairs,
+    deserialize_string_list,
+    get_header_to_attribute_map,
+)
+
+logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 2 * 1024 * 1024  # 2,097,152 bytes
 MAX_ROWS = 2000
 ALLOWED_MIME_TYPES = {"text/csv", "text/plain", "application/vnd.ms-excel"}
-FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 HTML_TAG_REGEX = re.compile(r"<[^>]+>")
 
-_COLUMN_MAPPINGS: dict[str, str] = {
-    "poi name": "poi_name",
-    "name": "poi_name",
-    "street address": "street_address",
-    "street_address": "street_address",
-    "street": "street_address",
-    "address": "street_address",
-    "town/city": "city",
-    "town_city": "city",
-    "town": "city",
-    "city": "city",
-    "state/province": "state_province",
-    "state_province": "state_province",
-    "state": "state_province",
-    "province": "state_province",
-    "zip code": "postal_code",
-    "zip_code": "postal_code",
-    "zip": "postal_code",
-    "postal code": "postal_code",
-    "postal_code": "postal_code",
-    "country": "country",
-    "tags": "tags",
-    "latitude": "latitude",
-    "lat": "latitude",
-    "longitude": "longitude",
-    "lon": "longitude",
-    "lng": "longitude",
-    "dates visited": "dates_visited",
-    "dates_visited": "dates_visited",
-    "photo directory": "photo_directory",
-    "photo_directory": "photo_directory",
-    "location_confidence_percent": "confidence_score",
-    "confidence_score": "confidence_score",
-    "confidence": "confidence_score",
-    "confidence_source": "confidence_source",
-    "confidence_calculation_source": "confidence_source",
-    "description": "description",
-    "reason_to_visit": "reason_to_visit",
-    "why_visit": "reason_to_visit",
-    "rating": "rating",
-    "country_code": "country_code",
-    "country code": "country_code",
-    "admin_level_1": "admin_level_1",
-    "admin level 1": "admin_level_1",
-    "admin_level_2": "admin_level_2",
-    "admin level 2": "admin_level_2",
-    "locality": "city",
-    "photo_directories": "photo_directories",
-    "photo directories": "photo_directories",
-}
+# Build case-insensitive column mappings from canonical schema registry and legacy aliases
+_COLUMN_MAPPINGS: dict[str, str] = get_header_to_attribute_map().copy()
+_COLUMN_MAPPINGS.update(
+    {
+        "poi name": "poi_name",
+        "name": "poi_name",
+        "street address": "street_address",
+        "street_address": "street_address",
+        "street": "street_address",
+        "address": "street_address",
+        "town/city": "city",
+        "town_city": "city",
+        "town": "city",
+        "city": "city",
+        "state/province": "state_province",
+        "state_province": "state_province",
+        "state": "state_province",
+        "province": "state_province",
+        "zip code": "postal_code",
+        "zip_code": "postal_code",
+        "zip": "postal_code",
+        "postal code": "postal_code",
+        "postal_code": "postal_code",
+        "country": "country",
+        "tags": "tags",
+        "latitude": "latitude",
+        "lat": "latitude",
+        "longitude": "longitude",
+        "lon": "longitude",
+        "lng": "longitude",
+        "dates visited": "dates_visited",
+        "dates_visited": "dates_visited",
+        "photo directory": "photo_directory",
+        "photo_directory": "photo_directory",
+        "location_confidence_percent": "confidence_score",
+        "confidence_score": "confidence_score",
+        "confidence": "confidence_score",
+        "confidence_source": "confidence_source",
+        "confidence_calculation_source": "confidence_source",
+        "description": "description",
+        "reason_to_visit": "reason_to_visit",
+        "why_visit": "reason_to_visit",
+        "rating": "rating",
+        "country_code": "country_code",
+        "country code": "country_code",
+        "admin_level_1": "admin_level_1",
+        "admin level 1": "admin_level_1",
+        "admin_level_2": "admin_level_2",
+        "admin level 2": "admin_level_2",
+        "locality": "locality",  # Decoupled from city (Fixing Finding I1)
+        "photo_directories": "photo_directories",
+        "photo directories": "photo_directories",
+    }
+)
 
 
 def sanitize_text_field(value: str) -> str:
     """Sanitizes a single text cell against formula injection and raw HTML.
 
+    If a value was formula-neutralized on export (leading apostrophe followed by
+    a formula prefix character), the apostrophe is stripped symmetrically.
+
     Args:
         value: Raw cell string.
 
     Returns:
-        Sanitized string with HTML tags stripped and formula characters neutralized.
+        Sanitized string with HTML tags stripped and formula characters handled.
     """
     if not value:
         return ""
 
-    # 1. Strip raw HTML tags
+    # 1. Check if cell has formula-neutralizing leading apostrophe from export
+    desanitized = desanitize_formula_prefix(value)
+    if desanitized != value:
+        # Authentic value stripped of leading quote; clean HTML and return
+        cleaned = HTML_TAG_REGEX.sub("", desanitized)
+        if cleaned.startswith(("\t", "\r")):
+            return cleaned.rstrip()
+        return cleaned.strip()
+
+    # 2. Strip raw HTML tags
     cleaned = HTML_TAG_REGEX.sub("", value)
 
-    # 2. Neutralize spreadsheet formula prefixes before stripping whitespace
+    # 3. Neutralize spreadsheet formula prefixes before stripping whitespace
     if cleaned and cleaned.startswith(FORMULA_PREFIXES):
         return f"'{cleaned}"
 
@@ -224,6 +250,7 @@ def parse_and_sanitize_csv(  # noqa: C901
     # 5. Parse CSV
     reader = csv.reader(io.StringIO(text_content))
     header_row: list[str] | None = None
+    raw_headers: list[str] | None = None
     rows: list[dict[str, Any]] = []
     line_number = 0
 
@@ -237,7 +264,8 @@ def parse_and_sanitize_csv(  # noqa: C901
             continue
 
         if header_row is None:
-            header_row = [h.strip().lower() for h in raw_row]
+            raw_headers = [h.strip() for h in raw_row]
+            header_row = [h.lower() for h in raw_headers]
             name_aliases = {"name", "poi name", "poi_name"}
             effective_headers = set(header_row)
             if column_mapping:
@@ -253,6 +281,7 @@ def parse_and_sanitize_csv(  # noqa: C901
             raise RowLimitExceededError(count=len(rows) + 1, max_rows=MAX_ROWS)
 
         raw_dict: dict[str, str] = {}
+        unmapped_cols: dict[str, str] = {}
         for idx, col_name in enumerate(header_row):
             cell_val = raw_row[idx] if idx < len(raw_row) else ""
             sanitized = sanitize_text_field(cell_val)
@@ -260,7 +289,17 @@ def parse_and_sanitize_csv(  # noqa: C901
             if column_mapping:
                 target_key = column_mapping.get(col_name) or column_mapping.get(col_name.lower())
             if not target_key:
-                target_key = _COLUMN_MAPPINGS.get(col_name, col_name)
+                target_key = _COLUMN_MAPPINGS.get(col_name) or _COLUMN_MAPPINGS.get(
+                    col_name.lower()
+                )
+            if not target_key:
+                orig_col = raw_headers[idx] if raw_headers and idx < len(raw_headers) else col_name
+                unmapped_cols[orig_col] = sanitized
+                target_key = col_name
+
+            # Numeric coordinates should never retain formula neutralization quotes
+            if target_key in ("latitude", "longitude"):
+                sanitized = cell_val.lstrip("'").strip()
 
             if target_key in ("description", "reason_to_visit") and len(sanitized) > 4000:
                 sanitized = sanitized[:4000]
@@ -284,11 +323,45 @@ def parse_and_sanitize_csv(  # noqa: C901
             raw_country=raw_dict.get("country", ""),
         )
 
-        # Dates visited
-        dates_list = _split_semicolons(raw_dict.get("dates_visited", ""))
+        # Dates visited (dual-mode: accepts semicolon and JSON array)
+        dates_list = deserialize_string_list(raw_dict.get("dates_visited", ""))
 
-        # Tags
-        tags_list = _split_semicolons(raw_dict.get("tags", ""))
+        # Tags (dual-mode: accepts semicolon and JSON array)
+        tags_list = deserialize_string_list(raw_dict.get("tags", ""))
+
+        # Photo directories (dual-mode)
+        photo_dirs = deserialize_string_list(
+            raw_dict.get("photo_directories", "") or raw_dict.get("photo_directory", "")
+        )
+
+        # Related websites (dual-mode: accepts JSON array of pairs or semicolon/URL fallback)
+        websites = deserialize_json_pairs(raw_dict.get("related_websites", ""))
+
+        # Booleans
+        is_user_overridden = False
+        if "is_user_overridden" in raw_dict and raw_dict["is_user_overridden"]:
+            is_user_overridden = raw_dict["is_user_overridden"].strip().lower() in (
+                "true",
+                "1",
+                "yes",
+                "t",
+            )
+
+        no_websites = False
+        if "no_websites" in raw_dict and raw_dict["no_websites"]:
+            no_websites = raw_dict["no_websites"].strip().lower() in ("true", "1", "yes", "t")
+
+        # Dynamic raw_geocoding with unmapped columns preservation (FR-008)
+        raw_geo: dict[str, Any] = {}
+        if "raw_geocoding" in raw_dict and raw_dict["raw_geocoding"]:
+            raw_geo_val = raw_dict["raw_geocoding"]
+            if isinstance(raw_geo_val, dict):
+                raw_geo = dict(raw_geo_val)
+            elif isinstance(raw_geo_val, str) and raw_geo_val.strip().startswith("{"):
+                with contextlib.suppress(Exception):
+                    raw_geo = json.loads(raw_geo_val)
+        if unmapped_cols:
+            raw_geo["_unmapped_columns"] = unmapped_cols
 
         # Assemble row_data maintaining backward compatibility with legacy consumers
         row_data: dict[str, Any] = {
@@ -297,15 +370,20 @@ def parse_and_sanitize_csv(  # noqa: C901
             "address": raw_dict.get("street_address", ""),
             "street_address": raw_dict.get("street_address", ""),
             "city": raw_dict.get("city", ""),
+            "locality": raw_dict.get("locality", ""),
+            "admin_level_1": raw_dict.get("admin_level_1", ""),
+            "admin_level_2": raw_dict.get("admin_level_2", ""),
             "state": raw_dict.get("state_province", ""),
             "state_province": raw_dict.get("state_province", ""),
             "postal_code": raw_dict.get("postal_code", ""),
             "zip_code": raw_dict.get("postal_code", ""),
             "country": raw_dict.get("country", ""),
+            "country_code": raw_dict.get("country_code", ""),
             "addresses": addrs,
             "dates_visited": dates_list,
             "visited_date": dates_list[0] if dates_list else None,
-            "photo_directory": raw_dict.get("photo_directory", ""),
+            "photo_directory": photo_dirs[0] if photo_dirs else raw_dict.get("photo_directory", ""),
+            "photo_directories": photo_dirs,
             "confidence_score": conf_val,
             "location_confidence_percent": conf_val,
             "confidence_source": raw_dict.get("confidence_source", ""),
@@ -314,7 +392,27 @@ def parse_and_sanitize_csv(  # noqa: C901
             "tags": tags_list,
             "description": raw_dict.get("description", ""),
             "reason_to_visit": raw_dict.get("reason_to_visit", ""),
+            "hero_image_url": raw_dict.get("hero_image_url", ""),
+            "official_url": raw_dict.get("official_url", "")
+            or raw_dict.get("official_website", ""),
+            "wiki_url": raw_dict.get("wiki_url", "") or raw_dict.get("wikipedia_url", ""),
+            "related_websites": websites,
+            "no_websites": no_websites,
+            "recommended_duration_hours": raw_dict.get("recommended_duration_hours") or None,
+            "recommended_visit_days": raw_dict.get("recommended_visit_days") or None,
+            "estimated_visit_time_notes": raw_dict.get("estimated_visit_time_notes", ""),
+            "candidate_id": raw_dict.get("candidate_id") or None,
+            "parent_candidate_id": raw_dict.get("parent_candidate_id") or None,
+            "parent_poi_id": raw_dict.get("parent_poi_id") or None,
+            "matched_existing_poi_id": raw_dict.get("matched_existing_poi_id") or None,
+            "merge_target_id": raw_dict.get("merge_target_id") or None,
+            "user_disposition": raw_dict.get("user_disposition") or None,
+            "recommended_disposition": raw_dict.get("recommended_disposition") or None,
+            "disposition_justification": raw_dict.get("disposition_justification") or None,
+            "is_user_overridden": is_user_overridden,
         }
+        if raw_geo:
+            row_data["raw_geocoding"] = raw_geo
         # Copy any extra columns
         for k, v in raw_dict.items():
             if k not in row_data:

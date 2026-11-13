@@ -35,12 +35,15 @@ export interface ExportCandidatesPayload {
 export function triggerFileDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
+  a.style.display = "none";
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 /**
@@ -113,11 +116,17 @@ export async function exportExplorerPOIs(
   format: ExportFormat = "csv",
 ): Promise<void> {
   if (!poiIds || poiIds.length === 0) {
-    throw new Error("No records selected. Please select at least one record to export.");
+    throw new Error(
+      "No records selected. Please select at least one record to export.",
+    );
   }
   const dateStr = new Date().toISOString().split("T")[0];
   const filename = `vistarae_pois_${dateStr}.${format}`;
-  await fetchAndDownloadBlob("/api/v1/export/pois", { poi_ids: poiIds, format }, filename);
+  await fetchAndDownloadBlob(
+    "/api/v1/export/pois",
+    { poi_ids: poiIds, format },
+    filename,
+  );
 }
 
 /**
@@ -129,7 +138,9 @@ export async function exportPhase1Candidates(
   format: ExportFormat = "csv",
 ): Promise<void> {
   if (!candidateIds || candidateIds.length === 0) {
-    throw new Error("No records selected. Please select at least one record to export.");
+    throw new Error(
+      "No records selected. Please select at least one record to export.",
+    );
   }
   const dateStr = new Date().toISOString().split("T")[0];
   const filename = `vistarae_phase1_candidates_${dateStr}.${format}`;
@@ -149,7 +160,9 @@ export async function exportPhase2Candidates(
   format: ExportFormat = "csv",
 ): Promise<void> {
   if (!candidateIds || candidateIds.length === 0) {
-    throw new Error("No records selected. Please select at least one record to export.");
+    throw new Error(
+      "No records selected. Please select at least one record to export.",
+    );
   }
   const dateStr = new Date().toISOString().split("T")[0];
   const filename = `vistarae_phase2_candidates_${dateStr}.${format}`;
@@ -159,4 +172,3 @@ export async function exportPhase2Candidates(
     filename,
   );
 }
-
