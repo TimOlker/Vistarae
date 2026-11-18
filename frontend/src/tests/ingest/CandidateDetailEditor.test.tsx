@@ -157,11 +157,12 @@ describe("CandidateDetailEditor - Exemption Checkboxes & Rules (REQ-EXM-008, 010
       </ToastProvider>,
     );
 
-  it("renders dedicated Data Availability section with independent checkboxes", async () => {
+  it("renders independent exemption checkboxes in their respective sections", async () => {
     renderModal();
 
     await waitFor(() => {
-      expect(screen.getByTestId("data-availability-section")).toBeInTheDocument();
+      expect(screen.getByTestId("no-address-checkbox")).toBeInTheDocument();
+      expect(screen.getByTestId("no-websites-checkbox")).toBeInTheDocument();
     });
 
     const noAddressCheckbox = screen.getByTestId("no-address-checkbox") as HTMLInputElement;

@@ -5287,19 +5287,50 @@ export const CSVImportWorkbenchModal: React.FC<
                       }}
                     >
                       <div style={{ flex: 2 }}>
-                        <label
+                        <div
                           style={{
-                            display: "block",
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            color: "#64748b",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "2px",
                           }}
                         >
-                          {renderFieldLabelText(
-                            "Street Address:",
-                            "street_address",
-                          )}
-                        </label>
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              color: "#64748b",
+                            }}
+                          >
+                            {renderFieldLabelText(
+                              "Street Address:",
+                              "street_address",
+                            )}
+                          </label>
+                          <label
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              color: "#475569",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={editNoAddress}
+                              onChange={(e) =>
+                                handleNoAddressToggle(e.target.checked)
+                              }
+                              data-testid="no-address-checkbox"
+                              style={{ cursor: "pointer" }}
+                            />
+                            <span>No address available / Acceptable</span>
+                          </label>
+                        </div>
                         <input
                           type="text"
                           value={editStreetAddress}
@@ -6226,10 +6257,10 @@ export const CSVImportWorkbenchModal: React.FC<
                           onChange={(e) =>
                             handleNoWebsitesToggle(e.target.checked)
                           }
-                          data-testid="websites-card-no-websites-checkbox"
+                          data-testid="no-websites-checkbox"
                           style={{ cursor: "pointer" }}
                         />
-                        <span>No Websites</span>
+                        <span>No website available / Acceptable</span>
                       </label>
                     </div>
 
@@ -6384,90 +6415,6 @@ export const CSVImportWorkbenchModal: React.FC<
                         web presence
                       </div>
                     )}
-                  </div>
-
-                  {/* Dedicated Data Availability Section (REQ-EXM-010) */}
-                  <div
-                    data-testid="data-availability-section"
-                    style={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      padding: "12px",
-                      backgroundColor: "#f8fafc",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <ShieldCheck size={14} color="#0284c7" />
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          color: "#1e293b",
-                        }}
-                      >
-                        Data Availability & Exemptions
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
-                      <label
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          color: "#334155",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editNoAddress}
-                          onChange={(e) =>
-                            handleNoAddressToggle(e.target.checked)
-                          }
-                          data-testid="no-address-checkbox"
-                          style={{ cursor: "pointer" }}
-                        />
-                        <span>No address available / Acceptable</span>
-                      </label>
-
-                      <label
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          color: "#334155",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={editNoWebsites}
-                          onChange={(e) =>
-                            handleNoWebsitesToggle(e.target.checked)
-                          }
-                          data-testid="no-websites-checkbox"
-                          style={{ cursor: "pointer" }}
-                        />
-                        <span>No website available / Acceptable</span>
-                      </label>
-                    </div>
                   </div>
                 </div>
 
