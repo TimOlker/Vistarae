@@ -73,6 +73,11 @@ vi.mock("../../services/ingestApi", () => ({
     batchEditCandidates: vi.fn(),
     commitWorkbenchJob: vi.fn(),
     cancelPhase1: vi.fn(),
+    startBulkEnrichment: vi.fn(),
+    getBulkEnrichmentProgress: vi.fn(),
+    cancelBulkEnrichment: vi.fn(),
+    heartbeatBulkEnrichment: vi.fn(),
+    getBulkEnrichmentSummary: vi.fn(),
   },
 }));
 
@@ -2236,5 +2241,53 @@ describe("CSVImportWorkbenchModal (Unified Staging Workbench)", () => {
 
     const exportBtn = screen.getByTestId("export-csv-btn");
     fireEvent.click(exportBtn);
+  });
+
+  describe("Bulk AI Enrichment Workbench Integration", () => {
+    it("prompts confirmation when 0 rows selected and initiates bulk enrichment on confirm", async () => {
+      vi.mocked(ingestApi.startBulkEnrichment).mockResolvedValue({
+        session_id: "sess-1",
+        job_id: "job-1",
+        total_enqueued: 2,
+        status: "CANARY_DISPATCH",
+        message: "Enqueued",
+      });
+
+      renderModal();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("ai-enrich-all-btn")).toBeInTheDocument();
+      });
+
+      // Click AI Enrich All with 0 rows selected
+      const enrichBtn = screen.getByTestId("ai-enrich-all-btn");
+      fireEvent.click(enrichBtn);
+
+      // Confirm dialog appears
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("enrich-all-confirmation-modal"),
+        ).toBeInTheDocument();
+      });
+
+      // Click Confirm
+      const confirmBtn = screen.getByTestId("confirm-enrich-all-btn");
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(ingestApi.startBulkEnrichment).toHaveBeenCalledWith("job-1", {
+          all_eligible: true,
+          force_refresh: false,
+        });
+        expect(
+          screen.getByTestId("workbench-readonly-lock-badge"),
+        ).toBeInTheDocument();
+      });
+
+      // Verify mutation controls are disabled during active enrichment
+      expect(screen.getByTestId("commit-import-btn")).toBeDisabled();
+      expect(screen.getByTestId("discard-session-btn")).toBeDisabled();
+      expect(screen.getByTestId("save-candidate-changes-btn")).toBeDisabled();
+    });
   });
 });

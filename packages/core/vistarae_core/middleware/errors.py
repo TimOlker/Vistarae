@@ -118,6 +118,18 @@ def add_problem_details_handlers(app: FastAPI) -> None:  # noqa: C901
         Returns:
             RFC 7807 application/problem+json response.
         """
+        if isinstance(exc.detail, dict):
+            detail_dict = exc.detail
+            return _problem_response(
+                ProblemDetails(
+                    type=detail_dict.get("type", f"https://errors.vistarae.com/http-{exc.status_code}"),
+                    title=detail_dict.get("title", "HTTP Error"),
+                    status=detail_dict.get("status", exc.status_code),
+                    detail=detail_dict.get("detail", "An HTTP error occurred."),
+                    instance=detail_dict.get("instance", str(request.url)),
+                )
+            )
+
         return _problem_response(
             ProblemDetails(
                 type=f"https://errors.vistarae.com/http-{exc.status_code}",

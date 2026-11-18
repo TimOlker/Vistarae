@@ -132,6 +132,7 @@ class UserTier(StrEnum):
     LOW = "low"
     HIGH = "high"
     ADMIN = "admin"
+    PREMIUM = "premium"
 
 
 class ThemeMode(StrEnum):

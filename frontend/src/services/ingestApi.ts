@@ -17,7 +17,17 @@
 import { apiFetch } from "./api";
 import type { components } from "../types/api";
 
-export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"], "no_websites" | "is_user_overridden" | "is_duplicate" | "created_at" | "updated_at" | "update_coordinates" | "is_skipped" | "country_code"> & {
+export type CandidateItem = Omit<
+  components["schemas"]["CandidateItemResponse"],
+  | "no_websites"
+  | "is_user_overridden"
+  | "is_duplicate"
+  | "created_at"
+  | "updated_at"
+  | "update_coordinates"
+  | "is_skipped"
+  | "country_code"
+> & {
   country_code?: string | null;
   no_websites?: boolean;
   is_user_overridden?: boolean;
@@ -29,10 +39,17 @@ export type CandidateItem = Omit<components["schemas"]["CandidateItemResponse"],
   hero_image_urls?: string[];
   [key: string]: any;
 };
-export type CandidateUpdateRequest = components["schemas"]["CandidateUpdateRequest"];
+export type CandidateUpdateRequest =
+  components["schemas"]["CandidateUpdateRequest"];
 
 export interface CandidateListFilterParams {
-  completeness?: "all" | "complete" | "incomplete" | "missing_photo" | "missing_location" | "missing_websites";
+  completeness?:
+    | "all"
+    | "complete"
+    | "incomplete"
+    | "missing_photo"
+    | "missing_location"
+    | "missing_websites";
   disposition?: string;
   search?: string;
   phase?: "phase_1_triage" | "phase_2_enriched";
@@ -94,6 +111,116 @@ export interface Phase2ProgressResult {
   status_message: string;
 }
 
+export type BulkEnrichmentStatus =
+  | "QUEUED"
+  | "CANARY_DISPATCH"
+  | "ACTIVE"
+  | "DRAINING"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "BLOCKED"
+  | "FAILED";
+
+export interface BulkEnrichmentInitiatePayload {
+  candidate_ids?: string[];
+  force_refresh?: boolean;
+  all_eligible?: boolean;
+}
+
+export interface BulkEnrichmentInitiateResult {
+  session_id: string;
+  job_id: string;
+  total_enqueued: number;
+  status: BulkEnrichmentStatus;
+  message: string;
+}
+
+export interface BulkEnrichmentProgressResult {
+  session_id: string;
+  job_id: string;
+  status: BulkEnrichmentStatus;
+  total_count: number;
+  completed_count: number;
+  success_count: number;
+  issue_count: number;
+  remaining_count: number;
+  in_flight_count: number;
+  percent_complete: number;
+  elapsed_seconds: number;
+  average_duration_ms?: number | null;
+  can_cancel: boolean;
+  status_message: string;
+}
+
+export interface BulkEnrichmentCancelResult {
+  session_id: string;
+  status: BulkEnrichmentStatus;
+  message: string;
+}
+
+export interface BulkEnrichmentHeartbeatResult {
+  session_id: string;
+  acknowledged: boolean;
+  is_active: boolean;
+}
+
+export interface CandidateIssueDetail {
+  candidate_id: string;
+  poi_name: string;
+  row_index: number;
+  category:
+    | "RESOURCE_EXHAUSTION"
+    | "INPUT_DATA_ISSUE"
+    | "TEMPORARY_FAILURE"
+    | "INTERRUPTED"
+    | string;
+  severity: "blocking" | "warning" | "info" | string;
+  error_type: string;
+  reason: string;
+  suggested_action: string;
+  is_retryable: boolean;
+}
+
+export interface BulkEnrichmentSummaryResult {
+  session_id: string;
+  job_id: string;
+  status: BulkEnrichmentStatus;
+  total_candidates: number;
+  succeeded_count: number;
+  temporary_error_count: number;
+  blocking_error_count: number;
+  internal_error_count: number;
+  unprocessed_count: number;
+  total_duration_ms: number;
+  average_duration_ms: number;
+  total_resources_used: number;
+  termination_reason: string;
+  candidate_issues?: CandidateIssueDetail[];
+  created_at: string;
+}
+
+export interface BulkEnrichmentRecoveryResult {
+  result_id: string;
+  job_id: string;
+  session_id: string;
+  status: BulkEnrichmentStatus;
+  failed_at: string;
+  unprocessed_count: number;
+  failure_count: number;
+  total_candidates: number;
+  termination_reason: string;
+}
+
+export interface BulkEnrichmentRecoveryActionPayload {
+  result_id: string;
+  action: "resume" | "dismiss" | "cancel";
+}
+
+export interface BulkEnrichmentRecoveryActionResult {
+  acknowledged: boolean;
+  job_id: string;
+  initial_filter?: string | null;
+}
 
 export const ingestApi = {
   async listStagingCandidates(
@@ -154,13 +281,14 @@ export const ingestApi = {
     forceRefresh?: boolean,
   ): Promise<{ job_id: string; message: string; enqueued_count: number }> {
     const query = forceRefresh ? "?force_refresh=true" : "";
-    return apiFetch<{ job_id: string; message: string; enqueued_count: number }>(
-      `/api/ingest/jobs/${jobId}/enrich-all${query}`,
-      {
-        method: "POST",
-        timeoutMs: 30000,
-      },
-    );
+    return apiFetch<{
+      job_id: string;
+      message: string;
+      enqueued_count: number;
+    }>(`/api/ingest/jobs/${jobId}/enrich-all${query}`, {
+      method: "POST",
+      timeoutMs: 30000,
+    });
   },
 
   async batchEditCandidates(
@@ -177,12 +305,9 @@ export const ingestApi = {
   },
 
   async commitWorkbenchJob(jobId: string): Promise<CommitSummaryResult> {
-    return apiFetch<CommitSummaryResult>(
-      `/api/ingest/jobs/${jobId}/commit`,
-      {
-        method: "POST",
-      },
-    );
+    return apiFetch<CommitSummaryResult>(`/api/ingest/jobs/${jobId}/commit`, {
+      method: "POST",
+    });
   },
 
   async getJobCandidates(
@@ -263,7 +388,6 @@ export const ingestApi = {
     );
   },
 
-
   async backToPhase1(jobId: string): Promise<PhaseTransitionResult> {
     return apiFetch<PhaseTransitionResult>(
       `/api/ingest/jobs/${jobId}/phase2/back-to-phase1`,
@@ -272,7 +396,6 @@ export const ingestApi = {
       },
     );
   },
-
 
   async getActiveSession(): Promise<ActiveSessionResult> {
     return apiFetch<ActiveSessionResult>("/api/ingest/active-session", {
@@ -285,5 +408,82 @@ export const ingestApi = {
       method: "DELETE",
     });
   },
-};
 
+  async startBulkEnrichment(
+    jobId: string,
+    payload: BulkEnrichmentInitiatePayload,
+  ): Promise<BulkEnrichmentInitiateResult> {
+    return apiFetch<BulkEnrichmentInitiateResult>(
+      `/api/ingest/jobs/${jobId}/bulk-enrichment/start`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async getBulkEnrichmentProgress(
+    jobId: string,
+  ): Promise<BulkEnrichmentProgressResult> {
+    return apiFetch<BulkEnrichmentProgressResult>(
+      `/api/ingest/jobs/${jobId}/bulk-enrichment/progress`,
+      {
+        method: "GET",
+      },
+    );
+  },
+
+  async cancelBulkEnrichment(
+    jobId: string,
+  ): Promise<BulkEnrichmentCancelResult> {
+    return apiFetch<BulkEnrichmentCancelResult>(
+      `/api/ingest/jobs/${jobId}/bulk-enrichment/cancel`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
+  async heartbeatBulkEnrichment(
+    jobId: string,
+  ): Promise<BulkEnrichmentHeartbeatResult> {
+    return apiFetch<BulkEnrichmentHeartbeatResult>(
+      `/api/ingest/jobs/${jobId}/bulk-enrichment/heartbeat`,
+      {
+        method: "POST",
+      },
+    );
+  },
+
+  async getBulkEnrichmentSummary(
+    jobId: string,
+  ): Promise<BulkEnrichmentSummaryResult> {
+    return apiFetch<BulkEnrichmentSummaryResult>(
+      `/api/ingest/jobs/${jobId}/bulk-enrichment/summary`,
+      {
+        method: "GET",
+      },
+    );
+  },
+
+  async checkBulkEnrichmentRecovery(): Promise<BulkEnrichmentRecoveryResult | null> {
+    return apiFetch<BulkEnrichmentRecoveryResult | null>(
+      "/api/ingest/bulk-enrichment/recovery",
+      {
+        method: "GET",
+      },
+    );
+  },
+
+  async respondBulkEnrichmentRecovery(
+    payload: BulkEnrichmentRecoveryActionPayload,
+  ): Promise<BulkEnrichmentRecoveryActionResult> {
+    return apiFetch<BulkEnrichmentRecoveryActionResult>(
+      "/api/ingest/bulk-enrichment/recovery/respond",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+};

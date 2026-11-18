@@ -193,7 +193,12 @@ class CandidateEnricher:
         cache_repo: IExternalEnrichmentCacheRepository | None = None,
     ) -> None:
         """Initializes CandidateEnricher with session factory, orchestrator, and bounded LLM concurrency."""
-        self._session_factory = session_factory
+        if session_factory is None:
+            from vistarae_core.adapters.db.session import _get_session_factory
+
+            self._session_factory = _get_session_factory()
+        else:
+            self._session_factory = session_factory
         self._orchestrator = orchestrator or ScrapingOrchestrator()
         self.llm_semaphore = (
             llm_semaphore if llm_semaphore is not None else asyncio.Semaphore(5)
@@ -250,6 +255,7 @@ class CandidateEnricher:
 
         wiki_data: dict[str, Any] = {}
         official_meta_desc: str | None = None
+        secondary_extracts: list[str] = []
         websites_count = len(candidate.related_websites or [])
         if candidate.official_url and str(candidate.official_url).strip():
             websites_count += 1
@@ -436,7 +442,6 @@ class CandidateEnricher:
             else:
                 candidate.no_websites = False
 
-        secondary_extracts: list[str] = []
         if wiki_data and wiki_data.get("description"):
             secondary_extracts.append(wiki_data["description"])
         if official_meta_desc:

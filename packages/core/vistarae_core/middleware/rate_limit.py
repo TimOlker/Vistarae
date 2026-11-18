@@ -49,6 +49,7 @@ _TIER_LIMITS: dict[str, int] = {
     UserTier.LOW: 60,
     UserTier.HIGH: 300,
     UserTier.ADMIN: 300,
+    UserTier.PREMIUM: 300,
 }
 
 # In-memory cache: user_id → (tier, is_disabled, expiry_epoch_seconds)

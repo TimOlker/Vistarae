@@ -38,6 +38,16 @@ from vistarae_core.schemas.auth import (
     ResetPasswordResponse,
 )
 from vistarae_core.schemas.base import StrictBaseModel
+from vistarae_core.schemas.bulk_enrichment import (
+    BulkEnrichmentCancelResponse,
+    BulkEnrichmentHeartbeatResponse,
+    BulkEnrichmentInitiateRequest,
+    BulkEnrichmentInitiateResponse,
+    BulkEnrichmentProgressResponse,
+    BulkEnrichmentRecoveryActionRequest,
+    BulkEnrichmentRecoveryResponse,
+    BulkEnrichmentSummaryResponse,
+)
 from vistarae_core.schemas.errors import InvalidParam, ProblemDetails
 from vistarae_core.schemas.exclusion_zone import (
     ExclusionCheckRequest,
@@ -152,6 +162,14 @@ __all__ = [
     "AdminMessageRequest",
     "AdminMetricsResponse",
     "AdminUserDetailResponse",
+    "BulkEnrichmentCancelResponse",
+    "BulkEnrichmentHeartbeatResponse",
+    "BulkEnrichmentInitiateRequest",
+    "BulkEnrichmentInitiateResponse",
+    "BulkEnrichmentProgressResponse",
+    "BulkEnrichmentRecoveryActionRequest",
+    "BulkEnrichmentRecoveryResponse",
+    "BulkEnrichmentSummaryResponse",
     "BulkDeleteRequest",
     "BulkDeleteResponse",
     "BulkListsRequest",

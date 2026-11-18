@@ -327,6 +327,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/user/user/preferences/scraping-sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Scraping Sources
+     * @description Retrieves the list of authorized secondary scraping domains.
+     */
+    get: operations["get_scraping_sources_api_user_user_preferences_scraping_sources_get"];
+    /**
+     * Update Scraping Sources
+     * @description Updates the list of authorized secondary scraping domains.
+     */
+    put: operations["update_scraping_sources_api_user_user_preferences_scraping_sources_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/users/user/preferences/scraping-sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Scraping Sources
+     * @description Retrieves the list of authorized secondary scraping domains.
+     */
+    get: operations["get_scraping_sources_api_users_user_preferences_scraping_sources_get"];
+    /**
+     * Update Scraping Sources
+     * @description Updates the list of authorized secondary scraping domains.
+     */
+    put: operations["update_scraping_sources_api_users_user_preferences_scraping_sources_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/pois/dedup-check": {
     parameters: {
       query?: never;
@@ -638,6 +686,30 @@ export interface paths {
     get: operations["forward_geocode_endpoint_api_pois_geocode_forward_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/pois/geocode/extract-url": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Extract Url Coordinates Endpoint
+     * @description Extracts coordinates and enriched address from a webpage or map/geohack URL.
+     */
+    get: operations["extract_url_coordinates_endpoint_api_pois_geocode_extract_url_get"];
+    put?: never;
+    /**
+     * Extract Url Coordinates Endpoint
+     * @description Extracts coordinates and enriched address from a webpage or map/geohack URL.
+     */
+    post: operations["extract_url_coordinates_endpoint_api_pois_geocode_extract_url_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1020,6 +1092,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/ingest/jobs/{job_id}/candidates/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Stream full-fidelity RFC 4180 CSV export of staged candidates
+     * @description Streams full-fidelity RFC 4180 CSV containing staged candidates with UTF-8 BOM.
+     */
+    get: operations["export_job_candidates_api_ingest_jobs__job_id__candidates_export_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/ingest/jobs/{job_id}/candidates/{candidate_id}": {
     parameters: {
       query?: never;
@@ -1264,6 +1356,146 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/ingest/jobs/{job_id}/bulk-enrichment/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Initiate canary-gated bulk AI enrichment session
+     * @description Launches a canary-gated bulk AI enrichment session.
+     */
+    post: operations["start_bulk_enrichment_api_ingest_jobs__job_id__bulk_enrichment_start_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ingest/jobs/{job_id}/bulk-enrichment/progress": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Poll real-time metrics and progress of active enrichment session
+     * @description Retrieves live telemetry progress metrics for the active session.
+     */
+    get: operations["get_bulk_enrichment_progress_api_ingest_jobs__job_id__bulk_enrichment_progress_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ingest/jobs/{job_id}/bulk-enrichment/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Request graceful cancellation and worker draining
+     * @description Requests graceful cancellation and worker draining.
+     */
+    post: operations["cancel_bulk_enrichment_api_ingest_jobs__job_id__bulk_enrichment_cancel_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ingest/jobs/{job_id}/bulk-enrichment/heartbeat": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Record client heartbeat to prevent disconnection cancellation
+     * @description Records client heartbeat signal.
+     */
+    post: operations["record_bulk_enrichment_heartbeat_api_ingest_jobs__job_id__bulk_enrichment_heartbeat_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ingest/jobs/{job_id}/bulk-enrichment/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Retrieve post-processing audit summary for the latest completed session
+     * @description Retrieves post-run summary window statistics.
+     */
+    get: operations["get_bulk_enrichment_summary_api_ingest_jobs__job_id__bulk_enrichment_summary_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ingest/bulk-enrichment/recovery": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Check for unacknowledged failed or blocked enrichment runs upon login
+     * @description Checks for unacknowledged failed or blocked enrichment runs requiring traveler response.
+     */
+    get: operations["check_bulk_enrichment_recovery_api_ingest_bulk_enrichment_recovery_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/ingest/bulk-enrichment/recovery/respond": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Submit user response to the login recovery prompt
+     * @description Submits traveler action in response to login recovery prompt.
+     */
+    post: operations["respond_bulk_enrichment_recovery_api_ingest_bulk_enrichment_recovery_respond_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/system/open-folder": {
     parameters: {
       query?: never;
@@ -1370,7 +1602,7 @@ export interface components {
     };
     /**
      * BatchEditCandidatesRequest
-     * @description Client payload for batch updating country, state/province, city, and date_visited across candidates.
+     * @description Client payload for batch updating location, date_visited, and tags across candidates.
      */
     BatchEditCandidatesRequest: {
       /** Candidate Ids */
@@ -1528,6 +1760,333 @@ export interface components {
       payload: components["schemas"]["BulkEditPayload"];
     };
     /**
+     * BulkEnrichmentCancelResponse
+     * @description Response returned upon requesting graceful session cancellation.
+     */
+    BulkEnrichmentCancelResponse: {
+      /**
+       * Session Id
+       * Format: uuid
+       * @description Unique UUIDv4 session identifier.
+       */
+      session_id: string;
+      /** @description Updated session status (DRAINING or CANCELLED). */
+      status: components["schemas"]["BulkEnrichmentStatus"];
+      /**
+       * Message
+       * @description Cancellation confirmation message.
+       */
+      message: string;
+    };
+    /**
+     * BulkEnrichmentHeartbeatResponse
+     * @description Response acknowledging client heartbeat signal.
+     */
+    BulkEnrichmentHeartbeatResponse: {
+      /**
+       * Session Id
+       * Format: uuid
+       * @description Unique UUIDv4 session identifier.
+       */
+      session_id: string;
+      /**
+       * Acknowledged
+       * @description True if heartbeat was recorded.
+       * @default true
+       */
+      acknowledged: boolean;
+      /**
+       * Is Active
+       * @description True if session remains active.
+       */
+      is_active: boolean;
+    };
+    /**
+     * BulkEnrichmentInitiateRequest
+     * @description Payload to initiate a canary-gated bulk AI enrichment session.
+     */
+    BulkEnrichmentInitiateRequest: {
+      /**
+       * Candidate Ids
+       * @description Explicit candidate IDs to enrich. If empty or None, all eligible candidates are targeted.
+       */
+      candidate_ids?: string[] | null;
+      /**
+       * Force Refresh
+       * @description If True, recomputes all target fields regardless of pre-existing data, preserving user overrides.
+       * @default false
+       */
+      force_refresh: boolean;
+      /**
+       * All Eligible
+       * @description Explicit confirmation flag when candidate_ids is empty, confirming all eligible POIs should be enqueued.
+       * @default false
+       */
+      all_eligible: boolean;
+    };
+    /**
+     * BulkEnrichmentInitiateResponse
+     * @description Response returned upon successful initiation and canary dispatch.
+     */
+    BulkEnrichmentInitiateResponse: {
+      /**
+       * Session Id
+       * Format: uuid
+       * @description Unique UUIDv4 session identifier.
+       */
+      session_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       * @description Associated staging import job UUID.
+       */
+      job_id: string;
+      /**
+       * Total Enqueued
+       * @description Total number of candidates placed in queue.
+       */
+      total_enqueued: number;
+      /** @description Initial lifecycle status of the session. */
+      status: components["schemas"]["BulkEnrichmentStatus"];
+      /**
+       * Message
+       * @description Human-readable informational message.
+       */
+      message: string;
+    };
+    /**
+     * BulkEnrichmentProgressResponse
+     * @description Real-time progress metrics for active enrichment polling.
+     */
+    BulkEnrichmentProgressResponse: {
+      /**
+       * Session Id
+       * Format: uuid
+       * @description Unique UUIDv4 session identifier.
+       */
+      session_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       * @description Associated staging import job UUID.
+       */
+      job_id: string;
+      /** @description Current lifecycle status of the session. */
+      status: components["schemas"]["BulkEnrichmentStatus"];
+      /**
+       * Total Count
+       * @description Total candidates queued.
+       */
+      total_count: number;
+      /**
+       * Completed Count
+       * @description Count of candidates completed so far.
+       */
+      completed_count: number;
+      /**
+       * Success Count
+       * @description Count of candidates successfully enriched.
+       */
+      success_count: number;
+      /**
+       * Issue Count
+       * @description Count of candidates encountering errors.
+       */
+      issue_count: number;
+      /**
+       * Remaining Count
+       * @description Count of candidates remaining in queue.
+       */
+      remaining_count: number;
+      /**
+       * In Flight Count
+       * @description Count of workers currently active.
+       */
+      in_flight_count: number;
+      /**
+       * Percent Complete
+       * @description Integer percentage of completion (0-100).
+       */
+      percent_complete: number;
+      /**
+       * Elapsed Seconds
+       * @description Total seconds elapsed since session start.
+       */
+      elapsed_seconds: number;
+      /**
+       * Average Duration Ms
+       * @description Average execution duration per completed POI in milliseconds.
+       */
+      average_duration_ms?: number | null;
+      /**
+       * Can Cancel
+       * @description Whether the active session accepts graceful cancellation.
+       * @default true
+       */
+      can_cancel: boolean;
+      /**
+       * Status Message
+       * @description Descriptive status indicator text.
+       */
+      status_message: string;
+    };
+    /**
+     * BulkEnrichmentRecoveryActionRequest
+     * @description Traveler action in response to the login recovery prompt.
+     */
+    BulkEnrichmentRecoveryActionRequest: {
+      /**
+       * Result Id
+       * Format: uuid
+       * @description Target audit record UUID.
+       */
+      result_id: string;
+      /** @description User response: resume, dismiss, or cancel. */
+      action: components["schemas"]["RecoveryPromptAction"];
+    };
+    /**
+     * BulkEnrichmentRecoveryResponse
+     * @description Details of the most recent unacknowledged failed or blocked enrichment run.
+     */
+    BulkEnrichmentRecoveryResponse: {
+      /**
+       * Result Id
+       * Format: uuid
+       * @description Audit record UUID in bulk_enrichment_results.
+       */
+      result_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       * @description Associated staging import job UUID.
+       */
+      job_id: string;
+      /**
+       * Session Id
+       * Format: uuid
+       * @description Enrichment session UUID.
+       */
+      session_id: string;
+      /** @description Failure status (BLOCKED or FAILED). */
+      status: components["schemas"]["BulkEnrichmentStatus"];
+      /**
+       * Failed At
+       * Format: date-time
+       * @description Timestamp when the run concluded.
+       */
+      failed_at: string;
+      /**
+       * Unprocessed Count
+       * @description Number of remaining candidates left unenriched.
+       */
+      unprocessed_count: number;
+      /**
+       * Failure Count
+       * @description Number of candidates that encountered errors.
+       */
+      failure_count: number;
+      /**
+       * Total Candidates
+       * @description Total candidates in the original queue.
+       */
+      total_candidates: number;
+      /**
+       * Termination Reason
+       * @description Explanation of why processing was halted.
+       */
+      termination_reason: string;
+    };
+    /**
+     * BulkEnrichmentStatus
+     * @description Lifecycle states of a bulk enrichment session and audit record.
+     * @enum {string}
+     */
+    BulkEnrichmentStatus:
+      | "INITIALIZING"
+      | "CANARY_DISPATCH"
+      | "ACTIVE"
+      | "DRAINING"
+      | "COMPLETED"
+      | "BLOCKED"
+      | "CANCELLED"
+      | "FAILED";
+    /**
+     * BulkEnrichmentSummaryResponse
+     * @description Comprehensive post-run summary window statistics.
+     */
+    BulkEnrichmentSummaryResponse: {
+      /**
+       * Session Id
+       * Format: uuid
+       * @description Unique UUIDv4 session identifier.
+       */
+      session_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       * @description Associated staging import job UUID.
+       */
+      job_id: string;
+      /** @description Final terminal status. */
+      status: components["schemas"]["BulkEnrichmentStatus"];
+      /**
+       * Total Candidates
+       * @description Total candidates queued.
+       */
+      total_candidates: number;
+      /**
+       * Succeeded Count
+       * @description Count of candidates successfully enriched.
+       */
+      succeeded_count: number;
+      /**
+       * Temporary Error Count
+       * @description Count of non-fatal external issue candidates.
+       */
+      temporary_error_count: number;
+      /**
+       * Blocking Error Count
+       * @description Count of blocking circuit-break errors.
+       */
+      blocking_error_count: number;
+      /**
+       * Internal Error Count
+       * @description Count of unexpected system errors.
+       */
+      internal_error_count: number;
+      /**
+       * Unprocessed Count
+       * @description Count of candidates left unprocessed in queue.
+       */
+      unprocessed_count: number;
+      /**
+       * Total Duration Ms
+       * @description Total wall-clock duration in milliseconds.
+       */
+      total_duration_ms: number;
+      /**
+       * Average Duration Ms
+       * @description Mean candidate execution time in milliseconds.
+       */
+      average_duration_ms: number;
+      /**
+       * Total Resources Used
+       * @description Total API calls and token units consumed.
+       */
+      total_resources_used: number;
+      /**
+       * Termination Reason
+       * @description Descriptive explanation of how/why session concluded.
+       */
+      termination_reason: string;
+      /**
+       * Created At
+       * Format: date-time
+       * @description Timestamp when audit summary was recorded.
+       */
+      created_at: string;
+    };
+    /**
      * BulkListsRequest
      * @description Request payload for bulk list membership association or disassociation.
      */
@@ -1601,6 +2160,8 @@ export interface components {
       row_index: number;
       /** Poi Name */
       poi_name: string;
+      /** Recommended Poi Name */
+      recommended_poi_name?: string | null;
       recommended_disposition: components["schemas"]["IngestDisposition"];
       user_disposition?: components["schemas"]["IngestDisposition"] | null;
       /** Matched Existing Poi Id */
@@ -1667,6 +2228,8 @@ export interface components {
       }[];
       /** Hero Image Url */
       hero_image_url?: string | null;
+      /** Hero Image Urls */
+      hero_image_urls?: string[];
       /** Recommended Duration Hours */
       recommended_duration_hours?: number | null;
       /** Recommended Visit Days */
@@ -1797,6 +2360,8 @@ export interface components {
         | null;
       /** Hero Image Url */
       hero_image_url?: string | null;
+      /** Hero Image Urls */
+      hero_image_urls?: string[] | null;
       /** Recommended Duration Hours */
       recommended_duration_hours?: number | null;
       /** Recommended Visit Days */
@@ -2178,6 +2743,78 @@ export interface components {
       exclusion?: components["schemas"]["ExclusionVerdictSchema"];
     };
     /**
+     * ExtractUrlCoordinatesResponse
+     * @description Response payload for coordinates and address extracted from a webpage URL.
+     */
+    ExtractUrlCoordinatesResponse: {
+      /**
+       * Latitude
+       * @description Extracted or resolved latitude
+       */
+      latitude?: number | null;
+      /**
+       * Longitude
+       * @description Extracted or resolved longitude
+       */
+      longitude?: number | null;
+      /**
+       * Place Name
+       * @description Place or attraction name extracted from page
+       */
+      place_name?: string | null;
+      /**
+       * Extraction Source
+       * @description Source of extraction
+       * @default unknown
+       */
+      extraction_source: string;
+      /**
+       * Street
+       * @description Street address if resolved
+       */
+      street?: string | null;
+      /**
+       * City
+       * @description City or municipality if resolved
+       */
+      city?: string | null;
+      /**
+       * Locality
+       * @description City or locality
+       */
+      locality?: string | null;
+      /**
+       * State Province
+       * @description State or province if resolved
+       */
+      state_province?: string | null;
+      /**
+       * Admin Level 1
+       * @description State or province
+       */
+      admin_level_1?: string | null;
+      /**
+       * Admin Level 2
+       * @description County or district
+       */
+      admin_level_2?: string | null;
+      /**
+       * Country
+       * @description Country name if resolved
+       */
+      country?: string | null;
+      /**
+       * Postal Code
+       * @description Postal code if resolved
+       */
+      postal_code?: string | null;
+      /**
+       * Country Code
+       * @description ISO 3166-1 alpha-2 code
+       */
+      country_code?: string | null;
+    };
+    /**
      * FilterConjunction
      * @description Boolean conjunctions for joining query builder clauses.
      * @enum {string}
@@ -2303,6 +2940,11 @@ export interface components {
        * @description Resolved longitude
        */
       longitude?: number | null;
+      /**
+       * Resolved Name
+       * @description Canonical POI name if resolved via alias or knowledge base
+       */
+      resolved_name?: string | null;
       /**
        * Street
        * @description Street address
@@ -3959,6 +4601,11 @@ export interface components {
      * @description Recursive query builder AST tree node.
      */
     "QueryTreeSchema-Input": {
+      /**
+       * Id
+       * @description Client UI group identifier (optional)
+       */
+      id?: string | null;
       /** @default AND */
       conjunction: components["schemas"]["FilterConjunction"];
       /** Rules */
@@ -3972,6 +4619,11 @@ export interface components {
      * @description Recursive query builder AST tree node.
      */
     "QueryTreeSchema-Output": {
+      /**
+       * Id
+       * @description Client UI group identifier (optional)
+       */
+      id?: string | null;
       /** @default AND */
       conjunction: components["schemas"]["FilterConjunction"];
       /** Rules */
@@ -3980,6 +4632,12 @@ export interface components {
         | components["schemas"]["QueryTreeSchema-Output"]
       )[];
     };
+    /**
+     * RecoveryPromptAction
+     * @description Traveler choices in response to the login unacknowledged failure prompt.
+     * @enum {string}
+     */
+    RecoveryPromptAction: "resume" | "dismiss" | "cancel";
     /**
      * RegisterRequest
      * @description Payload for user registration.
@@ -4077,6 +4735,11 @@ export interface components {
      * @description Single condition rule in the query builder AST.
      */
     RuleClauseSchema: {
+      /**
+       * Id
+       * @description Client UI clause identifier (optional)
+       */
+      id?: string | null;
       /**
        * Field
        * @description Target POI field (e.g. 'country', 'rating', 'visit_state')
@@ -4932,6 +5595,142 @@ export interface operations {
       };
     };
   };
+  get_scraping_sources_api_user_user_preferences_scraping_sources_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScrapingSourcesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_scraping_sources_api_user_user_preferences_scraping_sources_put: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScrapingSourcesUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScrapingSourcesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_scraping_sources_api_users_user_preferences_scraping_sources_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScrapingSourcesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_scraping_sources_api_users_user_preferences_scraping_sources_put: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScrapingSourcesUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScrapingSourcesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   check_duplicates_api_pois_dedup_check_get: {
     parameters: {
       query: {
@@ -5626,6 +6425,8 @@ export interface operations {
         lat: number;
         /** @description Longitude in degrees (-180.0 to 180.0) */
         lng: number;
+        /** @description Bypass internal geocache */
+        force_refresh?: boolean;
       };
       header?: {
         Authorization?: string | null;
@@ -5697,6 +6498,8 @@ export interface operations {
       query: {
         /** @description Address or destination query */
         q: string;
+        /** @description Optional country hint */
+        country?: string | null;
       };
       header?: {
         Authorization?: string | null;
@@ -5714,6 +6517,76 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ForwardGeocodeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  extract_url_coordinates_endpoint_api_pois_geocode_extract_url_get: {
+    parameters: {
+      query: {
+        /** @description Webpage or map URL to inspect */
+        url: string;
+      };
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExtractUrlCoordinatesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  extract_url_coordinates_endpoint_api_pois_geocode_extract_url_post: {
+    parameters: {
+      query: {
+        /** @description Webpage or map URL to inspect */
+        url: string;
+      };
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExtractUrlCoordinatesResponse"];
         };
       };
       /** @description Validation Error */
@@ -6554,6 +7427,43 @@ export interface operations {
       };
     };
   };
+  export_job_candidates_api_ingest_jobs__job_id__candidates_export_get: {
+    parameters: {
+      query?: {
+        candidate_ids?: string[] | null;
+        phase?: components["schemas"]["IngestCandidatePhaseState"] | null;
+      };
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   update_candidate_api_ingest_jobs__job_id__candidates__candidate_id__put: {
     parameters: {
       query?: never;
@@ -6872,7 +7782,10 @@ export interface operations {
   };
   enrich_single_candidate_api_ingest_jobs__job_id__candidates__candidate_id__enrich_post: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Bypass search cache and force recalculate/refresh */
+        force_refresh?: boolean;
+      };
       header?: {
         Authorization?: string | null;
         "X-Mock-User-Id"?: string | null;
@@ -6907,7 +7820,10 @@ export interface operations {
   };
   enrich_all_candidates_api_ingest_jobs__job_id__enrich_all_post: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Bypass search cache and force recalculate/refresh */
+        force_refresh?: boolean;
+      };
       header?: {
         Authorization?: string | null;
         "X-Mock-User-Id"?: string | null;
@@ -7000,6 +7916,257 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CommitSummaryResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_bulk_enrichment_api_ingest_jobs__job_id__bulk_enrichment_start_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkEnrichmentInitiateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkEnrichmentInitiateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_bulk_enrichment_progress_api_ingest_jobs__job_id__bulk_enrichment_progress_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkEnrichmentProgressResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  cancel_bulk_enrichment_api_ingest_jobs__job_id__bulk_enrichment_cancel_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkEnrichmentCancelResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  record_bulk_enrichment_heartbeat_api_ingest_jobs__job_id__bulk_enrichment_heartbeat_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkEnrichmentHeartbeatResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_bulk_enrichment_summary_api_ingest_jobs__job_id__bulk_enrichment_summary_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path: {
+        job_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkEnrichmentSummaryResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  check_bulk_enrichment_recovery_api_ingest_bulk_enrichment_recovery_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BulkEnrichmentRecoveryResponse"];
+        };
+      };
+      /** @description No unacknowledged recovery run found */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  respond_bulk_enrichment_recovery_api_ingest_bulk_enrichment_recovery_respond_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        Authorization?: string | null;
+        "X-Mock-User-Id"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkEnrichmentRecoveryActionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
       };
       /** @description Validation Error */

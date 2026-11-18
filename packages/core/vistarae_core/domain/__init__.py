@@ -18,7 +18,10 @@
 
 from vistarae_core.domain.entities import (
     POI,
+    BulkEnrichmentResult,
     DuplicatePayloadItem,
+    EnrichmentQueueItem,
+    EnrichmentSession,
     ExternalEnrichmentCacheEntry,
     GeocodingCacheEntry,
     IdempotencyRecord,
@@ -32,10 +35,14 @@ from vistarae_core.domain.entities import (
     UserMetric,
     UserPreferences,
     UserQuota,
+    get_bulk_enrichment_concurrency,
 )
 from vistarae_core.domain.enums import (
+    BulkEnrichmentStatus,
     CandidateDisposition,
+    EnrichmentResultCode,
     ExportFormat,
+    RecoveryPromptAction,
     SelectiveEnrichmentOverrides,
     TagResolutionAction,
 )
@@ -77,7 +84,12 @@ from vistarae_core.domain.value_objects import (
 )
 
 __all__ = [
+    "BulkEnrichmentResult",
+    "BulkEnrichmentStatus",
     "CandidateDisposition",
+    "EnrichmentQueueItem",
+    "EnrichmentResultCode",
+    "EnrichmentSession",
     "AccountDisabledError",
     "AddressRecord",
     "BoundingBox",
@@ -112,6 +124,7 @@ __all__ = [
     "PacingMode",
     "PotentialDuplicateMatch",
     "QuotaExceededError",
+    "RecoveryPromptAction",
     "RowLimitExceededError",
     "SelectiveEnrichmentOverrides",
     "SourceType",
@@ -128,4 +141,5 @@ __all__ = [
     "UserTier",
     "VisitState",
     "WGS84Point",
+    "get_bulk_enrichment_concurrency",
 ]

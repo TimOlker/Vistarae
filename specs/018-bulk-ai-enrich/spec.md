@@ -8,6 +8,19 @@
 
 **Input**: User description: "When running a 'AI Enrich All' currently the user had no visibility to what was going on, no status bar was displayed. POIs were failing since gemini resources had run out and processing kept proceeding, wasting resources and time. A fail fast style logic is needed. In the POI Import Staging Workbench when clicking 'AI Enrich All': When clicked this should continue the existing logic to loop through the POIs in the POI Import Staging Workbench and look for the fields previously targeted to be populated by webscraping and AI. The AI enrichment should only be available to users on a premium subscription level. The editing of the list of POIs should be disabled during this processing to avoid a race condition like the user deleting an existing POI or adding a new one. When processing completes, either successfully or unsuccessfully, re-enable. All of the selected POIs on the 'POI Import Staging Workbench' should be added to a queue. If no POIs are selected, prompt the user if all POIs should be processed, if the user says 'yes', all POIs should be added to the queue, if the user says 'No' abort processing. This should continue to send a fixed number POIs from the queue at a time to an independent processing logic worker that can be scaled horizontally (like an AWS lambda). This number should be configurable in an environment variable. When processing the first record, treat it like a canary - do not submit multiple records in parallel, make sure the first canary POI record is processed to avoid consuming multiple records resources. Each processing logic worker should return details on processing results. It should return a result code that indicates if the worker was successful, if it encountered an internal error, if it encountered a blocking external error (like resources exhausted or a quota limit reached that will likely mean future POIs being processed will fail) and temporary external error (like a record was not found). A detailed error text message describing the error should be returned as well. The time taken to process the POI should be returned as well as a count of resources used. When the producer that sent the request receives a blocking external error (like resources exhausted or a quota limit reached that will likely mean future POIs being processed will fail), do not submit additional POIs in the queue to the worker to be processed. Allow any previously submitted POIs to complete processing. When all workers have completed, then end the processing. While processing there should be a progress bar displayed to the user showing the total number of POIs in the queue, the number of POIs that successfully processed, the number of POIs that encountered an issue, and the number of POIs remaining, along with the percentage of processing. The number of POIs currently being processed should be displayed. The total time taken so far should be displayed. Average time to process a POI if possible would be useful. The bar should also have a 'Cancel' button that allows processing to gracefully to be ended. This will work similar to when an error is detected - stop submitting additional POIs to the worker and wait for the consumer workers to finish. When processing completes (success or unsuccessfully) - display an information window with stats (count of POIs processed successfully, count of unsuccessfully (by error status), count of unprocessed POIs, total duration, average time to process a POI, a total count of resources used across all POIs. Also include the reason for ending processing - all records processed, an error, user cancel, etc. In the log have a unique UUID that can be used to associate a request sent from the producer and then consumed by the worker. A unique number of the queue position for each item should also be recorded. Processing does not need to be sequential, but it should allow a user looking at the log in the consumer and the producer to have an idea of how much processing has completed. In the worker logs include the POI name being processed with the queue position and total queue like [X of Y]. Please flag any contradictions with previous logic or missing logic or features to include that might be useful."
 
+## Clarifications
+
+### Session 2026-11-13
+
+- Q: How should individual candidate enrichment results be persisted to the database during an active bulk enrichment run? → A: Option A: Immediate Per-Candidate Persistence: Commit each candidate's enriched fields to the database immediately as its worker finishes, ensuring all completed work is saved if interrupted.
+- Q: When "AI Enrich All" processes a candidate that already contains non-empty values (such as pre-existing descriptions or hours from CSV import), how should it handle those populated fields? → A: Option A: Fill Missing Fields Only (Default): Populate only empty or null AI-targeted fields on each candidate, preserving existing populated attributes and manual overrides, with an optional force_refresh toggle.
+- Q: When processing is interrupted (by user cancellation or a blocking external error), how long should the system wait for in-flight workers to complete before force-terminating them? → A: Option B: 30-Second Grace Drain: Allow up to 30 seconds for slower multi-domain scraping requests to complete before force-terminating any remaining workers.
+- Q: If the traveler closes their browser tab or refreshes the page while bulk enrichment is in progress, how should the system handle the active session? → A: Option B: Client Heartbeat Cancellation: The session requires a client heartbeat every 5s; if the browser disconnects for >15s, the session automatically drains and cancels.
+- Q: What should be the maximum execution timeout for an individual candidate worker before it is aborted and classified as an INTERNAL_ERROR? → A: Option A: 45-Second Timeout: Allow up to 45 seconds per candidate to accommodate slow external websites and LLM generation, then abort and mark INTERNAL_ERROR.
+- Q: When the traveler selects "Yes, resume processing" on the login recovery prompt, should the system immediately launch the AI enrichment queue, or open the staging workbench for traveler review first? → A: Option A: Open Workbench for Review: Open the POI Import Staging Workbench with pending candidates loaded, allowing the traveler to verify credits and manually trigger "AI Enrich All" when ready.
+- Q: Should the login recovery prompt appear strictly for system failures (BLOCKED and FAILED runs), or also for user-initiated CANCELLED runs? → A: Option A: System Failures & Blocks Only: Trigger the login prompt only for BLOCKED and FAILED runs; user-cancelled runs do not prompt.
+- Q: When the POI Import Staging Workbench opens from the login recovery prompt, which candidate view or filter should be displayed by default? → A: Option A: Filter to "Incomplete": Open the workbench with the "Incomplete" filter active, immediately focusing on the remaining candidates that require AI enrichment.
+
 ## Architecture Alignment & Contradictions with Previous Logic
 
 The following contradictions, superseded behaviors, and architectural refinements have been identified between this specification and legacy/previous implementations:
@@ -108,18 +121,40 @@ As the Vistarae platform, I want to lock the workbench during active bulk enrich
 
 ---
 
+### User Story 5 - Persistent Run Audit & Login-Time Incomplete Session Recovery (Priority: P2)
+
+As a traveler whose bulk enrichment session was interrupted or halted by an external failure or cancellation, I want the system to record the full run outcome in the database and proactively prompt me on my next login to resume, dismiss, or postpone, so that I can easily recover my pending POIs without being repeatedly nagged once I have addressed the session.
+
+**Why this priority**: When a run halts because prepaid credits ran out, the traveler often navigates away to replenish credits in AI Studio. Upon logging back in, the system should remember the incomplete batch and offer an effortless one-click resumption into the staging workbench.
+
+**Independent Test**: Can be tested by terminating a bulk enrichment session with a blocking error, logging out, logging back in, and verifying that the recovery prompt appears with "Yes, resume processing", "No", and "Cancel" buttons. Verifying that clicking "Yes" opens the workbench and suppresses future prompts, "No" dismisses and suppresses future prompts, and "Cancel" dismisses but re-prompts on subsequent logins.
+
+**Acceptance Scenarios**:
+
+1. **Given** any bulk enrichment session terminates (whether successful, blocked, failed, or cancelled), **When** processing concludes, **Then** the system shall persist a detailed audit record to the `bulk_enrichment_results` database table associated with the authenticated traveler.
+2. **Given** an authenticated traveler logs into the application whose last recorded enrichment run resulted in a failure or circuit-break halt with no prior response (`acknowledged_at IS NULL`), **When** the dashboard loads, **Then** the system shall display an interactive recovery modal asking if they wish to resume processing.
+3. **Given** the login recovery modal, **When** the traveler selects "Yes, resume processing", **Then** the system shall mark the previous run as acknowledged (`acknowledged_at = NOW()`), dismiss the modal, and open the POI Import Staging Workbench with the pending candidate information.
+4. **Given** the login recovery modal, **When** the traveler selects "No", **Then** the system shall mark the previous run as acknowledged (`acknowledged_at = NOW()`) and dismiss the modal without opening the staging workbench, preventing the prompt from reappearing on subsequent reloads.
+5. **Given** the login recovery modal, **When** the traveler selects "Cancel", **Then** the system shall dismiss the modal without marking the run as acknowledged, ensuring the prompt reappears on subsequent application reloads until the traveler makes a definitive selection.
+
+---
+
 ## Edge Cases
 
 - **What happens if the canary record encounters a `TEMPORARY_EXTERNAL_ERROR` (e.g., specific website 404 or missing coordinates)?**
   The canary check differentiates between service-level exhaustion and single-item data defects. If the canary fails due to an item-specific issue (e.g., website not found), the system shall record the issue for that candidate and proceed to process the remaining queue at the configured concurrency limit. It only halts if the canary returns a `BLOCKING_EXTERNAL_ERROR` (e.g., HTTP 402/429/auth failure).
 - **What happens if a worker crashes or times out while processing a candidate?**
-  The worker pool shall enforce a per-item timeout. If a worker fails to report back within the timeout window, the item is marked with `INTERNAL_ERROR` ("Worker execution timed out"), allowing in-flight tracking to decrement cleanly and prevent hanging sessions.
+  The worker pool enforces a 45-second execution ceiling per candidate. If a worker fails to complete within 45 seconds, the item is aborted and classified as `INTERNAL_ERROR` ("Worker execution timed out after 45s"), freeing the concurrency slot for subsequent queue items.
 - **What happens if the traveler closes or refreshes the browser during bulk enrichment?**
-  The backend enrichment session maintains its queue state and progress in the database/session cache. When the traveler reopens the workbench for that job, the system detects the active session, restores the locked state and progress modal, and continues tracking until completion.
+  The session requires a client heartbeat every 5 seconds. If the browser tab is closed or disconnected for more than 15 consecutive seconds, the backend automatically triggers graceful cancellation, draining active workers within the 30-second window and safely preserving all candidates completed up to that moment.
 - **What happens if a user clicks "AI Enrich All" when all candidates in the job are already fully enriched?**
   The system shall inspect candidate completeness. If all selected or available candidates already possess required AI fields, the system shall prompt the traveler asking if they wish to force-recalculate all records or cancel.
 - **What happens if multiple browser tabs attempt to start bulk enrichment on the same job simultaneously?**
   The backend enforces an atomic session lock per `job_id`. If a second request arrives while a session is active, the system rejects the duplicate with HTTP 409 Conflict ("Enrichment already in progress for this job").
+- **What happens if a user has multiple historical unacknowledged failed runs?**
+  The login check evaluates the user's single most recent failed or blocked run record (`ORDER BY created_at DESC LIMIT 1`). Acknowledging or resuming that run updates its `acknowledged_at` timestamp.
+- **What happens if the import job or candidates were deleted before the user resumes from the login prompt?**
+  If the referenced `job_id` no longer exists when the user clicks "Yes, resume processing", the system alerts the user that the import batch was previously deleted or cleared, marks `acknowledged_at = NOW()`, and suppresses future prompts without opening an empty workbench.
 
 ---
 
@@ -159,20 +194,22 @@ As the Vistarae platform, I want to lock the workbench during active bulk enrich
   - `enriched_candidate`: The updated candidate payload if enrichment succeeded.
 - **REQ-ENR-017**: _Ubiquitous_: The system shall classify external HTTP 402 (payment required/credits depleted), HTTP 429 (rate/quota limit exhausted), and service authentication failures as `BLOCKING_EXTERNAL_ERROR`.
 - **REQ-ENR-018**: _Ubiquitous_: The system shall classify missing target websites, unresolvable domain queries, and empty scrape results as `TEMPORARY_EXTERNAL_ERROR`.
-- **REQ-ENR-019**: _Ubiquitous_: The system shall classify unhandled exceptions, serialization failures, and worker timeouts as `INTERNAL_ERROR`.
+- **REQ-ENR-019**: _Ubiquitous_: The system shall classify unhandled exceptions, serialization failures, and worker executions exceeding a 45-second execution ceiling as `INTERNAL_ERROR` (`"Worker execution timed out after 45s"`), decrementing active in-flight counts and allowing remaining queue processing to proceed.
 
 #### Fail-Fast Circuit Breaking & Cancellation
 - **REQ-ENR-020**: _Event-Driven_: When the producer receives a `BLOCKING_EXTERNAL_ERROR` from any active worker, the system shall trigger fail-fast circuit breaking:
   1. Immediately mark the remaining unprocessed queue as halted.
   2. Prevent any new candidate dispatches to workers.
-  3. Await completion of all currently in-flight worker tasks.
-  4. Terminate the enrichment session.
+  3. Await completion of all currently in-flight worker tasks for a grace drain window of up to 30 seconds.
+  4. Force-terminate any worker still active after 30 seconds and record it as timed out.
+  5. Terminate the enrichment session.
 - **REQ-ENR-021**: _Event-Driven_: When the traveler clicks the "Cancel" button on the progress modal, the system shall:
   1. Transition session state to `CANCELLING`.
   2. Cease dispatching any new items from the queue.
-  3. Allow all in-flight workers to complete processing.
-  4. Mark all un-dispatched items as `CANCELLED`.
-  5. Terminate the enrichment session.
+  3. Allow all in-flight workers up to 30 seconds to complete processing and commit their results.
+  4. Force-terminate any worker still active after 30 seconds.
+  5. Mark all un-dispatched items as `CANCELLED`.
+  6. Terminate the enrichment session.
 
 #### User Visibility & Real-Time Progress Modal
 - **REQ-ENR-022**: _State-Driven_: While bulk enrichment is active, the system shall render a modal dialog displaying:
@@ -208,6 +245,18 @@ As the Vistarae platform, I want to lock the workbench during active bulk enrich
   - Response to outbound message sent: `MSG   |<-`
 - **REQ-ENR-028**: _Ubiquitous_: Every worker log entry shall record the candidate POI name, queue position index, total queue size in the format `[X of Y]`, and the `EnrichmentSessionId`. Example:
   `MSG ->| [EnrichWorker] Processing POI 'Mount Fuji' [1 of 15] | SessionID={uuid}`.
+- **REQ-ENR-029**: _Ubiquitous_: The system shall persist each candidate's enriched data and updated timestamp to PostgreSQL immediately upon successful worker completion, ensuring that all completed records remain saved in the database even if subsequent items are halted by a blocking error or user cancellation.
+- **REQ-ENR-030**: _State-Driven_: While executing bulk enrichment without the `force_refresh` flag, the worker shall populate only attributes that are currently null or empty (such as missing descriptions, missing visit reasons, missing hours, missing website lists, or missing photos), preserving any pre-existing imported values and manual overrides.
+- **REQ-ENR-031**: _State-Driven_: While executing bulk enrichment with the `force_refresh` flag enabled, the worker shall recalculate all AI-targeted fields, preserving only attributes explicitly marked with `is_user_overridden = true`.
+- **REQ-ENR-032**: _Event-Driven_: While bulk enrichment is active, the frontend client shall transmit a heartbeat signal to the backend at 5-second intervals; if the backend detects no heartbeat for greater than 15 consecutive seconds (e.g., client tab closed or connection severed), the backend shall initiate graceful cancellation, stopping new queue dispatches and draining active workers within the 30-second window.
+
+#### Persistent Audit Logging & Login Recovery Prompt
+- **REQ-ENR-033**: _Event-Driven_: When an enrichment session terminates (regardless of whether the outcome is completed, circuit-break blocked, internally failed, or cancelled), the system shall persist an audit record in the `bulk_enrichment_results` database table capturing `id`, `user_id`, `job_id`, `session_id`, `status`, `processed_count`, `unprocessed_count`, `failure_count`, `success_count`, `total_resources_used`, `total_duration_ms`, `average_duration_ms`, `termination_reason`, `acknowledged_at` (`NULL` initially for failed or blocked runs), and timestamps.
+- **REQ-ENR-034**: _Event-Driven_: When an authenticated user logs into the application or initializes a frontend session, the system shall query `bulk_enrichment_results` for the user's most recent enrichment run where `status` is in (`'BLOCKED'`, `'FAILED'`) and `acknowledged_at` is `NULL` (excluding runs with status `'CANCELLED'` or `'COMPLETED'`).
+- **REQ-ENR-035**: _State-Driven_: While an unacknowledged failed or blocked enrichment run exists for the authenticated user, the user interface shall present an interactive recovery dialog offering three choices: `"Yes, resume processing"`, `"No"`, and `"Cancel"`.
+- **REQ-ENR-036**: _Event-Driven_: When the user selects `"Yes, resume processing"`, the system shall update the run record with `acknowledged_at = CURRENT_TIMESTAMP`, dismiss the dialog, and open the POI Import Staging Workbench initialized with the `"Incomplete"` completeness filter active, surfacing only pending candidates from the affected import job in an editable review state, allowing the traveler to verify their batch and trigger `"AI Enrich All"` when ready.
+- **REQ-ENR-037**: _Event-Driven_: When the user selects `"No"`, the system shall update the run record with `acknowledged_at = CURRENT_TIMESTAMP` and dismiss the dialog without opening the POI Import Staging Workbench, preventing the prompt from reappearing on subsequent reloads.
+- **REQ-ENR-038**: _Event-Driven_: When the user selects `"Cancel"`, the system shall dismiss the dialog without updating `acknowledged_at` and without opening the POI Import Staging Workbench, ensuring the recovery prompt reappears on subsequent application reloads until the user selects "Yes" or "No".
 
 ---
 
@@ -251,6 +300,24 @@ As the Vistarae platform, I want to lock the workbench during active bulk enrich
   - `total_resources_used`: Sum of all external units consumed.
   - `termination_reason`: Human-readable summary description.
 
+- **BulkEnrichmentResult**: Persistent database entity (`bulk_enrichment_results`) auditing all completed or interrupted enrichment runs per user.
+  - `id`: Unique UUIDv4 primary key.
+  - `user_id`: Owning user UUID foreign key (mandating tenant isolation).
+  - `job_id`: Associated staging import job UUID.
+  - `session_id`: UUID of the executed enrichment session.
+  - `status`: Outcome (`COMPLETED`, `BLOCKED`, `CANCELLED`, `FAILED`).
+  - `processed_count`: Count of candidates processed.
+  - `unprocessed_count`: Count of candidates remaining in queue upon termination.
+  - `failure_count`: Count of candidates encountering errors.
+  - `success_count`: Count of candidates successfully enriched.
+  - `total_resources_used`: Total external API calls/tokens consumed.
+  - `total_duration_ms`: Total wall-clock runtime in milliseconds.
+  - `average_duration_ms`: Average processing time per candidate in milliseconds.
+  - `termination_reason`: Plain-text explanation of session end.
+  - `acknowledged_at`: Timestamp when the traveler responded to the recovery prompt, or NULL if unacknowledged.
+  - `created_at`: Creation timestamp (UTC).
+  - `updated_at`: Last update timestamp (UTC).
+
 ---
 
 ## Success Criteria _(mandatory)_
@@ -263,6 +330,8 @@ As the Vistarae platform, I want to lock the workbench during active bulk enrich
 - **SC-004**: _Zero Concurrent Mutation Race Conditions_: $100\%$ of candidate edits, deletions, and commits shall be blocked while bulk enrichment is active, resulting in $0$ race condition write conflicts.
 - **SC-005**: _Complete Operational Accounting_: The post-processing summary window shall account for $100\%$ of queued candidates across succeeded, failed, and unprocessed categories without omission.
 - **SC-006**: _Immediate Graceful Cancellation_: When the traveler clicks "Cancel", active dispatches shall stop within $500\text{ ms}$, and in-flight workers shall be drained cleanly without data corruption.
+- **SC-007**: _Complete Audit Persistence_: $100\%$ of bulk enrichment runs (whether successful, blocked, failed, or cancelled) shall be persisted to the `bulk_enrichment_results` database table associated with the owning user ID.
+- **SC-008**: _Deterministic Login Recovery Prompting_: $100\%$ of users with unacknowledged failed or blocked enrichment runs shall be presented with the recovery prompt upon login, and selecting "Yes" or "No" shall definitively prevent repeat prompts on future logins.
 
 ---
 

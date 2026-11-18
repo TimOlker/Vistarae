@@ -43,7 +43,15 @@ import { ItineraryDetailPage } from "./pages/ItineraryDetailPage";
 import { ManualAddPOIModal } from "./components/poi/ManualAddPOIModal";
 import { CSVUploadModal } from "./components/ingest/CSVUploadModal";
 import { CSVProgressModal } from "./components/ingest/CSVProgressModal";
-import { CSVImportWorkbenchModal } from "./components/ingest/CSVImportWorkbenchModal";
+import {
+  CSVImportWorkbenchModal,
+  type CompletenessFilter,
+} from "./components/ingest/CSVImportWorkbenchModal";
+import { BulkEnrichmentRecoveryModal } from "./components/common/BulkEnrichmentRecoveryModal";
+import {
+  ingestApi,
+  type BulkEnrichmentRecoveryResult,
+} from "./services/ingestApi";
 
 import { triageStorage } from "./services/triageStorage";
 import { apiFetch } from "./services/api";
@@ -102,6 +110,45 @@ const AppContent: React.FC = () => {
   const [isCSVPhase2Open, setIsCSVPhase2Open] = useState(false);
   const [phase2JobId, setPhase2JobId] = useState<string | null>(null);
 
+  // Recovery modal state (REQ-ENR-034, REQ-ENR-036)
+  const [recoveryRun, setRecoveryRun] =
+    useState<BulkEnrichmentRecoveryResult | null>(null);
+  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
+  const [workbenchInitialFilter, setWorkbenchInitialFilter] = useState<
+    CompletenessFilter | undefined
+  >(undefined);
+
+  // Check for unacknowledged failed or blocked enrichment runs upon login
+  useEffect(() => {
+    if (!user) return;
+    ingestApi
+      .checkBulkEnrichmentRecovery()
+      .then((run) => {
+        if (run) {
+          setRecoveryRun(run);
+          setIsRecoveryModalOpen(true);
+        }
+      })
+      .catch((err) => {
+        console.warn("Bulk enrichment recovery check error:", err);
+      });
+  }, [user]);
+
+  const handleResumeRecovery = (jobId: string, initialFilter: string) => {
+    setIsRecoveryModalOpen(false);
+    setTriageJobId(jobId);
+    setWorkbenchInitialFilter(initialFilter as CompletenessFilter);
+    setIsCSVTriageOpen(true);
+  };
+
+  const handleDismissRecovery = () => {
+    setIsRecoveryModalOpen(false);
+    setRecoveryRun(null);
+  };
+
+  const handleCloseRecovery = () => {
+    setIsRecoveryModalOpen(false);
+  };
 
   // Opportunistic triage eviction on startup (REQ-UI-027a)
   useEffect(() => {
@@ -139,10 +186,10 @@ const AppContent: React.FC = () => {
     setIsCSVTriageOpen(true);
   };
 
-
-
-
-  const handleResumeJob = (jobId: string, phase: "phase_1_triage" | "phase_2_enriched") => {
+  const handleResumeJob = (
+    jobId: string,
+    phase: "phase_1_triage" | "phase_2_enriched",
+  ) => {
     setIsCSVUploadOpen(false);
     if (phase === "phase_2_enriched") {
       setPhase2JobId(jobId);
@@ -164,8 +211,6 @@ const AppContent: React.FC = () => {
       })
       .catch(() => {});
   };
-
-
 
   return (
     <div
@@ -404,20 +449,26 @@ const AppContent: React.FC = () => {
           setIsCSVPhase2Open(false);
           setTriageJobId(null);
           setPhase2JobId(null);
+          setWorkbenchInitialFilter(undefined);
         }}
         onCommitComplete={() => {
           setIsCSVTriageOpen(false);
           setIsCSVPhase2Open(false);
           setTriageJobId(null);
           setPhase2JobId(null);
+          setWorkbenchInitialFilter(undefined);
           handlePhase2CommitComplete();
         }}
         existingPOIs={pois}
+        initialCompletenessFilter={workbenchInitialFilter}
+      />
 
-
-
-
-
+      <BulkEnrichmentRecoveryModal
+        isOpen={isRecoveryModalOpen}
+        recoveryRun={recoveryRun}
+        onResume={handleResumeRecovery}
+        onDismiss={handleDismissRecovery}
+        onClose={handleCloseRecovery}
       />
     </div>
   );

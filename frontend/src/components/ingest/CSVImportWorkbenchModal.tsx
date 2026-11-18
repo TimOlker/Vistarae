@@ -22,10 +22,13 @@ import React, {
   useRef,
 } from "react";
 import { Modal } from "../common/Modal";
+import { CSVEnrichmentProgressModal } from "./CSVEnrichmentProgressModal";
+import { CSVEnrichmentSummaryModal } from "./CSVEnrichmentSummaryModal";
 import {
   ingestApi,
   type CandidateItem,
   type CandidateUpdateRequest,
+  type BulkEnrichmentInitiatePayload,
 } from "../../services/ingestApi";
 import { apiFetch } from "../../services/api";
 import {
@@ -79,6 +82,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Lock,
 } from "lucide-react";
 
 export interface ExistingPOIMarker {
@@ -127,6 +131,7 @@ export interface CSVImportWorkbenchModalProps {
   onClose: () => void;
   onCommitComplete?: (summary: { committed_count: number }) => void;
   existingPOIs?: ExistingPOIMarker[];
+  initialCompletenessFilter?: CompletenessFilter;
 }
 
 export type CompletenessFilter =
@@ -281,13 +286,31 @@ const cleanReasonToVisit = (raw?: string | null): string => {
 
 export const CSVImportWorkbenchModal: React.FC<
   CSVImportWorkbenchModalProps
-> = ({ jobId, isOpen, onClose, onCommitComplete, existingPOIs = [] }) => {
+> = ({
+  jobId,
+  isOpen,
+  onClose,
+  onCommitComplete,
+  existingPOIs = [],
+  initialCompletenessFilter,
+}) => {
   const { showToast } = useToast();
 
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
+
+  // Bulk Enrichment States (REQ-ENR-005 through REQ-ENR-026)
+  const [isEnrichmentActive, setIsEnrichmentActive] = useState(false);
+  const [isEnrichmentDraining, setIsEnrichmentDraining] = useState(false);
+  const [isEnrichmentProgressOpen, setIsEnrichmentProgressOpen] =
+    useState(false);
+  const [isEnrichmentSummaryOpen, setIsEnrichmentSummaryOpen] = useState(false);
+  const [showEnrichAllConfirmation, setShowEnrichAllConfirmation] =
+    useState(false);
+
+  const isEnrichmentLocked = isEnrichmentActive || isEnrichmentDraining;
   // POI Name Change Recommendations & Prompt States
   const [nameChangePrompt, setNameChangePrompt] = useState<{
     currentName: string;
@@ -348,7 +371,13 @@ export const CSVImportWorkbenchModal: React.FC<
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [completenessFilter, setCompletenessFilter] =
-    useState<CompletenessFilter>("all");
+    useState<CompletenessFilter>(initialCompletenessFilter || "all");
+
+  useEffect(() => {
+    if (initialCompletenessFilter) {
+      setCompletenessFilter(initialCompletenessFilter);
+    }
+  }, [initialCompletenessFilter]);
 
   // Multi-select disposition filter, restored from session data (defaults to all)
   const [selectedDispositions, setSelectedDispositions] = useState<string[]>(
@@ -1645,6 +1674,7 @@ export const CSVImportWorkbenchModal: React.FC<
 
   // Multi-select toggle
   const toggleSelectAll = () => {
+    if (isEnrichmentLocked) return;
     if (
       sortedCandidates.length > 0 &&
       selectedCandidateIds.length === sortedCandidates.length
@@ -1656,6 +1686,7 @@ export const CSVImportWorkbenchModal: React.FC<
   };
 
   const toggleSelectRow = (id: string, e: React.MouseEvent) => {
+    if (isEnrichmentLocked) return;
     e.stopPropagation();
     setSelectedCandidateIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
@@ -1664,7 +1695,7 @@ export const CSVImportWorkbenchModal: React.FC<
 
   // Single-candidate enrichment: "AI Enrich POI" (cached) or "Recalculate / Force Refresh" (bypasses cache)
   const handleEnrichSingle = async (forceRefresh: boolean = false) => {
-    if (!jobId || !selectedCandidateId) return;
+    if (!jobId || !selectedCandidateId || isEnrichmentLocked) return;
     setIsEnrichingSingle(true);
     try {
       // If user cleared reason_to_visit or description in the UI, persist that clearing before enrichment
@@ -1730,32 +1761,64 @@ export const CSVImportWorkbenchModal: React.FC<
     }
   };
 
-  // Asynchronous Bulk Enrichment: "AI Enrich All"
-  const handleEnrichAll = async (forceRefresh: boolean = false) => {
+  // Bulk AI Enrichment Orchestration (REQ-ENR-005 through REQ-ENR-026)
+  const handleEnrichAllClick = (forceRefresh: boolean = false) => {
+    if (isEnrichmentLocked || !jobId) return;
+    if (selectedCandidateIds.length > 0) {
+      handleInitiateBulkEnrichment(selectedCandidateIds, false, forceRefresh);
+    } else {
+      setShowEnrichAllConfirmation(true);
+    }
+  };
+
+  const handleInitiateBulkEnrichment = async (
+    candidateIds?: string[],
+    allEligible?: boolean,
+    forceRefresh: boolean = false,
+  ) => {
     if (!jobId) return;
     setIsEnrichingAll(true);
+    setIsEnrichmentActive(true);
+    setShowEnrichAllConfirmation(false);
+
     try {
-      const res = await ingestApi.enrichAllCandidates(jobId, forceRefresh);
-      showToast(
-        res.message ||
-          (forceRefresh
-            ? "Bulk recalculation queued in background"
-            : "Bulk AI enrichment queued in background"),
-        "info",
-      );
-      setTimeout(() => {
-        loadCandidates();
-        setIsEnrichingAll(false);
-      }, 3000);
+      const payload: BulkEnrichmentInitiatePayload = {
+        candidate_ids:
+          candidateIds && candidateIds.length > 0 ? candidateIds : undefined,
+        all_eligible: allEligible ?? (candidateIds ? false : true),
+        force_refresh: forceRefresh,
+      };
+      await ingestApi.startBulkEnrichment(jobId, payload);
+      setIsEnrichmentProgressOpen(true);
     } catch (err: any) {
-      console.error("Batch enrichment failed:", err);
+      console.error("Batch enrichment failed to initiate:", err);
+      setIsEnrichmentActive(false);
+      setIsEnrichingAll(false);
       const detail =
         err?.problem?.detail ||
         err?.message ||
-        "Failed to launch batch enrichment";
+        "Failed to launch bulk AI enrichment";
       showToast(detail, "error");
-      setIsEnrichingAll(false);
     }
+  };
+
+  const handleEnrichmentProgressComplete = () => {
+    setIsEnrichmentProgressOpen(false);
+    setIsEnrichmentActive(false);
+    setIsEnrichmentDraining(false);
+    setIsEnrichingAll(false);
+    setIsEnrichmentSummaryOpen(true);
+  };
+
+  const handleEnrichmentSummaryClose = () => {
+    setIsEnrichmentSummaryOpen(false);
+    loadCandidates();
+  };
+
+  const handleReviewIncompleteFromSummary = () => {
+    setIsEnrichmentSummaryOpen(false);
+    setCompletenessFilter("incomplete");
+    loadCandidates();
   };
 
   // Reactive "No Websites" checkbox toggle
@@ -2870,14 +2933,36 @@ export const CSVImportWorkbenchModal: React.FC<
             >
               {candidates.length} Candidates
             </span>
+            {isEnrichmentLocked && (
+              <span
+                data-testid="workbench-readonly-lock-badge"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  backgroundColor: "#fef3c7",
+                  color: "#92400e",
+                  border: "1px solid #fde68a",
+                  fontWeight: 600,
+                }}
+              >
+                <Lock size={12} />
+                <span>Read-Only (Bulk Enriching)</span>
+              </span>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* AI Enrich All Button */}
+            {/* AI Enrich Button */}
             <button
               type="button"
-              onClick={() => handleEnrichAll(false)}
-              disabled={isEnrichingAll || candidates.length === 0}
+              onClick={() => handleEnrichAllClick(false)}
+              disabled={
+                isEnrichingAll || isEnrichmentLocked || candidates.length === 0
+              }
               data-testid="ai-enrich-all-btn"
               style={{
                 display: "inline-flex",
@@ -2886,11 +2971,14 @@ export const CSVImportWorkbenchModal: React.FC<
                 padding: "6px 12px",
                 borderRadius: "6px",
                 border: "1px solid #c7d2fe",
-                backgroundColor: "#eef2ff",
-                color: "#4338ca",
+                backgroundColor: isEnrichmentLocked ? "#f1f5f9" : "#eef2ff",
+                color: isEnrichmentLocked ? "#94a3b8" : "#4338ca",
                 fontSize: "12px",
                 fontWeight: 600,
-                cursor: isEnrichingAll ? "not-allowed" : "pointer",
+                cursor:
+                  isEnrichingAll || isEnrichmentLocked
+                    ? "not-allowed"
+                    : "pointer",
               }}
             >
               {isEnrichingAll ? (
@@ -2899,7 +2987,11 @@ export const CSVImportWorkbenchModal: React.FC<
                 <Sparkles size={14} />
               )}
               <span>
-                {isEnrichingAll ? "Enriching All..." : "AI Enrich All"}
+                {isEnrichingAll
+                  ? "Enriching..."
+                  : selectedCandidateIds.length > 0
+                    ? `AI Enrich (${selectedCandidateIds.length})`
+                    : "AI Enrich All"}
               </span>
             </button>
 
@@ -2956,7 +3048,7 @@ export const CSVImportWorkbenchModal: React.FC<
             <button
               type="button"
               onClick={handleDiscardSession}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isEnrichmentLocked}
               data-testid="discard-session-btn"
               style={{
                 display: "inline-flex",
@@ -2965,11 +3057,14 @@ export const CSVImportWorkbenchModal: React.FC<
                 padding: "6px 12px",
                 borderRadius: "6px",
                 border: "1px solid #fecaca",
-                backgroundColor: "#fff1f2",
-                color: "#be123c",
+                backgroundColor: isEnrichmentLocked ? "#f1f5f9" : "#fff1f2",
+                color: isEnrichmentLocked ? "#94a3b8" : "#be123c",
                 fontSize: "12px",
                 fontWeight: 600,
-                cursor: "pointer",
+                cursor:
+                  isSubmitting || isEnrichmentLocked
+                    ? "not-allowed"
+                    : "pointer",
               }}
             >
               <Trash2 size={14} />
@@ -2980,7 +3075,9 @@ export const CSVImportWorkbenchModal: React.FC<
             <button
               type="button"
               onClick={handleCommitImport}
-              disabled={isSubmitting || candidates.length === 0}
+              disabled={
+                isSubmitting || candidates.length === 0 || isEnrichmentLocked
+              }
               data-testid="commit-import-btn"
               style={{
                 display: "inline-flex",
@@ -2988,12 +3085,15 @@ export const CSVImportWorkbenchModal: React.FC<
                 gap: "6px",
                 padding: "6px 16px",
                 borderRadius: "6px",
-                backgroundColor: "#16a34a",
+                backgroundColor: isEnrichmentLocked ? "#94a3b8" : "#16a34a",
                 color: "#ffffff",
                 border: "none",
                 fontSize: "12px",
                 fontWeight: 600,
-                cursor: isSubmitting ? "not-allowed" : "pointer",
+                cursor:
+                  isSubmitting || candidates.length === 0 || isEnrichmentLocked
+                    ? "not-allowed"
+                    : "pointer",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
               }}
             >
@@ -6185,7 +6285,7 @@ export const CSVImportWorkbenchModal: React.FC<
                   <button
                     type="button"
                     onClick={handleSaveCandidateChanges}
-                    disabled={isSavingCandidate}
+                    disabled={isSavingCandidate || isEnrichmentLocked}
                     data-testid="save-candidate-changes-btn"
                     style={{
                       display: "inline-flex",
@@ -6193,12 +6293,17 @@ export const CSVImportWorkbenchModal: React.FC<
                       gap: "6px",
                       padding: "6px 18px",
                       borderRadius: "6px",
-                      backgroundColor: "#2563eb",
+                      backgroundColor: isEnrichmentLocked
+                        ? "#94a3b8"
+                        : "#2563eb",
                       color: "#ffffff",
                       border: "none",
                       fontSize: "12px",
                       fontWeight: 600,
-                      cursor: isSavingCandidate ? "not-allowed" : "pointer",
+                      cursor:
+                        isSavingCandidate || isEnrichmentLocked
+                          ? "not-allowed"
+                          : "pointer",
                     }}
                   >
                     {isSavingCandidate ? (
@@ -6718,6 +6823,96 @@ export const CSVImportWorkbenchModal: React.FC<
           onClose={() => setShowNameRecommendationsModal(false)}
           candidates={candidates}
           onAcceptChanges={handleAcceptNameChanges}
+        />
+
+        {/* 0-Selection Confirmation Dialog (REQ-ENR-005, REQ-ENR-008) */}
+        {showEnrichAllConfirmation && (
+          <Modal
+            isOpen={showEnrichAllConfirmation}
+            onClose={() => setShowEnrichAllConfirmation(false)}
+            title="Confirm Bulk AI Enrichment"
+            maxWidth="460px"
+          >
+            <div
+              data-testid="enrich-all-confirmation-modal"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+                padding: "8px 0",
+              }}
+            >
+              <div
+                style={{ fontSize: "13px", color: "#334155", lineHeight: 1.5 }}
+              >
+                No individual candidate rows are currently selected. Would you
+                like to enrich <strong>all eligible POIs</strong> in this import
+                job?
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "8px",
+                  marginTop: "8px",
+                }}
+              >
+                <button
+                  type="button"
+                  data-testid="cancel-enrich-all-btn"
+                  onClick={() => setShowEnrichAllConfirmation(false)}
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "#ffffff",
+                    color: "#475569",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  data-testid="confirm-enrich-all-btn"
+                  onClick={() =>
+                    handleInitiateBulkEnrichment(undefined, true, false)
+                  }
+                  style={{
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: "#4338ca",
+                    color: "#ffffff",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Yes, Enrich All Eligible
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* Bulk Enrichment Progress Modal (REQ-ENR-022) */}
+        <CSVEnrichmentProgressModal
+          jobId={jobId}
+          isOpen={isEnrichmentProgressOpen}
+          onComplete={handleEnrichmentProgressComplete}
+          onCancel={() => {
+            setIsEnrichmentProgressOpen(false);
+          }}
+        />
+
+        {/* Bulk Enrichment Summary Modal (REQ-ENR-026) */}
+        <CSVEnrichmentSummaryModal
+          jobId={jobId}
+          isOpen={isEnrichmentSummaryOpen}
+          onClose={handleEnrichmentSummaryClose}
+          onFilterIncomplete={handleReviewIncompleteFromSummary}
         />
       </div>
     </Modal>

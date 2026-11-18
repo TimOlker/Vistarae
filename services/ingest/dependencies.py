@@ -19,12 +19,16 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from vistarae_core.adapters.db.session import get_db_session
 from vistarae_core.adapters.queue.mock import MockQueueAdapter
 from vistarae_core.adapters.queue.sqs import SQSQueueAdapter
+from vistarae_core.adapters.repositories.bulk_enrichment_repo import (
+    SqlAlchemyBulkEnrichmentRepository,
+)
 from vistarae_core.adapters.repositories.enrichment_cache_repo import (
     SqlAlchemyExternalEnrichmentCacheRepository,
 )
@@ -47,6 +51,7 @@ from vistarae_core.adapters.repositories.tag_repo import (
 )
 from vistarae_core.ports.queue import IQueuePort
 from vistarae_core.ports.repositories import (
+    IBulkEnrichmentRepository,
     IExternalEnrichmentCacheRepository,
     IGeocodingCacheRepository,
     IIngestCandidateRepository,
@@ -212,5 +217,31 @@ def create_staging_service(session: AsyncSession) -> StagingService:
         ingest_repo=ingest_repo,
         exclusion_zone_repo=exclusion_zone_repo,
         tag_repo=tag_repo,
-    
     )
+
+
+_global_bulk_enrichment_manager: Any = None
+
+
+def get_bulk_enrichment_manager() -> Any:
+    """Provides singleton BulkEnrichmentSessionManager instance."""
+    global _global_bulk_enrichment_manager
+    if _global_bulk_enrichment_manager is None:
+        from vistarae_core.adapters.db.session import _get_session_factory
+
+        from services.worker.bulk_enrichment_manager import BulkEnrichmentSessionManager
+        from services.worker.candidate_enricher import CandidateEnricher
+
+        session_factory = _get_session_factory()
+        _global_bulk_enrichment_manager = BulkEnrichmentSessionManager(
+            candidate_enricher=CandidateEnricher(session_factory=session_factory),
+            session_factory=session_factory,
+        )
+    return _global_bulk_enrichment_manager
+
+
+def get_bulk_enrichment_repo(
+    session: AsyncSession = Depends(get_db_session),
+) -> IBulkEnrichmentRepository:
+    """Provides active BulkEnrichmentRepository instance."""
+    return SqlAlchemyBulkEnrichmentRepository(session)

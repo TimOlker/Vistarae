@@ -34,6 +34,7 @@ from mangum import Mangum
 from vistarae_core.adapters.db.session import get_engine, init_engine
 from vistarae_core.middleware.errors import add_problem_details_handlers
 
+from services.ingest.routes import bulk_enrichment as bulk_enrichment_routes
 from services.ingest.routes import export as export_routes
 from services.ingest.routes import health as health_routes
 from services.ingest.routes import jobs as jobs_routes
@@ -73,6 +74,7 @@ app.include_router(triage_routes.router)
 app.include_router(staging_routes.router)
 app.include_router(export_routes.router)
 app.include_router(tags_routes.router)
+app.include_router(bulk_enrichment_routes.router)
 
 
 # Serverless entrypoint

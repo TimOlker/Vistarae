@@ -127,7 +127,7 @@ async def _resolve_mock_user(mock_id: str, session: AsyncSession) -> User:
         HTTPException: 401 if the mock_id is not a valid UUID format.
     """
     from sqlalchemy import select  # noqa: PLC0415
-    from vistarae_core.adapters.db.tables import UserTable  # noqa: PLC0415
+    from vistarae_core.adapters.db.tables import UserQuotasTable, UserTable  # noqa: PLC0415
 
     try:
         claims = await _mock_provider.verify_token(mock_id)
@@ -177,12 +177,18 @@ async def _resolve_mock_user(mock_id: str, session: AsyncSession) -> User:
             detail=f"Account {user_uuid} has been administratively disabled.",
         )
 
+    quota_row = await session.scalar(
+        select(UserQuotasTable).where(UserQuotasTable.user_id == row.id)
+    )
+    user_tier = quota_row.tier if quota_row and quota_row.tier else "low"
+
     return User(
         id=row.id,
         cognito_sub=row.cognito_sub,
         email=row.email,
         full_name=row.full_name,
         is_active=row.is_active,
+        tier=user_tier,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -203,7 +209,7 @@ async def _resolve_cognito_user(token: str, session: AsyncSession) -> User:
         HTTPException: 403 if the account is disabled.
     """
     from sqlalchemy import select  # noqa: PLC0415
-    from vistarae_core.adapters.db.tables import UserTable  # noqa: PLC0415
+    from vistarae_core.adapters.db.tables import UserQuotasTable, UserTable  # noqa: PLC0415
 
     try:
         claims = await _cognito_provider.verify_token(token)
@@ -231,12 +237,18 @@ async def _resolve_cognito_user(token: str, session: AsyncSession) -> User:
             detail=f"Account {row.id} has been administratively disabled.",
         )
 
+    quota_row = await session.scalar(
+        select(UserQuotasTable).where(UserQuotasTable.user_id == row.id)
+    )
+    user_tier = quota_row.tier if quota_row and quota_row.tier else "low"
+
     return User(
         id=row.id,
         cognito_sub=row.cognito_sub,
         email=row.email,
         full_name=row.full_name,
         is_active=row.is_active,
+        tier=user_tier,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
