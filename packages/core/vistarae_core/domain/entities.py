@@ -185,6 +185,8 @@ class POI:
     directory_paths: list[str] = field(default_factory=list)
     creation_metadata: dict[str, Any] = field(default_factory=dict)
     related_websites: list[dict[str, Any]] = field(default_factory=list)
+    no_address: bool = False
+    no_websites: bool = False
     visit_state: VisitState = VisitState.NOT_VISITED
     visited_dates: list[str] = field(default_factory=list)
     want_to_visit_again: bool = False
@@ -392,6 +394,7 @@ class IngestCandidate:
     is_skipped: bool = False
     phase_state: IngestCandidatePhaseState = IngestCandidatePhaseState.PHASE_1_TRIAGE
     no_websites: bool = False
+    no_address: bool = False
     disposition_justification: str | None = None
     is_user_overridden: bool = False
     parent_candidate_id: UUID | None = None

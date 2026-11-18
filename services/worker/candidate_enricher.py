@@ -280,7 +280,7 @@ class CandidateEnricher:
                 candidate.related_websites, candidate.tags
             )
 
-        if should_query_links and any("wikipedia" in d.lower() for d in valid_domains):
+        if should_query_links and not candidate.no_websites and any("wikipedia" in d.lower() for d in valid_domains):
             try:
                 wiki_adapter = WikipediaAdapter(
                     valid_domains=valid_domains, cache_repo=effective_cache_repo
@@ -353,7 +353,7 @@ class CandidateEnricher:
                 logger.debug("Wikipedia enrichment failed for '%s': %s", candidate.poi_name, exc)
 
         # Secondary lookup for TripAdvisor
-        if should_query_links and (
+        if should_query_links and not candidate.no_websites and (
             not valid_domains or any("tripadvisor" in d.lower() for d in valid_domains)
         ):
             try:
@@ -394,7 +394,7 @@ class CandidateEnricher:
             or any("hillman" in str(t).lower() for t in (candidate.tags or []))
             or any(d in valid_domains for d in ["wikipedia.org", "tripadvisor.com", "atlasobscura.com"])
         )
-        if should_query_links and is_hillman_allowed:
+        if should_query_links and not candidate.no_websites and is_hillman_allowed:
             try:
                 hillman_adapter = HillmanWondersAdapter(
                     valid_domains=valid_domains, cache_repo=effective_cache_repo
@@ -437,9 +437,7 @@ class CandidateEnricher:
                 new_count += 1
             if candidate.wiki_url and str(candidate.wiki_url).strip():
                 new_count += 1
-            if new_count == 0:
-                candidate.no_websites = True
-            else:
+            if new_count > 0:
                 candidate.no_websites = False
 
         if wiki_data and wiki_data.get("description"):
@@ -573,7 +571,8 @@ class CandidateEnricher:
                         cand.longitude = Decimal(str(lon))
                         if addrs:
                             first = addrs[0]
-                            cand.street_address = cand.street_address or first.street
+                            if not cand.no_address:
+                                cand.street_address = cand.street_address or first.street
                             cand.city = cand.city or first.city
                             cand.state_province = cand.state_province or first.state_province
                             cand.postal_code = cand.postal_code or first.postal_code
@@ -809,8 +808,8 @@ class CandidateEnricher:
                 cand.related_websites, cand.tags
             )
 
-            if not cand.official_url and not cand.wiki_url and not cand.related_websites:
-                cand.no_websites = True
+            if cand.official_url or cand.wiki_url or bool(cand.related_websites):
+                cand.no_websites = False
             if official_meta_desc:
                 secondary_extracts.append(official_meta_desc)
 

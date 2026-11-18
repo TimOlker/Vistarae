@@ -128,6 +128,14 @@ class POIExchangeRecord(StrictBaseModel):
         default="",
         description="Authoritative Wikipedia article URL.",
     )
+    no_address: bool = Field(
+        default=False,
+        description="Whether a street address is known to be unavailable / exempted.",
+    )
+    no_websites: bool = Field(
+        default=False,
+        description="Whether official / external websites are known to be unavailable / exempted.",
+    )
     created_at: datetime | None = Field(
         default=None,
         description="UTC timestamp when the POI was added to Vistarae.",

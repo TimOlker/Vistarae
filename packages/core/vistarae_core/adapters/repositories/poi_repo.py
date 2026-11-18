@@ -172,6 +172,8 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
         recommended_visit_days=row.recommended_visit_days,
         estimated_visit_time_notes=row.estimated_visit_time_notes,
         enrichment_status=EnrichmentStatus(row.enrichment_status),
+        no_address=getattr(row, "no_address", False),
+        no_websites=getattr(row, "no_websites", False),
         region_geom=str(row.region_geom) if row.region_geom is not None else None,
         embedding=list(row.embedding) if row.embedding is not None else None,
         embedding_md5=row.embedding_md5,
@@ -244,6 +246,8 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             directory_paths=poi.directory_paths,
             creation_metadata=poi.creation_metadata,
             related_websites=poi.related_websites or [],
+            no_address=poi.no_address,
+            no_websites=poi.no_websites,
             visit_state=poi.visit_state.value
             if hasattr(poi.visit_state, "value")
             else str(poi.visit_state),
@@ -350,6 +354,8 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row.directory_paths = poi.directory_paths
         row.creation_metadata = poi.creation_metadata
         row.related_websites = poi.related_websites or []
+        row.no_address = poi.no_address
+        row.no_websites = poi.no_websites
         row.visit_state = (
             poi.visit_state.value if hasattr(poi.visit_state, "value") else str(poi.visit_state)
         )

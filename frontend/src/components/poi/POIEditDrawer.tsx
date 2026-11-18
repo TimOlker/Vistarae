@@ -96,6 +96,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
   // Provenance
   const [sourceType, setSourceType] = useState<string>("Manual");
   const [sourceValue, setSourceValue] = useState<string>("");
+  const [noAddress, setNoAddress] = useState<boolean>(false);
+  const [noWebsites, setNoWebsites] = useState<boolean>(false);
 
   // URLs
   const [relatedWebsites, setRelatedWebsites] = useState<{ name: string; url: string }[]>([]);
@@ -178,6 +180,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
     setInitialLat(baselineLat);
     setInitialLon(baselineLon);
     setRating(poi.rating || 0);
+    setNoAddress(Boolean(poi.no_address));
+    setNoWebsites(Boolean(poi.no_websites));
     setParentPoiId(poi.parent_poi_id || null);
     const initialSites = reconstructWebsitesList(poi as any);
     setRelatedWebsites(initialSites);
@@ -406,6 +410,8 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
       official_url: relatedWebsites.find((s) => s.name.toLowerCase().includes("official"))?.url || undefined,
       wiki_url: relatedWebsites.find((s) => s.name.toLowerCase().includes("wikipedia") || s.url.toLowerCase().includes("wikipedia.org"))?.url || undefined,
       related_websites: relatedWebsites,
+      no_address: noAddress,
+      no_websites: noWebsites,
       directory_paths: directoryPaths,
       image_urls: imageUrls,
       visited_dates: visitedDates,
@@ -1035,9 +1041,43 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
             </div>
 
             {/* Section 5: Multi-Address Editor */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: "4px",
+              }}
+            >
+              <label
+                style={{
+                  fontSize: "11px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={noAddress}
+                  onChange={(e) => {
+                    setNoAddress(e.target.checked);
+                    if (e.target.checked) setAddresses([]);
+                  }}
+                  data-testid="edit-poi-no-address-checkbox"
+                />
+                No address available
+              </label>
+            </div>
             <MultiAddressEditor
               addresses={addresses}
-              onChange={(updatedAddresses) => setAddresses(updatedAddresses)}
+              onChange={(updatedAddresses) => {
+                setAddresses(updatedAddresses);
+                if (updatedAddresses.some((a) => a.street && a.street.trim())) {
+                  setNoAddress(false);
+                }
+              }}
             />
 
             {/* Section 6: Recommended Duration */}
@@ -1436,19 +1476,48 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                   gap: "8px",
                 }}
               >
-                <span
+                <div
                   style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "var(--text-secondary, #475569)",
                     display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    gap: "6px",
                   }}
                 >
-                  <Globe size={13} style={{ color: "var(--accent, #2563eb)" }} />
-                  Related Websites & Research ({relatedWebsites.length})
-                </span>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: "var(--text-secondary, #475569)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <Globe size={13} style={{ color: "var(--accent, #2563eb)" }} />
+                    Related Websites & Research ({relatedWebsites.length})
+                  </span>
+                  <label
+                    style={{
+                      fontSize: "11px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      cursor: "pointer",
+                      color: "#64748b",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={noWebsites}
+                      onChange={(e) => {
+                        setNoWebsites(e.target.checked);
+                        if (e.target.checked) setRelatedWebsites([]);
+                      }}
+                      data-testid="edit-poi-no-websites-checkbox"
+                    />
+                    No websites
+                  </label>
+                </div>
 
                 {relatedWebsites.length === 0 ? (
                   <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", fontStyle: "italic" }}>
@@ -1550,6 +1619,7 @@ export const POIEditDrawer: React.FC<POIEditDrawerProps> = ({
                         const key = trimmedUrl.toLowerCase();
                         if (!relatedWebsites.some((w) => normalizeUrl(w.url).toLowerCase() === key)) {
                           setRelatedWebsites([...relatedWebsites, { name, url: trimmedUrl }]);
+                          setNoWebsites(false);
                         }
                         setNewWebsiteName("");
                         setNewWebsiteUrl("");

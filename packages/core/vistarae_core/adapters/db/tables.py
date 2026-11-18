@@ -436,6 +436,18 @@ class POITable(Base):
         default=list,
         server_default=text("'[]'::jsonb"),
     )
+    no_address: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("FALSE"),
+    )
+    no_websites: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("FALSE"),
+    )
     visit_state: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -1136,6 +1148,9 @@ class IngestCandidateTable(Base):
         Boolean, server_default=text("false"), default=False, nullable=False
     )
     no_websites: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), default=False, nullable=False
+    )
+    no_address: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), default=False, nullable=False
     )
     disposition_justification: Mapped[str | None] = mapped_column(Text, nullable=True)

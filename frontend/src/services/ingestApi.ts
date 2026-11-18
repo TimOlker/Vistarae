@@ -63,6 +63,8 @@ export interface BatchEditCandidatesPayload {
   date_visited?: string | null;
   add_tag?: string | null;
   remove_tag?: string | null;
+  no_address?: boolean | null;
+  no_websites?: boolean | null;
 }
 
 export interface CandidateListResult {

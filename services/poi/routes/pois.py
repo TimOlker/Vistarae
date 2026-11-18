@@ -136,6 +136,8 @@ def _poi_to_response(poi: POI, tags: list[TagEntity] | None = None) -> POIRespon
         recommended_visit_days=poi.recommended_visit_days,
         estimated_visit_time_notes=getattr(poi, "estimated_visit_time_notes", None),
         enrichment_status=poi.enrichment_status,
+        no_address=poi.no_address,
+        no_websites=poi.no_websites,
         lon=poi.geom.lon,
         lat=poi.geom.lat,
         similarity_score=getattr(poi, "similarity_score", None),
@@ -363,6 +365,8 @@ async def create_poi(
         recommended_visit_days=req.recommended_visit_days,
         estimated_visit_time_notes=req.estimated_visit_time_notes,
         enrichment_status=enrichment_status,
+        no_address=req.no_address if not (address and address.strip()) else False,
+        no_websites=req.no_websites if not ((req.official_url and req.official_url.strip()) or getattr(req, "related_websites", None)) else False,
         embedding=embedding_vector,
         embedding_md5=md5_hash,
     )
@@ -420,6 +424,8 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:  # noqa: C901
         "recommended_visit_days",
         "estimated_visit_time_notes",
         "related_websites",
+        "no_address",
+        "no_websites",
     )
     for field in fields:
         val = getattr(req, field, None)
@@ -456,6 +462,12 @@ def _apply_poi_updates(poi: POI, req: POIUpdateRequest) -> None:  # noqa: C901
                 a.country for a in normalized if a.country and a.country != "Unknown"
             ]
             poi.countries = list(dict.fromkeys(extracted_countries))
+
+    # Reactive exemption reset on non-empty data entry (REQ-EXM-026, REQ-EXM-027)
+    if poi.address and str(poi.address).strip():
+        poi.no_address = False
+    if (poi.official_url and str(poi.official_url).strip()) or bool(poi.related_websites):
+        poi.no_websites = False
 
 
 @router.patch("/pois/{poi_id}", response_model=POIResponse)

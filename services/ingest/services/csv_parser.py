@@ -111,6 +111,12 @@ _COLUMN_MAPPINGS.update(
         "locality": "locality",  # Decoupled from city (Fixing Finding I1)
         "photo_directories": "photo_directories",
         "photo directories": "photo_directories",
+        "no_address": "no_address",
+        "no address": "no_address",
+        "no_address_flag": "no_address",
+        "no_websites": "no_websites",
+        "no websites": "no_websites",
+        "no_websites_flag": "no_websites",
     }
 )
 
@@ -349,7 +355,11 @@ def parse_and_sanitize_csv(  # noqa: C901
 
         no_websites = False
         if "no_websites" in raw_dict and raw_dict["no_websites"]:
-            no_websites = raw_dict["no_websites"].strip().lower() in ("true", "1", "yes", "t")
+            no_websites = str(raw_dict["no_websites"]).strip().lower() in ("true", "1", "yes", "t")
+
+        no_address = False
+        if "no_address" in raw_dict and raw_dict["no_address"]:
+            no_address = str(raw_dict["no_address"]).strip().lower() in ("true", "1", "yes", "t")
 
         # Dynamic raw_geocoding with unmapped columns preservation (FR-008)
         raw_geo: dict[str, Any] = {}
@@ -398,6 +408,7 @@ def parse_and_sanitize_csv(  # noqa: C901
             "wiki_url": raw_dict.get("wiki_url", "") or raw_dict.get("wikipedia_url", ""),
             "related_websites": websites,
             "no_websites": no_websites,
+            "no_address": no_address,
             "recommended_duration_hours": raw_dict.get("recommended_duration_hours") or None,
             "recommended_visit_days": raw_dict.get("recommended_visit_days") or None,
             "estimated_visit_time_notes": raw_dict.get("estimated_visit_time_notes", ""),

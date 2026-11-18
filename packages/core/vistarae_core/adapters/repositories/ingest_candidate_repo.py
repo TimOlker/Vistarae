@@ -86,6 +86,7 @@ def _row_to_entity(row: IngestCandidateTable) -> IngestCandidate:
         update_coordinates=row.update_coordinates,
         is_skipped=row.is_skipped,
         phase_state=IngestCandidatePhaseState(row.phase_state),
+        no_address=bool(getattr(row, "no_address", False)),
         no_websites=bool(row.no_websites),
         disposition_justification=row.disposition_justification,
         is_user_overridden=bool(row.is_user_overridden),
@@ -171,6 +172,7 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
                 update_coordinates=cand.update_coordinates,
                 is_skipped=cand.is_skipped,
                 phase_state=cand.phase_state.value,
+                no_address=cand.no_address,
                 no_websites=cand.no_websites,
                 disposition_justification=cand.disposition_justification,
                 is_user_overridden=cand.is_user_overridden,
@@ -310,6 +312,7 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         row.update_coordinates = candidate.update_coordinates
         row.is_skipped = candidate.is_skipped
         row.phase_state = candidate.phase_state.value
+        row.no_address = candidate.no_address
         row.no_websites = candidate.no_websites
         row.disposition_justification = candidate.disposition_justification
         row.is_user_overridden = candidate.is_user_overridden
@@ -504,6 +507,8 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
         date_visited: str | None = None,
         add_tag: str | None = None,
         remove_tag: str | None = None,
+        no_address: bool | None = None,
+        no_websites: bool | None = None,
     ) -> int:
         """Batch updates location, date visited, and tag fields for selected candidates."""
         if not candidate_ids:
@@ -522,6 +527,10 @@ class SqlAlchemyIngestCandidateRepository(IIngestCandidateRepository):
                 row.state_province = state_province
             if city is not None:
                 row.city = city
+            if no_address is not None:
+                row.no_address = no_address
+            if no_websites is not None:
+                row.no_websites = no_websites
             if date_visited:
                 current_dates = list(row.dates_visited or [])
                 if date_visited not in current_dates:

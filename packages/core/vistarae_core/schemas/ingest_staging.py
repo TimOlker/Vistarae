@@ -104,6 +104,7 @@ class CandidateItemResponse(StrictBaseModel):
     is_skipped: bool = False
     phase_state: IngestCandidatePhaseState
     no_websites: bool = False
+    no_address: bool = False
     disposition_justification: str | None = None
     is_user_overridden: bool = False
     parent_candidate_id: UUID | None = None
@@ -159,6 +160,7 @@ class CandidateUpdateRequest(StrictBaseModel):
     update_coordinates: bool | None = None
     is_skipped: bool | None = None
     no_websites: bool | None = None
+    no_address: bool | None = None
     disposition_justification: str | None = None
     is_user_overridden: bool | None = None
     parent_candidate_id: UUID | None = None
@@ -213,6 +215,8 @@ class BatchEditCandidatesRequest(StrictBaseModel):
     date_visited: str | None = None
     add_tag: str | None = None
     remove_tag: str | None = None
+    no_address: bool | None = None
+    no_websites: bool | None = None
 
 
 class BatchEditResponse(StrictBaseModel):

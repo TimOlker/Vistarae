@@ -64,6 +64,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
   const [longitude, setLongitude] = useState<string>("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [noAddress, setNoAddress] = useState(false);
+  const [noWebsites, setNoWebsites] = useState(false);
   const [visitState, setVisitState] = useState<VisitState>("not_visited");
   const [rating, setRating] = useState<number>(0);
   const [tagsInput, setTagsInput] = useState("");
@@ -182,6 +184,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
       rating: rating > 0 ? rating : null,
       city: city || undefined,
       address: address || undefined,
+      no_address: noAddress,
+      no_websites: noWebsites,
       description: description.trim() || undefined,
       reason_to_visit: reasonToVisit.trim() || undefined,
       tags: tagsInput
@@ -215,6 +219,8 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
     setLongitude("");
     setCity("");
     setAddress("");
+    setNoAddress(false);
+    setNoWebsites(false);
     setDescription("");
     setReasonToVisit("");
     setTagsInput("");
@@ -561,30 +567,87 @@ export const ManualAddPOIModal: React.FC<ManualAddPOIModalProps> = ({
             />
           </div>
           <div>
-            <label
+            <div
               style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                display: "block",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 marginBottom: "6px",
               }}
             >
-              Address / Notes
-            </label>
+              <label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  display: "block",
+                }}
+              >
+                Address / Notes
+              </label>
+              <label
+                style={{
+                  fontSize: "11px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  cursor: "pointer",
+                  color: "#64748b",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={noAddress}
+                  onChange={(e) => {
+                    setNoAddress(e.target.checked);
+                    if (e.target.checked) setAddress("");
+                  }}
+                  data-testid="manual-add-no-address-checkbox"
+                />
+                No address available
+              </label>
+            </div>
             <input
               type="text"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Street or trailhead"
+              onChange={(e) => {
+                setAddress(e.target.value);
+                if (e.target.value.trim().length > 0) setNoAddress(false);
+              }}
+              placeholder={
+                noAddress ? "No address available (exempted)" : "Street or trailhead"
+              }
+              disabled={noAddress}
               style={{
                 width: "100%",
                 padding: "8px 12px",
                 borderRadius: "var(--radius-md, 8px)",
                 border: "1px solid var(--border-color, #e2e8f0)",
                 fontSize: "13px",
+                backgroundColor: noAddress ? "#f1f5f9" : "#ffffff",
               }}
             />
           </div>
+        </div>
+
+        <div>
+          <label
+            style={{
+              fontSize: "11px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              color: "#64748b",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={noWebsites}
+              onChange={(e) => setNoWebsites(e.target.checked)}
+              data-testid="manual-add-no-websites-checkbox"
+            />
+            No website available
+          </label>
         </div>
 
         {/* Visit Status & Rating */}

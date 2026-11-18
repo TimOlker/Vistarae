@@ -334,6 +334,7 @@ async def upload_csv(  # noqa: C901
                 official_url=rd.get("official_url") or None,
                 wiki_url=rd.get("wiki_url") or None,
                 related_websites=rd.get("related_websites") or [],
+                no_address=bool(rd.get("no_address", False)),
                 no_websites=bool(rd.get("no_websites", False)),
                 recommended_duration_hours=rec_duration,
                 recommended_visit_days=rec_days,

@@ -152,6 +152,14 @@ class POIResponse(StrictBaseModel):
     enrichment_status: EnrichmentStatus = Field(
         default=EnrichmentStatus.PARTIAL, description="Address geocoding enrichment status"
     )
+    no_address: bool = Field(
+        default=False,
+        description="Manual exemption indicating street address is unavailable or acceptable",
+    )
+    no_websites: bool = Field(
+        default=False,
+        description="Manual exemption indicating website is unavailable or acceptable",
+    )
     lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude in degrees (WGS-84)")
     lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude in degrees (WGS-84)")
     longitude: float | None = Field(
@@ -263,6 +271,14 @@ class POICreateRequest(StrictBaseModel):
     estimated_visit_time_notes: str | None = Field(
         default=None, description="Explanation or reasoning for estimated visit duration"
     )
+    no_address: bool | None = Field(
+        default=None,
+        description="Manual exemption indicating street address is unavailable or acceptable",
+    )
+    no_websites: bool | None = Field(
+        default=None,
+        description="Manual exemption indicating website is unavailable or acceptable",
+    )
 
     @model_validator(mode="after")
     def populate_state_and_country_arrays(self) -> POICreateRequest:
@@ -342,6 +358,14 @@ class POIUpdateRequest(StrictBaseModel):
     )
     estimated_visit_time_notes: str | None = Field(
         default=None, description="Explanation or reasoning for estimated visit duration"
+    )
+    no_address: bool | None = Field(
+        default=None,
+        description="Manual exemption indicating street address is unavailable or acceptable",
+    )
+    no_websites: bool | None = Field(
+        default=None,
+        description="Manual exemption indicating website is unavailable or acceptable",
     )
     source_type: SourceType | str | None = Field(
         default=None, description="Provenance source type (Web, CSV, Manual, Photo)"
