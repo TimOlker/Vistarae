@@ -38,6 +38,7 @@ _TIER_LIMITS: dict[UserTier, int] = {
     UserTier.LOW: 60,
     UserTier.HIGH: 300,
     UserTier.ADMIN: 300,
+    UserTier.PREMIUM: 300,
 }
 
 

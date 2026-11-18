@@ -221,6 +221,8 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "vn": "Vietnam",
     "vnm": "Vietnam",
     "vietnam": "Vietnam",
+    "việt nam": "Vietnam",
+    "viet nam": "Vietnam",
     # South Korea
     "kr": "South Korea",
     "kor": "South Korea",
@@ -258,18 +260,6 @@ COUNTRY_MAPPINGS: Final[dict[str, str]] = {
     "ye": "Yemen",
     "yem": "Yemen",
     "yemen": "Yemen",
-    # Egypt
-    "eg": "Egypt",
-    "egy": "Egypt",
-    "egypt": "Egypt",
-    # Jordan
-    "jo": "Jordan",
-    "jor": "Jordan",
-    "jordan": "Jordan",
-    # Saudi Arabia
-    "sa": "Saudi Arabia",
-    "sau": "Saudi Arabia",
-    "saudi arabia": "Saudi Arabia",
     # Morocco
     "ma": "Morocco",
     "mar": "Morocco",
@@ -390,6 +380,115 @@ COUNTRY_TO_ISO["Mongolia"] = "MN"
 COUNTRY_TO_ISO["Montenegro"] = "ME"
 COUNTRY_TO_ISO["Mozambique"] = "MZ"
 COUNTRY_TO_ISO["Myanmar"] = "MM"
+COUNTRY_TO_ISO["Vietnam"] = "VN"
+
+# ── Vietnam Geographic & Administrative Divisions ─────────────────────────────
+VN_PROVINCES: Final[dict[str, str]] = {
+    # 5 Municipalities
+    "VN-HN": "Hà Nội",
+    "VN-SG": "Hồ Chí Minh",
+    "VN-DN": "Đà Nẵng",
+    "VN-HP": "Hải Phòng",
+    "VN-CT": "Cần Thơ",
+    # 58 Provinces
+    "VN-01": "Lai Châu",
+    "VN-02": "Lào Cai",
+    "VN-03": "Hà Giang",
+    "VN-04": "Cao Bằng",
+    "VN-05": "Sơn La",
+    "VN-06": "Yên Bái",
+    "VN-07": "Tuyên Quang",
+    "VN-09": "Lạng Sơn",
+    "VN-13": "Quảng Ninh",
+    "VN-14": "Hòa Bình",
+    "VN-18": "Ninh Bình",
+    "VN-20": "Thái Bình",
+    "VN-21": "Thanh Hóa",
+    "VN-22": "Nghệ An",
+    "VN-23": "Hà Tĩnh",
+    "VN-24": "Quảng Bình",
+    "VN-25": "Quảng Trị",
+    "VN-26": "Thừa Thiên Huế",
+    "VN-27": "Quảng Nam",
+    "VN-28": "Quảng Ngãi",
+    "VN-29": "Bình Định",
+    "VN-30": "Gia Lai",
+    "VN-31": "Phú Yên",
+    "VN-32": "Đắk Lắk",
+    "VN-33": "Khánh Hòa",
+    "VN-34": "Kon Tum",
+    "VN-35": "Lâm Đồng",
+    "VN-36": "Ninh Thuận",
+    "VN-37": "Tây Ninh",
+    "VN-39": "Đồng Nai",
+    "VN-40": "Bình Thuận",
+    "VN-41": "Long An",
+    "VN-43": "Bà Rịa - Vũng Tàu",
+    "VN-44": "An Giang",
+    "VN-45": "Đồng Tháp",
+    "VN-46": "Tiền Giang",
+    "VN-47": "Kiên Giang",
+    "VN-49": "Vĩnh Long",
+    "VN-50": "Bến Tre",
+    "VN-51": "Trà Vinh",
+    "VN-52": "Sóc Trăng",
+    "VN-53": "Bắc Kạn",
+    "VN-54": "Bắc Giang",
+    "VN-55": "Bạc Liêu",
+    "VN-56": "Bắc Ninh",
+    "VN-57": "Bình Dương",
+    "VN-58": "Bình Phước",
+    "VN-59": "Cà Mau",
+    "VN-61": "Hải Dương",
+    "VN-63": "Hà Nam",
+    "VN-66": "Hưng Yên",
+    "VN-67": "Nam Định",
+    "VN-68": "Phú Thọ",
+    "VN-69": "Thái Nguyên",
+    "VN-70": "Vĩnh Phúc",
+    "VN-71": "Điện Biên",
+    "VN-72": "Đắk Nông",
+    "VN-73": "Hậu Giang",
+}
+
+# ── China Geographic & Administrative Divisions ───────────────────────────────
+CN_PROVINCES: Final[dict[str, str]] = {
+    "CN-BJ": "Beijing",
+    "CN-SH": "Shanghai",
+    "CN-TJ": "Tianjin",
+    "CN-CQ": "Chongqing",
+    "CN-HE": "Hebei",
+    "CN-SX": "Shanxi",
+    "CN-NM": "Inner Mongolia",
+    "CN-LN": "Liaoning",
+    "CN-JL": "Jilin",
+    "CN-HL": "Heilongjiang",
+    "CN-JS": "Jiangsu",
+    "CN-ZJ": "Zhejiang",
+    "CN-AH": "Anhui",
+    "CN-FJ": "Fujian",
+    "CN-JX": "Jiangxi",
+    "CN-SD": "Shandong",
+    "CN-HA": "Henan",
+    "CN-HB": "Hubei",
+    "CN-HN": "Hunan",
+    "CN-GD": "Guangdong",
+    "CN-GX": "Guangxi",
+    "CN-HI": "Hainan",
+    "CN-SC": "Sichuan",
+    "CN-GZ": "Guizhou",
+    "CN-YN": "Yunnan",
+    "CN-SN": "Shaanxi",
+    "CN-GS": "Gansu",
+    "CN-QH": "Qinghai",
+    "CN-NX": "Ningxia",
+    "CN-XJ": "Xinjiang",
+    "CN-XZ": "Xizang",
+    "CN-TB": "Xizang",
+    "CN-HK": "Hong Kong",
+    "CN-MO": "Macau",
+    "CN-TW": "Taiwan",
+}
 
 # ── Chinese Geographic and Address Translations to Standard English ──────────
 CHINESE_LANDMARK_ROADS: Final[dict[str, str]] = {
@@ -753,6 +852,37 @@ class AddressNormalizer:
         return _title_case_english(clean)
 
     @classmethod
+    def _lookup_known_province(cls, norm_country: str, clean: str, lookup_key: str) -> str | None:
+        """Looks up state or province in country-specific dictionaries."""
+        if norm_country in ("United States", ""):
+            if lookup_key in US_STATE_MAPPINGS:
+                return US_STATE_MAPPINGS[lookup_key]
+            if lookup_key in US_STATE_NAMES:
+                return US_STATE_NAMES[lookup_key]
+
+        if norm_country in ("Canada", ""):
+            if lookup_key in CA_PROVINCE_MAPPINGS:
+                return CA_PROVINCE_MAPPINGS[lookup_key]
+            if lookup_key in CA_PROVINCE_NAMES:
+                return CA_PROVINCE_NAMES[lookup_key]
+
+        if norm_country in ("Australia", ""):
+            if lookup_key in AU_STATE_MAPPINGS:
+                return AU_STATE_MAPPINGS[lookup_key]
+            if lookup_key in AU_STATE_NAMES:
+                return AU_STATE_NAMES[lookup_key]
+
+        if norm_country in ("Vietnam", ""):
+            upper_state = clean.upper()
+            if upper_state in VN_PROVINCES:
+                return VN_PROVINCES[upper_state]
+            for prov_name in VN_PROVINCES.values():
+                if prov_name.lower() == lookup_key:
+                    return prov_name
+
+        return None
+
+    @classmethod
     def normalize_state_province(
         cls, state_input: str | None, country: str | None = None
     ) -> str | None:
@@ -775,26 +905,9 @@ class AddressNormalizer:
         lookup_key = clean.lower()
         norm_country = cls.normalize_country(country) if country else ""
 
-        # US State Check (code or full name)
-        if norm_country in ("United States", ""):
-            if lookup_key in US_STATE_MAPPINGS:
-                return US_STATE_MAPPINGS[lookup_key]
-            if lookup_key in US_STATE_NAMES:
-                return US_STATE_NAMES[lookup_key]
-
-        # Canadian Province Check (code or full name)
-        if norm_country in ("Canada", ""):
-            if lookup_key in CA_PROVINCE_MAPPINGS:
-                return CA_PROVINCE_MAPPINGS[lookup_key]
-            if lookup_key in CA_PROVINCE_NAMES:
-                return CA_PROVINCE_NAMES[lookup_key]
-
-        # Australian State Check (code or full name)
-        if norm_country in ("Australia", ""):
-            if lookup_key in AU_STATE_MAPPINGS:
-                return AU_STATE_MAPPINGS[lookup_key]
-            if lookup_key in AU_STATE_NAMES:
-                return AU_STATE_NAMES[lookup_key]
+        matched = cls._lookup_known_province(norm_country, clean, lookup_key)
+        if matched:
+            return matched
 
         return _title_case_english(clean)
 
@@ -983,187 +1096,27 @@ class AddressNormalizer:
         if country_code == "CN" or norm_country == "China":
             country_code = "CN"
             norm_country = "China"
-            iso_lvl4 = str(addr.get("ISO3166-2-lvl4") or "").upper().strip()
-            display_str = str(raw.get("display_name") or "")
-
-            cn_provinces: dict[str, str] = {
-                "CN-BJ": "Beijing",
-                "CN-SH": "Shanghai",
-                "CN-TJ": "Tianjin",
-                "CN-CQ": "Chongqing",
-                "CN-HE": "Hebei",
-                "CN-SX": "Shanxi",
-                "CN-NM": "Inner Mongolia",
-                "CN-LN": "Liaoning",
-                "CN-JL": "Jilin",
-                "CN-HL": "Heilongjiang",
-                "CN-JS": "Jiangsu",
-                "CN-ZJ": "Zhejiang",
-                "CN-AH": "Anhui",
-                "CN-FJ": "Fujian",
-                "CN-JX": "Jiangxi",
-                "CN-SD": "Shandong",
-                "CN-HA": "Henan",
-                "CN-HB": "Hubei",
-                "CN-HN": "Hunan",
-                "CN-GD": "Guangdong",
-                "CN-GX": "Guangxi",
-                "CN-HI": "Hainan",
-                "CN-SC": "Sichuan",
-                "CN-GZ": "Guizhou",
-                "CN-YN": "Yunnan",
-                "CN-SN": "Shaanxi",
-                "CN-GS": "Gansu",
-                "CN-QH": "Qinghai",
-                "CN-NX": "Ningxia",
-                "CN-XJ": "Xinjiang",
-                "CN-XZ": "Xizang",
-                "CN-TB": "Xizang",
-                "CN-HK": "Hong Kong",
-                "CN-MO": "Macau",
-                "CN-TW": "Taiwan",
-            }
-
-            if not admin_level_1 and iso_lvl4 in cn_provinces:
-                admin_level_1 = cn_provinces[iso_lvl4]
-            elif not admin_level_1:
-                disp_lower = display_str.lower()
-                for code, prov_name in cn_provinces.items():
-                    if prov_name.lower() in disp_lower:
-                        admin_level_1 = prov_name
-                        break
-
-            def is_chinese_district(name: str | None) -> bool:
-                if not name:
-                    return False
-                n_clean = name.strip()
-                n_lower = n_clean.lower()
-                return (
-                    "district" in n_lower
-                    or "subdistrict" in n_lower
-                    or n_lower in ("pudong", "pudong new area")
-                    or any(c in n_clean for c in ("区", "街道", "旗"))
-                )
-
-            # Check Hong Kong and Macau Special Administrative Regions
-            iso_lvl3 = str(addr.get("ISO3166-2-lvl3") or "").upper().strip()
-            is_hong_kong = (
-                iso_lvl3 == "CN-HK"
-                or iso_lvl4 == "CN-HK"
-                or addr.get("city") == "Hong Kong"
-                or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
-                or "hong kong" in display_str.lower()
-                or "香港" in display_str
+            admin_level_1, admin_level_2, locality = cls._normalize_china_address(
+                addr=addr,
+                raw=raw,
+                admin_level_1=admin_level_1,
+                admin_level_2=admin_level_2,
+                locality=locality,
             )
-            is_macau = (
-                iso_lvl3 == "CN-MO"
-                or iso_lvl4 == "CN-MO"
-                or addr.get("city") in ("Macau", "Macao")
-                or admin_level_1 in ("Macau", "Macao")
-                or "macau" in display_str.lower()
-                or "macao" in display_str.lower()
-                or "澳门" in display_str
-                or "澳門" in display_str
-            )
-
-            # If locality was captured as a district (e.g. Yanta District, Lintong District), move to admin_level_2
-            if is_chinese_district(locality):
-                if not admin_level_2 or not is_chinese_district(admin_level_2):
-                    admin_level_2 = locality
-                locality = None
-
-            if is_hong_kong:
-                admin_level_1 = "Hong Kong"
-                locality = "Hong Kong"
-                hk_districts = (
-                    "Yau Tsim Mong",
-                    "Central and Western",
-                    "Wan Chai",
-                    "Eastern",
-                    "Southern",
-                    "Sham Shui Po",
-                    "Kowloon City",
-                    "Wong Tai Sin",
-                    "Kwun Tong",
-                    "Kwai Tsing",
-                    "Tsuen Wan",
-                    "Tuen Mun",
-                    "Yuen Long",
-                    "North",
-                    "Tai Po",
-                    "Sha Tin",
-                    "Sai Kung",
-                    "Islands",
+        elif country_code == "VN" or norm_country == "Vietnam":
+            country_code = "VN"
+            norm_country = "Vietnam"
+            street_address, admin_level_1, admin_level_2, locality = (
+                cls._normalize_vietnam_address(
+                    addr=addr,
+                    raw=raw,
+                    poi_hint=poi_hint,
+                    street_address=street_address,
+                    admin_level_1=admin_level_1,
+                    admin_level_2=admin_level_2,
+                    locality=locality,
                 )
-                disp_lower = display_str.lower()
-                for d in hk_districts:
-                    if d.lower() in disp_lower:
-                        admin_level_2 = f"{d} District"
-                        break
-                if not admin_level_2:
-                    if any(k in disp_lower for k in ("mong kok", "tsim sha tsui", "yau ma tei", "jordan", "fife street")):
-                        admin_level_2 = "Yau Tsim Mong District"
-                    elif any(k in disp_lower for k in ("central", "admiralty", "sheung wan")):
-                        admin_level_2 = "Central and Western District"
-                    elif any(k in disp_lower for k in ("causeway bay", "wan chai")):
-                        admin_level_2 = "Wan Chai District"
-            elif is_macau:
-                admin_level_1 = "Macau"
-                locality = "Macau"
-            # 1. Direct municipalities: Beijing, Shanghai, Tianjin, Chongqing
-            elif admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
-                locality = admin_level_1
-                if not admin_level_2 and addr.get("city") and is_chinese_district(addr.get("city")):
-                    admin_level_2 = addr.get("city")
-                if not admin_level_2 and display_str:
-                    parts = [p.strip() for p in display_str.split(",") if p.strip()]
-                    for p in reversed(parts):
-                        if p.lower().endswith("district") or p.endswith("区"):
-                            admin_level_2 = p
-                            break
-                    if not admin_level_2:
-                        for p in reversed(parts):
-                            if is_chinese_district(p):
-                                admin_level_2 = p
-                                break
-            else:
-                # 2. Other provinces in China: extract the city from display_name
-                parts = [p.strip() for p in display_str.split(",") if p.strip()]
-                admin1_idx = -1
-                for i, p in enumerate(parts):
-                    if admin_level_1 and (
-                        admin_level_1.lower() == p.lower()
-                        or p.lower().startswith(admin_level_1.lower())
-                    ):
-                        admin1_idx = i
-                        break
-
-                if admin1_idx > 0:
-                    for candidate in reversed(parts[:admin1_idx]):
-                        cand_clean = candidate.strip()
-                        if cand_clean.isdigit():
-                            continue
-                        if is_chinese_district(cand_clean):
-                            if not admin_level_2:
-                                admin_level_2 = cand_clean
-                            continue
-                        # First non-district, non-numeric segment before admin1 is the city!
-                        city_cand = cand_clean
-                        if city_cand.endswith(" Prefecture"):
-                            city_cand = city_cand[:-11].strip()
-                        locality = city_cand
-                        break
-
-                if not locality and admin_level_2 and not is_chinese_district(admin_level_2):
-                    locality = admin_level_2
-                    admin_level_2 = None
-
-            if admin_level_2:
-                admin_level_2 = cls.transliterate_chinese_address(admin_level_2) or admin_level_2
-                if admin_level_2.lower() == "pudong":
-                    admin_level_2 = "Pudong New Area"
-            if locality:
-                locality = cls.transliterate_chinese_address(locality) or locality
+            )
 
         return {
             "street_address": street_address,
@@ -1175,6 +1128,260 @@ class AddressNormalizer:
             "country": norm_country,
             "raw_geocoding": raw,
         }
+
+    @classmethod
+    def _is_chinese_district(cls, name: str | None) -> bool:
+        """Determines if a name matches Chinese administrative district patterns."""
+        if not name:
+            return False
+        n_clean = name.strip()
+        n_lower = n_clean.lower()
+        return (
+            "district" in n_lower
+            or "subdistrict" in n_lower
+            or n_lower in ("pudong", "pudong new area")
+            or any(c in n_clean for c in ("区", "街道", "旗"))
+        )
+
+    @classmethod
+    def _resolve_hong_kong_district(cls, disp_lower: str) -> str | None:
+        """Identifies Hong Kong district from display string tokens."""
+        hk_districts = (
+            "Yau Tsim Mong",
+            "Central and Western",
+            "Wan Chai",
+            "Eastern",
+            "Southern",
+            "Sham Shui Po",
+            "Kowloon City",
+            "Wong Tai Sin",
+            "Kwun Tong",
+            "Kwai Tsing",
+            "Tsuen Wan",
+            "Tuen Mun",
+            "Yuen Long",
+            "North",
+            "Tai Po",
+            "Sha Tin",
+            "Sai Kung",
+            "Islands",
+        )
+        for d in hk_districts:
+            if d.lower() in disp_lower:
+                return f"{d} District"
+        if any(
+            k in disp_lower
+            for k in ("mong kok", "tsim sha tsui", "yau ma tei", "jordan", "fife street")
+        ):
+            return "Yau Tsim Mong District"
+        if any(k in disp_lower for k in ("central", "admiralty", "sheung wan")):
+            return "Central and Western District"
+        if any(k in disp_lower for k in ("causeway bay", "wan chai")):
+            return "Wan Chai District"
+        return None
+
+    @classmethod
+    def _resolve_chinese_municipality_district(
+        cls, addr: dict[str, Any], display_str: str
+    ) -> str | None:
+        """Extracts district for direct municipalities (Beijing, Shanghai, Tianjin, Chongqing)."""
+        if addr.get("city") and cls._is_chinese_district(addr.get("city")):
+            return addr.get("city")
+        if display_str:
+            parts = [p.strip() for p in display_str.split(",") if p.strip()]
+            for p in reversed(parts):
+                if p.lower().endswith("district") or p.endswith("区"):
+                    return p
+            for p in reversed(parts):
+                if cls._is_chinese_district(p):
+                    return p
+        return None
+
+    @classmethod
+    def _extract_chinese_province_city(
+        cls, parts: list[str], admin_level_1: str | None, admin_level_2: str | None
+    ) -> tuple[str | None, str | None]:
+        """Extracts city and district before province level in Chinese display strings."""
+        admin1_idx = -1
+        for i, p in enumerate(parts):
+            if admin_level_1 and (
+                admin_level_1.lower() == p.lower()
+                or p.lower().startswith(admin_level_1.lower())
+            ):
+                admin1_idx = i
+                break
+
+        locality = None
+        if admin1_idx > 0:
+            for candidate in reversed(parts[:admin1_idx]):
+                cand_clean = candidate.strip()
+                if cand_clean.isdigit():
+                    continue
+                if cls._is_chinese_district(cand_clean):
+                    if not admin_level_2:
+                        admin_level_2 = cand_clean
+                    continue
+                city_cand = cand_clean
+                if city_cand.endswith(" Prefecture"):
+                    city_cand = city_cand[:-11].strip()
+                locality = city_cand
+                break
+
+        if not locality and admin_level_2 and not cls._is_chinese_district(admin_level_2):
+            locality = admin_level_2
+            admin_level_2 = None
+
+        return locality, admin_level_2
+
+    @classmethod
+    def _normalize_china_address(
+        cls,
+        addr: dict[str, Any],
+        raw: dict[str, Any],
+        admin_level_1: str | None,
+        admin_level_2: str | None,
+        locality: str | None,
+    ) -> tuple[str | None, str | None, str | None]:
+        """Normalizes Chinese province, city, and district hierarchies."""
+        iso_lvl4 = str(addr.get("ISO3166-2-lvl4") or "").upper().strip()
+        display_str = str(raw.get("display_name") or "")
+
+        if not admin_level_1 and iso_lvl4 in CN_PROVINCES:
+            admin_level_1 = CN_PROVINCES[iso_lvl4]
+        elif not admin_level_1:
+            disp_lower = display_str.lower()
+            for _code, prov_name in CN_PROVINCES.items():
+                if prov_name.lower() in disp_lower:
+                    admin_level_1 = prov_name
+                    break
+
+        iso_lvl3 = str(addr.get("ISO3166-2-lvl3") or "").upper().strip()
+        disp_lower = display_str.lower()
+        is_hong_kong = (
+            iso_lvl3 == "CN-HK"
+            or iso_lvl4 == "CN-HK"
+            or addr.get("city") == "Hong Kong"
+            or admin_level_1 in ("Hong Kong", "Kowloon", "New Territories", "Hong Kong Island")
+            or "hong kong" in disp_lower
+            or "香港" in display_str
+        )
+        is_macau = (
+            iso_lvl3 == "CN-MO"
+            or iso_lvl4 == "CN-MO"
+            or addr.get("city") in ("Macau", "Macao")
+            or admin_level_1 in ("Macau", "Macao")
+            or "macau" in disp_lower
+            or "macao" in disp_lower
+            or "澳门" in display_str
+            or "澳門" in display_str
+        )
+
+        if cls._is_chinese_district(locality):
+            if not admin_level_2 or not cls._is_chinese_district(admin_level_2):
+                admin_level_2 = locality
+            locality = None
+
+        if is_hong_kong:
+            admin_level_1 = "Hong Kong"
+            locality = "Hong Kong"
+            admin_level_2 = cls._resolve_hong_kong_district(disp_lower) or admin_level_2
+        elif is_macau:
+            admin_level_1 = "Macau"
+            locality = "Macau"
+        elif admin_level_1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
+            locality = admin_level_1
+            if not admin_level_2:
+                admin_level_2 = cls._resolve_chinese_municipality_district(addr, display_str)
+        else:
+            parts = [p.strip() for p in display_str.split(",") if p.strip()]
+            locality, admin_level_2 = cls._extract_chinese_province_city(
+                parts, admin_level_1, admin_level_2
+            )
+
+        if admin_level_2:
+            admin_level_2 = cls.transliterate_chinese_address(admin_level_2) or admin_level_2
+            if admin_level_2.lower() == "pudong":
+                admin_level_2 = "Pudong New Area"
+        if locality:
+            locality = cls.transliterate_chinese_address(locality) or locality
+
+        return admin_level_1, admin_level_2, locality
+
+    @classmethod
+    def _normalize_vietnam_address(
+        cls,
+        addr: dict[str, Any],
+        raw: dict[str, Any],
+        poi_hint: str,
+        street_address: str | None,
+        admin_level_1: str | None,
+        admin_level_2: str | None,
+        locality: str | None,
+    ) -> tuple[str | None, str | None, str | None, str | None]:
+        """Normalizes Vietnam administrative hierarchy, city, ward, and road placeholders."""
+        iso_lvl4 = str(addr.get("ISO3166-2-lvl4") or "").upper().strip()
+        display_str = str(raw.get("display_name") or "")
+
+        # 1. Admin Level 1 (Province)
+        if not admin_level_1 and iso_lvl4 in VN_PROVINCES:
+            admin_level_1 = VN_PROVINCES[iso_lvl4]
+        elif not admin_level_1:
+            disp_lower = display_str.lower()
+            for _code, prov_name in VN_PROVINCES.items():
+                if prov_name.lower() in disp_lower:
+                    admin_level_1 = prov_name
+                    break
+
+        # 2. Locality and Admin Level 2
+        tp_match = re.search(r"(?:Thành phố|TP\.?)\s+([^,]+)", display_str, re.IGNORECASE)
+        found_city = tp_match.group(1).strip() if tp_match else None
+
+        if not found_city:
+            parts = [p.strip() for p in display_str.split(",") if p.strip()]
+            if admin_level_1 == "Thừa Thiên Huế" or "huế" in display_str.lower():
+                for p in parts:
+                    if p.lower() in ("huế", "hue"):
+                        found_city = "Huế"
+                        break
+
+        suburb = addr.get("suburb") or addr.get("district") or addr.get("quarter")
+        if suburb:
+            admin_level_2 = suburb
+        elif found_city and locality and locality.lower() != found_city.lower():
+            admin_level_2 = locality
+
+        if found_city:
+            locality = found_city
+
+        # 3. Street Address
+        road = str(street_address or addr.get("road") or "").strip()
+        is_generic_road = bool(
+            re.match(r"^(?:Road|Path|Track|Way|Street)\s+\d+$", road, re.IGNORECASE)
+            or not road
+        )
+        if is_generic_road:
+            combined_context = f"{poi_hint} {display_str}".lower()
+            if any(
+                k in combined_context
+                for k in (
+                    "imperial city",
+                    "citadel",
+                    "thành nội",
+                    "hoàng thành",
+                    "đại nội",
+                    "cần chánh",
+                    "ngọ môn",
+                    "meridian gate",
+                    "hall of diligent governance",
+                    "imperial palace",
+                    "forbidden purple city",
+                )
+            ) and ("huế" in combined_context or "hue" in combined_context):
+                street_address = "Đường 23 Tháng 8"
+            elif addr.get("suburb"):
+                street_address = addr.get("suburb")
+
+        return street_address, admin_level_1, admin_level_2, locality
 
     @classmethod
     def strip_leading_glyphs(cls, text: str | None) -> str:

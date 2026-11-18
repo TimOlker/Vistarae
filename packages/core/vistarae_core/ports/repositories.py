@@ -29,7 +29,7 @@ from uuid import UUID
 
 from vistarae_core.domain.entities import (
     POI,
-    ExternalEnrichmentCacheEntry,
+    BulkEnrichmentResult,
     FilterRuleEntity,
     GeocodingCacheEntry,
     IdempotencyRecord,
@@ -1336,3 +1336,78 @@ class IUserExclusionZoneRepository(Protocol):
     async def delete(self, zone_id: UUID, user_id: UUID) -> bool:
         """Deletes an exclusion zone."""
         ...
+
+
+class IBulkEnrichmentRepository(Protocol):
+    """Port for persisting and querying bulk enrichment run audit results."""
+
+    async def create_result(self, result: BulkEnrichmentResult) -> BulkEnrichmentResult:
+        """Persists a new bulk enrichment audit record.
+
+        Args:
+            result: Domain entity to persist.
+
+        Returns:
+            The persisted BulkEnrichmentResult.
+        """
+        ...
+
+    async def get_result_by_session_id(
+        self, user_id: UUID, session_id: UUID
+    ) -> BulkEnrichmentResult | None:
+        """Retrieves an audit result by session UUID with tenant isolation.
+
+        Args:
+            user_id: Owning tenant UUID.
+            session_id: Target session UUID.
+
+        Returns:
+            Matching BulkEnrichmentResult or None if not found.
+        """
+        ...
+
+    async def get_latest_result_by_job_id(
+        self, user_id: UUID, job_id: UUID
+    ) -> BulkEnrichmentResult | None:
+        """Retrieves the most recent audit result for a staging job.
+
+        Args:
+            user_id: Owning tenant UUID.
+            job_id: Staging job UUID.
+
+        Returns:
+            Latest BulkEnrichmentResult or None if not found.
+        """
+        ...
+
+    async def get_unacknowledged_recovery_run(
+        self, user_id: UUID
+    ) -> BulkEnrichmentResult | None:
+        """Finds the most recent unacknowledged failed or blocked enrichment run.
+
+        Queries where status IN ('BLOCKED', 'FAILED') and acknowledged_at IS NULL,
+        ordered by created_at DESC LIMIT 1.
+
+        Args:
+            user_id: Owning tenant UUID.
+
+        Returns:
+            Unacknowledged BulkEnrichmentResult or None.
+        """
+        ...
+
+    async def acknowledge_recovery_run(
+        self, user_id: UUID, result_id: UUID, acknowledged_at: datetime
+    ) -> BulkEnrichmentResult | None:
+        """Updates acknowledged_at on a recovery run record.
+
+        Args:
+            user_id: Owning tenant UUID.
+            result_id: Audit record UUID.
+            acknowledged_at: Acknowledgment timestamp.
+
+        Returns:
+            Updated BulkEnrichmentResult or None if not found.
+        """
+        ...
+

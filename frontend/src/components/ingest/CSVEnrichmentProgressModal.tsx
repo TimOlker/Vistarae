@@ -14,10 +14,21 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Modal } from "../common/Modal";
-import { ingestApi, type Phase2ProgressResult } from "../../services/ingestApi";
-import { Sparkles, CheckCircle2, Clock, Globe } from "lucide-react";
+import {
+  ingestApi,
+  type BulkEnrichmentProgressResult,
+} from "../../services/ingestApi";
+import {
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  Cpu,
+  AlertTriangle,
+  StopCircle,
+  Loader2,
+} from "lucide-react";
 
 export interface CSVEnrichmentProgressModalProps {
   jobId: string | null;
@@ -26,20 +37,26 @@ export interface CSVEnrichmentProgressModalProps {
   onCancel?: () => void;
 }
 
-export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProps> = ({
-  jobId,
-  isOpen,
-  onComplete,
-  onCancel,
-}) => {
-  const [progress, setProgress] = useState<Phase2ProgressResult | null>(null);
+export const CSVEnrichmentProgressModal: React.FC<
+  CSVEnrichmentProgressModalProps
+> = ({ jobId, isOpen, onComplete, onCancel }) => {
+  const [progress, setProgress] = useState<BulkEnrichmentProgressResult | null>(
+    null,
+  );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isDraining, setIsDraining] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  // Timer: Track elapsed seconds while active
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  // Local elapsed timer
   useEffect(() => {
     if (!isOpen || !jobId) {
       setElapsedSeconds(0);
       setProgress(null);
+      setIsDraining(false);
+      setCancelError(null);
       return;
     }
 
@@ -50,10 +67,68 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
     return () => clearInterval(timer);
   }, [isOpen, jobId]);
 
-  const onCompleteRef = React.useRef(onComplete);
-  onCompleteRef.current = onComplete;
+  // Heartbeat loop: 5-second interval while modal is active (REQ-ENR-032)
+  // Uses a background Web Worker timer to prevent browser throttling when tab is not in the foreground.
+  useEffect(() => {
+    if (!isOpen || !jobId) return;
 
-  // Polling loop for enrichment progress
+    const sendHeartbeat = async () => {
+      try {
+        await ingestApi.heartbeatBulkEnrichment(jobId);
+      } catch (err: unknown) {
+        console.warn("Bulk enrichment heartbeat failed:", err);
+      }
+    };
+
+    let worker: Worker | null = null;
+    let fallbackInterval: NodeJS.Timeout | null = null;
+
+    try {
+      if (typeof window !== "undefined" && window.Worker && window.Blob) {
+        const workerScript = `
+          let timer = null;
+          self.onmessage = function(e) {
+            if (e.data === 'start') {
+              timer = setInterval(function() { self.postMessage('tick'); }, 5000);
+            } else if (e.data === 'stop') {
+              if (timer) clearInterval(timer);
+            }
+          };
+        `;
+        const blob = new Blob([workerScript], { type: "application/javascript" });
+        const url = URL.createObjectURL(blob);
+        worker = new Worker(url);
+        worker.onmessage = () => {
+          sendHeartbeat();
+        };
+        worker.postMessage("start");
+      } else {
+        fallbackInterval = setInterval(sendHeartbeat, 5000);
+      }
+    } catch {
+      fallbackInterval = setInterval(sendHeartbeat, 5000);
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        sendHeartbeat();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (worker) {
+        worker.postMessage("stop");
+        worker.terminate();
+      }
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval);
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isOpen, jobId]);
+
+  // Polling loop for enrichment telemetry (REQ-ENR-022)
   useEffect(() => {
     if (!isOpen || !jobId) return;
 
@@ -62,11 +137,22 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
 
     const poll = async () => {
       try {
-        const res = await ingestApi.getPhase2Progress(jobId);
-        if (!isMounted) return;
+        const res = await ingestApi.getBulkEnrichmentProgress(jobId);
+        if (!isMounted || !res) return;
         setProgress(res);
 
-        if (res.is_complete || (res.total_count > 0 && res.enriched_count >= res.total_count)) {
+        if (res.status === "DRAINING") {
+          setIsDraining(true);
+        }
+
+        // Terminal states trigger completion transition
+        const terminalStatuses = [
+          "COMPLETED",
+          "CANCELLED",
+          "BLOCKED",
+          "FAILED",
+        ];
+        if (terminalStatuses.includes(res.status)) {
           clearInterval(pollInterval);
           setTimeout(() => {
             if (isMounted) {
@@ -75,12 +161,12 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
           }, 600);
         }
       } catch (err: unknown) {
-        console.warn("Phase 2 enrichment polling warning:", err);
+        console.warn("Bulk enrichment progress polling error:", err);
       }
     };
 
     poll();
-    pollInterval = setInterval(poll, 800);
+    pollInterval = setInterval(poll, 1000);
 
     return () => {
       isMounted = false;
@@ -88,37 +174,61 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
     };
   }, [isOpen, jobId]);
 
+  const handleCancelClick = async () => {
+    if (!jobId || isDraining) return;
+    setIsDraining(true);
+    setCancelError(null);
+    try {
+      await ingestApi.cancelBulkEnrichment(jobId);
+    } catch (err: any) {
+      console.error("Failed to cancel bulk enrichment:", err);
+      setCancelError(err?.message || "Failed to trigger cancellation");
+      setIsDraining(false);
+    }
+  };
+
   const percent = progress?.percent_complete ?? 0;
-  const isFinished = progress?.is_complete ?? false;
+  const isFinished = progress?.status === "COMPLETED";
+  const isTerminated =
+    progress?.status &&
+    ["COMPLETED", "CANCELLED", "BLOCKED", "FAILED"].includes(progress.status);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={() => {
-        if (onCancel) onCancel();
+        if (!isTerminated && !isDraining && onCancel) {
+          onCancel();
+        }
       }}
-      title="AI & Web Enrichment in Progress"
-      maxWidth="560px"
+      title="AI Bulk POI Enrichment in Progress"
+      maxWidth="580px"
     >
       <div
         data-testid="enrichment-progress-modal"
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "20px",
+          gap: "18px",
           padding: "8px 4px",
           color: "#1e293b",
         }}
       >
-        {/* Banner with icon and animated indicator */}
+        {/* Banner with icon and animated status indicator */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "14px",
             padding: "14px 16px",
-            backgroundColor: "#faf5ff",
-            border: "1px solid #e9d5ff",
+            backgroundColor: isDraining
+              ? "#fffbeb"
+              : isFinished
+                ? "#f0fdf4"
+                : "#faf5ff",
+            border: `1px solid ${
+              isDraining ? "#fde68a" : isFinished ? "#bbf7d0" : "#e9d5ff"
+            }`,
             borderRadius: "10px",
           }}
         >
@@ -127,8 +237,14 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
               width: "44px",
               height: "44px",
               borderRadius: "50%",
-              backgroundColor: "#f3e8ff",
-              border: "1px solid #d8b4fe",
+              backgroundColor: isDraining
+                ? "#fef3c7"
+                : isFinished
+                  ? "#dcfce7"
+                  : "#f3e8ff",
+              border: `1px solid ${
+                isDraining ? "#fcd34d" : isFinished ? "#86efac" : "#d8b4fe"
+              }`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -137,16 +253,46 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
           >
             {isFinished ? (
               <CheckCircle2 size={24} color="#16a34a" />
+            ) : isDraining ? (
+              <Loader2 size={22} color="#d97706" className="animate-spin" />
             ) : (
               <Sparkles size={22} color="#9333ea" />
             )}
           </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: "14px", color: "#581c87" }}>
-              {isFinished ? "Enrichment Complete!" : "Parallel POI Synthesis & Web Discovery"}
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: "14px",
+                color: isDraining
+                  ? "#92400e"
+                  : isFinished
+                    ? "#166534"
+                    : "#581c87",
+              }}
+            >
+              {isFinished
+                ? "Enrichment Complete!"
+                : isDraining
+                  ? "Cancellation Requested — Draining Active Workers"
+                  : progress?.status === "CANARY_DISPATCH"
+                    ? "Canary Extraction Dispatch (Candidate #1)"
+                    : "Parallel AI & Web Enrichment Active"}
             </div>
-            <div style={{ fontSize: "12px", color: "#6b21a8", marginTop: "2px" }}>
-              {progress?.status_message || "Synthesizing AI summaries, Wikipedia, hero photos, and durations..."}
+            <div
+              style={{
+                fontSize: "12px",
+                color: isDraining
+                  ? "#b45309"
+                  : isFinished
+                    ? "#15803d"
+                    : "#6b21a8",
+                marginTop: "2px",
+              }}
+            >
+              {isDraining
+                ? "Allowing in-flight AI queries to complete cleanly (up to 30s)..."
+                : progress?.status_message || "Initializing workers..."}
             </div>
           </div>
         </div>
@@ -166,10 +312,12 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
           >
             <span>
               {progress?.total_count
-                ? `Enriched ${progress.enriched_count} of ${progress.total_count} candidates`
-                : "Queueing parallel tasks..."}
+                ? `Processed ${progress.completed_count} of ${progress.total_count} candidates`
+                : "Queueing candidates..."}
             </span>
-            <span style={{ color: "#7c3aed", fontWeight: 700 }}>{percent}%</span>
+            <span style={{ color: "#7c3aed", fontWeight: 700 }}>
+              {percent}%
+            </span>
           </div>
 
           <div
@@ -186,7 +334,9 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
               style={{
                 width: `${percent}%`,
                 height: "100%",
-                background: "linear-gradient(90deg, #9333ea 0%, #3b82f6 100%)",
+                background: isDraining
+                  ? "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)"
+                  : "linear-gradient(90deg, #9333ea 0%, #3b82f6 100%)",
                 borderRadius: "999px",
                 transition: "width 300ms ease-in-out",
               }}
@@ -194,11 +344,11 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
           </div>
         </div>
 
-        {/* Status Metrics */}
+        {/* Telemetry Metrics Grid (REQ-ENR-022) */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: "1fr 1fr 1fr",
             gap: "10px",
             fontSize: "12px",
           }}
@@ -209,18 +359,32 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
               backgroundColor: "#f8fafc",
               border: "1px solid #e2e8f0",
               borderRadius: "8px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              color: "#475569",
             }}
           >
-            <Clock size={16} color="#64748b" />
-            <div>
-              <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>
-                Elapsed Time
-              </div>
-              <div style={{ fontWeight: 600, color: "#1e293b" }}>{elapsedSeconds}s</div>
+            <div
+              style={{
+                fontSize: "10px",
+                color: "#64748b",
+                textTransform: "uppercase",
+                fontWeight: 700,
+              }}
+            >
+              Completed / Queued
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                color: "#1e293b",
+                fontSize: "14px",
+                marginTop: "2px",
+              }}
+            >
+              {progress?.completed_count ?? 0} / {progress?.total_count ?? 0}
+            </div>
+            <div
+              style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}
+            >
+              Remaining: {progress?.remaining_count ?? 0}
             </div>
           </div>
 
@@ -230,43 +394,154 @@ export const CSVEnrichmentProgressModal: React.FC<CSVEnrichmentProgressModalProp
               backgroundColor: "#f8fafc",
               border: "1px solid #e2e8f0",
               borderRadius: "8px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              color: "#475569",
             }}
           >
-            <Globe size={16} color="#64748b" />
-            <div>
-              <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>
-                Workers
-              </div>
-              <div style={{ fontWeight: 600, color: "#1e293b" }}>Parallel Concurrent</div>
+            <div
+              style={{
+                fontSize: "10px",
+                color: "#64748b",
+                textTransform: "uppercase",
+                fontWeight: 700,
+              }}
+            >
+              In-Flight Workers
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                color: "#2563eb",
+                fontSize: "14px",
+                marginTop: "2px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <Cpu size={16} />
+              {progress?.in_flight_count ?? 0} active
+            </div>
+            <div
+              style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}
+            >
+              Issues: {progress?.issue_count ?? 0}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "10px 12px",
+              backgroundColor: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "10px",
+                color: "#64748b",
+                textTransform: "uppercase",
+                fontWeight: 700,
+              }}
+            >
+              Elapsed Time
+            </div>
+            <div
+              style={{
+                fontWeight: 700,
+                color: "#1e293b",
+                fontSize: "14px",
+                marginTop: "2px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <Clock size={16} color="#64748b" />
+              {elapsedSeconds}s
+            </div>
+            <div
+              style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}
+            >
+              Avg:{" "}
+              {progress?.average_duration_ms
+                ? `${(progress.average_duration_ms / 1000).toFixed(1)}s/POI`
+                : "--"}
             </div>
           </div>
         </div>
 
-        {/* Information Callout */}
+        {/* Error notification if cancel call failed */}
+        {cancelError && (
+          <div
+            style={{
+              fontSize: "12px",
+              color: "#b91c1c",
+              backgroundColor: "#fef2f2",
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid #fecaca",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <AlertTriangle size={16} />
+            <span>{cancelError}</span>
+          </div>
+        )}
+
+        {/* Interactive Cancellation Footer (REQ-ENR-021) */}
         <div
           style={{
-            fontSize: "11px",
-            color: "#64748b",
-            lineHeight: "1.4",
-            padding: "8px 12px",
-            backgroundColor: "#f1f5f9",
-            borderRadius: "6px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingTop: "6px",
+            borderTop: "1px solid #e2e8f0",
           }}
         >
-          ℹ️ <strong>What’s being computed in parallel:</strong>
-          <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-            <li>Official attraction websites & Wikipedia articles</li>
-            <li>High-resolution hero photo thumbnails</li>
-            <li>Recommended visit durations & itinerary days</li>
-            <li>Tailored travel reasoning & approved category tags</li>
-          </ul>
+          <div style={{ fontSize: "11px", color: "#64748b" }}>
+            Heartbeat active (5s keepalive)
+          </div>
+          <button
+            type="button"
+            data-testid="cancel-enrichment-button"
+            disabled={
+              isDraining || isTerminated || progress?.can_cancel === false
+            }
+            onClick={handleCancelClick}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: isDraining || isTerminated ? "#94a3b8" : "#dc2626",
+              backgroundColor:
+                isDraining || isTerminated ? "#f1f5f9" : "#fef2f2",
+              border: `1px solid ${
+                isDraining || isTerminated ? "#cbd5e1" : "#fca5a5"
+              }`,
+              borderRadius: "6px",
+              cursor: isDraining || isTerminated ? "not-allowed" : "pointer",
+              transition: "all 150ms ease",
+            }}
+          >
+            {isDraining ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Draining...</span>
+              </>
+            ) : (
+              <>
+                <StopCircle size={16} />
+                <span>Cancel Enrichment</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </Modal>
   );
 };
-

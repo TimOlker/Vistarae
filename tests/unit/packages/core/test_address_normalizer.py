@@ -183,3 +183,70 @@ def test_namibia_address_parsing():
     assert parsed["admin_level_1"] == "Oshana"
     assert parsed["locality"] is None
 
+
+def test_vietnam_imperial_city_hue_address_parsing():
+    """Verifies parsing of Imperial City of Hue Nominatim payload (English & Vietnamese)."""
+    # English payload from Nominatim
+    en_payload = {
+        "name": "Hall of Diligent Governance",
+        "display_name": "Hall of Diligent Governance, Road 2, Đông Ba, Tổ dân phố Thành Nội, Phú Xuân Ward, Huong Thuy, Huế, 54000, Vietnam",
+        "address": {
+            "historic": "Hall of Diligent Governance",
+            "road": "Road 2",
+            "quarter": "Đông Ba",
+            "neighbourhood": "Tổ dân phố Thành Nội",
+            "suburb": "Phú Xuân Ward",
+            "city": "Huong Thuy",
+            "ISO3166-2-lvl4": "VN-26",
+            "postcode": "54000",
+            "country": "Vietnam",
+            "country_code": "vn",
+        },
+    }
+    parsed_en = AddressNormalizer.parse_nominatim_iso_address(en_payload)
+    assert parsed_en["street_address"] == "Đường 23 Tháng 8"
+    assert parsed_en["locality"] == "Huế"
+    assert parsed_en["admin_level_1"] == "Thừa Thiên Huế"
+    assert parsed_en["admin_level_2"] == "Phú Xuân Ward"
+    assert parsed_en["postal_code"] == "54000"
+    assert parsed_en["country"] == "Vietnam"
+    assert parsed_en["country_code"] == "VN"
+
+    # Vietnamese payload from Nominatim
+    vn_payload = {
+        "name": "Điện Cần Chánh",
+        "display_name": "Điện Cần Chánh, Road 2, Đông Ba, Tổ dân phố Thành Nội, Phường Phú Xuân, Hương Thuỷ, Thành phố Huế, 54000, Việt Nam",
+        "address": {
+            "historic": "Điện Cần Chánh",
+            "road": "Road 2",
+            "quarter": "Đông Ba",
+            "neighbourhood": "Tổ dân phố Thành Nội",
+            "suburb": "Phường Phú Xuân",
+            "city": "Hương Thuỷ",
+            "ISO3166-2-lvl4": "VN-26",
+            "postcode": "54000",
+            "country": "Việt Nam",
+            "country_code": "vn",
+        },
+    }
+    parsed_vn = AddressNormalizer.parse_nominatim_iso_address(vn_payload)
+    assert parsed_vn["street_address"] == "Đường 23 Tháng 8"
+    assert parsed_vn["locality"] == "Huế"
+    assert parsed_vn["admin_level_1"] == "Thừa Thiên Huế"
+    assert parsed_vn["admin_level_2"] == "Phường Phú Xuân"
+    assert parsed_vn["postal_code"] == "54000"
+    assert parsed_vn["country"] == "Vietnam"
+    assert parsed_vn["country_code"] == "VN"
+
+
+def test_vietnam_country_and_state_normalization():
+    """Verifies Vietnam country endonym and ISO-3166-2 province resolution."""
+    assert AddressNormalizer.normalize_country("Việt Nam") == "Vietnam"
+    assert AddressNormalizer.normalize_country("viet nam") == "Vietnam"
+    assert AddressNormalizer.country_to_iso_code("Vietnam") == "VN"
+    assert AddressNormalizer.country_to_iso_code("Việt Nam") == "VN"
+    assert AddressNormalizer.normalize_state_province("VN-26", country="Vietnam") == "Thừa Thiên Huế"
+    assert AddressNormalizer.normalize_state_province("VN-HN", country="Vietnam") == "Hà Nội"
+    assert AddressNormalizer.normalize_state_province("VN-SG", country="Vietnam") == "Hồ Chí Minh"
+
+

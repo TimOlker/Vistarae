@@ -266,7 +266,7 @@ class UserQuotasTable(Base):
     user: Mapped[UserTable] = relationship("UserTable", back_populates="quotas")
 
     __table_args__ = (
-        CheckConstraint("tier IN ('low', 'high', 'admin')", name="ck_user_quotas_tier"),
+        CheckConstraint("tier IN ('low', 'high', 'admin', 'premium')", name="ck_user_quotas_tier"),
         Index("idx_user_quotas_tier", "tier"),
     )
 
@@ -1222,3 +1222,70 @@ class UserExclusionZoneTable(Base):
 
 
 user_exclusion_zones_table = UserExclusionZoneTable.__table__
+
+
+class BulkEnrichmentResultsTable(Base):
+    """Audit table for bulk AI enrichment runs and login recovery status."""
+
+    __tablename__ = "bulk_enrichment_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ingest_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        unique=True,
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    processed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unprocessed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    success_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_resources_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    average_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    termination_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_issues: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb"), default=list, nullable=False
+    )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_bulk_enrichment_user_recovery", "user_id", "acknowledged_at", text("created_at DESC")),
+        Index("idx_bulk_enrichment_job_id", "job_id"),
+    )
+
+
+bulk_enrichment_results_table = BulkEnrichmentResultsTable.__table__
+

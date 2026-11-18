@@ -21,6 +21,7 @@ Encapsulates state and business rules decoupled from external ORM frameworks.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -28,6 +29,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
+from vistarae_core.domain.enums import BulkEnrichmentStatus, EnrichmentResultCode
 from vistarae_core.domain.value_objects import (
     AddressRecord,
     DuplicateTriageStatus,
@@ -56,6 +58,7 @@ class User:
     email: str
     full_name: str | None = None
     is_active: bool = True
+    tier: str | UserTier = UserTier.LOW
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -409,3 +412,88 @@ class UserExclusionZone:
     radius_km: float = 1.0
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+def get_bulk_enrichment_concurrency() -> int:
+    """Resolves and bounds the configured bulk enrichment worker concurrency.
+
+    Reads BULK_ENRICHMENT_CONCURRENCY from the environment (default: 3).
+    Bounds the value strictly between 1 and 10 to protect external rate limits.
+
+    Returns:
+        int: Bounded concurrency integer between 1 and 10.
+    """
+    raw_val = os.getenv("BULK_ENRICHMENT_CONCURRENCY", "3")
+    try:
+        val = int(raw_val)
+    except (ValueError, TypeError):
+        val = 3
+    return max(1, min(10, val))
+
+
+@dataclass
+class EnrichmentQueueItem:
+    """Represents an individual candidate's place in the enrichment queue."""
+
+    queue_item_id: UUID
+    session_id: UUID
+    candidate_id: UUID
+    candidate_name: str
+    queue_position: int  # 1-based index (1 <= X <= N)
+    is_canary: bool
+    status: str  # QUEUED, IN_FLIGHT, SUCCEEDED, FAILED, CANCELLED
+    worker_id: str | None = None
+    result_code: EnrichmentResultCode | None = None
+    error_message: str | None = None
+    duration_ms: int = 0
+    resources_used: int = 0
+
+
+@dataclass
+class EnrichmentSession:
+    """In-memory active state of a bulk AI enrichment execution."""
+
+    session_id: UUID
+    job_id: UUID
+    user_id: UUID
+    status: BulkEnrichmentStatus
+    total_count: int
+    concurrency_limit: int
+    canary_candidate_id: UUID
+    started_at: datetime
+    ended_at: datetime | None = None
+    last_heartbeat_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    stop_requested: bool = False
+    termination_reason: str = ""
+    processed_count: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    unprocessed_count: int = 0
+    total_resources_used: int = 0
+    total_duration_ms: int = 0
+    candidate_issues: list[dict[str, Any]] = field(default_factory=list)
+    candidate_meta: dict[UUID, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class BulkEnrichmentResult:
+    """Persistent audit entity capturing the immutable summary of an enrichment run."""
+
+    id: UUID
+    user_id: UUID
+    job_id: UUID
+    session_id: UUID
+    status: BulkEnrichmentStatus
+    processed_count: int
+    unprocessed_count: int
+    failure_count: int
+    success_count: int
+    total_resources_used: int
+    total_duration_ms: int
+    average_duration_ms: int
+    termination_reason: str
+    candidate_issues: list[dict[str, Any]] = field(default_factory=list)
+    acknowledged_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+

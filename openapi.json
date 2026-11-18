@@ -832,6 +832,290 @@
         }
       }
     },
+    "/api/user/user/preferences/scraping-sources": {
+      "get": {
+        "tags": [
+          "preferences",
+          "preferences"
+        ],
+        "summary": "Get Scraping Sources",
+        "description": "Retrieves the list of authorized secondary scraping domains.",
+        "operationId": "get_scraping_sources_api_user_user_preferences_scraping_sources_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "preferences",
+          "preferences"
+        ],
+        "summary": "Update Scraping Sources",
+        "description": "Updates the list of authorized secondary scraping domains.",
+        "operationId": "update_scraping_sources_api_user_user_preferences_scraping_sources_put",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapingSourcesUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/user/preferences/scraping-sources": {
+      "get": {
+        "tags": [
+          "preferences",
+          "preferences"
+        ],
+        "summary": "Get Scraping Sources",
+        "description": "Retrieves the list of authorized secondary scraping domains.",
+        "operationId": "get_scraping_sources_api_users_user_preferences_scraping_sources_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "preferences",
+          "preferences"
+        ],
+        "summary": "Update Scraping Sources",
+        "description": "Updates the list of authorized secondary scraping domains.",
+        "operationId": "update_scraping_sources_api_users_user_preferences_scraping_sources_put",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapingSourcesUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapingSourcesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pois/dedup-check": {
       "get": {
         "tags": [
@@ -2332,6 +2616,18 @@
             "description": "Longitude in degrees (-180.0 to 180.0)"
           },
           {
+            "name": "force_refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Bypass internal geocache",
+              "default": false,
+              "title": "Force Refresh"
+            },
+            "description": "Bypass internal geocache"
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -2487,6 +2783,24 @@
             "description": "Address or destination query"
           },
           {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional country hint",
+              "title": "Country"
+            },
+            "description": "Optional country hint"
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -2526,6 +2840,164 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ForwardGeocodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pois/geocode/extract-url": {
+      "post": {
+        "tags": [
+          "geocoding",
+          "geocoding"
+        ],
+        "summary": "Extract Url Coordinates Endpoint",
+        "description": "Extracts coordinates and enriched address from a webpage or map/geohack URL.",
+        "operationId": "extract_url_coordinates_endpoint_api_pois_geocode_extract_url_post",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 2000,
+              "description": "Webpage or map URL to inspect",
+              "title": "Url"
+            },
+            "description": "Webpage or map URL to inspect"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractUrlCoordinatesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "geocoding",
+          "geocoding"
+        ],
+        "summary": "Extract Url Coordinates Endpoint",
+        "description": "Extracts coordinates and enriched address from a webpage or map/geohack URL.",
+        "operationId": "extract_url_coordinates_endpoint_api_pois_geocode_extract_url_get",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 2000,
+              "description": "Webpage or map URL to inspect",
+              "title": "Url"
+            },
+            "description": "Webpage or map URL to inspect"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractUrlCoordinatesResponse"
                 }
               }
             }
@@ -4562,6 +5034,117 @@
         }
       }
     },
+    "/api/ingest/jobs/{job_id}/candidates/export": {
+      "get": {
+        "tags": [
+          "ingest-staging",
+          "ingest-staging"
+        ],
+        "summary": "Stream full-fidelity RFC 4180 CSV export of staged candidates",
+        "description": "Streams full-fidelity RFC 4180 CSV containing staged candidates with UTF-8 BOM.",
+        "operationId": "export_job_candidates_api_ingest_jobs__job_id__candidates_export_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "candidate_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Ids"
+            }
+          },
+          {
+            "name": "phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/IngestCandidatePhaseState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Phase"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/jobs/{job_id}/candidates/{candidate_id}": {
       "put": {
         "tags": [
@@ -5324,6 +5907,18 @@
             }
           },
           {
+            "name": "force_refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Bypass search cache and force recalculate/refresh",
+              "default": false,
+              "title": "Force Refresh"
+            },
+            "description": "Bypass search cache and force recalculate/refresh"
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -5399,6 +5994,18 @@
               "format": "uuid",
               "title": "Job Id"
             }
+          },
+          {
+            "name": "force_refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Bypass search cache and force recalculate/refresh",
+              "default": false,
+              "title": "Force Refresh"
+            },
+            "description": "Bypass search cache and force recalculate/refresh"
           },
           {
             "name": "Authorization",
@@ -5606,6 +6213,550 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CommitSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/bulk-enrichment/start": {
+      "post": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Initiate canary-gated bulk AI enrichment session",
+        "description": "Launches a canary-gated bulk AI enrichment session.",
+        "operationId": "start_bulk_enrichment_api_ingest_jobs__job_id__bulk_enrichment_start_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrichmentInitiateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrichmentInitiateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/bulk-enrichment/progress": {
+      "get": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Poll real-time metrics and progress of active enrichment session",
+        "description": "Retrieves live telemetry progress metrics for the active session.",
+        "operationId": "get_bulk_enrichment_progress_api_ingest_jobs__job_id__bulk_enrichment_progress_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrichmentProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/bulk-enrichment/cancel": {
+      "post": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Request graceful cancellation and worker draining",
+        "description": "Requests graceful cancellation and worker draining.",
+        "operationId": "cancel_bulk_enrichment_api_ingest_jobs__job_id__bulk_enrichment_cancel_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrichmentCancelResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/bulk-enrichment/heartbeat": {
+      "post": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Record client heartbeat to prevent disconnection cancellation",
+        "description": "Records client heartbeat signal.",
+        "operationId": "record_bulk_enrichment_heartbeat_api_ingest_jobs__job_id__bulk_enrichment_heartbeat_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrichmentHeartbeatResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/jobs/{job_id}/bulk-enrichment/summary": {
+      "get": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Retrieve post-processing audit summary for the latest completed session",
+        "description": "Retrieves post-run summary window statistics.",
+        "operationId": "get_bulk_enrichment_summary_api_ingest_jobs__job_id__bulk_enrichment_summary_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrichmentSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/bulk-enrichment/recovery": {
+      "get": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Check for unacknowledged failed or blocked enrichment runs upon login",
+        "description": "Checks for unacknowledged failed or blocked enrichment runs requiring traveler response.",
+        "operationId": "check_bulk_enrichment_recovery_api_ingest_bulk_enrichment_recovery_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrichmentRecoveryResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No unacknowledged recovery run found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/bulk-enrichment/recovery/respond": {
+      "post": {
+        "tags": [
+          "bulk-enrichment",
+          "bulk-enrichment"
+        ],
+        "summary": "Submit user response to the login recovery prompt",
+        "description": "Submits traveler action in response to login recovery prompt.",
+        "operationId": "respond_bulk_enrichment_recovery_api_ingest_bulk_enrichment_recovery_respond_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Mock-User-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Mock-User-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrichmentRecoveryActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Respond Bulk Enrichment Recovery Api Ingest Bulk Enrichment Recovery Respond Post"
                 }
               }
             }
@@ -5931,6 +7082,28 @@
               }
             ],
             "title": "Date Visited"
+          },
+          "add_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Add Tag"
+          },
+          "remove_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remove Tag"
           }
         },
         "additionalProperties": false,
@@ -5939,7 +7112,7 @@
           "candidate_ids"
         ],
         "title": "BatchEditCandidatesRequest",
-        "description": "Client payload for batch updating country, state/province, city, and date_visited across candidates."
+        "description": "Client payload for batch updating location, date_visited, and tags across candidates."
       },
       "BatchEditResponse": {
         "properties": {
@@ -6299,6 +7472,441 @@
         "title": "BulkEditRequest",
         "description": "Request payload for atomic bulk POI editing."
       },
+      "BulkEnrichmentCancelResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "Unique UUIDv4 session identifier."
+          },
+          "status": {
+            "$ref": "#/components/schemas/BulkEnrichmentStatus",
+            "description": "Updated session status (DRAINING or CANCELLED)."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Cancellation confirmation message."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "status",
+          "message"
+        ],
+        "title": "BulkEnrichmentCancelResponse",
+        "description": "Response returned upon requesting graceful session cancellation."
+      },
+      "BulkEnrichmentHeartbeatResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "Unique UUIDv4 session identifier."
+          },
+          "acknowledged": {
+            "type": "boolean",
+            "title": "Acknowledged",
+            "description": "True if heartbeat was recorded.",
+            "default": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "True if session remains active."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "is_active"
+        ],
+        "title": "BulkEnrichmentHeartbeatResponse",
+        "description": "Response acknowledging client heartbeat signal."
+      },
+      "BulkEnrichmentInitiateRequest": {
+        "properties": {
+          "candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Ids",
+            "description": "Explicit candidate IDs to enrich. If empty or None, all eligible candidates are targeted."
+          },
+          "force_refresh": {
+            "type": "boolean",
+            "title": "Force Refresh",
+            "description": "If True, recomputes all target fields regardless of pre-existing data, preserving user overrides.",
+            "default": false
+          },
+          "all_eligible": {
+            "type": "boolean",
+            "title": "All Eligible",
+            "description": "Explicit confirmation flag when candidate_ids is empty, confirming all eligible POIs should be enqueued.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BulkEnrichmentInitiateRequest",
+        "description": "Payload to initiate a canary-gated bulk AI enrichment session."
+      },
+      "BulkEnrichmentInitiateResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "Unique UUIDv4 session identifier."
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id",
+            "description": "Associated staging import job UUID."
+          },
+          "total_enqueued": {
+            "type": "integer",
+            "title": "Total Enqueued",
+            "description": "Total number of candidates placed in queue."
+          },
+          "status": {
+            "$ref": "#/components/schemas/BulkEnrichmentStatus",
+            "description": "Initial lifecycle status of the session."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable informational message."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "job_id",
+          "total_enqueued",
+          "status",
+          "message"
+        ],
+        "title": "BulkEnrichmentInitiateResponse",
+        "description": "Response returned upon successful initiation and canary dispatch."
+      },
+      "BulkEnrichmentProgressResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "Unique UUIDv4 session identifier."
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id",
+            "description": "Associated staging import job UUID."
+          },
+          "status": {
+            "$ref": "#/components/schemas/BulkEnrichmentStatus",
+            "description": "Current lifecycle status of the session."
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count",
+            "description": "Total candidates queued."
+          },
+          "completed_count": {
+            "type": "integer",
+            "title": "Completed Count",
+            "description": "Count of candidates completed so far."
+          },
+          "success_count": {
+            "type": "integer",
+            "title": "Success Count",
+            "description": "Count of candidates successfully enriched."
+          },
+          "issue_count": {
+            "type": "integer",
+            "title": "Issue Count",
+            "description": "Count of candidates encountering errors."
+          },
+          "remaining_count": {
+            "type": "integer",
+            "title": "Remaining Count",
+            "description": "Count of candidates remaining in queue."
+          },
+          "in_flight_count": {
+            "type": "integer",
+            "title": "In Flight Count",
+            "description": "Count of workers currently active."
+          },
+          "percent_complete": {
+            "type": "integer",
+            "title": "Percent Complete",
+            "description": "Integer percentage of completion (0-100)."
+          },
+          "elapsed_seconds": {
+            "type": "integer",
+            "title": "Elapsed Seconds",
+            "description": "Total seconds elapsed since session start."
+          },
+          "average_duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Duration Ms",
+            "description": "Average execution duration per completed POI in milliseconds."
+          },
+          "can_cancel": {
+            "type": "boolean",
+            "title": "Can Cancel",
+            "description": "Whether the active session accepts graceful cancellation.",
+            "default": true
+          },
+          "status_message": {
+            "type": "string",
+            "title": "Status Message",
+            "description": "Descriptive status indicator text."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "job_id",
+          "status",
+          "total_count",
+          "completed_count",
+          "success_count",
+          "issue_count",
+          "remaining_count",
+          "in_flight_count",
+          "percent_complete",
+          "elapsed_seconds",
+          "status_message"
+        ],
+        "title": "BulkEnrichmentProgressResponse",
+        "description": "Real-time progress metrics for active enrichment polling."
+      },
+      "BulkEnrichmentRecoveryActionRequest": {
+        "properties": {
+          "result_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Result Id",
+            "description": "Target audit record UUID."
+          },
+          "action": {
+            "$ref": "#/components/schemas/RecoveryPromptAction",
+            "description": "User response: resume, dismiss, or cancel."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "result_id",
+          "action"
+        ],
+        "title": "BulkEnrichmentRecoveryActionRequest",
+        "description": "Traveler action in response to the login recovery prompt."
+      },
+      "BulkEnrichmentRecoveryResponse": {
+        "properties": {
+          "result_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Result Id",
+            "description": "Audit record UUID in bulk_enrichment_results."
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id",
+            "description": "Associated staging import job UUID."
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "Enrichment session UUID."
+          },
+          "status": {
+            "$ref": "#/components/schemas/BulkEnrichmentStatus",
+            "description": "Failure status (BLOCKED or FAILED)."
+          },
+          "failed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Failed At",
+            "description": "Timestamp when the run concluded."
+          },
+          "unprocessed_count": {
+            "type": "integer",
+            "title": "Unprocessed Count",
+            "description": "Number of remaining candidates left unenriched."
+          },
+          "failure_count": {
+            "type": "integer",
+            "title": "Failure Count",
+            "description": "Number of candidates that encountered errors."
+          },
+          "total_candidates": {
+            "type": "integer",
+            "title": "Total Candidates",
+            "description": "Total candidates in the original queue."
+          },
+          "termination_reason": {
+            "type": "string",
+            "title": "Termination Reason",
+            "description": "Explanation of why processing was halted."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "result_id",
+          "job_id",
+          "session_id",
+          "status",
+          "failed_at",
+          "unprocessed_count",
+          "failure_count",
+          "total_candidates",
+          "termination_reason"
+        ],
+        "title": "BulkEnrichmentRecoveryResponse",
+        "description": "Details of the most recent unacknowledged failed or blocked enrichment run."
+      },
+      "BulkEnrichmentStatus": {
+        "type": "string",
+        "enum": [
+          "INITIALIZING",
+          "CANARY_DISPATCH",
+          "ACTIVE",
+          "DRAINING",
+          "COMPLETED",
+          "BLOCKED",
+          "CANCELLED",
+          "FAILED"
+        ],
+        "title": "BulkEnrichmentStatus",
+        "description": "Lifecycle states of a bulk enrichment session and audit record."
+      },
+      "BulkEnrichmentSummaryResponse": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Session Id",
+            "description": "Unique UUIDv4 session identifier."
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id",
+            "description": "Associated staging import job UUID."
+          },
+          "status": {
+            "$ref": "#/components/schemas/BulkEnrichmentStatus",
+            "description": "Final terminal status."
+          },
+          "total_candidates": {
+            "type": "integer",
+            "title": "Total Candidates",
+            "description": "Total candidates queued."
+          },
+          "succeeded_count": {
+            "type": "integer",
+            "title": "Succeeded Count",
+            "description": "Count of candidates successfully enriched."
+          },
+          "temporary_error_count": {
+            "type": "integer",
+            "title": "Temporary Error Count",
+            "description": "Count of non-fatal external issue candidates."
+          },
+          "blocking_error_count": {
+            "type": "integer",
+            "title": "Blocking Error Count",
+            "description": "Count of blocking circuit-break errors."
+          },
+          "internal_error_count": {
+            "type": "integer",
+            "title": "Internal Error Count",
+            "description": "Count of unexpected system errors."
+          },
+          "unprocessed_count": {
+            "type": "integer",
+            "title": "Unprocessed Count",
+            "description": "Count of candidates left unprocessed in queue."
+          },
+          "total_duration_ms": {
+            "type": "integer",
+            "title": "Total Duration Ms",
+            "description": "Total wall-clock duration in milliseconds."
+          },
+          "average_duration_ms": {
+            "type": "integer",
+            "title": "Average Duration Ms",
+            "description": "Mean candidate execution time in milliseconds."
+          },
+          "total_resources_used": {
+            "type": "integer",
+            "title": "Total Resources Used",
+            "description": "Total API calls and token units consumed."
+          },
+          "termination_reason": {
+            "type": "string",
+            "title": "Termination Reason",
+            "description": "Descriptive explanation of how/why session concluded."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Timestamp when audit summary was recorded."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "job_id",
+          "status",
+          "total_candidates",
+          "succeeded_count",
+          "temporary_error_count",
+          "blocking_error_count",
+          "internal_error_count",
+          "unprocessed_count",
+          "total_duration_ms",
+          "average_duration_ms",
+          "total_resources_used",
+          "termination_reason",
+          "created_at"
+        ],
+        "title": "BulkEnrichmentSummaryResponse",
+        "description": "Comprehensive post-run summary window statistics."
+      },
       "BulkListsRequest": {
         "properties": {
           "poi_ids": {
@@ -6418,6 +8026,17 @@
           "poi_name": {
             "type": "string",
             "title": "Poi Name"
+          },
+          "recommended_poi_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Poi Name"
           },
           "recommended_disposition": {
             "$ref": "#/components/schemas/IngestDisposition"
@@ -6699,6 +8318,13 @@
               }
             ],
             "title": "Hero Image Url"
+          },
+          "hero_image_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hero Image Urls"
           },
           "recommended_duration_hours": {
             "anyOf": [
@@ -7176,6 +8802,20 @@
             ],
             "title": "Hero Image Url"
           },
+          "hero_image_urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Urls"
+          },
           "recommended_duration_hours": {
             "anyOf": [
               {
@@ -7302,12 +8942,10 @@
           },
           "total_active_hours": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Active Hours"
           },
           "threshold_hours": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Threshold Hours",
             "default": "10.00"
           },
@@ -7992,6 +9630,173 @@
         "title": "ExtractAndCheckResponse",
         "description": "Comprehensive extraction candidate, tag recommendations, and duplicate verdict response."
       },
+      "ExtractUrlCoordinatesResponse": {
+        "properties": {
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude",
+            "description": "Extracted or resolved latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude",
+            "description": "Extracted or resolved longitude"
+          },
+          "place_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Name",
+            "description": "Place or attraction name extracted from page"
+          },
+          "extraction_source": {
+            "type": "string",
+            "title": "Extraction Source",
+            "description": "Source of extraction",
+            "default": "unknown"
+          },
+          "street": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street",
+            "description": "Street address if resolved"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City",
+            "description": "City or municipality if resolved"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality",
+            "description": "City or locality"
+          },
+          "state_province": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Province",
+            "description": "State or province if resolved"
+          },
+          "admin_level_1": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 1",
+            "description": "State or province"
+          },
+          "admin_level_2": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Level 2",
+            "description": "County or district"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country",
+            "description": "Country name if resolved"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code",
+            "description": "Postal code if resolved"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code",
+            "description": "ISO 3166-1 alpha-2 code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExtractUrlCoordinatesResponse",
+        "description": "Response payload for coordinates and address extracted from a webpage URL."
+      },
       "FilterConjunction": {
         "type": "string",
         "enum": [
@@ -8209,6 +10014,19 @@
             "title": "Longitude",
             "description": "Resolved longitude"
           },
+          "resolved_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Name",
+            "description": "Canonical POI name if resolved via alias or knowledge base"
+          },
           "street": {
             "anyOf": [
               {
@@ -8408,7 +10226,8 @@
           "update_existing",
           "sublocation",
           "in_batch_merge",
-          "exclude"
+          "exclude",
+          "existing"
         ],
         "title": "IngestDisposition",
         "description": "Interactive disposition assigned to staged CSV/photo candidates."
@@ -8855,8 +10674,7 @@
                 "minimum": 0.25
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "string"
               }
             ],
             "title": "Duration Hours",
@@ -9069,7 +10887,6 @@
           },
           "duration_hours": {
             "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Duration Hours",
             "default": "1.00"
           },
@@ -11677,6 +13494,18 @@
       },
       "QueryTreeSchema-Input": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Client UI group identifier (optional)"
+          },
           "conjunction": {
             "$ref": "#/components/schemas/FilterConjunction",
             "default": "AND"
@@ -11703,6 +13532,18 @@
       },
       "QueryTreeSchema-Output": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Client UI group identifier (optional)"
+          },
           "conjunction": {
             "$ref": "#/components/schemas/FilterConjunction",
             "default": "AND"
@@ -11726,6 +13567,16 @@
         "type": "object",
         "title": "QueryTreeSchema",
         "description": "Recursive query builder AST tree node."
+      },
+      "RecoveryPromptAction": {
+        "type": "string",
+        "enum": [
+          "resume",
+          "dismiss",
+          "cancel"
+        ],
+        "title": "RecoveryPromptAction",
+        "description": "Traveler choices in response to the login unacknowledged failure prompt."
       },
       "RegisterRequest": {
         "properties": {
@@ -11868,6 +13719,18 @@
       },
       "RuleClauseSchema": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Client UI clause identifier (optional)"
+          },
           "field": {
             "type": "string",
             "title": "Field",

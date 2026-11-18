@@ -62,6 +62,16 @@ DEFAULT_VALID_DOMAINS = [
     "hillmanwonders.com",
 ]
 
+
+def _is_blocking_llm_error(exc: Exception) -> bool:
+    """Checks if an LLM exception represents an external quota or billing depletion."""
+    err_str = str(exc).lower()
+    return any(
+        k in err_str
+        for k in ["402", "429", "quota", "resource_exhausted", "prepayment credits"]
+    )
+
+
 # Scale and category duration heuristics table: (hours, days) (REQ: FR-017)
 CATEGORY_DURATION_HEURISTICS: Final[dict[str, tuple[float, int | None]]] = {
     "national park": (12.0, 1),
@@ -239,10 +249,12 @@ class ScrapingOrchestrator:
 
         try:
             logger.info("MSG   |-> Gemini English name normalization: %s", raw_name)
-            normalized = await asyncio.to_thread(_call_gemini)
+            normalized = await asyncio.wait_for(asyncio.to_thread(_call_gemini), timeout=15.0)
             logger.info("MSG   |<- Gemini normalized name: %s", normalized)
             return normalized
         except Exception as exc:
+            if _is_blocking_llm_error(exc):
+                raise
             logger.warning("MSG   |<- Gemini name normalization fallback: %s", exc)
             return raw_name
 
@@ -335,10 +347,12 @@ class ScrapingOrchestrator:
 
         try:
             logger.info("MSG   |-> Gemini summary synthesis for: %s", name)
-            summary = await asyncio.to_thread(_call_gemini)
+            summary = await asyncio.wait_for(asyncio.to_thread(_call_gemini), timeout=15.0)
             logger.info("MSG   |<- Gemini summary synthesized: %d chars", len(summary))
             return summary
         except Exception as exc:
+            if _is_blocking_llm_error(exc):
+                raise
             logger.warning("MSG   |<- Gemini summary synthesis fallback: %s", exc)
             sentences = re.split(r"(?<=[.!?]) +", combined_text)
             fallback = " ".join(sentences[:2]) if sentences else combined_text[:200]
@@ -453,10 +467,12 @@ class ScrapingOrchestrator:
 
         try:
             logger.info("MSG   |-> Gemini reason-to-visit synthesis for: %s", name)
-            reason = await asyncio.to_thread(_call_gemini)
+            reason = await asyncio.wait_for(asyncio.to_thread(_call_gemini), timeout=15.0)
             logger.info("MSG   |<- Gemini reason-to-visit synthesized: %d chars", len(reason))
             return reason
         except Exception as exc:
+            if _is_blocking_llm_error(exc):
+                raise
             logger.warning("MSG   |<- Gemini reason-to-visit synthesis fallback: %s", exc)
             return (
                 f"- Distinctive Sights: Iconic vantage points unique to {name}.\n"
@@ -594,10 +610,12 @@ class ScrapingOrchestrator:
 
         try:
             logger.info("MSG   |-> Gemini visit duration notes synthesis for: %s", name)
-            notes = await asyncio.to_thread(_call_gemini)
+            notes = await asyncio.wait_for(asyncio.to_thread(_call_gemini), timeout=15.0)
             logger.info("MSG   |<- Gemini visit duration notes synthesized: %d chars", len(notes))
             return notes
         except Exception as exc:
+            if _is_blocking_llm_error(exc):
+                raise
             logger.warning("MSG   |<- Gemini visit duration notes synthesis fallback: %s", exc)
             return self._heuristic_duration_notes(
                 name=name,

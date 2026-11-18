@@ -35,13 +35,46 @@ from vistarae_core.domain.value_objects import (
 )
 
 __all__ = [
+    "BulkEnrichmentStatus",
     "CandidateDisposition",
+    "EnrichmentResultCode",
     "ExportFormat",
     "IngestCandidatePhaseState",
     "IngestDisposition",
+    "RecoveryPromptAction",
     "SelectiveEnrichmentOverrides",
     "TagResolutionAction",
 ]
+
+
+class BulkEnrichmentStatus(StrEnum):
+    """Lifecycle states of a bulk enrichment session and audit record."""
+
+    INITIALIZING = "INITIALIZING"
+    CANARY_DISPATCH = "CANARY_DISPATCH"
+    ACTIVE = "ACTIVE"
+    DRAINING = "DRAINING"
+    COMPLETED = "COMPLETED"
+    BLOCKED = "BLOCKED"
+    CANCELLED = "CANCELLED"
+    FAILED = "FAILED"
+
+
+class EnrichmentResultCode(StrEnum):
+    """Execution outcome classified by candidate worker."""
+
+    SUCCESS = "SUCCESS"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    BLOCKING_EXTERNAL_ERROR = "BLOCKING_EXTERNAL_ERROR"
+    TEMPORARY_EXTERNAL_ERROR = "TEMPORARY_EXTERNAL_ERROR"
+
+
+class RecoveryPromptAction(StrEnum):
+    """Traveler choices in response to the login unacknowledged failure prompt."""
+
+    RESUME = "resume"
+    DISMISS = "dismiss"
+    CANCEL = "cancel"
 
 
 class CandidateDisposition(StrEnum):

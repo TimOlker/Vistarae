@@ -1,0 +1,455 @@
+openapi: 3.1.0
+info:
+  title: Vistarae Bulk AI Enrichment API
+  version: 1.0.0
+  description: Endpoints for canary-gated, fail-fast bulk AI and web enrichment with audit logging and login recovery.
+paths:
+  /api/ingest/jobs/{job_id}/bulk-enrichment/start:
+    post:
+      summary: Initiate canary-gated bulk AI enrichment session
+      operationId: startBulkEnrichment
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkEnrichmentInitiateRequest'
+      responses:
+        '202':
+          description: Session initiated and canary worker dispatched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkEnrichmentInitiateResponse'
+        '400':
+          description: Invalid request parameters or selection required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - User is not on a PREMIUM subscription
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflict - An enrichment session is already active for this job
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/ingest/jobs/{job_id}/bulk-enrichment/progress:
+    get:
+      summary: Poll real-time metrics and progress of active enrichment session
+      operationId: getBulkEnrichmentProgress
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Real-time progress metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkEnrichmentProgressResponse'
+        '404':
+          description: No active or recent enrichment session found for this job
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/ingest/jobs/{job_id}/bulk-enrichment/cancel:
+    post:
+      summary: Request graceful cancellation and worker draining
+      operationId: cancelBulkEnrichment
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Cancellation accepted; session transitioning to draining state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkEnrichmentCancelResponse'
+        '404':
+          description: No active enrichment session to cancel
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/ingest/jobs/{job_id}/bulk-enrichment/heartbeat:
+    post:
+      summary: Record client heartbeat to prevent disconnection cancellation
+      operationId: heartbeatBulkEnrichment
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Heartbeat recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkEnrichmentHeartbeatResponse'
+
+  /api/ingest/jobs/{job_id}/bulk-enrichment/summary:
+    get:
+      summary: Retrieve post-processing audit summary for the latest completed session
+      operationId: getBulkEnrichmentSummary
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Post-processing summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkEnrichmentSummaryResponse'
+        '404':
+          description: No completed summary available
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/ingest/bulk-enrichment/recovery:
+    get:
+      summary: Check for unacknowledged failed or blocked enrichment runs upon login
+      operationId: checkBulkEnrichmentRecovery
+      responses:
+        '200':
+          description: Most recent unacknowledged failed/blocked run requiring user response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkEnrichmentRecoveryResponse'
+        '204':
+          description: No unacknowledged failed/blocked runs exist for this user
+
+  /api/ingest/bulk-enrichment/recovery/respond:
+    post:
+      summary: Submit user response to the login recovery prompt
+      operationId: respondBulkEnrichmentRecovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkEnrichmentRecoveryActionRequest'
+      responses:
+        '200':
+          description: Response processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  acknowledged:
+                    type: boolean
+                  job_id:
+                    type: string
+                    format: uuid
+                  initial_filter:
+                    type: string
+                    nullable: true
+                    enum: [incomplete, null]
+                required:
+                  - acknowledged
+                  - job_id
+
+components:
+  schemas:
+    BulkEnrichmentStatus:
+      type: string
+      enum:
+        - INITIALIZING
+        - CANARY_DISPATCH
+        - ACTIVE
+        - DRAINING
+        - COMPLETED
+        - BLOCKED
+        - CANCELLED
+        - FAILED
+
+    RecoveryPromptAction:
+      type: string
+      enum:
+        - resume
+        - dismiss
+        - cancel
+
+    BulkEnrichmentInitiateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        candidate_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+        force_refresh:
+          type: boolean
+          default: false
+        all_eligible:
+          type: boolean
+          default: false
+
+    BulkEnrichmentInitiateResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - job_id
+        - total_enqueued
+        - status
+        - message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        total_enqueued:
+          type: integer
+        status:
+          $ref: '#/components/schemas/BulkEnrichmentStatus'
+        message:
+          type: string
+
+    BulkEnrichmentProgressResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - job_id
+        - status
+        - total_count
+        - completed_count
+        - success_count
+        - issue_count
+        - remaining_count
+        - in_flight_count
+        - percent_complete
+        - elapsed_seconds
+        - can_cancel
+        - status_message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/BulkEnrichmentStatus'
+        total_count:
+          type: integer
+        completed_count:
+          type: integer
+        success_count:
+          type: integer
+        issue_count:
+          type: integer
+        remaining_count:
+          type: integer
+        in_flight_count:
+          type: integer
+        percent_complete:
+          type: integer
+        elapsed_seconds:
+          type: integer
+        average_duration_ms:
+          type: integer
+          nullable: true
+        can_cancel:
+          type: boolean
+        status_message:
+          type: string
+
+    BulkEnrichmentCancelResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - status
+        - message
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/BulkEnrichmentStatus'
+        message:
+          type: string
+
+    BulkEnrichmentHeartbeatResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - acknowledged
+        - is_active
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        acknowledged:
+          type: boolean
+        is_active:
+          type: boolean
+
+    BulkEnrichmentSummaryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - job_id
+        - status
+        - total_candidates
+        - succeeded_count
+        - temporary_error_count
+        - blocking_error_count
+        - internal_error_count
+        - unprocessed_count
+        - total_duration_ms
+        - average_duration_ms
+        - total_resources_used
+        - termination_reason
+        - created_at
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/BulkEnrichmentStatus'
+        total_candidates:
+          type: integer
+        succeeded_count:
+          type: integer
+        temporary_error_count:
+          type: integer
+        blocking_error_count:
+          type: integer
+        internal_error_count:
+          type: integer
+        unprocessed_count:
+          type: integer
+        total_duration_ms:
+          type: integer
+        average_duration_ms:
+          type: integer
+        total_resources_used:
+          type: integer
+        termination_reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    BulkEnrichmentRecoveryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - result_id
+        - job_id
+        - session_id
+        - status
+        - failed_at
+        - unprocessed_count
+        - failure_count
+        - total_candidates
+        - termination_reason
+      properties:
+        result_id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/BulkEnrichmentStatus'
+        failed_at:
+          type: string
+          format: date-time
+        unprocessed_count:
+          type: integer
+        failure_count:
+          type: integer
+        total_candidates:
+          type: integer
+        termination_reason:
+          type: string
+
+    BulkEnrichmentRecoveryActionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - result_id
+        - action
+      properties:
+        result_id:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/RecoveryPromptAction'
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        invalid_params:
+          type: array
+          items:
+            type: object
+
