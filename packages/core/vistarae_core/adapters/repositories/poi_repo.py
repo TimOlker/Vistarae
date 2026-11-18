@@ -32,6 +32,7 @@ from __future__ import annotations
 import contextlib
 import json
 import re
+import struct
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -88,7 +89,32 @@ def _extract_wgs84_point(geom: Any) -> WGS84Point:
     except Exception as err:
         if hasattr(geom, "x") and hasattr(geom, "y"):
             return WGS84Point(lon=float(geom.x), lat=float(geom.y))
-        geom_str = getattr(geom, "data", None) or str(geom)
+
+        # Direct WKB binary unpack fallback (zero external dependencies)
+        raw_data = getattr(geom, "data", None) or geom
+        if isinstance(raw_data, (bytes, bytearray, memoryview)):
+            try:
+                b = bytes(raw_data)
+                endian = "<" if b[0] == 1 else ">"
+                type_code = struct.unpack(f"{endian}I", b[1:5])[0]
+                offset = 9 if (type_code & 0x20000000) else 5
+                x, y = struct.unpack(f"{endian}dd", b[offset : offset + 16])
+                return WGS84Point(lon=float(x), lat=float(y))
+            except Exception:
+                pass
+
+        geom_str = str(raw_data)
+        if len(geom_str) >= 34 and all(c in "0123456789abcdefABCDEF" for c in geom_str[:34]):
+            try:
+                b = bytes.fromhex(geom_str)
+                endian = "<" if b[0] == 1 else ">"
+                type_code = struct.unpack(f"{endian}I", b[1:5])[0]
+                offset = 9 if (type_code & 0x20000000) else 5
+                x, y = struct.unpack(f"{endian}dd", b[offset : offset + 16])
+                return WGS84Point(lon=float(x), lat=float(y))
+            except Exception:
+                pass
+
         m = re.search(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", str(geom_str), re.IGNORECASE)
         if m:
             return WGS84Point(lon=float(m.group(1)), lat=float(m.group(2)))

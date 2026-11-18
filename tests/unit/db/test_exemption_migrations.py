@@ -14,7 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the reversible 0018 missing data exemptions migration."""
+"""Unit tests for the reversible 0020 missing data exemptions migration."""
 
 from __future__ import annotations
 
@@ -23,16 +23,16 @@ from pathlib import Path
 
 
 def test_migration_definition():
-    """Verify revision 0018 implements upgrade and downgrade functions."""
-    migration_path = Path("db/migrations/versions/20261118_add_missing_data_exemptions.py")
+    """Verify revision 0020 implements upgrade and downgrade functions."""
+    migration_path = Path("db/migrations/versions/0020_add_missing_data_exemptions.py")
     assert migration_path.exists(), "Migration file must exist"
 
-    spec = importlib.util.spec_from_file_location("migration_0018", migration_path)
+    spec = importlib.util.spec_from_file_location("migration_0020", migration_path)
     assert spec is not None
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)
 
-    assert migration.revision == "0018"
-    assert migration.down_revision == "0017"
+    assert migration.revision == "0020"
+    assert migration.down_revision == "0019"
     assert callable(migration.upgrade)
     assert callable(migration.downgrade)
