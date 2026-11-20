@@ -162,4 +162,45 @@ describe("CSVEnrichmentProgressModal", () => {
       { timeout: 2000 },
     );
   });
+
+  it("displays skipped count in progress subtitle and metrics tile when skipped_count > 0", async () => {
+    (ingestApi.getBulkEnrichmentProgress as any).mockResolvedValue({
+      session_id: "sess-1",
+      job_id: "job-1",
+      status: "ACTIVE",
+      total_count: 740,
+      completed_count: 57,
+      success_count: 57,
+      skipped_count: 34,
+      issue_count: 0,
+      remaining_count: 683,
+      in_flight_count: 3,
+      percent_complete: 7,
+      elapsed_seconds: 127,
+      average_duration_ms: 6200,
+      can_cancel: true,
+      status_message: "Processing 57 of 740 POIs (34 skipped)...",
+    });
+
+    (ingestApi.heartbeatBulkEnrichment as any).mockResolvedValue({
+      session_id: "sess-1",
+      acknowledged: true,
+      is_active: true,
+    });
+
+    render(
+      <CSVEnrichmentProgressModal
+        isOpen={true}
+        jobId="job-1"
+        onComplete={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Processed 57 of 740 candidates (34 skipped)"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("• 34 skipped")).toBeInTheDocument();
+    });
+  });
 });

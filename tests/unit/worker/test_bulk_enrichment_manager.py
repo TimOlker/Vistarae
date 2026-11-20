@@ -289,3 +289,42 @@ async def test_duplicate_active_session_raises_conflict() -> None:
         await manager.start_session(user_id=user_id, job_id=job_id, candidate_ids=cand_ids)
 
     await manager.wait_session(job_id)
+
+
+@pytest.mark.asyncio
+async def test_bulk_enrichment_skipped_candidates_tracking() -> None:
+    """Verifies that candidates skipped from AI processing are tallied in session and summary telemetry."""
+    user_id = uuid4()
+    job_id = uuid4()
+    cand1 = uuid4()
+    cand2 = uuid4()
+    cand3 = uuid4()
+    cand_ids = [cand1, cand2, cand3]
+
+    async def worker(cand_id, is_canary, force_refresh):
+        cand = _make_candidate(cand_id, name=f"POI {cand_id}")
+        cand.latitude = 45.0
+        cand.longitude = 9.0
+        if cand_id in (cand2, cand3):
+            cand._ai_skipped = True
+        return cand
+
+    manager = BulkEnrichmentSessionManager(
+        worker_func=worker,
+        bulk_repo=AsyncMock(),
+        candidate_repo=AsyncMock(),
+    )
+
+    session = await manager.start_session(user_id=user_id, job_id=job_id, candidate_ids=cand_ids)
+    await manager.wait_session(job_id)
+
+    assert session.status == BulkEnrichmentStatus.COMPLETED
+    assert session.processed_count == 3
+    assert session.success_count == 3
+    assert session.skipped_count == 2
+
+    summary = manager.get_summary(job_id)
+    assert summary is not None
+    assert summary.total_candidates == 3
+    assert summary.succeeded_count == 3
+    assert summary.skipped_count == 2

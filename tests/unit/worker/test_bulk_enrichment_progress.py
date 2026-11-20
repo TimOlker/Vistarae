@@ -86,6 +86,7 @@ async def test_progress_calculation(manager: BulkEnrichmentSessionManager) -> No
         started_at=datetime.now(UTC) - timedelta(seconds=12),
         processed_count=4,
         success_count=3,
+        skipped_count=2,
         failure_count=1,
         unprocessed_count=6,
         total_duration_ms=4800,
@@ -100,6 +101,8 @@ async def test_progress_calculation(manager: BulkEnrichmentSessionManager) -> No
     assert progress.total_count == 10
     assert progress.completed_count == 4
     assert progress.success_count == 3
+    assert progress.skipped_count == 2
+    assert "(2 skipped)" in progress.status_message
     assert progress.issue_count == 1
     assert progress.remaining_count == 6
     assert progress.percent_complete == 40

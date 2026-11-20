@@ -51,6 +51,7 @@ def _row_to_entity(row: BulkEnrichmentResultsTable) -> BulkEnrichmentResult:
         unprocessed_count=row.unprocessed_count,
         failure_count=row.failure_count,
         success_count=row.success_count,
+        skipped_count=getattr(row, "skipped_count", 0),
         total_resources_used=row.total_resources_used,
         total_duration_ms=row.total_duration_ms,
         average_duration_ms=row.average_duration_ms,

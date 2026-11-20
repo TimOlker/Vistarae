@@ -470,6 +470,7 @@ class EnrichmentSession:
     termination_reason: str = ""
     processed_count: int = 0
     success_count: int = 0
+    skipped_count: int = 0
     failure_count: int = 0
     unprocessed_count: int = 0
     total_resources_used: int = 0
@@ -495,6 +496,7 @@ class BulkEnrichmentResult:
     total_duration_ms: int
     average_duration_ms: int
     termination_reason: str
+    skipped_count: int = 0
     candidate_issues: list[dict[str, Any]] = field(default_factory=list)
     acknowledged_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))

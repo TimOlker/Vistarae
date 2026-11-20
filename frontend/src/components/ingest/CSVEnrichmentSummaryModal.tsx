@@ -397,6 +397,11 @@ export const CSVEnrichmentSummaryModal: React.FC<
                           100,
                       )}%`
                     : "0%"}
+                  {(summary.skipped_count ?? 0) > 0 && (
+                    <span style={{ color: "#0284c7", fontWeight: 600 }}>
+                      {" "}• {summary.skipped_count} skipped
+                    </span>
+                  )}
                 </div>
               </div>
 

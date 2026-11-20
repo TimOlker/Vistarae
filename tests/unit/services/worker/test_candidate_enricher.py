@@ -360,10 +360,10 @@ async def test_candidate_enricher_skips_scraping_when_no_websites_is_true(
 
 
 @pytest.mark.asyncio
-async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(
+async def test_candidate_enricher_does_not_set_no_websites_true_when_zero_sites_found(
     mock_candidate: IngestCandidate,
 ):
-    """Verifies that candidate.no_websites is set to True when 0 sites are found during enrichment (FR-008, FR-015)."""
+    """Verifies that candidate.no_websites remains False when 0 sites are found during enrichment (REQ-EXM-004)."""
     mock_candidate.no_websites = False
     mock_candidate.official_url = None
     mock_candidate.wiki_url = None
@@ -402,7 +402,7 @@ async def test_candidate_enricher_sets_no_websites_true_when_zero_sites_found(
         )
 
         assert result is not None
-        assert result.no_websites is True
+        assert result.no_websites is False
 
 
 @pytest.mark.asyncio

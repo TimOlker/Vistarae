@@ -144,6 +144,7 @@ export interface BulkEnrichmentProgressResult {
   total_count: number;
   completed_count: number;
   success_count: number;
+  skipped_count?: number;
   issue_count: number;
   remaining_count: number;
   in_flight_count: number;
@@ -189,6 +190,7 @@ export interface BulkEnrichmentSummaryResult {
   status: BulkEnrichmentStatus;
   total_candidates: number;
   succeeded_count: number;
+  skipped_count?: number;
   temporary_error_count: number;
   blocking_error_count: number;
   internal_error_count: number;

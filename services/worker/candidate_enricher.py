@@ -467,6 +467,7 @@ class CandidateEnricher:
         ):
             candidate.recommended_visit_days = dur_d
 
+        ai_calls_made = 0
         if not candidate.description or overrides.recalculate_description:
             async with self.llm_semaphore:
                 candidate.description = await self._orchestrator.synthesize_summary(
@@ -475,6 +476,7 @@ class CandidateEnricher:
                     secondary_extracts=secondary_extracts,
                     directive=desc_directive,
                 )
+                ai_calls_made += 1
 
         if not candidate.reason_to_visit or overrides.recalculate_reason_to_visit:
             async with self.llm_semaphore:
@@ -486,10 +488,7 @@ class CandidateEnricher:
                     existing_description=candidate.description,
                     travel_style=reason_directive,
                 )
-        elif candidate.reason_to_visit:
-            candidate.reason_to_visit = ScrapingOrchestrator._clean_reason_to_visit_plain_text(
-                candidate.reason_to_visit
-            )
+                ai_calls_made += 1
 
         if not candidate.estimated_visit_time_notes or overrides.recalculate_duration:
             async with self.llm_semaphore:
@@ -503,6 +502,7 @@ class CandidateEnricher:
                         directive=time_directive,
                     )
                 )
+                ai_calls_made += 1
 
         if (not candidate.tags or overrides.recalculate_tags) and user_tags:
             try:
@@ -530,6 +530,7 @@ class CandidateEnricher:
             except Exception as exc:
                 logger.debug("Tag matching failed for '%s': %s", candidate.poi_name, exc)
 
+        candidate._ai_skipped = ai_calls_made == 0 and not is_force
         return candidate
 
     async def enrich_candidate(  # noqa: C901
@@ -550,6 +551,7 @@ class CandidateEnricher:
                 return None
 
             if cand.is_skipped:
+                cand._ai_skipped = True
                 return cand
 
             # If coordinates are missing, attempt forward geocoding resolution
@@ -587,6 +589,7 @@ class CandidateEnricher:
 
             effective_disp = cand.user_disposition or cand.recommended_disposition
             if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
+                cand._ai_skipped = True
                 return cand
 
             # 1. Fetch user's configured datasources
@@ -832,6 +835,8 @@ class CandidateEnricher:
             if cand.recommended_visit_days is None or cand.recommended_visit_days < 1 or force_refresh:
                 cand.recommended_visit_days = dur_d
 
+            ai_calls_made = 0
+
             # 6. AI Description synthesis
             if not cand.description or force_refresh:
                 cand.description = await self._orchestrator.synthesize_summary(
@@ -840,6 +845,7 @@ class CandidateEnricher:
                     secondary_extracts=secondary_extracts,
                     directive=desc_directive,
                 )
+                ai_calls_made += 1
 
             # 7. AI Reason to Visit synthesis
             if not cand.reason_to_visit or force_refresh:
@@ -851,10 +857,7 @@ class CandidateEnricher:
                     existing_description=cand.description,
                     travel_style=reason_directive,
                 )
-            elif cand.reason_to_visit:
-                cand.reason_to_visit = ScrapingOrchestrator._clean_reason_to_visit_plain_text(
-                    cand.reason_to_visit
-                )
+                ai_calls_made += 1
 
             # 8. AI Visit Duration Reasoning Notes synthesis
             if not cand.estimated_visit_time_notes or force_refresh:
@@ -868,6 +871,7 @@ class CandidateEnricher:
                         directive=time_directive,
                     )
                 )
+                ai_calls_made += 1
 
             # 9. Approved taxonomy tag matching strictly bounded to User's Tags Library
             if user_tags:
@@ -914,8 +918,10 @@ class CandidateEnricher:
 
             cand.updated_at = datetime.now(UTC)
             saved = await candidate_repo.update_candidate(user_id, cand)
-            logger.info("Enriched candidate '%s' (id=%s)", cand.poi_name, cand.id)
-            return saved
+            target = saved if saved is not None else cand
+            target._ai_skipped = ai_calls_made == 0 and not force_refresh
+            logger.info("Enriched candidate '%s' (id=%s, ai_calls=%d)", cand.poi_name, cand.id, ai_calls_made)
+            return target
 
 
 # In-memory progress tracking singleton for polling UI

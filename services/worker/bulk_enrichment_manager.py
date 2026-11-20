@@ -145,6 +145,8 @@ class BulkEnrichmentSessionManager:
             in_flight = min(self._concurrency_limit, remaining)
 
         msg = f"Processing {session.processed_count} of {session.total_count} POIs..."
+        if session.skipped_count > 0:
+            msg = f"Processing {session.processed_count} of {session.total_count} POIs ({session.skipped_count} skipped)..."
         if session.status == BulkEnrichmentStatus.CANARY_DISPATCH:
             msg = "Validating canary record..."
         elif session.status == BulkEnrichmentStatus.DRAINING:
@@ -157,6 +159,7 @@ class BulkEnrichmentSessionManager:
             total_count=session.total_count,
             completed_count=session.processed_count,
             success_count=session.success_count,
+            skipped_count=session.skipped_count,
             issue_count=session.failure_count,
             remaining_count=remaining,
             in_flight_count=in_flight,
@@ -429,11 +432,11 @@ class BulkEnrichmentSessionManager:
         cand_id: UUID,
         is_canary: bool,
         force_refresh: bool,
-    ) -> tuple[EnrichmentResultCode, str, int, int, Any]:
+    ) -> tuple[EnrichmentResultCode, str, int, int, Any, bool]:
         """Executes worker logic for one candidate with 45s execution ceiling.
 
         Returns:
-            Tuple of (result_code, error_message, duration_ms, resources_used, candidate_obj).
+            Tuple of (result_code, error_message, duration_ms, resources_used, candidate_obj, is_skipped).
         """
         start_time = datetime.now(UTC)
         logger.info(
@@ -458,13 +461,21 @@ class BulkEnrichmentSessionManager:
             dur_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
 
             cand_obj = None
+            is_skipped = False
             if isinstance(res, tuple):
                 result_code = res[0]
                 err_msg = res[1] if len(res) > 1 else ""
                 resources = res[2] if len(res) > 2 else 1
                 cand_obj = res[3] if len(res) > 3 else None
+                if len(res) > 4:
+                    is_skipped = bool(res[4])
+                elif getattr(cand_obj, "_ai_skipped", False) or getattr(cand_obj, "is_skipped", False):
+                    is_skipped = True
             elif hasattr(res, "poi_name"):
                 cand_obj = res
+                is_skipped = bool(
+                    getattr(cand_obj, "_ai_skipped", False) or getattr(cand_obj, "is_skipped", False)
+                )
                 if (
                     getattr(cand_obj, "latitude", None) is None
                     or getattr(cand_obj, "longitude", None) is None
@@ -477,7 +488,7 @@ class BulkEnrichmentSessionManager:
                 else:
                     result_code = EnrichmentResultCode.SUCCESS
                     err_msg = ""
-                    resources = 1
+                    resources = 0 if is_skipped else 1
             elif res is None and self._candidate_enricher:
                 result_code = EnrichmentResultCode.INTERNAL_ERROR
                 err_msg = f"Candidate not found or ignored (id={cand_id})"
@@ -488,9 +499,12 @@ class BulkEnrichmentSessionManager:
                 resources = 1
 
             logger.info(
-                "MSG: <--| Worker completed candidate (id=%s) - Result: %s", cand_id, result_code
+                "MSG: <--| Worker completed candidate (id=%s, skipped=%s) - Result: %s",
+                cand_id,
+                is_skipped,
+                result_code,
             )
-            return result_code, err_msg, dur_ms, resources, cand_obj
+            return result_code, err_msg, dur_ms, resources, cand_obj, is_skipped
 
         except TimeoutError:
             dur_ms = int(self._worker_timeout_seconds * 1000)
@@ -505,6 +519,7 @@ class BulkEnrichmentSessionManager:
                 dur_ms,
                 0,
                 None,
+                False,
             )
         except Exception as exc:
             dur_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
@@ -519,7 +534,7 @@ class BulkEnrichmentSessionManager:
                 if is_blocking
                 else EnrichmentResultCode.INTERNAL_ERROR
             )
-            return result_code, err_str, dur_ms, 0, None
+            return result_code, err_str, dur_ms, 0, None, False
 
     async def _execute_canary_stage(
         self,
@@ -535,7 +550,7 @@ class BulkEnrichmentSessionManager:
         session.status = BulkEnrichmentStatus.CANARY_DISPATCH
         logger.info("Dispatching canary candidate [1 of %d] (id=%s)", total, canary_id)
 
-        c_code, c_err, c_dur, c_res, c_cand = await self._execute_single_worker(
+        c_code, c_err, c_dur, c_res, c_cand, c_skipped = await self._execute_single_worker(
             user_id, job_id, canary_id, is_canary=True, force_refresh=force_refresh
         )
         processed_ids.add(canary_id)
@@ -550,6 +565,8 @@ class BulkEnrichmentSessionManager:
 
         if c_code == EnrichmentResultCode.SUCCESS:
             session.success_count += 1
+            if c_skipped:
+                session.skipped_count += 1
         else:
             self._record_candidate_issue(
                 session, canary_id, c_code, c_err, candidate_obj=c_cand
@@ -611,7 +628,7 @@ class BulkEnrichmentSessionManager:
             async with semaphore:
                 if stop_event.is_set():
                     return
-                code, err, dur, res_used, cand_obj = await self._execute_single_worker(
+                code, err, dur, res_used, cand_obj, is_skipped = await self._execute_single_worker(
                     user_id, job_id, cand_id, is_canary=False, force_refresh=force_refresh
                 )
                 processed_ids.add(cand_id)
@@ -621,6 +638,8 @@ class BulkEnrichmentSessionManager:
 
                 if code == EnrichmentResultCode.SUCCESS:
                     session.success_count += 1
+                    if is_skipped:
+                        session.skipped_count += 1
                 else:
                     self._record_candidate_issue(
                         session, cand_id, code, err, candidate_obj=cand_obj
@@ -804,6 +823,7 @@ class BulkEnrichmentSessionManager:
             unprocessed_count=session.unprocessed_count,
             failure_count=session.failure_count,
             success_count=session.success_count,
+            skipped_count=session.skipped_count,
             total_resources_used=session.total_resources_used,
             total_duration_ms=session.total_duration_ms,
             average_duration_ms=avg_ms,
@@ -839,6 +859,7 @@ class BulkEnrichmentSessionManager:
             status=session.status,
             total_candidates=session.total_count,
             succeeded_count=session.success_count,
+            skipped_count=session.skipped_count,
             temporary_error_count=temp_errors,
             blocking_error_count=blocking_errors,
             internal_error_count=internal_errors,
