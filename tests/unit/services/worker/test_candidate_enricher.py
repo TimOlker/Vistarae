@@ -465,3 +465,70 @@ async def test_candidate_enricher_filters_out_map_service_websites(
         assert "https://www.toureiffel.paris/en" in urls
         assert not any("openstreetmap" in u or "osm.org" in u or "google.com/maps" in u for u in urls)
 
+
+@pytest.mark.asyncio
+async def test_candidate_enricher_resolves_coordinates_from_unesco_url(
+    mock_candidate: IngestCandidate,
+):
+    """Verifies that CandidateEnricher parses UNESCO URLs to resolve missing coordinates (N16 01 06 E44 48 16)."""
+    mock_candidate.latitude = None
+    mock_candidate.longitude = None
+    mock_candidate.country = None
+    mock_candidate.state_province = None
+    mock_candidate.city = None
+    mock_candidate.official_url = "https://whc.unesco.org/en/tentativelists/6873/"
+    mock_candidate.poi_name = "Barāqish City Archaeological Site"
+    mock_candidate.description = "Ancient walled city"
+    mock_candidate.reason_to_visit = "Pre-Islamic Yemen architecture"
+    mock_candidate.estimated_visit_time_notes = "2 hours"
+    mock_candidate.recommended_disposition = IngestDisposition.IGNORE
+
+    mock_session = _build_mock_session()
+    mock_session_factory = MagicMock(return_value=mock_session)
+    mock_orchestrator = MagicMock()
+
+    enricher = CandidateEnricher(
+        session_factory=mock_session_factory,
+        orchestrator=mock_orchestrator,
+    )
+
+    with (
+        patch(
+            "services.worker.candidate_enricher.SqlAlchemyIngestCandidateRepository"
+        ) as MockCandidateRepo,
+        patch("services.worker.candidate_enricher.UNESCOAdapter") as MockUNESCOAdapter,
+    ):
+        repo_instance = MagicMock()
+        repo_instance.get_candidate = AsyncMock(return_value=mock_candidate)
+        repo_instance.update_candidate = AsyncMock(side_effect=lambda u, c: c)
+        MockCandidateRepo.return_value = repo_instance
+
+        unesco_instance = MagicMock()
+        unesco_instance.augment = AsyncMock(
+            return_value={
+                "source_name": "unesco.org",
+                "site_name": "Barāqish City Archaeological Site",
+                "latitude": 16.018333,
+                "longitude": 44.804444,
+                "state_province": "Ma’rib Governorate",
+                "country": "Yemen",
+                "description": "Geographically, Barāqish is located in Wādī al-Jawf...",
+            }
+        )
+        MockUNESCOAdapter.return_value = unesco_instance
+
+        result = await enricher.enrich_candidate(
+            user_id=mock_candidate.user_id,
+            candidate_id=mock_candidate.id,
+            job_id=mock_candidate.job_id,
+        )
+
+        assert result is not None
+        assert result.latitude is not None and pytest.approx(float(result.latitude), abs=0.0001) == 16.01833
+        assert result.longitude is not None and pytest.approx(float(result.longitude), abs=0.0001) == 44.80444
+        assert result.state_province == "Ma’rib Governorate"
+        assert result.country == "Yemen"
+        assert result.recommended_disposition == IngestDisposition.ACCEPT
+        assert "UNESCO" in result.disposition_justification
+
+

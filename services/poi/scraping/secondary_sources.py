@@ -24,8 +24,10 @@ Constrained to traveler's authorized `valid_scraping_domains` preferences.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
+import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any
 from urllib.parse import quote, unquote, urljoin, urlparse
@@ -33,6 +35,8 @@ from urllib.parse import quote, unquote, urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 from vistarae_core.ports.repositories import IExternalEnrichmentCacheRepository
+
+from services.poi.services.url_extractor import parse_unesco_html
 
 logger = logging.getLogger("vistarae.scraping.secondary")
 
@@ -203,6 +207,41 @@ async def scrape_website_metadata(
             desc = extract_meta_description(resp.text)
             if desc:
                 res["description"] = desc
+            if "unesco.org" in url:
+                u_info = parse_unesco_html(resp.text, url)
+                if u_info.get("coordinates"):
+                    res["coordinates"] = u_info["coordinates"]
+                    res["latitude"] = u_info["latitude"]
+                    res["longitude"] = u_info["longitude"]
+                if u_info.get("description") and not res["description"]:
+                    res["description"] = u_info["description"]
+        elif "unesco.org" in url:
+            def _urllib_fetch() -> str:
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": (
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        ),
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=4.0) as u_resp:
+                    return u_resp.read().decode("utf-8", errors="ignore")
+
+            u_html = await asyncio.to_thread(_urllib_fetch)
+            if u_html:
+                u_info = parse_unesco_html(u_html, url)
+                if u_info.get("coordinates"):
+                    res["coordinates"] = u_info["coordinates"]
+                    res["latitude"] = u_info["latitude"]
+                    res["longitude"] = u_info["longitude"]
+                if u_info.get("description"):
+                    res["description"] = u_info["description"]
+                found_img = extract_meta_image(u_html, url)
+                if found_img:
+                    res["images"].append(found_img)
     except Exception as exc:
         logger.debug("Failed scraping metadata from official website %s: %s", url, exc)
     finally:
@@ -1623,3 +1662,125 @@ class HillmanWondersAdapter(SecondarySourceAdapter):
         finally:
             if should_close:
                 await client.aclose()
+
+
+class UNESCOAdapter(SecondarySourceAdapter):
+    """Adapter for UNESCO World Heritage Centre (whc.unesco.org)."""
+
+    def __init__(
+        self,
+        valid_domains: list[str] | None = None,
+        cache_repo: IExternalEnrichmentCacheRepository | None = None,
+    ) -> None:
+        super().__init__(valid_domains=valid_domains, cache_repo=cache_repo)
+
+    @property
+    def domain(self) -> str:
+        return "unesco.org"
+
+    async def augment(  # noqa: C901
+        self,
+        query_title: str = "",
+        source_url: str | None = None,
+        client: httpx.AsyncClient | None = None,
+        force_refresh: bool = False,
+        poi_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Scrapes UNESCO World Heritage or Tentative List page for coordinates, description, and metadata."""
+        url = source_url or ""
+        if not url and "unesco.org" in query_title:
+            url = query_title.strip()
+
+        if not url:
+            return {}
+
+        if not force_refresh and self._cache_repo:
+            cached = await self._cache_repo.get("unesco_enrichment", url)
+            if cached:
+                return cached
+
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+
+        html_text = ""
+        should_close = False
+        if client is None:
+            client = httpx.AsyncClient(timeout=4.0, follow_redirects=True)
+            should_close = True
+
+        try:
+            try:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 200:
+                    html_text = resp.text
+            except Exception as exc:
+                logger.debug("httpx fetch failed for UNESCO '%s': %s", url, exc)
+
+            if not html_text:
+
+                def _urllib_fetch() -> str:
+                    req = urllib.request.Request(url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=6.0) as u_resp:
+                        return u_resp.read().decode("utf-8", errors="ignore")
+
+                html_text = await asyncio.to_thread(_urllib_fetch)
+
+            if not html_text:
+                return {}
+
+            unesco_info = parse_unesco_html(html_text, url)
+            if not unesco_info:
+                return {}
+
+            site_name = (
+                unesco_info.get("name")
+                or poi_name
+                or query_title
+                or "UNESCO World Heritage Site"
+            )
+            res: dict[str, Any] = {
+                "source_name": "unesco.org",
+                "site_name": site_name,
+                "url": url,
+                "related_websites": [{"name": "UNESCO World Heritage", "url": url}],
+                "tags": ["UNESCO"],
+            }
+            if "coordinates" in unesco_info:
+                res["coordinates"] = {
+                    "latitude": unesco_info["latitude"],
+                    "longitude": unesco_info["longitude"],
+                }
+                res["latitude"] = unesco_info["latitude"]
+                res["longitude"] = unesco_info["longitude"]
+            if "state_province" in unesco_info:
+                res["state_province"] = unesco_info["state_province"]
+            if "country" in unesco_info:
+                res["country"] = unesco_info["country"]
+            if "description" in unesco_info:
+                res["description"] = unesco_info["description"]
+                res["secondary_extracts"] = [unesco_info["description"]]
+            hero = extract_meta_image(html_text, url)
+            if hero:
+                res["hero_image_url"] = hero
+                res["hero_image_urls"] = [hero]
+
+            if self._cache_repo and (
+                res.get("latitude") is not None or res.get("description")
+            ):
+                await self._cache_repo.set("unesco_enrichment", url, res)
+
+            return res
+        except Exception as exc:
+            logger.debug("UNESCO augment error for '%s': %s", url, exc)
+            return {}
+        finally:
+            if should_close:
+                await client.aclose()
+
+
+UnescoAdapter = UNESCOAdapter

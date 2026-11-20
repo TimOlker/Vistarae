@@ -63,6 +63,7 @@ from services.poi.scraping.orchestrator import (
 from services.poi.scraping.secondary_sources import (
     HillmanWondersAdapter,
     TripAdvisorAdapter,
+    UNESCOAdapter,
     WikipediaAdapter,
     canonicalize_url,
     is_map_service_url,
@@ -553,6 +554,42 @@ class CandidateEnricher:
             if cand.is_skipped:
                 cand._ai_skipped = True
                 return cand
+
+            # If coordinates are missing, first attempt direct resolution from UNESCO URL
+            if cand.latitude is None or cand.longitude is None:
+                cand_urls = []
+                if cand.official_url:
+                    cand_urls.append(cand.official_url)
+                if getattr(cand, "source_value", None) and str(cand.source_value).startswith("http"):
+                    cand_urls.append(str(cand.source_value))
+                for w in (cand.related_websites or []):
+                    if isinstance(w, dict) and w.get("url"):
+                        cand_urls.append(w["url"])
+
+                for u in cand_urls:
+                    if "unesco.org" in u.lower():
+                        try:
+                            unesco_adapter = UNESCOAdapter(cache_repo=cache_repo)
+                            u_data = await unesco_adapter.augment(
+                                query_title=cand.poi_name, source_url=u, force_refresh=force_refresh
+                            )
+                            if u_data and u_data.get("latitude") is not None and u_data.get("longitude") is not None:
+                                cand.latitude = Decimal(str(u_data["latitude"]))
+                                cand.longitude = Decimal(str(u_data["longitude"]))
+                                if not cand.description and u_data.get("description"):
+                                    cand.description = u_data["description"]
+                                if not cand.state_province and u_data.get("state_province"):
+                                    cand.state_province = u_data["state_province"]
+                                if not cand.country and u_data.get("country"):
+                                    cand.country = u_data["country"]
+                                if cand.recommended_disposition == IngestDisposition.IGNORE:
+                                    cand.recommended_disposition = IngestDisposition.ACCEPT
+                                    cand.disposition_justification = (
+                                        "Coordinates resolved via UNESCO website extraction"
+                                    )
+                                break
+                        except Exception as exc:
+                            logger.debug("UNESCO coordinate extraction failed for '%s': %s", u, exc)
 
             # If coordinates are missing, attempt forward geocoding resolution
             if (

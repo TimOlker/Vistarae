@@ -27,10 +27,12 @@ Extracts coordinates and location information from:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 import urllib.parse
+import urllib.request
 from typing import Any
 
 import httpx
@@ -197,6 +199,168 @@ def extract_tripadvisor_slug(url: str) -> str | None:
     return None
 
 
+def parse_dms_string(text: str) -> tuple[float, float] | None:
+    """Parses DMS (Degrees Minutes Seconds) or DM coordinate string into decimal degrees (lat, lng).
+
+    Supports:
+    - Direction at start: 'N16 01 06 E44 48 16', 'S07 19 30,2 W35 35 6,8', 'N29 26 E48 20'
+    - Direction at end: '16 01 06 N 44 48 16 E', '16°01\'06"N, 44°48\'16"E'
+    - Comma or dot decimals: '30,2' -> 30.2
+    - Optional symbols: °, ', ", ′, ″
+    """
+    if not text:
+        return None
+    s = re.sub(r"(\d),(\d)", r"\1.\2", text).strip()
+
+    # Pattern 1: Direction at start (e.g. N16 01 06 E44 48 16, N 16° 01' 06" E 44° 48' 16")
+    p1 = re.compile(
+        r"([NS])\s*(\d+)(?:[°\s]+(\d+(?:\.\d+)?))?(?:[\'′\s]+(\d+(?:\.\d+)?))?[\"″\s]*"
+        r"[,;\s]+"
+        r"([EW])\s*(\d+)(?:[°\s]+(\d+(?:\.\d+)?))?(?:[\'′\s]+(\d+(?:\.\d+)?))?[\"″\s]*",
+        re.IGNORECASE,
+    )
+    m1 = p1.search(s)
+    if m1:
+        ns, lat_d, lat_m, lat_s, ew, lon_d, lon_m, lon_s = m1.groups()
+        lat = (
+            float(lat_d)
+            + (float(lat_m) / 60.0 if lat_m else 0.0)
+            + (float(lat_s) / 3600.0 if lat_s else 0.0)
+        )
+        if ns.upper() == "S":
+            lat = -lat
+        lng = (
+            float(lon_d)
+            + (float(lon_m) / 60.0 if lon_m else 0.0)
+            + (float(lon_s) / 3600.0 if lon_s else 0.0)
+        )
+        if ew.upper() == "W":
+            lng = -lng
+        if -90 <= lat <= 90 and -180 <= lng <= 180:
+            return lat, lng
+
+    # Pattern 2: Direction at end (e.g. 16 01 06 N 44 48 16 E, 16°01'06"N, 44°48'16"E)
+    p2 = re.compile(
+        r"(\d+)(?:[°\s]+(\d+(?:\.\d+)?))?(?:[\'′\s]+(\d+(?:\.\d+)?))?[\"″\s]*([NS])"
+        r"[,;\s]+"
+        r"(\d+)(?:[°\s]+(\d+(?:\.\d+)?))?(?:[\'′\s]+(\d+(?:\.\d+)?))?[\"″\s]*([EW])",
+        re.IGNORECASE,
+    )
+    m2 = p2.search(s)
+    if m2:
+        lat_d, lat_m, lat_s, ns, lon_d, lon_m, lon_s, ew = m2.groups()
+        lat = (
+            float(lat_d)
+            + (float(lat_m) / 60.0 if lat_m else 0.0)
+            + (float(lat_s) / 3600.0 if lat_s else 0.0)
+        )
+        if ns.upper() == "S":
+            lat = -lat
+        lng = (
+            float(lon_d)
+            + (float(lon_m) / 60.0 if lon_m else 0.0)
+            + (float(lon_s) / 3600.0 if lon_s else 0.0)
+        )
+        if ew.upper() == "W":
+            lng = -lng
+        if -90 <= lat <= 90 and -180 <= lng <= 180:
+            return lat, lng
+
+    return None
+
+
+def parse_unesco_html(html_text: str, url: str = "") -> dict[str, Any]:  # noqa: C901
+    """Parses UNESCO website HTML (whc.unesco.org/en/tentativelists/... or /en/list/...) for coordinates and site metadata."""
+    if not html_text:
+        return {}
+
+    result: dict[str, Any] = {}
+    soup = BeautifulSoup(html_text, "html.parser")
+
+    # 1. Coordinates extraction
+    coords = None
+    for el in soup.find_all(["strong", "b", "div", "span", "p"]):
+        txt = el.get_text()
+        if "coordinate" in txt.lower():
+            parent_txt = el.parent.get_text(" ", strip=True) if el.parent else ""
+            coords = parse_dms_string(parent_txt) or parse_dms_string(txt)
+            if coords:
+                break
+
+    if not coords:
+        m = re.search(
+            r"Coordinates:?\s*(?:</strong>|</b>)?\s*([NS\d°\'\"′″.,\s]+[EW][\d°\'\"′″.,\s]+)",
+            html_text,
+            re.IGNORECASE,
+        )
+        if m:
+            coords = parse_dms_string(m.group(1))
+
+    if coords:
+        result["coordinates"] = coords
+        result["latitude"] = coords[0]
+        result["longitude"] = coords[1]
+
+    # 2. Place / Site Name
+    h1 = soup.find("h1")
+    if h1 and h1.get_text().strip():
+        result["name"] = h1.get_text().strip()
+    elif soup.title and soup.title.string:
+        cleaned_t = re.split(r"\s+[-–|]\s+", soup.title.string.strip())[0].strip()
+        if cleaned_t:
+            result["name"] = cleaned_t
+
+    # 3. State, Province or Region
+    m_reg = re.search(
+        r"State,\s*Province\s*or\s*Region:?\s*</strong>\s*(?:<br\s*/?>)?\s*([^<]+)",
+        html_text,
+        re.IGNORECASE,
+    )
+    if m_reg:
+        reg_val = m_reg.group(1).strip()
+        if reg_val:
+            result["state_province"] = reg_val
+
+    # 4. Country
+    for div in soup.find_all("div"):
+        d_txt = div.get_text(separator=" ", strip=True)
+        m_sp = re.match(r"^([A-Z][a-zA-Z\s’'-]+?)\s+Date of Submission:", d_txt)
+        if m_sp:
+            country_cand = m_sp.group(1).strip()
+            if len(country_cand) < 60:
+                result["country"] = country_cand
+                break
+    if "country" not in result:
+        m_del = re.search(
+            r"Permanent Delegation of (?:the )?(?:Republic of )?([A-Za-z\s’'-]+) to UNESCO",
+            html_text,
+            re.IGNORECASE,
+        )
+        if m_del:
+            result["country"] = m_del.group(1).strip()
+
+    # 5. Description
+    desc_heading = soup.find(
+        lambda e: e.name in ["h2", "h3", "h4", "h5", "strong", "b"]
+        and "description" in e.get_text().lower()
+    )
+    if desc_heading and desc_heading.parent:
+        p_text = desc_heading.parent.get_text("\n", strip=True)
+        clean_p = re.sub(r"^Description\s*", "", p_text, flags=re.IGNORECASE).strip()
+        if len(clean_p) > 30:
+            result["description"] = clean_p
+    if "description" not in result:
+        meta_desc = soup.find("meta", attrs={"name": "description"}) or soup.find(
+            "meta", attrs={"property": "og:description"}
+        )
+        if meta_desc and meta_desc.get("content"):
+            c_desc = str(meta_desc["content"]).strip()
+            if len(c_desc) > 20 and "unesco world heritage centre" not in c_desc.lower():
+                result["description"] = c_desc
+
+    return result
+
+
 class UrlCoordinateExtractor:
     """High-level service coordinating webpage body coordinate extraction and address enrichment."""
 
@@ -270,11 +434,38 @@ class UrlCoordinateExtractor:
         except Exception as exc:
             logger.warning("MSG   |<- Webpage fetch failed for '%s': %s", url, exc)
 
+        # Fallback fetch via urllib if blocked by Cloudflare or HTTP error (e.g. UNESCO 403 on httpx)
+        if not fetch_succeeded or not html_text:
+            try:
+                def _urllib_fetch() -> str:
+                    req = urllib.request.Request(
+                        url,
+                        headers={
+                            "User-Agent": (
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            ),
+                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                            "Accept-Language": "en-US,en;q=0.9",
+                        },
+                    )
+                    with urllib.request.urlopen(req, timeout=self._timeout_seconds) as u_resp:
+                        return u_resp.read().decode("utf-8", errors="ignore")
+
+                u_text = await asyncio.to_thread(_urllib_fetch)
+                if u_text:
+                    html_text = u_text
+                    fetch_succeeded = True
+            except Exception as exc:
+                logger.debug("urllib fallback fetch failed for '%s': %s", url, exc)
+
         # 5. If HTML was retrieved, parse with BeautifulSoup
         extracted_lat: float | None = None
         extracted_lng: float | None = None
         extracted_name: str | None = None
         extraction_source = "unknown"
+        fallback_state: str | None = None
+        fallback_country: str | None = None
 
         if fetch_succeeded and html_text:
             soup = BeautifulSoup(html_text, "html.parser")
@@ -286,22 +477,32 @@ class UrlCoordinateExtractor:
                 extracted_name = og_title["content"].strip()
             elif title_tag and title_tag.string:
                 raw_t = title_tag.string.strip()
-                # Clean suffixes like " - Wikipedia", " | TripAdvisor", etc.
+                # Clean suffixes like " - Wikipedia", " | TripAdvisor", " - UNESCO World Heritage Centre", etc.
                 cleaned_t = re.split(r"\s+[-–|]\s+", raw_t)[0].strip()
                 extracted_name = cleaned_t
 
-            # A. GeoHack Link in page (common in Wikipedia)
-            for a in soup.find_all("a", href=True):
-                href = a["href"]
-                if "geohack" in href:
-                    gh_link_res = parse_geohack_url(href)
-                    if gh_link_res:
-                        extracted_lat, extracted_lng = gh_link_res[0], gh_link_res[1]
-                        extracted_name = extracted_name or gh_link_res[2]
-                        extraction_source = "geohack_link"
-                        break
+            # A. UNESCO coordinates & metadata extraction
+            unesco_data = parse_unesco_html(html_text, url)
+            if unesco_data and "coordinates" in unesco_data:
+                extracted_lat, extracted_lng = unesco_data["coordinates"]
+                extracted_name = unesco_data.get("name") or extracted_name
+                fallback_state = unesco_data.get("state_province")
+                fallback_country = unesco_data.get("country")
+                extraction_source = "unesco_url" if "unesco.org" in url else "dms_coordinates"
 
-            # B. Google Maps link in page
+            # B. GeoHack Link in page (common in Wikipedia)
+            if extracted_lat is None:
+                for a in soup.find_all("a", href=True):
+                    href = a["href"]
+                    if "geohack" in href:
+                        gh_link_res = parse_geohack_url(href)
+                        if gh_link_res:
+                            extracted_lat, extracted_lng = gh_link_res[0], gh_link_res[1]
+                            extracted_name = extracted_name or gh_link_res[2]
+                            extraction_source = "geohack_link"
+                            break
+
+            # C. Google Maps link in page
             if extracted_lat is None:
                 for a in soup.find_all("a", href=True):
                     href = a["href"]
@@ -313,7 +514,7 @@ class UrlCoordinateExtractor:
                             extraction_source = "google_maps_link"
                             break
 
-            # C. Microformat <span class="geo">lat; lng</span>
+            # D. Microformat <span class="geo">lat; lng</span>
             if extracted_lat is None:
                 geo_span = soup.find(class_="geo")
                 if geo_span and geo_span.text:
@@ -408,6 +609,8 @@ class UrlCoordinateExtractor:
                 lng=extracted_lng,
                 place_name=extracted_name or ta_slug,
                 source=extraction_source,
+                fallback_state=fallback_state,
+                fallback_country=fallback_country,
             )
 
         return ExtractUrlCoordinatesResponse(
@@ -421,6 +624,8 @@ class UrlCoordinateExtractor:
         lng: float,
         place_name: str | None,
         source: str,
+        fallback_state: str | None = None,
+        fallback_country: str | None = None,
     ) -> ExtractUrlCoordinatesResponse:
         """Enriches coordinates with reverse geocoded address fields."""
         street = None
@@ -434,12 +639,14 @@ class UrlCoordinateExtractor:
             rev = await self._reverse_service.reverse_geocode(lat=lat, lng=lng)
             street = rev.street
             city = rev.city or rev.locality
-            state_province = rev.state_province or rev.admin_level_1
-            country = rev.country
+            state_province = rev.state_province or rev.admin_level_1 or fallback_state
+            country = rev.country or fallback_country
             postal_code = rev.postal_code
             country_code = rev.country_code
         except Exception as exc:
             logger.debug("Failed reverse geocoding (%s, %s): %s", lat, lng, exc)
+            state_province = fallback_state
+            country = fallback_country
 
         return ExtractUrlCoordinatesResponse(
             latitude=lat,

@@ -19,13 +19,16 @@
 from __future__ import annotations
 
 import pytest
+
 from services.poi.services.url_extractor import (
+    UrlCoordinateExtractor,
     clean_url,
     extract_tripadvisor_slug,
+    parse_dms_string,
     parse_geohack_params,
     parse_geohack_url,
     parse_google_maps_url_py,
-    UrlCoordinateExtractor,
+    parse_unesco_html,
 )
 
 
@@ -93,6 +96,7 @@ def test_extract_tripadvisor_slug() -> None:
 def test_url_extractor_direct_geohack() -> None:
     import asyncio
     from unittest.mock import AsyncMock, MagicMock
+
     from services.poi.services.geocode_service import ReverseGeocodeService
 
     mock_reverse = MagicMock(spec=ReverseGeocodeService)
@@ -125,7 +129,9 @@ def test_url_extractor_direct_geohack() -> None:
 def test_url_extractor_html_microformat() -> None:
     import asyncio
     from unittest.mock import AsyncMock, MagicMock
+
     import httpx
+
     from services.poi.services.geocode_service import ReverseGeocodeService
 
     mock_reverse = MagicMock(spec=ReverseGeocodeService)
@@ -166,4 +172,194 @@ def test_url_extractor_html_microformat() -> None:
     assert res.longitude is not None and pytest.approx(res.longitude, rel=1e-4) == -0.1195
     assert res.extraction_source == "microformat_geo"
     assert res.city == "London"
+
+
+def test_parse_dms_string_unesco_formats() -> None:
+    """Verifies that various DMS/DM formats found on UNESCO and web pages parse accurately."""
+    # User example: N16 01 06 E44 48 16 (Barāqish, Yemen)
+    coords = parse_dms_string("N16 01 06 E44 48 16")
+    assert coords is not None
+    lat, lng = coords
+    assert pytest.approx(lat, abs=0.0001) == 16.01833
+    assert pytest.approx(lng, abs=0.0001) == 44.80444
+
+    # With prefix
+    c_pref = parse_dms_string("Coordinates: N16 01 06 E44 48 16")
+    assert c_pref is not None
+    assert pytest.approx(c_pref[0], abs=0.0001) == 16.01833
+    assert pytest.approx(c_pref[1], abs=0.0001) == 44.80444
+
+    # Southern & Western hemispheres with decimal seconds comma
+    c_sw = parse_dms_string("S07 19 30,2 W35 35 6,8")
+    assert c_sw is not None
+    assert pytest.approx(c_sw[0], abs=0.0001) == -7.32505
+    assert pytest.approx(c_sw[1], abs=0.0001) == -35.58522
+
+    # High precision decimal seconds
+    c_dec = parse_dms_string("S13 14 25.27 W159 48 50.65")
+    assert c_dec is not None
+    assert pytest.approx(c_dec[0], abs=0.0001) == -13.24035
+    assert pytest.approx(c_dec[1], abs=0.0001) == -159.81407
+
+    # Degrees and minutes only (no seconds)
+    c_dm = parse_dms_string("N29 26 E48 20")
+    assert c_dm is not None
+    assert pytest.approx(c_dm[0], abs=0.0001) == 29.43333
+    assert pytest.approx(c_dm[1], abs=0.0001) == 48.33333
+
+    # Symbols: degree, minute, second
+    c_sym = parse_dms_string("16°01'06\"N 44°48'16\"E")
+    assert c_sym is not None
+    assert pytest.approx(c_sym[0], abs=0.0001) == 16.01833
+    assert pytest.approx(c_sym[1], abs=0.0001) == 44.80444
+
+    # Trailing directions with commas
+    c_trail = parse_dms_string("16 01 06 N, 44 48 16 E")
+    assert c_trail is not None
+    assert pytest.approx(c_trail[0], abs=0.0001) == 16.01833
+    assert pytest.approx(c_trail[1], abs=0.0001) == 44.80444
+
+
+def test_parse_unesco_html() -> None:
+    """Verifies that UNESCO tentative list HTML is parsed for coordinates, site title, state, and country."""
+    html = """
+    <html>
+      <head>
+        <title>Barāqish City Archaeological Site  - UNESCO World Heritage Centre</title>
+      </head>
+      <body>
+        <h1>Barāqish City Archaeological Site </h1>
+        <div class="card">
+          <div class="mb-2"><strong>State, Province or Region:</strong><br />Ma’rib Governorate</div>
+          <div class="mb-2"><strong>Coordinates: </strong> N16 01 06 E44 48 16</div>
+          <div class="mb-2"><strong>Submitted by:</strong><br />Permanent Delegation of the Republic of Yemen to UNESCO</div>
+        </div>
+        <div>
+          <h4>Description</h4>
+          <div>Geographically, Barāqish (Yathill) is located in Wādī al-Jawf, approximately 15 km south of the city of al-Ḥazm.</div>
+        </div>
+      </body>
+    </html>
+    """
+    res = parse_unesco_html(html, "https://whc.unesco.org/en/tentativelists/6873/")
+    assert res is not None
+    assert "coordinates" in res
+    lat, lng = res["coordinates"]
+    assert pytest.approx(lat, abs=0.0001) == 16.01833
+    assert pytest.approx(lng, abs=0.0001) == 44.80444
+    assert res.get("name") == "Barāqish City Archaeological Site"
+    assert res.get("state_province") == "Ma’rib Governorate"
+    assert res.get("country") == "Yemen"
+    assert "Geographically, Barāqish" in res.get("description", "")
+
+
+def test_url_extractor_unesco_tentative_list_page() -> None:
+    """Verifies that UrlCoordinateExtractor extracts coordinates and location from a UNESCO tentative list URL."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    import httpx
+
+    from services.poi.services.geocode_service import ReverseGeocodeService
+
+    mock_reverse = MagicMock(spec=ReverseGeocodeService)
+    mock_reverse.reverse_geocode = AsyncMock(
+        return_value=MagicMock(
+            place_name="Barāqish",
+            street=None,
+            city="al-Ḥazm",
+            state_province="Ma’rib Governorate",
+            country="Yemen",
+            postal_code=None,
+            country_code="ye",
+        )
+    )
+
+    unesco_html = """
+    <html>
+      <head>
+        <title>Barāqish City Archaeological Site  - UNESCO World Heritage Centre</title>
+      </head>
+      <body>
+        <h1>Barāqish City Archaeological Site </h1>
+        <div class="card">
+          <div class="mb-2"><strong>State, Province or Region:</strong><br />Ma’rib Governorate</div>
+          <div class="mb-2"><strong>Coordinates: </strong> N16 01 06 E44 48 16</div>
+          <div class="mb-2"><strong>Submitted by:</strong><br />Permanent Delegation of the Republic of Yemen to UNESCO</div>
+        </div>
+      </body>
+    </html>
+    """
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = unesco_html
+    mock_client.get = AsyncMock(return_value=mock_resp)
+
+    extractor = UrlCoordinateExtractor(
+        reverse_geocode_service=mock_reverse,
+        http_client=mock_client,
+    )
+    res = asyncio.run(extractor.extract_coordinates_from_url("https://whc.unesco.org/en/tentativelists/6873/"))
+
+    assert res.latitude is not None and pytest.approx(res.latitude, abs=0.0001) == 16.01833
+    assert res.longitude is not None and pytest.approx(res.longitude, abs=0.0001) == 44.80444
+    assert res.place_name == "Barāqish City Archaeological Site"
+    assert res.extraction_source == "unesco_url"
+    assert res.state_province == "Ma’rib Governorate"
+    assert res.country == "Yemen"
+
+
+def test_unesco_adapter_augment() -> None:
+    """Verifies that UNESCOAdapter extracts coordinates and metadata from UNESCO URL."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    import httpx
+
+    from services.poi.scraping.secondary_sources import UNESCOAdapter
+
+    unesco_html = """
+    <html>
+      <head>
+        <title>Barāqish City Archaeological Site  - UNESCO World Heritage Centre</title>
+      </head>
+      <body>
+        <h1>Barāqish City Archaeological Site </h1>
+        <div class="card">
+          <div class="mb-2"><strong>State, Province or Region:</strong><br />Ma’rib Governorate</div>
+          <div class="mb-2"><strong>Coordinates: </strong> N16 01 06 E44 48 16</div>
+          <div class="mb-2"><strong>Submitted by:</strong><br />Permanent Delegation of the Republic of Yemen to UNESCO</div>
+        </div>
+        <div>
+          <h4>Description</h4>
+          <div>Geographically, Barāqish (Yathill) is located in Wādī al-Jawf...</div>
+        </div>
+      </body>
+    </html>
+    """
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.text = unesco_html
+    mock_client.get = AsyncMock(return_value=mock_resp)
+
+    adapter = UNESCOAdapter()
+    data = asyncio.run(
+        adapter.augment(
+            source_url="https://whc.unesco.org/en/tentativelists/6873/",
+            client=mock_client,
+        )
+    )
+
+    assert data is not None
+    assert data.get("source_name") == "unesco.org"
+    assert data.get("site_name") == "Barāqish City Archaeological Site"
+    assert data.get("latitude") is not None and pytest.approx(data["latitude"], abs=0.0001) == 16.01833
+    assert data.get("longitude") is not None and pytest.approx(data["longitude"], abs=0.0001) == 44.80444
+    assert data.get("state_province") == "Ma’rib Governorate"
+    assert data.get("country") == "Yemen"
+    assert "Geographically, Barāqish" in data.get("description", "")
+
+
 
