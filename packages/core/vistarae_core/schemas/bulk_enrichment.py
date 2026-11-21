@@ -79,6 +79,10 @@ class BulkEnrichmentProgressResponse(StrictBaseModel):
     total_count: int = Field(description="Total candidates queued.")
     completed_count: int = Field(description="Count of candidates completed so far.")
     success_count: int = Field(description="Count of candidates successfully enriched.")
+    skipped_count: int = Field(
+        default=0,
+        description="Count of candidates skipped from AI re-examination (e.g. already complete or pre-existing).",
+    )
     issue_count: int = Field(description="Count of candidates encountering errors.")
     remaining_count: int = Field(description="Count of candidates remaining in queue.")
     in_flight_count: int = Field(description="Count of workers currently active.")
@@ -150,6 +154,10 @@ class BulkEnrichmentSummaryResponse(StrictBaseModel):
     status: BulkEnrichmentStatus = Field(description="Final terminal status.")
     total_candidates: int = Field(description="Total candidates queued.")
     succeeded_count: int = Field(description="Count of candidates successfully enriched.")
+    skipped_count: int = Field(
+        default=0,
+        description="Count of candidates skipped from AI re-examination.",
+    )
     temporary_error_count: int = Field(description="Count of non-fatal external issue candidates.")
     blocking_error_count: int = Field(description="Count of blocking circuit-break errors.")
     internal_error_count: int = Field(description="Count of unexpected system errors.")

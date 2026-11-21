@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+  title: Incomplete Data Acknowledgment & Exemption API
+  version: 1.0.0
+  description: API specifications for individual and batch exemption checkbox management on staged candidates and permanent points of interest.
+
+paths:
+  /api/ingest/jobs/{job_id}/candidates/{candidate_id}:
+    patch:
+      summary: Update candidate attributes including exemption checkboxes
+      operationId: updateCandidate
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: traceparent
+          in: header
+          required: false
+          schema:
+            type: string
+          description: W3C distributed traceparent header
+        - name: X-Source
+          in: header
+          required: false
+          schema:
+            type: string
+            default: frontend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CandidateUpdateRequest'
+      responses:
+        '200':
+          description: Candidate updated successfully
+          headers:
+            X-Transaction-ID:
+              schema:
+                type: string
+            X-Current-Span-ID:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateItemResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Candidate or job not found
+
+  /api/ingest/jobs/{job_id}/batch-edit:
+    post:
+      summary: Batch update candidates including exemption checkboxes
+      operationId: batchEditCandidates
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: traceparent
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: X-Source
+          in: header
+          required: false
+          schema:
+            type: string
+            default: frontend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchEditCandidatesRequest'
+      responses:
+        '200':
+          description: Batch edit succeeded
+          headers:
+            X-Transaction-ID:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchEditResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Job not found
+
+  /api/pois/{poi_id}:
+    patch:
+      summary: Update permanent point of interest including exemption checkboxes
+      operationId: updatePOI
+      parameters:
+        - name: poi_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/POIUpdateRequest'
+      responses:
+        '200':
+          description: POI updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POIResponse'
+
+components:
+  schemas:
+    CandidateUpdateRequest:
+      type: object
+      properties:
+        poi_name:
+          type: string
+        street_address:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        no_address:
+          type: boolean
+          description: Manual exemption indicating street address is unavailable or acceptable
+        no_websites:
+          type: boolean
+          description: Manual exemption indicating website is unavailable or acceptable
+
+    BatchEditCandidatesRequest:
+      type: object
+      required:
+        - candidate_ids
+      properties:
+        candidate_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        no_address:
+          type: boolean
+          nullable: true
+          description: When provided, sets no_address for all selected candidate rows
+        no_websites:
+          type: boolean
+          nullable: true
+          description: When provided, sets no_websites for all selected candidate rows
+
+    BatchEditResponse:
+      type: object
+      required:
+        - updated_count
+      properties:
+        updated_count:
+          type: integer
+
+    CandidateItemResponse:
+      type: object
+      required:
+        - id
+        - poi_name
+        - no_address
+        - no_websites
+      properties:
+        id:
+          type: string
+          format: uuid
+        poi_name:
+          type: string
+        street_address:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        no_address:
+          type: boolean
+          default: false
+        no_websites:
+          type: boolean
+          default: false
+
+    POIUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        official_url:
+          type: string
+          nullable: true
+        no_address:
+          type: boolean
+        no_websites:
+          type: boolean
+
+    POIResponse:
+      type: object
+      required:
+        - id
+        - name
+        - no_address
+        - no_websites
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        no_address:
+          type: boolean
+        no_websites:
+          type: boolean

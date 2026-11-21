@@ -85,6 +85,8 @@ export interface POIMapFeature {
   recommended_duration_hours?: number | null;
   recommended_visit_days?: number | null;
   estimated_visit_time_notes?: string | null;
+  no_address?: boolean;
+  no_websites?: boolean;
   source_type?: string;
   source_value?: string | null;
 }

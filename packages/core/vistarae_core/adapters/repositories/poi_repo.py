@@ -32,6 +32,7 @@ from __future__ import annotations
 import contextlib
 import json
 import re
+import struct
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -88,7 +89,32 @@ def _extract_wgs84_point(geom: Any) -> WGS84Point:
     except Exception as err:
         if hasattr(geom, "x") and hasattr(geom, "y"):
             return WGS84Point(lon=float(geom.x), lat=float(geom.y))
-        geom_str = getattr(geom, "data", None) or str(geom)
+
+        # Direct WKB binary unpack fallback (zero external dependencies)
+        raw_data = getattr(geom, "data", None) or geom
+        if isinstance(raw_data, (bytes, bytearray, memoryview)):
+            try:
+                b = bytes(raw_data)
+                endian = "<" if b[0] == 1 else ">"
+                type_code = struct.unpack(f"{endian}I", b[1:5])[0]
+                offset = 9 if (type_code & 0x20000000) else 5
+                x, y = struct.unpack(f"{endian}dd", b[offset : offset + 16])
+                return WGS84Point(lon=float(x), lat=float(y))
+            except Exception:
+                pass
+
+        geom_str = str(raw_data)
+        if len(geom_str) >= 34 and all(c in "0123456789abcdefABCDEF" for c in geom_str[:34]):
+            try:
+                b = bytes.fromhex(geom_str)
+                endian = "<" if b[0] == 1 else ">"
+                type_code = struct.unpack(f"{endian}I", b[1:5])[0]
+                offset = 9 if (type_code & 0x20000000) else 5
+                x, y = struct.unpack(f"{endian}dd", b[offset : offset + 16])
+                return WGS84Point(lon=float(x), lat=float(y))
+            except Exception:
+                pass
+
         m = re.search(r"POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", str(geom_str), re.IGNORECASE)
         if m:
             return WGS84Point(lon=float(m.group(1)), lat=float(m.group(2)))
@@ -172,6 +198,8 @@ def _row_to_poi(row: POITable, parent_name: str | None = None) -> POI:
         recommended_visit_days=row.recommended_visit_days,
         estimated_visit_time_notes=row.estimated_visit_time_notes,
         enrichment_status=EnrichmentStatus(row.enrichment_status),
+        no_address=getattr(row, "no_address", False),
+        no_websites=getattr(row, "no_websites", False),
         region_geom=str(row.region_geom) if row.region_geom is not None else None,
         embedding=list(row.embedding) if row.embedding is not None else None,
         embedding_md5=row.embedding_md5,
@@ -244,6 +272,8 @@ class SqlAlchemyPOIRepository(IPOIRepository):
             directory_paths=poi.directory_paths,
             creation_metadata=poi.creation_metadata,
             related_websites=poi.related_websites or [],
+            no_address=poi.no_address,
+            no_websites=poi.no_websites,
             visit_state=poi.visit_state.value
             if hasattr(poi.visit_state, "value")
             else str(poi.visit_state),
@@ -350,6 +380,8 @@ class SqlAlchemyPOIRepository(IPOIRepository):
         row.directory_paths = poi.directory_paths
         row.creation_metadata = poi.creation_metadata
         row.related_websites = poi.related_websites or []
+        row.no_address = poi.no_address
+        row.no_websites = poi.no_websites
         row.visit_state = (
             poi.visit_state.value if hasattr(poi.visit_state, "value") else str(poi.visit_state)
         )

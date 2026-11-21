@@ -7104,6 +7104,28 @@
               }
             ],
             "title": "Remove Tag"
+          },
+          "no_address": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Address"
+          },
+          "no_websites": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Websites"
           }
         },
         "additionalProperties": false,
@@ -7879,6 +7901,14 @@
             "title": "Termination Reason",
             "description": "Descriptive explanation of how/why session concluded."
           },
+          "candidate_issues": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateIssueDetail"
+            },
+            "type": "array",
+            "title": "Candidate Issues",
+            "description": "Itemized list of candidates that encountered issues or were left unprocessed."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -8006,6 +8036,71 @@
         ],
         "title": "BulkTagsRequest",
         "description": "Request payload for bulk tag association or disassociation."
+      },
+      "CandidateIssueDetail": {
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Candidate Id",
+            "description": "UUID of the affected candidate."
+          },
+          "poi_name": {
+            "type": "string",
+            "title": "Poi Name",
+            "description": "POI title/name of the candidate."
+          },
+          "row_index": {
+            "type": "integer",
+            "title": "Row Index",
+            "description": "Row index in the staging batch.",
+            "default": 0
+          },
+          "category": {
+            "type": "string",
+            "title": "Category",
+            "description": "Category: 'RESOURCE_EXHAUSTION', 'INPUT_DATA_ISSUE', 'TEMPORARY_FAILURE', or 'INTERRUPTED'."
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity",
+            "description": "Issue severity: 'blocking', 'warning', or 'info'.",
+            "default": "warning"
+          },
+          "error_type": {
+            "type": "string",
+            "title": "Error Type",
+            "description": "Specific error code e.g. MISSING_COORDINATES, NO_PHOTOS_FOUND, QUOTA_EXHAUSTED.",
+            "default": "GENERAL_ISSUE"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Human-readable explanation of why this candidate had an issue or was not enriched."
+          },
+          "suggested_action": {
+            "type": "string",
+            "title": "Suggested Action",
+            "description": "Actionable guidance for the traveler (e.g. edit POI, retry, check credits)."
+          },
+          "is_retryable": {
+            "type": "boolean",
+            "title": "Is Retryable",
+            "description": "Whether immediate retry is safe without changing data.",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "poi_name",
+          "category",
+          "reason",
+          "suggested_action"
+        ],
+        "title": "CandidateIssueDetail",
+        "description": "Diagnostic details for a candidate that failed or was left incomplete/unprocessed."
       },
       "CandidateItemResponse": {
         "properties": {
@@ -8375,6 +8470,11 @@
           "no_websites": {
             "type": "boolean",
             "title": "No Websites",
+            "default": false
+          },
+          "no_address": {
+            "type": "boolean",
+            "title": "No Address",
             "default": false
           },
           "disposition_justification": {
@@ -8882,6 +8982,17 @@
             ],
             "title": "No Websites"
           },
+          "no_address": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Address"
+          },
           "disposition_justification": {
             "anyOf": [
               {
@@ -8942,10 +9053,12 @@
           },
           "total_active_hours": {
             "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Active Hours"
           },
           "threshold_hours": {
             "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Threshold Hours",
             "default": "10.00"
           },
@@ -10674,7 +10787,8 @@
                 "minimum": 0.25
               },
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               }
             ],
             "title": "Duration Hours",
@@ -10887,6 +11001,7 @@
           },
           "duration_hours": {
             "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Duration Hours",
             "default": "1.00"
           },
@@ -12243,6 +12358,30 @@
             ],
             "title": "Estimated Visit Time Notes",
             "description": "Explanation or reasoning for estimated visit duration"
+          },
+          "no_address": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Address",
+            "description": "Manual exemption indicating street address is unavailable or acceptable"
+          },
+          "no_websites": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Websites",
+            "description": "Manual exemption indicating website is unavailable or acceptable"
           }
         },
         "additionalProperties": false,
@@ -12688,6 +12827,18 @@
             "description": "Address geocoding enrichment status",
             "default": "PARTIAL"
           },
+          "no_address": {
+            "type": "boolean",
+            "title": "No Address",
+            "description": "Manual exemption indicating street address is unavailable or acceptable",
+            "default": false
+          },
+          "no_websites": {
+            "type": "boolean",
+            "title": "No Websites",
+            "description": "Manual exemption indicating website is unavailable or acceptable",
+            "default": false
+          },
           "lon": {
             "type": "number",
             "maximum": 180.0,
@@ -13090,6 +13241,30 @@
             ],
             "title": "Estimated Visit Time Notes",
             "description": "Explanation or reasoning for estimated visit duration"
+          },
+          "no_address": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Address",
+            "description": "Manual exemption indicating street address is unavailable or acceptable"
+          },
+          "no_websites": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Websites",
+            "description": "Manual exemption indicating website is unavailable or acceptable"
           },
           "source_type": {
             "anyOf": [

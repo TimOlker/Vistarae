@@ -213,6 +213,13 @@ CANONICAL_EXPORT_FIELDS: list[ExportFieldDefinition] = [
         is_formula_sanitized=True,
     ),
     ExportFieldDefinition(
+        attribute_key="no_address",
+        header_name="No Address Flag",
+        field_type=ExportFieldType.BOOLEAN,
+        aliases=["no_address", "no address", "no_address_flag"],
+        default_value=False,
+    ),
+    ExportFieldDefinition(
         attribute_key="city",
         header_name="City / Town",
         field_type=ExportFieldType.STRING,

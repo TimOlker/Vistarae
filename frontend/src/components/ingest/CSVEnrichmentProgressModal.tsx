@@ -312,7 +312,11 @@ export const CSVEnrichmentProgressModal: React.FC<
           >
             <span>
               {progress?.total_count
-                ? `Processed ${progress.completed_count} of ${progress.total_count} candidates`
+                ? `Processed ${progress.completed_count} of ${progress.total_count} candidates${
+                    (progress?.skipped_count ?? 0) > 0
+                      ? ` (${progress.skipped_count} skipped)`
+                      : ""
+                  }`
                 : "Queueing candidates..."}
             </span>
             <span style={{ color: "#7c3aed", fontWeight: 700 }}>
@@ -385,6 +389,11 @@ export const CSVEnrichmentProgressModal: React.FC<
               style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}
             >
               Remaining: {progress?.remaining_count ?? 0}
+              {(progress?.skipped_count ?? 0) > 0 && (
+                <span style={{ color: "#0284c7", fontWeight: 600 }}>
+                  {" "}• {progress.skipped_count} skipped
+                </span>
+              )}
             </div>
           </div>
 

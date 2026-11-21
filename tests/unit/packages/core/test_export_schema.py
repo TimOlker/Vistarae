@@ -32,8 +32,8 @@ class TestExportSchemaRegistry:
     """Validates the canonical field definitions, header mappings, and cell formatters."""
 
     def test_canonical_fields_count_and_completeness(self) -> None:
-        """Asserts that all 37 canonical candidate attributes are present in the registry."""
-        assert len(CANONICAL_EXPORT_FIELDS) == 37
+        """Asserts that all 38 canonical candidate attributes are present in the registry."""
+        assert len(CANONICAL_EXPORT_FIELDS) == 38
 
         attr_keys = {f.attribute_key for f in CANONICAL_EXPORT_FIELDS}
         required_keys = {
@@ -41,6 +41,7 @@ class TestExportSchemaRegistry:
             "row_index",
             "poi_name",
             "street_address",
+            "no_address",
             "city",
             "locality",
             "admin_level_2",
@@ -78,9 +79,9 @@ class TestExportSchemaRegistry:
         assert required_keys.issubset(attr_keys)
 
     def test_canonical_headers_order(self) -> None:
-        """Asserts that get_canonical_headers returns 37 ordered headers starting with Candidate ID."""
+        """Asserts that get_canonical_headers returns 38 ordered headers starting with Candidate ID."""
         headers = get_canonical_headers()
-        assert len(headers) == 37
+        assert len(headers) == 38
         assert headers[0] == "Candidate ID"
         assert headers[1] == "Row Index"
         assert headers[2] == "POI Name"
@@ -115,7 +116,7 @@ class TestExportSchemaRegistry:
         mapping = get_attribute_to_header_map()
         assert mapping["poi_name"] == "POI Name"
         assert mapping["candidate_id"] == "Candidate ID"
-        assert len(mapping) == 37
+        assert len(mapping) == 38
 
     def test_serialize_candidate_value_formula_defense_and_types(self) -> None:
         """Asserts formatting across diverse field types and defensive sanitization."""

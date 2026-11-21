@@ -83,6 +83,7 @@ import {
   ChevronRight,
   Clock,
   Lock,
+  ShieldCheck,
 } from "lucide-react";
 
 export interface ExistingPOIMarker {
@@ -138,6 +139,8 @@ export type CompletenessFilter =
   | "all"
   | "complete"
   | "incomplete"
+  | "needs_action"
+  | "exempted"
   | "missing_photo"
   | "missing_location"
   | "missing_websites";
@@ -177,6 +180,7 @@ function getCandidateMissingFields(cand: {
   official_url?: string | null;
   related_websites?: any[] | null;
   no_websites?: boolean | null;
+  no_address?: boolean | null;
 }): string[] {
   const missing: string[] = [];
   const hasPhoto = Boolean(cand.hero_image_url && cand.hero_image_url.trim());
@@ -185,7 +189,9 @@ function getCandidateMissingFields(cand: {
   const hasCoords = cand.latitude != null && cand.longitude != null;
   if (!hasCoords) missing.push("Coordinates");
 
-  const hasStreet = Boolean(cand.street_address && cand.street_address.trim());
+  const hasStreet =
+    Boolean(cand.street_address && cand.street_address.trim()) ||
+    Boolean(cand.no_address);
   if (!hasStreet) missing.push("Street Address");
 
   const hasWebsites =
@@ -532,6 +538,7 @@ export const CSVImportWorkbenchModal: React.FC<
   const [newWebsiteName, setNewWebsiteName] = useState("");
   const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
   const [editNoWebsites, setEditNoWebsites] = useState(false);
+  const [editNoAddress, setEditNoAddress] = useState(false);
   const [editDurationHours, setEditDurationHours] = useState("");
   const [editDurationDays, setEditDurationDays] = useState("");
   const [editDurationNotes, setEditDurationNotes] = useState("");
@@ -1080,6 +1087,7 @@ export const CSVImportWorkbenchModal: React.FC<
       const sites = reconstructWebsitesList(selectedCandidate);
       setEditRelatedWebsites(sites);
       setEditNoWebsites(Boolean(selectedCandidate.no_websites));
+      setEditNoAddress(Boolean(selectedCandidate.no_address));
 
       setEditDurationHours(
         selectedCandidate.recommended_duration_hours != null
@@ -1146,6 +1154,7 @@ export const CSVImportWorkbenchModal: React.FC<
       official_url: selectedCandidate.official_url,
       related_websites: editRelatedWebsites,
       no_websites: editNoWebsites,
+      no_address: editNoAddress,
     });
   }, [
     selectedCandidate,
@@ -1155,6 +1164,7 @@ export const CSVImportWorkbenchModal: React.FC<
     editStreetAddress,
     editRelatedWebsites,
     editNoWebsites,
+    editNoAddress,
   ]);
 
   // Map of existing DB POIs by ID
@@ -1602,6 +1612,26 @@ export const CSVImportWorkbenchModal: React.FC<
       list = list.filter(isCandidateComplete);
     } else if (completenessFilter === "incomplete") {
       list = list.filter((c) => !isCandidateComplete(c));
+    } else if (completenessFilter === "needs_action") {
+      list = list.filter((c) => getCandidateMissingFields(c).length > 0);
+    } else if (completenessFilter === "exempted") {
+      list = list.filter((c) => Boolean(c.no_address) || Boolean(c.no_websites));
+    } else if (completenessFilter === "missing_photo") {
+      list = list.filter((c) => !c.hero_image_url || !c.hero_image_url.trim());
+    } else if (completenessFilter === "missing_location") {
+      list = list.filter(
+        (c) =>
+          c.latitude == null ||
+          c.longitude == null ||
+          (!Boolean(c.street_address && c.street_address.trim()) && !Boolean(c.no_address)),
+      );
+    } else if (completenessFilter === "missing_websites") {
+      list = list.filter(
+        (c) =>
+          !Boolean(c.official_url && c.official_url.trim()) &&
+          (!c.related_websites || c.related_websites.length === 0) &&
+          !Boolean(c.no_websites),
+      );
     }
 
     return list.sort((a, b) => {
@@ -1819,6 +1849,14 @@ export const CSVImportWorkbenchModal: React.FC<
     setIsEnrichmentSummaryOpen(false);
     setCompletenessFilter("incomplete");
     loadCandidates();
+  };
+
+  // Reactive "No Address" checkbox toggle
+  const handleNoAddressToggle = (checked: boolean) => {
+    setEditNoAddress(checked);
+    if (checked) {
+      setEditStreetAddress("");
+    }
   };
 
   // Reactive "No Websites" checkbox toggle
@@ -2603,6 +2641,7 @@ export const CSVImportWorkbenchModal: React.FC<
         wiki_url: wikiSite,
         related_websites: editRelatedWebsites,
         no_websites: editNoWebsites,
+        no_address: editNoAddress,
         recommended_duration_hours: editDurationHours
           ? parseFloat(editDurationHours)
           : null,
@@ -2678,6 +2717,35 @@ export const CSVImportWorkbenchModal: React.FC<
       loadCandidates();
     } catch {
       showToast("Batch update failed", "error");
+    } finally {
+      setIsBatchUpdating(false);
+    }
+  };
+
+  const handleBatchExemption = async (
+    action: "no_address" | "no_websites" | "clear_all",
+    value: boolean,
+  ) => {
+    if (!jobId || selectedCandidateIds.length === 0) return;
+    setIsBatchUpdating(true);
+    try {
+      const payload: BatchEditCandidatesPayload = {
+        candidate_ids: selectedCandidateIds,
+      };
+      if (action === "no_address") {
+        payload.no_address = value;
+      } else if (action === "no_websites") {
+        payload.no_websites = value;
+      } else if (action === "clear_all") {
+        payload.no_address = false;
+        payload.no_websites = false;
+      }
+      const res = await ingestApi.batchEditCandidates(jobId, payload);
+      showToast(`Updated ${res.updated_count} candidates!`, "success");
+      setSelectedCandidateIds([]);
+      loadCandidates();
+    } catch {
+      showToast("Batch exemption update failed", "error");
     } finally {
       setIsBatchUpdating(false);
     }
@@ -2804,6 +2872,7 @@ export const CSVImportWorkbenchModal: React.FC<
               )?.url || null,
             related_websites: editRelatedWebsites,
             no_websites: editNoWebsites,
+            no_address: editNoAddress,
             tags: editTags,
             photo_directories: editPhotoDirectories,
             photo_directory: editPhotoDirectories[0] || null,
@@ -3235,6 +3304,8 @@ export const CSVImportWorkbenchModal: React.FC<
                 <option value="all">All Items</option>
                 <option value="complete">Completed Only</option>
                 <option value="incomplete">Incomplete Only</option>
+                <option value="needs_action">Needs Action</option>
+                <option value="exempted">Exempted</option>
                 <option value="missing_photo">Missing Photo</option>
                 <option value="missing_location">Missing Location</option>
                 <option value="missing_websites">Missing Websites</option>
@@ -3426,6 +3497,63 @@ export const CSVImportWorkbenchModal: React.FC<
                 >
                   Edit {selectedCandidateIds.length} Selected
                 </button>
+              )}
+
+              {/* Multi-Row Batch Exemption Controls (REQ-EXM-016, REQ-EXM-017, REQ-EXM-018, REQ-EXM-019) */}
+              {selectedCandidateIds.length >= 2 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleBatchExemption("no_address", true)}
+                    data-testid="batch-mark-no-address-button"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      backgroundColor: "#f1f5f9",
+                      color: "#334155",
+                      border: "1px solid #cbd5e1",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Mark Selected: No Address
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBatchExemption("no_websites", true)}
+                    data-testid="batch-mark-no-websites-button"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      backgroundColor: "#f1f5f9",
+                      color: "#334155",
+                      border: "1px solid #cbd5e1",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Mark Selected: No Websites
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBatchExemption("clear_all", false)}
+                    data-testid="batch-clear-exemptions-button"
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      backgroundColor: "#ffffff",
+                      color: "#64748b",
+                      border: "1px solid #e2e8f0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Clear Selected Exemptions
+                  </button>
+                </div>
               )}
             </div>
 
@@ -3786,12 +3914,16 @@ export const CSVImportWorkbenchModal: React.FC<
                             </>
                           )}
 
-                          {/* Completeness Badge */}
+                          {/* Completeness Badge (REQ-EXM-008, REQ-EXM-009) */}
                           <td style={{ padding: "8px 10px" }}>
                             {complete ? (
                               <span
                                 data-testid="completeness-badge-complete"
-                                title="All completeness criteria satisfied (Photo, Location & Address, Websites)"
+                                title={`All completeness criteria satisfied (Photo, Location & Address, Websites)${
+                                  cand.no_address || cand.no_websites
+                                    ? ` [Exempted: ${[cand.no_address ? "No Address" : "", cand.no_websites ? "No Websites" : ""].filter(Boolean).join(", ")}]`
+                                    : ""
+                                }`}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -3805,13 +3937,34 @@ export const CSVImportWorkbenchModal: React.FC<
                                 }}
                               >
                                 <Check size={11} /> Complete
+                                {(cand.no_address || cand.no_websites) && (
+                                  <span
+                                    data-testid="completeness-badge-exempted"
+                                    style={{
+                                      marginLeft: "4px",
+                                      padding: "1px 4px",
+                                      borderRadius: "6px",
+                                      backgroundColor: "#e0e7ff",
+                                      color: "#3730a3",
+                                      fontSize: "9px",
+                                      fontWeight: 500,
+                                    }}
+                                    title={`Exempted: ${[cand.no_address ? "Address" : "", cand.no_websites ? "Websites" : ""].filter(Boolean).join(", ")}`}
+                                  >
+                                    Exempted
+                                  </span>
+                                )}
                               </span>
                             ) : (
                               <span
                                 data-testid="completeness-badge-incomplete"
                                 title={`Missing: ${getCandidateMissingFields(
                                   cand,
-                                ).join(", ")}`}
+                                ).join(", ")}${
+                                  cand.no_address || cand.no_websites
+                                    ? ` [Exempted: ${[cand.no_address ? "No Address" : "", cand.no_websites ? "No Websites" : ""].filter(Boolean).join(", ")}]`
+                                    : ""
+                                }`}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -3825,6 +3978,23 @@ export const CSVImportWorkbenchModal: React.FC<
                                 }}
                               >
                                 <AlertTriangle size={11} /> Incomplete
+                                {(cand.no_address || cand.no_websites) && (
+                                  <span
+                                    data-testid="completeness-badge-exempted"
+                                    style={{
+                                      marginLeft: "4px",
+                                      padding: "1px 4px",
+                                      borderRadius: "6px",
+                                      backgroundColor: "#e0e7ff",
+                                      color: "#3730a3",
+                                      fontSize: "9px",
+                                      fontWeight: 500,
+                                    }}
+                                    title={`Exempted: ${[cand.no_address ? "Address" : "", cand.no_websites ? "Websites" : ""].filter(Boolean).join(", ")}`}
+                                  >
+                                    Exempted
+                                  </span>
+                                )}
                               </span>
                             )}
                           </td>
@@ -5117,24 +5287,61 @@ export const CSVImportWorkbenchModal: React.FC<
                       }}
                     >
                       <div style={{ flex: 2 }}>
-                        <label
+                        <div
                           style={{
-                            display: "block",
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            color: "#64748b",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "2px",
                           }}
                         >
-                          {renderFieldLabelText(
-                            "Street Address:",
-                            "street_address",
-                          )}
-                        </label>
+                          <label
+                            style={{
+                              display: "block",
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              color: "#64748b",
+                            }}
+                          >
+                            {renderFieldLabelText(
+                              "Street Address:",
+                              "street_address",
+                            )}
+                          </label>
+                          <label
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontSize: "10px",
+                              fontWeight: 600,
+                              color: "#475569",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={editNoAddress}
+                              onChange={(e) =>
+                                handleNoAddressToggle(e.target.checked)
+                              }
+                              data-testid="no-address-checkbox"
+                              style={{ cursor: "pointer" }}
+                            />
+                            <span>No address available / Acceptable</span>
+                          </label>
+                        </div>
                         <input
                           type="text"
                           value={editStreetAddress}
-                          onChange={(e) => setEditStreetAddress(e.target.value)}
-                          placeholder="Street address..."
+                          onChange={(e) => {
+                            setEditStreetAddress(e.target.value);
+                            if (e.target.value.trim().length > 0 && editNoAddress) {
+                              setEditNoAddress(false);
+                            }
+                          }}
+                          placeholder={editNoAddress ? "No street address (Exempted)" : "Street address..."}
+                          disabled={editNoAddress}
                           data-testid="street-address-input"
                           style={getFieldInputStyle("street_address", {
                             width: "100%",
@@ -5142,8 +5349,25 @@ export const CSVImportWorkbenchModal: React.FC<
                             borderRadius: "4px",
                             border: "1px solid #cbd5e1",
                             fontSize: "12px",
+                            backgroundColor: editNoAddress ? "#f8fafc" : "#ffffff",
+                            color: editNoAddress ? "#94a3b8" : "inherit",
                           })}
                         />
+                        {editNoAddress && (
+                          <div
+                            data-testid="no-address-banner"
+                            style={{
+                              fontSize: "11px",
+                              color: "#0369a1",
+                              backgroundColor: "#e0f2fe",
+                              padding: "4px 8px",
+                              borderRadius: "4px",
+                              marginTop: "4px",
+                            }}
+                          >
+                            Address verification exempted: POI confirmed to have no street address.
+                          </div>
+                        )}
                       </div>
                       <div style={{ flex: 1 }}>
                         <label
@@ -6036,7 +6260,7 @@ export const CSVImportWorkbenchModal: React.FC<
                           data-testid="no-websites-checkbox"
                           style={{ cursor: "pointer" }}
                         />
-                        <span>No Websites</span>
+                        <span>No website available / Acceptable</span>
                       </label>
                     </div>
 

@@ -27,10 +27,11 @@ import {
 } from "../../types/export-schema";
 
 describe("Frontend Export Schema & Utilities", () => {
-  it("defines exactly 37 canonical export fields", () => {
-    expect(CANONICAL_EXPORT_FIELDS.length).toBe(37);
+  it("defines exactly 38 canonical export fields", () => {
+    expect(CANONICAL_EXPORT_FIELDS.length).toBe(38);
     const keys = new Set(CANONICAL_EXPORT_FIELDS.map((f) => f.attribute_key));
     expect(keys.has("poi_name")).toBe(true);
+    expect(keys.has("no_address")).toBe(true);
     expect(keys.has("locality")).toBe(true);
     expect(keys.has("admin_level_2")).toBe(true);
     expect(keys.has("related_websites")).toBe(true);

@@ -1273,6 +1273,8 @@ class IIngestCandidateRepository(Protocol):
         date_visited: str | None = None,
         add_tag: str | None = None,
         remove_tag: str | None = None,
+        no_address: bool | None = None,
+        no_websites: bool | None = None,
     ) -> int:
         """Batch updates location, date visited, and tag fields across selected candidates.
 

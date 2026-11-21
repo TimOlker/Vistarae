@@ -148,6 +148,10 @@ class POIExportRecord(StrictBaseModel):
         default=False,
         description="Explicit flag confirming no relevant websites exist",
     )
+    no_address: bool = Field(
+        default=False,
+        description="Explicit flag confirming no street address exists",
+    )
     photo_directories: list[str] = Field(
         default_factory=list,
         description="List of originating photo filesystem directory paths",

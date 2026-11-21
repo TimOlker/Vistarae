@@ -63,6 +63,7 @@ from services.poi.scraping.orchestrator import (
 from services.poi.scraping.secondary_sources import (
     HillmanWondersAdapter,
     TripAdvisorAdapter,
+    UNESCOAdapter,
     WikipediaAdapter,
     canonicalize_url,
     is_map_service_url,
@@ -280,7 +281,7 @@ class CandidateEnricher:
                 candidate.related_websites, candidate.tags
             )
 
-        if should_query_links and any("wikipedia" in d.lower() for d in valid_domains):
+        if should_query_links and not candidate.no_websites and any("wikipedia" in d.lower() for d in valid_domains):
             try:
                 wiki_adapter = WikipediaAdapter(
                     valid_domains=valid_domains, cache_repo=effective_cache_repo
@@ -353,7 +354,7 @@ class CandidateEnricher:
                 logger.debug("Wikipedia enrichment failed for '%s': %s", candidate.poi_name, exc)
 
         # Secondary lookup for TripAdvisor
-        if should_query_links and (
+        if should_query_links and not candidate.no_websites and (
             not valid_domains or any("tripadvisor" in d.lower() for d in valid_domains)
         ):
             try:
@@ -394,7 +395,7 @@ class CandidateEnricher:
             or any("hillman" in str(t).lower() for t in (candidate.tags or []))
             or any(d in valid_domains for d in ["wikipedia.org", "tripadvisor.com", "atlasobscura.com"])
         )
-        if should_query_links and is_hillman_allowed:
+        if should_query_links and not candidate.no_websites and is_hillman_allowed:
             try:
                 hillman_adapter = HillmanWondersAdapter(
                     valid_domains=valid_domains, cache_repo=effective_cache_repo
@@ -437,9 +438,7 @@ class CandidateEnricher:
                 new_count += 1
             if candidate.wiki_url and str(candidate.wiki_url).strip():
                 new_count += 1
-            if new_count == 0:
-                candidate.no_websites = True
-            else:
+            if new_count > 0:
                 candidate.no_websites = False
 
         if wiki_data and wiki_data.get("description"):
@@ -469,6 +468,7 @@ class CandidateEnricher:
         ):
             candidate.recommended_visit_days = dur_d
 
+        ai_calls_made = 0
         if not candidate.description or overrides.recalculate_description:
             async with self.llm_semaphore:
                 candidate.description = await self._orchestrator.synthesize_summary(
@@ -477,6 +477,7 @@ class CandidateEnricher:
                     secondary_extracts=secondary_extracts,
                     directive=desc_directive,
                 )
+                ai_calls_made += 1
 
         if not candidate.reason_to_visit or overrides.recalculate_reason_to_visit:
             async with self.llm_semaphore:
@@ -488,10 +489,7 @@ class CandidateEnricher:
                     existing_description=candidate.description,
                     travel_style=reason_directive,
                 )
-        elif candidate.reason_to_visit:
-            candidate.reason_to_visit = ScrapingOrchestrator._clean_reason_to_visit_plain_text(
-                candidate.reason_to_visit
-            )
+                ai_calls_made += 1
 
         if not candidate.estimated_visit_time_notes or overrides.recalculate_duration:
             async with self.llm_semaphore:
@@ -505,6 +503,7 @@ class CandidateEnricher:
                         directive=time_directive,
                     )
                 )
+                ai_calls_made += 1
 
         if (not candidate.tags or overrides.recalculate_tags) and user_tags:
             try:
@@ -532,6 +531,7 @@ class CandidateEnricher:
             except Exception as exc:
                 logger.debug("Tag matching failed for '%s': %s", candidate.poi_name, exc)
 
+        candidate._ai_skipped = ai_calls_made == 0 and not is_force
         return candidate
 
     async def enrich_candidate(  # noqa: C901
@@ -552,7 +552,44 @@ class CandidateEnricher:
                 return None
 
             if cand.is_skipped:
+                cand._ai_skipped = True
                 return cand
+
+            # If coordinates are missing, first attempt direct resolution from UNESCO URL
+            if cand.latitude is None or cand.longitude is None:
+                cand_urls = []
+                if cand.official_url:
+                    cand_urls.append(cand.official_url)
+                if getattr(cand, "source_value", None) and str(cand.source_value).startswith("http"):
+                    cand_urls.append(str(cand.source_value))
+                for w in (cand.related_websites or []):
+                    if isinstance(w, dict) and w.get("url"):
+                        cand_urls.append(w["url"])
+
+                for u in cand_urls:
+                    if "unesco.org" in u.lower():
+                        try:
+                            unesco_adapter = UNESCOAdapter(cache_repo=cache_repo)
+                            u_data = await unesco_adapter.augment(
+                                query_title=cand.poi_name, source_url=u, force_refresh=force_refresh
+                            )
+                            if u_data and u_data.get("latitude") is not None and u_data.get("longitude") is not None:
+                                cand.latitude = Decimal(str(u_data["latitude"]))
+                                cand.longitude = Decimal(str(u_data["longitude"]))
+                                if not cand.description and u_data.get("description"):
+                                    cand.description = u_data["description"]
+                                if not cand.state_province and u_data.get("state_province"):
+                                    cand.state_province = u_data["state_province"]
+                                if not cand.country and u_data.get("country"):
+                                    cand.country = u_data["country"]
+                                if cand.recommended_disposition == IngestDisposition.IGNORE:
+                                    cand.recommended_disposition = IngestDisposition.ACCEPT
+                                    cand.disposition_justification = (
+                                        "Coordinates resolved via UNESCO website extraction"
+                                    )
+                                break
+                        except Exception as exc:
+                            logger.debug("UNESCO coordinate extraction failed for '%s': %s", u, exc)
 
             # If coordinates are missing, attempt forward geocoding resolution
             if (
@@ -573,7 +610,8 @@ class CandidateEnricher:
                         cand.longitude = Decimal(str(lon))
                         if addrs:
                             first = addrs[0]
-                            cand.street_address = cand.street_address or first.street
+                            if not cand.no_address:
+                                cand.street_address = cand.street_address or first.street
                             cand.city = cand.city or first.city
                             cand.state_province = cand.state_province or first.state_province
                             cand.postal_code = cand.postal_code or first.postal_code
@@ -588,6 +626,7 @@ class CandidateEnricher:
 
             effective_disp = cand.user_disposition or cand.recommended_disposition
             if effective_disp in (IngestDisposition.IGNORE, IngestDisposition.EXCLUDE, IngestDisposition.EXISTING):
+                cand._ai_skipped = True
                 return cand
 
             # 1. Fetch user's configured datasources
@@ -809,8 +848,8 @@ class CandidateEnricher:
                 cand.related_websites, cand.tags
             )
 
-            if not cand.official_url and not cand.wiki_url and not cand.related_websites:
-                cand.no_websites = True
+            if cand.official_url or cand.wiki_url or bool(cand.related_websites):
+                cand.no_websites = False
             if official_meta_desc:
                 secondary_extracts.append(official_meta_desc)
 
@@ -833,6 +872,8 @@ class CandidateEnricher:
             if cand.recommended_visit_days is None or cand.recommended_visit_days < 1 or force_refresh:
                 cand.recommended_visit_days = dur_d
 
+            ai_calls_made = 0
+
             # 6. AI Description synthesis
             if not cand.description or force_refresh:
                 cand.description = await self._orchestrator.synthesize_summary(
@@ -841,6 +882,7 @@ class CandidateEnricher:
                     secondary_extracts=secondary_extracts,
                     directive=desc_directive,
                 )
+                ai_calls_made += 1
 
             # 7. AI Reason to Visit synthesis
             if not cand.reason_to_visit or force_refresh:
@@ -852,10 +894,7 @@ class CandidateEnricher:
                     existing_description=cand.description,
                     travel_style=reason_directive,
                 )
-            elif cand.reason_to_visit:
-                cand.reason_to_visit = ScrapingOrchestrator._clean_reason_to_visit_plain_text(
-                    cand.reason_to_visit
-                )
+                ai_calls_made += 1
 
             # 8. AI Visit Duration Reasoning Notes synthesis
             if not cand.estimated_visit_time_notes or force_refresh:
@@ -869,6 +908,7 @@ class CandidateEnricher:
                         directive=time_directive,
                     )
                 )
+                ai_calls_made += 1
 
             # 9. Approved taxonomy tag matching strictly bounded to User's Tags Library
             if user_tags:
@@ -915,8 +955,10 @@ class CandidateEnricher:
 
             cand.updated_at = datetime.now(UTC)
             saved = await candidate_repo.update_candidate(user_id, cand)
-            logger.info("Enriched candidate '%s' (id=%s)", cand.poi_name, cand.id)
-            return saved
+            target = saved if saved is not None else cand
+            target._ai_skipped = ai_calls_made == 0 and not force_refresh
+            logger.info("Enriched candidate '%s' (id=%s, ai_calls=%d)", cand.poi_name, cand.id, ai_calls_made)
+            return target
 
 
 # In-memory progress tracking singleton for polling UI

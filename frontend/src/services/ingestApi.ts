@@ -63,6 +63,8 @@ export interface BatchEditCandidatesPayload {
   date_visited?: string | null;
   add_tag?: string | null;
   remove_tag?: string | null;
+  no_address?: boolean | null;
+  no_websites?: boolean | null;
 }
 
 export interface CandidateListResult {
@@ -142,6 +144,7 @@ export interface BulkEnrichmentProgressResult {
   total_count: number;
   completed_count: number;
   success_count: number;
+  skipped_count?: number;
   issue_count: number;
   remaining_count: number;
   in_flight_count: number;
@@ -187,6 +190,7 @@ export interface BulkEnrichmentSummaryResult {
   status: BulkEnrichmentStatus;
   total_candidates: number;
   succeeded_count: number;
+  skipped_count?: number;
   temporary_error_count: number;
   blocking_error_count: number;
   internal_error_count: number;

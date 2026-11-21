@@ -49,6 +49,7 @@ DEFAULT_DOMAINS = [
     "alltrails.com",
     "roadtrippers.com",
     "hillmanwonders.com",
+    "unesco.org",
 ]
 
 

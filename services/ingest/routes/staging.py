@@ -27,6 +27,7 @@ Exposes:
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -58,6 +59,8 @@ from services.ingest.dependencies import (
 )
 from services.ingest.services.staging_service import StagingService
 from services.poi.scraping.orchestrator import ScrapingOrchestrator
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["ingest-staging"])
 
@@ -182,6 +185,7 @@ def _to_candidate_response(
         update_coordinates=candidate.update_coordinates,
         is_skipped=candidate.is_skipped,
         phase_state=candidate.phase_state,
+        no_address=candidate.no_address,
         no_websites=candidate.no_websites,
         disposition_justification=candidate.disposition_justification,
         is_user_overridden=candidate.is_user_overridden,
@@ -311,7 +315,7 @@ async def get_job_candidates(
                 )
             ]
 
-    # Apply completeness filter (FR-002)
+    # Apply completeness filter (FR-002, REQ-EXM-006, REQ-EXM-007, REQ-EXM-013, REQ-EXM-014, REQ-EXM-015)
     if completeness and completeness.strip():
         comp = completeness.strip().lower()
         if comp in ("complete", "completed"):
@@ -321,26 +325,32 @@ async def get_job_candidates(
                 if bool(c.hero_image_url and str(c.hero_image_url).strip())
                 and c.latitude is not None
                 and c.longitude is not None
-                and bool(c.street_address and str(c.street_address).strip())
+                and (bool(c.street_address and str(c.street_address).strip()) or bool(c.no_address))
                 and (
                     bool(c.official_url and str(c.official_url).strip())
                     or bool(c.related_websites)
                     or bool(c.no_websites)
                 )
             ]
-        elif comp == "incomplete":
+        elif comp in ("incomplete", "needs_action", "action_required"):
             candidates = [
                 c
                 for c in candidates
                 if not (c.hero_image_url and str(c.hero_image_url).strip())
                 or c.latitude is None
                 or c.longitude is None
-                or not (c.street_address and str(c.street_address).strip())
+                or (not (c.street_address and str(c.street_address).strip()) and not bool(c.no_address))
                 or (
                     not (c.official_url and str(c.official_url).strip())
                     and not bool(c.related_websites)
                     and not bool(c.no_websites)
                 )
+            ]
+        elif comp == "exempted":
+            candidates = [
+                c
+                for c in candidates
+                if bool(c.no_address) or bool(c.no_websites)
             ]
         elif comp == "missing_photo":
             candidates = [c for c in candidates if not c.hero_image_url]
@@ -348,7 +358,9 @@ async def get_job_candidates(
             candidates = [
                 c
                 for c in candidates
-                if c.latitude is None or c.longitude is None or not c.street_address
+                if c.latitude is None
+                or c.longitude is None
+                or (not (c.street_address and str(c.street_address).strip()) and not bool(c.no_address))
             ]
         elif comp == "missing_websites":
             candidates = [
@@ -441,8 +453,16 @@ async def update_candidate(
     poi_repo: IPOIRepository = Depends(get_poi_repo),
 ) -> CandidateItemResponse:
     """Updates fields or disposition on an individual candidate."""
+    logger.info(
+        "MSG ->| Inbound candidate update: job_id=%s, candidate_id=%s (no_address=%s, no_websites=%s)",
+        job_id,
+        candidate_id,
+        body.no_address,
+        body.no_websites,
+    )
     updated = await staging_service.update_candidate(user.id, candidate_id, body)
     name_map = await _resolve_poi_names([updated], user.id, poi_repo)
+    logger.info("MSG <-| Completed candidate update: candidate_id=%s", candidate_id)
     return _to_candidate_response(updated, name_map)
 
 
@@ -770,7 +790,15 @@ async def batch_edit_candidates(
     staging_service: StagingService = Depends(get_staging_service),
 ) -> BatchEditResponse:
     """Updates location/date fields across multiple candidate rows."""
+    logger.info(
+        "MSG ->| Inbound batch candidate update: job_id=%s, count=%d (no_address=%s, no_websites=%s)",
+        job_id,
+        len(body.candidate_ids),
+        body.no_address,
+        body.no_websites,
+    )
     count = await staging_service.batch_edit_candidates(user.id, job_id, body)
+    logger.info("MSG <-| Completed batch candidate update: job_id=%s, count=%d", job_id, count)
     return BatchEditResponse(updated_count=count)
 
 

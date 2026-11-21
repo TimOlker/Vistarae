@@ -441,8 +441,9 @@ class StagingService:
         raw_geocoding = None
         addresses_list: list[dict[str, Any]] = []
 
-        # 1. Reverse geocoding fallback if coordinates exist but address is missing (REQ-ING-003)
-        if lat is not None and lon is not None and not street:
+        # 1. Reverse geocoding fallback if coordinates exist but address is missing (REQ-ING-003, REQ-EXM-021)
+        no_address = bool(getattr(rec, "no_address", False) or (isinstance(rec, dict) and rec.get("no_address")))
+        if lat is not None and lon is not None and not street and not no_address:
             rev_addrs = await self._reverse_geocode_candidate(lat, lon)
             if rev_addrs:
                 first = rev_addrs[0]
@@ -1183,8 +1184,8 @@ class StagingService:
             country = rec.country or None
             addresses_list: list[dict[str, Any]] = []
 
-            # 1. Reverse geocoding fallback
-            if lat is not None and lon is not None and not street:
+            # 1. Reverse geocoding fallback (REQ-ING-003, REQ-EXM-021)
+            if lat is not None and lon is not None and not street and not bool(getattr(rec, "no_address", False)):
                 rev_addrs = await self._reverse_geocode_candidate(lat, lon)
                 if rev_addrs:
                     first = rev_addrs[0]
@@ -1736,11 +1737,19 @@ class StagingService:
             ):
                 candidate.is_user_overridden = False
 
-        # Reactive no_websites reset (FR-010)
-        if ("official_url" in update_fields and update_fields["official_url"]) or (
-            "wiki_url" in update_fields and update_fields["wiki_url"]
+        # Reactive no_address reset (REQ-EXM-026)
+        if "street_address" in update_fields and update_fields["street_address"] and str(update_fields["street_address"]).strip():
+            candidate.no_address = False
+            update_fields["no_address"] = False
+
+        # Reactive no_websites reset (REQ-EXM-027, FR-010)
+        if (
+            ("official_url" in update_fields and update_fields["official_url"] and str(update_fields["official_url"]).strip())
+            or ("wiki_url" in update_fields and update_fields["wiki_url"] and str(update_fields["wiki_url"]).strip())
+            or ("related_websites" in update_fields and update_fields["related_websites"])
         ):
             candidate.no_websites = False
+            update_fields["no_websites"] = False
 
         if "hero_image_urls" in update_fields and update_fields["hero_image_urls"] is not None:
             raw_geo = (
@@ -2017,6 +2026,11 @@ class StagingService:
                                     existing_urls.add(k)
                                     target_poi.related_websites.append(site)
 
+                    if cand.no_address:
+                        target_poi.no_address = True
+                    if cand.no_websites:
+                        target_poi.no_websites = True
+
                     await self._poi_repo.update(target_poi)
                     if cand.tags and self._tag_repo and hasattr(self._poi_repo, "bulk_attach_tags"):
                         try:
@@ -2112,6 +2126,8 @@ class StagingService:
                 already_visited=bool(cand.dates_visited),
                 source_type=SourceType.MANUAL,
                 enrichment_status=EnrichmentStatus.SUCCESS,
+                no_address=cand.no_address,
+                no_websites=cand.no_websites,
             )
             saved = await self._poi_repo.create(poi)
             cand_to_created_poi[cand.id] = saved.id
@@ -2408,6 +2424,8 @@ class StagingService:
                 "date_visited",
                 "add_tag",
                 "remove_tag",
+                "no_address",
+                "no_websites",
             )
         )
         if not has_updates:
@@ -2422,4 +2440,6 @@ class StagingService:
             date_visited=getattr(req, "date_visited", None),
             add_tag=getattr(req, "add_tag", None),
             remove_tag=getattr(req, "remove_tag", None),
+            no_address=getattr(req, "no_address", None),
+            no_websites=getattr(req, "no_websites", None),
         )
