@@ -39,6 +39,9 @@ import { apiFetch } from "../services/api";
 import { evaluateQueryTree } from "../utils/filterEvaluator";
 import { computePoiPinColor } from "../utils/pinColor";
 
+export const SESSION_KEY_EXPLORER_VIEWPORT_FILTER =
+  "vistarae_explorer_viewport_filter";
+
 // Seed demonstration POIs across mainland China and international destinations
 export const INITIAL_DEMO_POIS: POIMapFeature[] = [
   {
@@ -162,8 +165,33 @@ export const HomePage: React.FC<HomePageProps> = ({
     (poi.default_map_layer as MapLayerId) || "osm",
   );
   const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
-  const [isViewportFilterActive, setIsViewportFilterActive] =
-    useState<boolean>(true);
+  const [isViewportFilterActive, setIsViewportFilterActive] = useState<boolean>(
+    () => {
+      try {
+        const saved = sessionStorage.getItem(
+          SESSION_KEY_EXPLORER_VIEWPORT_FILTER,
+        );
+        if (saved !== null) {
+          return saved === "true";
+        }
+      } catch {
+        // sessionStorage unavailable
+      }
+      return false;
+    },
+  );
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        SESSION_KEY_EXPLORER_VIEWPORT_FILTER,
+        String(isViewportFilterActive),
+      );
+    } catch {
+      // Ignore sessionStorage errors
+    }
+  }, [isViewportFilterActive]);
+
   const [visibleViewportPois, setVisibleViewportPois] =
     useState<POIMapFeature[]>([]);
   const [currentBbox, setCurrentBbox] = useState<BoundingBox | null>(null);
