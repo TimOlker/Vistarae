@@ -185,6 +185,13 @@ export const CANONICAL_EXPORT_FIELDS: ExportFieldDefinition[] = [
     is_formula_sanitized: true,
   },
   {
+    attribute_key: "no_address",
+    header_name: "No Address Flag",
+    field_type: "boolean",
+    aliases: ["no_address", "no address", "no_address_flag"],
+    default_value: false,
+  },
+  {
     attribute_key: "city",
     header_name: "City / Town",
     field_type: "string",
